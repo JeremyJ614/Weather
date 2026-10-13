@@ -3,7 +3,7 @@ import type { ButtonHTMLAttributes } from "react";
 type Variant = "primary" | "secondary" | "ghost";
 
 const styles: Record<Variant, string> = {
-  primary: "bg-accent text-on-accent border-accent",
+  primary: "bg-lit text-accent border-accent",
   secondary: "bg-surface2 text-text border-line",
   ghost: "bg-transparent text-text border-transparent",
 };

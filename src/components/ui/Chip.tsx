@@ -11,7 +11,7 @@ export function Chip({
       aria-pressed={pressed}
       className={`min-h-9 rounded-full border px-3 text-[13px] font-bold transition-colors ${
         pressed
-          ? "border-accent bg-accent text-on-accent"
+          ? "border-accent bg-lit text-accent"
           : "border-line bg-surface2 text-muted"
       } ${className}`}
       {...rest}

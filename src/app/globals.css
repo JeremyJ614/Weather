@@ -14,6 +14,7 @@
   --color-accent2: var(--accent2);
   --color-metal: var(--metal);
   --color-on-accent: var(--on-accent);
+  --color-lit: var(--lit);
   --font-display: var(--font-display);
   --font-body: var(--font-body);
   --font-mono: var(--font-mono);
@@ -133,4 +134,11 @@ html[data-tier="low"][data-push][data-push-side="right"] #app-content {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* House style: dark surfaces everywhere; the primary color is text, outline and glow, never a fill. */
+:root {
+  --lit: color-mix(in srgb, var(--accent) 9%, var(--bg));
+  --lit-line: color-mix(in srgb, var(--accent) 65%, transparent);
+  --glow: 0 0 18px -6px var(--accent);
 }

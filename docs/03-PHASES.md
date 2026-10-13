@@ -24,6 +24,8 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 - [ ] 08. Accounts: 4-digit PIN sign-in with lockout, email link, Google, Apple, text code; signup form (editable), referral codes; owner account; RLS on every table
 - [ ] 09. Roles: user, SSWX Member, Admin as a second role, subscription tiers mapped to roles
 - [ ] 10. Saved location, permission flow and a shared weather-data layer with caching
+- [ ] 10b. Storage safety: retention rule on every growing table (test-enforced), daily size watchdog, cron history pruning
+- [ ] 10c. Shared map component: Mapbox GL v3 with automatic MapLibre v6 fallback at the monthly free limit
 
 ## Admin Panel (built early so later pages plug into it)
 - [ ] 11. Admin shell, owner-only access, add admins with per-section permissions, audit log

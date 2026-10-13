@@ -14,6 +14,7 @@ BuildPlan → build → sweep → packaging.
 7. A theme is a token swap. No component branches on the active theme.
 8. Post-launch items stay off the menus until their work starts.
 9. Log every bug fixed in the BuildPlan's bug & glitch log.
+10. Dark surfaces everywhere; the primary color is text, outline and glow, never a fill (`--lit`).
 
 ---
 

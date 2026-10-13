@@ -57,8 +57,9 @@
     color 0.3s;
 }
 .cb[aria-pressed="true"] {
-  background: var(--accent);
-  color: var(--on-accent);
+  background: var(--lit);
+  color: var(--accent);
+  box-shadow: inset 3px 0 0 var(--accent);
 }
 .list {
   padding: calc(64px + env(safe-area-inset-top, 0px)) 12px 16px;

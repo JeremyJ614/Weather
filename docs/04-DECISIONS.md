@@ -25,3 +25,6 @@ Outline's requests + VIP AdminPanel (what fits) + the owner's 19 chosen extras +
 - **At launch:** ProbTor, ProbHail, Nocturnal LLJ, Wildfire/PyroCb, Radar Blind Spot, Landspout/Waterspout, Rotation Track Persistence, Snow Squall, Landfalling Hurricane Tornado Risk.
 - **Post-launch, built first in a private admin-only preview for approval:** Convective Initiation, Supercell Merger, Derecho Corridor, Dryline/Triple Point, Photogenic Supercell, Streamwise Vorticity, Cap Bust Meter, Downburst Potential, Lightning Jump, Airmass Recovery, Tropical RI Watch, Training Storms.
 - **Skipped:** Burn Scar, Dense Fog, Hail Footprint, Heat Burst, Freezing Rain, Intercept Planner.
+
+## House style (owner, after Phase 06)
+- **Dark everywhere; the primary color is text, outline and glow, never a fill.** Selected and primary controls use `--lit` (a dark tint of the primary) with primary text and a primary outline. Applied to every menu, Button and Chip.

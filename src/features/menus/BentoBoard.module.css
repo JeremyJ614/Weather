@@ -48,7 +48,7 @@
   grid-row: span 2;
   background: linear-gradient(
     160deg,
-    color-mix(in srgb, var(--accent) 45%, var(--surface)),
+    color-mix(in srgb, var(--accent) 14%, var(--surface)),
     var(--surface)
   );
 }
