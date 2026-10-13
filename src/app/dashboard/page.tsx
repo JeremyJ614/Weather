@@ -3,6 +3,9 @@ import { ModuleOff } from "@/components/ops/ModuleOff";
 import { Dashboard } from "@/features/dashboard/Dashboard";
 import { HomeTabs } from "@/features/news/HomeTabs";
 import { WpcPanel } from "@/features/outlooks/WpcPanel";
+import { CpcPanel } from "@/features/outlooks/CpcPanel";
+import { FallPanel } from "@/features/outlooks/FallPanel";
+import { getFallReport } from "@/lib/weather/foliage";
 import { getSiteDefaults } from "@/lib/settings";
 import { heatRiskDays } from "@/lib/weather/wpc";
 
@@ -24,9 +27,10 @@ async function heatExtent(): Promise<[number, number] | null> {
 }
 
 export default async function DashboardPage() {
-  const [{ disabled }, extent] = await Promise.all([
+  const [{ disabled }, extent, fall] = await Promise.all([
     getSiteDefaults(),
     heatExtent(),
+    getFallReport(),
   ]);
   return (
     <main className="mx-auto max-w-3xl px-4 pt-6 pb-28">
@@ -42,6 +46,8 @@ export default async function DashboardPage() {
               label: "WPC",
               panel: <WpcPanel heatDays={heatRiskDays(extent)} />,
             },
+            { id: "cpc", label: "CPC", panel: <CpcPanel /> },
+            { id: "fall", label: "Fall", panel: <FallPanel report={fall} /> },
           ]}
         />
       )}

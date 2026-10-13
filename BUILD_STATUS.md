@@ -2,7 +2,7 @@
 
 **Objective:** StormSync Weather (Weather.SSWX.Space): one mobile-first PWA + Android .apk merging the team's weather apps. Free to run until revenue.
 
-**Stage:** Building. Done: 01–19, 10b, 10c. Next: 20 CPC subtab + Fall Forecast subtab (state color time scrubber). Pricing spec in `docs/07-PRICING.md` (phases 62c, 64).
+**Stage:** Building. Done: 01–20, 10b, 10c. Next: 21 Daily Brief (in-app, push, email).
 
 **Decisions so far**
 - Repo `JeremyJ614/Weather`, working branch `ccr-f5e0b71a-4vr2wk`, PR #1 merged to `main`; PR #2 open.
@@ -35,7 +35,7 @@
 - Owner's logo for the intro ending.
 
 **Next actions**
-1. Phase 20: CPC subtab (6–10/8–14 day temp & precip, monthly/seasonal outlooks; NOAA map services as map layers) and Fall Forecast subtab (state color time scrubber). Map overlays: `src/lib/map/raster.ts` (`setRaster`), tabs: `HomeTabs` (mount on first open).
+1. Phase 21 Daily Brief: content builder from the data layer (forecast, SPC risk, alerts, hourly rain timing, tomorrow), in-app page, email via Resend (RESEND_API_KEY in production), Web Push (VAPID keys needed), schedule options, SMS requests list in admin, brief delivery report.
 2. Saved places sync to the account: phase 62b. Signup form editing from admin: phase 13.
 3. Watchdog: `/api/cron/storage-watchdog` daily via `vercel.json`; `CRON_SECRET` set in Vercel (production). Returns 500 until the ops migration is applied.
 

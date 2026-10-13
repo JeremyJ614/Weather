@@ -34,3 +34,7 @@ export function setRaster(
     paint: { "raster-opacity": opacity },
   });
 }
+
+/** Any NOAA vector-outlook MapServer layer as tiles. */
+export const outlookTiles = (service: string, layer: number) =>
+  `${NOAA}/vector/rest/services/outlooks/${service}/MapServer/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=256,256&format=png32&transparent=true&layers=show:${layer}&f=image`;

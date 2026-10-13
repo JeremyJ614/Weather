@@ -41,7 +41,7 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 ## Localized Data
 - [x] 18. Dashboard: movable widgets (right now, 24-hour graph, 7-day, SPC level, UV, sunrise/sunset, moon, wind, pressure trend, feels like, dew point); AQI, pollen and river-gauge widgets join in phases 23 and 46
 - [x] 19. Dashboard: WPC subtab (days 1–7 precip, 1-2/1-3/1-5/1-7, rapid drought onset, HeatRisk)
-- [ ] 20. Dashboard: CPC subtab and Fall Forecast subtab with the state color time scrubber
+- [x] 20. Dashboard: CPC subtab (6–10, 8–14, monthly, seasonal, drought outlooks) and Fall subtab (first-color reports with a time scrubber; per-site, not state colors — see BuildPlan bug/decision note)
 - [ ] 21. Daily Brief: in-app, push and email, with schedule options
 - [ ] 22. Forecast Discussion: AI "Simplified" tab and restyled "Standard" tab
 - [ ] 23. AQI & Pollen (port from VIP: AQI Outlook, Pollen Index)

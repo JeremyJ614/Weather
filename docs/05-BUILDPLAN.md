@@ -103,3 +103,4 @@ Personal Warnings & Alerts, Affected Communities Outlook, FairWeather Tracking, 
 | 13 | Sign-in page | The Supabase browser library pushed `/login` 25% over the JavaScript budget | Google and email-link sign-in moved to server actions; the page ships 2.4 kB |
 | 14 | Homepage | Weather News never appeared on the homepage after phase 15: a scripted edit silently missed a line Prettier had reformatted | Wired by hand with the SSWX News tabs; scripted edits now assert their target exists |
 | 15 | CI | From phase 08 on, CI (which has no Supabase settings) failed while prerendering admin pages: the server client validated settings before reading cookies | Cookies are read first, so those pages are per-request; verified by building without the env file |
+| 16 | Fall map | Every fall-color dot drew black: the map libraries reject space-separated `hsl()` colors | Colors use the comma form |
