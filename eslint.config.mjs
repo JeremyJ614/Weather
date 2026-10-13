@@ -14,6 +14,7 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Static design labs: plain browser scripts published as artifacts.
     "design-lab/**",
+    "public/vendor/**",
   ]),
 ]);
 

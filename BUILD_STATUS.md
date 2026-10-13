@@ -33,7 +33,7 @@
 - Owner's logo for the intro ending.
 
 **Next actions**
-1. Privacy policy page (`/privacy`) for Google sign-in; give owner the link.
+1. `/privacy` built (contact email in `src/app/privacy/page.tsx`); live on production once PR #2 merges.
 2. Phase 10b app side (retention rules + test), then 10 (location + weather-data layer), then 08 accounts.
 
 **Sandbox note:** Turbopack's Google-font fetch fails behind this sandbox's proxy (CI is fine). Local check: `npx next build --webpack` then the other verify steps.
