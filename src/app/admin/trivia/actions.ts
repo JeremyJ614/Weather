@@ -2,7 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/admin-guard";
-import { draftQuestion, type Category } from "@/lib/trivia/generate";
+import {
+  draftQuestion,
+  fingerprint,
+  pastYear,
+  type Category,
+} from "@/lib/trivia/generate";
 import { cleanDraft, type Draft } from "@/lib/trivia/shape";
 
 export type TriviaState = { ok?: string; error?: string } | null;
@@ -34,6 +39,7 @@ function read(fd: FormData) {
   return {
     row: {
       ...draft,
+      fingerprint: fingerprint(draft.question),
       category,
       points,
       bonus: fd.get("bonus") === "on",
@@ -76,8 +82,8 @@ export async function saveQuestion(
     .select("slot")
     .eq("ask_date", day);
   const used = new Set((taken ?? []).map((x) => x.slot));
-  // Slots 1 and 2 belong to the daily AI pair; admin additions start at 3.
-  let slot = 3;
+  // Slots 1–3 belong to the daily AI questions; admin additions start at 4.
+  let slot = 4;
   while (used.has(slot) && slot <= 20) slot++;
   if (slot > 20) return { error: "That day already has 20 questions." };
   const { error } = await supabase
@@ -117,7 +123,10 @@ export async function aiDraft(
 ): Promise<Draft | { error: string }> {
   await requireAdmin("trivia");
   try {
-    return await draftQuestion(category === "random" ? "random" : "weather");
+    return await draftQuestion(
+      category === "random" ? "random" : "weather",
+      await pastYear(),
+    );
   } catch (e) {
     return { error: (e as Error).message };
   }

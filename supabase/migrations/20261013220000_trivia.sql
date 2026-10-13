@@ -1,4 +1,4 @@
--- Phase 27: Daily Trivia. Two questions a day (weather + a random topic) from
+-- Phase 27: Daily Trivia. Three questions a day (two weather, one random topic) from
 -- Gemini, editable by admins, who can add questions, set any question's points
 -- and mark a Bonus Question. Members never read the answer key: they get
 -- today's questions through trivia_today() and are graded by trivia_answer().
@@ -119,3 +119,9 @@ select cron.schedule('trivia-daily', '2 4,5 * * *', $$
     timeout_milliseconds := 60000
   );
 $$);
+
+-- Duplicate guard (BuildPlan §6): a fingerprint of each question's normalized words;
+-- the generator also checks word similarity against the past year before saving.
+alter table public.trivia_questions add column if not exists fingerprint text check (char_length(fingerprint) <= 64);
+create index if not exists trivia_questions_fingerprint on public.trivia_questions (fingerprint);
+create index if not exists trivia_questions_day on public.trivia_questions (ask_date);

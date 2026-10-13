@@ -53,3 +53,48 @@ export function parseReply(text: string): unknown {
     }
   }
 }
+
+const STOP = new Set(
+  "a an the of in on at to for from by with and or is are was were be been which what who whom whose when where why how this that these those it its as into than then most more do does did can could would should has have had about over under".split(
+    " ",
+  ),
+);
+
+/** A question's content words: lowercase, no punctuation or filler words. */
+export function words(text: string): Set<string> {
+  return new Set(
+    text
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9 ]+/g, " ")
+      .split(/\s+/)
+      .filter((w) => w.length > 1 && !STOP.has(w)),
+  );
+}
+
+/** Stable fingerprint: the sorted content words (hashed by the caller). */
+export const fingerprintText = (question: string) =>
+  [...words(question)].sort().join(" ");
+
+function jaccard(a: Set<string>, b: Set<string>) {
+  let inter = 0;
+  for (const w of a) if (b.has(w)) inter++;
+  const union = a.size + b.size - inter;
+  return union ? inter / union : 0;
+}
+
+export type Past = { question: string; answer: string };
+
+/**
+ * True when a draft repeats a past question: the same wording, mostly the same
+ * words, or the same correct answer asked in similar words.
+ */
+export function isDuplicate(d: Draft, past: Past[]): boolean {
+  const q = words(d.question);
+  const ans = d.choices[d.answer_index].toLowerCase().trim();
+  return past.some((p) => {
+    const sim = jaccard(q, words(p.question));
+    return sim >= 0.55 || (sim >= 0.3 && p.answer.toLowerCase().trim() === ans);
+  });
+}

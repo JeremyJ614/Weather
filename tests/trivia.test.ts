@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { cleanDraft, parseReply } from "@/lib/trivia/shape";
+import {
+  cleanDraft,
+  fingerprintText,
+  isDuplicate,
+  parseReply,
+} from "@/lib/trivia/shape";
 
 const good = {
   question:
@@ -27,5 +32,70 @@ describe("trivia drafts", () => {
     expect(cleanDraft({ ...good, choices: ["Only one"] })).toBeNull();
     expect(cleanDraft({ ...good, question: "Why?" })).toBeNull();
     expect(cleanDraft(parseReply("no json here"))).toBeNull();
+  });
+});
+
+describe("duplicate guard", () => {
+  const past = [
+    {
+      question:
+        "Which radar product shows rotation toward and away from the radar?",
+      answer: "Velocity",
+    },
+  ];
+  it("catches rewordings and the same fact asked again", () => {
+    expect(
+      isDuplicate(
+        {
+          ...good,
+          question:
+            "What radar product shows rotation toward or away from a radar?",
+        },
+        past,
+      ),
+    ).toBe(true);
+    expect(
+      isDuplicate(
+        {
+          question: "Doppler radar spots rotation with which product?",
+          choices: ["Velocity", "Reflectivity", "Hail size", "Echo tops"],
+          answer_index: 0,
+          explanation: "",
+        },
+        past,
+      ),
+    ).toBe(true);
+    expect(
+      isDuplicate(
+        {
+          question: "Which product on Doppler radar shows rotation?",
+          choices: ["Velocity", "Reflectivity", "Hail size", "Echo tops"],
+          answer_index: 0,
+          explanation: "",
+        },
+        past,
+      ),
+    ).toBe(true);
+  });
+
+  it("lets a new question through", () => {
+    expect(
+      isDuplicate(
+        {
+          question:
+            "What is the name for a dome of cold air under a thunderstorm?",
+          choices: ["Cold pool", "Dry line", "Cap", "Jet streak"],
+          answer_index: 0,
+          explanation: "",
+        },
+        past,
+      ),
+    ).toBe(false);
+  });
+
+  it("fingerprints ignore case, punctuation and word order", () => {
+    expect(fingerprintText("What is a Derecho?")).toBe(
+      fingerprintText("derecho: what is it"),
+    );
   });
 });

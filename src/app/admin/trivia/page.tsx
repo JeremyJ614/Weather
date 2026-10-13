@@ -46,9 +46,10 @@ export default async function TriviaAdmin({
       <section className="grid gap-2">
         <h1 className="display text-3xl text-accent">Daily Trivia</h1>
         <p className="text-sm text-muted">
-          Gemini writes two questions each midnight (Eastern): one weather, one
-          wild card, at 150 points. Edit any of them, add your own, set any
-          question&apos;s points, or make one the Bonus Question.
+          Gemini writes three questions each midnight (Eastern), two weather and
+          one wild card, at 150 points each, never repeating the past year. Edit
+          any of them, add your own, set any question&apos;s points, or make one
+          the Bonus Question.
         </p>
       </section>
 
@@ -76,7 +77,7 @@ export default async function TriviaAdmin({
       {list.length === 0 && (
         <p className="text-sm text-muted">
           {day > today
-            ? "No questions yet. Gemini writes slots 1 and 2 at midnight; anything you add here appears alongside them."
+            ? "No questions yet. Gemini writes slots 1–3 at midnight; anything you add here appears alongside them."
             : "No questions on this day."}
         </p>
       )}
