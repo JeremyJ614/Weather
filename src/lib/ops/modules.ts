@@ -15,6 +15,7 @@ export const MODULES = [
   { id: "spc", label: "SPC & Probability" },
   { id: "md", label: "Mesoscale Discussions" },
   { id: "ingredients", label: "Atmospheric Ingredients" },
+  { id: "timing", label: "Storm Timing Index" },
   { id: "maps", label: "Maps" },
   { id: "weather-news", label: "Weather News" },
   { id: "news", label: "SSWX News" },

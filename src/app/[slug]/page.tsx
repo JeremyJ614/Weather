@@ -23,6 +23,7 @@ const BUILT = new Set([
   "mesoscale-discussions",
   "atmospheric-ingredients",
   "join",
+  "storm-timing-index",
 ]);
 
 export function generateStaticParams() {

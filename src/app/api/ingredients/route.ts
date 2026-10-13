@@ -1,5 +1,6 @@
 import { shear06, srh } from "@/lib/sswxcon/kinematics";
 import { stp, swti } from "@/lib/ingredients/calc";
+import { hazardProbs, threat } from "@/lib/timing/calc";
 
 const LEVELS = ["10m", "925hPa", "850hPa", "700hPa", "500hPa"] as const;
 const MODELS = [
@@ -33,7 +34,8 @@ async function getJson(
 /**
  * GET /api/ingredients?lat=&lon= → the next 72 hours of storm ingredients at
  * one place (CAPE, shear, SRH, LI, dew point, STP, SWTI), plus each major
- * model's CAPE for this hour. Open-Meteo, cached 30 minutes.
+ * model's CAPE for this hour, hazard chances per hour (Storm Timing) and each day's
+ * sunrise and sunset. Open-Meteo, cached 30 minutes.
  */
 export async function GET(request: Request) {
   const q = new URL(request.url).searchParams;
@@ -55,7 +57,7 @@ export async function GET(request: Request) {
   try {
     const [main, models] = await Promise.all([
       getJson(
-        `https://api.open-meteo.com/v1/forecast?${at}&hourly=${vars.join(",")}&wind_speed_unit=ms&forecast_hours=72&timezone=auto`,
+        `https://api.open-meteo.com/v1/forecast?${at}&hourly=${vars.join(",")}&wind_speed_unit=ms&daily=sunrise,sunset&forecast_days=4&forecast_hours=72&timezone=auto`,
       ),
       getJson(
         `https://api.open-meteo.com/v1/forecast?${at}&hourly=cape&models=${MODELS.map((m) => m[0]).join(",")}&forecast_hours=1&timezone=auto`,
@@ -95,6 +97,8 @@ export async function GET(request: Request) {
         tornado: t.tornado,
         hail: t.hail,
         wind: t.wind,
+        prob: hazardProbs(cape, s, sh, li),
+        threat: threat(t.score, cape),
       };
     });
     const mh = (models?.hourly ?? {}) as Record<string, (number | null)[]>;
@@ -105,8 +109,14 @@ export async function GET(request: Request) {
       (m): m is { name: (typeof MODELS)[number][1]; cape: number } =>
         m.cape !== null,
     );
+    const d = (main.daily ?? {}) as Record<string, string[]>;
+    const sun = (d.time ?? []).map((date, i) => ({
+      date,
+      rise: d.sunrise?.[i] ?? "",
+      set: d.sunset?.[i] ?? "",
+    }));
     return Response.json(
-      { tz: String(main.timezone ?? ""), hours, models: modelCape },
+      { tz: String(main.timezone ?? ""), hours, models: modelCape, sun },
       { headers: { "Cache-Control": "public, s-maxage=1800" } },
     );
   } catch {
