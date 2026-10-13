@@ -7,6 +7,7 @@ export const MODULES = [
   { id: "air", label: "AQI & Pollen" },
   { id: "mosquito", label: "Mosquito Index" },
   { id: "daylight", label: "Daylight Tracker" },
+  { id: "game", label: "Forecast Game" },
   { id: "maps", label: "Maps" },
   { id: "weather-news", label: "Weather News" },
   { id: "news", label: "SSWX News" },

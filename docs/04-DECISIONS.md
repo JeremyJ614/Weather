@@ -34,3 +34,5 @@ See `docs/07-PRICING.md`: tiers Free / Basic $1.49 / Storm Chasers $2.99 / Advan
 
 ## Fall Forecast (phase 20)
 The outline asked for states colored over time. There is no public peak-foliage forecast, and state-level colors from the only public record (USA-NPN first-color reports) reflect which species volunteers watch, not climate (VIP tested it: New England "turned" a month early). The Fall subtab therefore replays each real report as a dot, colored by how long ago it turned, with a play/scrub timeline. Revisit if a public state-level product appears.
+
+- **Forecast Game (phase 26, 2026-10-13):** VIP's contest scoring kept exactly (placings, consolation, tornado bullseye, quiet-day call). One change for fairness: pins lock at **noon Eastern** (VIP allowed locking until midnight, after storms had fired). Enforced by the database trigger, not just the page. Scored daily at 13:20 UTC against SPC's storm reports for the convective day; points go to the shared `game_points` ledger that Trivia will use; the month's champion is crowned on the 1st and shown with an award badge. Lives at /wx-games (the nav's "WX Games", phases 26–27).

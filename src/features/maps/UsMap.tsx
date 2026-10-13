@@ -99,7 +99,13 @@ export function UsMap({
   file,
   children,
   overlay,
+  onTap,
+  actions = true,
 }: {
+  /** Tap handler in canvas coordinates (975×610); makes the map a picker. */
+  onTap?: (x: number, y: number) => void;
+  /** Show the Download/Share buttons. */
+  actions?: boolean;
   title: string;
   sub?: string | null;
   legend: Swatch[];
@@ -156,7 +162,16 @@ export function UsMap({
           ref={svg}
           viewBox={`0 0 ${W} ${H}`}
           xmlns="http://www.w3.org/2000/svg"
-          className={s.svg}
+          className={`${s.svg} ${onTap ? s.picker : ""}`}
+          onClick={(e) => {
+            const el = svg.current;
+            const m = el?.getScreenCTM();
+            if (!onTap || !el || !m) return;
+            const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(
+              m.inverse(),
+            );
+            onTap(p.x, p.y);
+          }}
           role="img"
           aria-label={`${title} map of the United States`}
         >
@@ -220,20 +235,22 @@ export function UsMap({
           ))}
         </ul>
       )}
-      <div className={s.actions}>
-        <Button
-          onClick={() => save(false)}
-          disabled={busy || status !== "ready"}
-        >
-          <Download className="size-4" aria-hidden /> Download PNG
-        </Button>
-        <Button
-          onClick={() => save(true)}
-          disabled={busy || status !== "ready"}
-        >
-          <Share2 className="size-4" aria-hidden /> Share
-        </Button>
-      </div>
+      {actions && (
+        <div className={s.actions}>
+          <Button
+            onClick={() => save(false)}
+            disabled={busy || status !== "ready"}
+          >
+            <Download className="size-4" aria-hidden /> Download PNG
+          </Button>
+          <Button
+            onClick={() => save(true)}
+            disabled={busy || status !== "ready"}
+          >
+            <Share2 className="size-4" aria-hidden /> Share
+          </Button>
+        </div>
+      )}
     </figure>
   );
 }

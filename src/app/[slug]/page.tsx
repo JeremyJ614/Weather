@@ -14,6 +14,7 @@ const BUILT = new Set([
   "aqi-pollen",
   "mosquito-index",
   "daylight-tracker",
+  "wx-games",
 ]);
 
 export function generateStaticParams() {

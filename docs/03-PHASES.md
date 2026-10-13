@@ -49,7 +49,7 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 - [x] 25. Daylight Tracker (rebuilt, modeled on Max Velocity's)
 
 ## Community
-- [ ] 26. Forecast Game (port from VIP, redesigned)
+- [x] 26. Forecast Game (port from VIP, redesigned)
 - [ ] 27. Daily Trivia with admin question and points editor
 - [ ] 28. Leaderboard (weekly, monthly, yearly) with admin points and past-winner entry
 - [ ] 29. Weekly Polls with admin scheduling

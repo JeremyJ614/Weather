@@ -29,7 +29,13 @@ export async function GET(req: Request) {
             timeZone: "UTC",
           })
         : null;
+    // SPC GeoJSON carries VALID/EXPIRE as YYYYMMDDHHmm UTC.
+    const spc = (v: unknown) =>
+      typeof v === "string" && /^\d{12}$/.test(v)
+        ? `${new Date(`${v.slice(0, 4)}-${v.slice(4, 6)}-${v.slice(6, 8)}T12:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })} ${v.slice(8, 10)}Z`
+        : null;
     const valid =
+      (p.VALID ? `${spc(p.VALID)} – ${spc(p.EXPIRE)}` : undefined) ??
       (p.valid_time as string | undefined) ??
       (p.valid_seas as string | undefined) ??
       (p.target as string | undefined) ??

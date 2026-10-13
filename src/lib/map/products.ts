@@ -11,7 +11,7 @@ export type VectorProduct = {
   label: string;
   title: string;
   url: string;
-  kind: "qpf" | "ero" | "cpcTemp" | "cpcPrecip" | "drought";
+  kind: "qpf" | "ero" | "cpcTemp" | "cpcPrecip" | "drought" | "spcCat";
 };
 
 const qpf = (id: string, label: string, layer: number, title: string) => ({
@@ -136,7 +136,25 @@ export const CPC: VectorProduct[] = [
     "Seasonal drought outlook",
   ),
 ];
-export const VECTOR = [...QPF, ...ERO, ...CPC];
+export const SPC: VectorProduct[] = [
+  {
+    id: "spc1",
+    label: "SPC Day 1",
+    title: "SPC convective outlook · Day 1",
+    url: "https://www.spc.noaa.gov/products/outlook/day1otlk_cat.nolyr.geojson",
+    kind: "spcCat",
+  },
+];
+export const VECTOR = [...QPF, ...ERO, ...CPC, ...SPC];
+const SPC_CAT: Record<string, Swatch> = {
+  TSTM: { label: "Thunder", color: "#c1e9c1" },
+  MRGL: { label: "Marginal", color: "#66a366" },
+  SLGT: { label: "Slight", color: "#ffe066" },
+  ENH: { label: "Enhanced", color: "#ffa366" },
+  MDT: { label: "Moderate", color: "#e06666" },
+  HIGH: { label: "High", color: "#ee99ee" },
+};
+const SPC_ORDER = Object.keys(SPC_CAT);
 
 export const QPF_SCALE: { at: number; color: string }[] = [
   { at: 0.01, color: "#1f6f3a" },
@@ -226,6 +244,7 @@ export function colorFor(
   }
   if (kind === "ero") return ERO_COLORS[Number(props.dn) - 1]?.color ?? null;
   if (kind === "drought") return DROUGHT[String(props.outlook)]?.color ?? null;
+  if (kind === "spcCat") return SPC_CAT[String(props.LABEL)]?.color ?? null;
   const cat = String(props.cat);
   const p = Number(props.prob);
   if (cat === "Normal") return "#adb5bd";
@@ -246,6 +265,7 @@ export function legendFor(kind: VectorProduct["kind"]): Swatch[] {
     return QPF_SCALE.map((s) => ({ label: `${s.at}"`, color: s.color }));
   if (kind === "ero") return ERO_COLORS;
   if (kind === "drought") return Object.values(DROUGHT);
+  if (kind === "spcCat") return Object.values(SPC_CAT);
   const [a, b] =
     kind === "cpcTemp" ? [RAMP.above, RAMP.below] : [RAMP.wet, RAMP.dry];
   const word = kind === "cpcTemp" ? ["Warmer", "Colder"] : ["Wetter", "Drier"];
@@ -268,6 +288,7 @@ export function rank(
   if (kind === "qpf") return Number(props.qpf) || 0;
   if (kind === "ero") return Number(props.dn) || 0;
   if (kind === "drought") return 0;
+  if (kind === "spcCat") return SPC_ORDER.indexOf(String(props.LABEL));
   return Number(props.prob) || 0;
 }
 
