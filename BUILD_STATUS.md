@@ -2,7 +2,7 @@
 
 **Objective:** StormSync Weather (Weather.SSWX.Space): one mobile-first PWA + Android .apk merging the team's weather apps. Free to run until revenue.
 
-**Stage:** Building. Done: 01–06c, 10b (code), 10c, dark house style, /privacy. Next: 10 location + weather-data layer, then 08 accounts.
+**Stage:** Building. Done: 01–06c, 10, 10b (code), 10c, dark house style, /privacy. Home shows a live Today card (NWS) with saved places. Next: 08 accounts.
 
 **Decisions so far**
 - Repo `JeremyJ614/Weather`, working branch `ccr-f5e0b71a-4vr2wk`, PR #1 merged to `main`; PR #2 open.
@@ -34,7 +34,7 @@
 
 **Next actions**
 1. `/privacy` built (contact email in `src/app/privacy/page.tsx`); live on production once PR #2 merges.
-2. Phase 10 (location + weather-data layer, bounded cache keys), then 08 accounts.
+2. Phase 08 accounts: PIN sign-in with lockout, email link (Resend SMTP done), Google (owner finishing), signup form, referral codes, owner account, RLS; sync saved places. Needs the ops migration approach settled (migrations were cancelled twice).
 3. Watchdog: `/api/cron/storage-watchdog` daily via `vercel.json`; `CRON_SECRET` set in Vercel (production). Returns 500 until the ops migration is applied.
 
 **Sandbox note:** Turbopack's Google-font fetch fails behind this sandbox's proxy (CI is fine). Local check: `npx next build --webpack` then the other verify steps.

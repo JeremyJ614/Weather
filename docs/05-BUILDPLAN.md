@@ -44,6 +44,12 @@ Secrets are server-only env vars (names: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `S
 - **Accounts for testing:** test users may be created in the live database and are deleted afterwards.
 - **Git:** `main` is the production branch (owner approved).
 
+## 5b. Weather data layer (phase 10)
+- `src/lib/weather/nws.ts` (server only): NWS points, 7-day and 48-hour forecasts, normalized in `types.ts`. ZIP lookup via zippopotam.us.
+- Coordinates are snapped to a 0.02° grid before any request or cache, so cache keys are bounded and no precise GPS position is stored.
+- Caching: Next fetch cache (grid point 7 days, forecasts 15 min, ZIPs 30 days) plus edge caching on `/api/weather` and `/api/geo/zip`. Nothing is stored in Supabase.
+- Saved places: up to 5 on the device (`sswx-places`), synced to the account in phase 08.
+
 ## 6. Sections
 **Homepage.** Weather News: top 15 from NWS, SPC, NHC, NOAA news, NASA Earth, AP weather and Reuters climate, refreshed once at 7 AM Eastern, most severe first, no AI summaries. SSWX News: owner's posts with the editor; unread glow ends when opened or after 7 days. App Updates: new members by initials, game winners, releases.
 
