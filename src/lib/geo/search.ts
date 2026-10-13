@@ -155,3 +155,24 @@ const strip = ({ name, st, lat, lon, pop }: Row): PlaceHit => ({
   lon,
   pop,
 });
+
+/** The nearest town of at least `minPop` people, for labeling a map pin. */
+export function nearestPlace(
+  rows: Row[],
+  lat: number,
+  lon: number,
+  minPop = 1500,
+): { hit: PlaceHit; miles: number } | null {
+  const k = Math.cos((lat * Math.PI) / 180);
+  let best: Row | null = null;
+  let bd = Infinity;
+  for (const r of rows) {
+    if (r.pop < minPop) break; // rows are most populous first
+    const d = (r.lat - lat) ** 2 + ((r.lon - lon) * k) ** 2;
+    if (d < bd) {
+      bd = d;
+      best = r;
+    }
+  }
+  return best ? { hit: strip(best), miles: Math.sqrt(bd) * 69.1 } : null;
+}

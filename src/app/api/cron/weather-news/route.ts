@@ -1,16 +1,14 @@
 import { revalidateTag } from "next/cache";
+import { cronAuthorized } from "@/lib/ops/cron-auth";
 import { refreshWeatherNews, WEATHER_NEWS_TAG } from "@/lib/news/store";
 
 /**
- * Daily at 7 AM Eastern. Vercel cron runs in UTC, so it fires at 11:00 and 12:00 UTC and only the
- * run that lands on 7 AM New York time collects (daylight saving changes which one).
+ * Daily at 7 AM Eastern. Vercel cron and the database scheduler both call it at 11 and 12 UTC;
+ * only the run that lands on 7 AM New York time collects (daylight saving changes which one).
  */
 export async function GET(request: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return new Response("CRON_SECRET is not set", { status: 500 });
-  if (request.headers.get("authorization") !== `Bearer ${secret}`) {
+  if (!(await cronAuthorized(request)))
     return new Response("Unauthorized", { status: 401 });
-  }
   const hour = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/New_York",
     hour: "numeric",

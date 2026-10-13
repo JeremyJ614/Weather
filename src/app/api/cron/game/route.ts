@@ -10,9 +10,8 @@ export async function GET(request: Request) {
   if (!(await cronAuthorized(request)))
     return new Response("Unauthorized", { status: 401 });
   const yesterday = gameDate(new Date(Date.now() - 86_400_000));
-  const [round, month] = await Promise.all([
-    scoreRound(yesterday),
-    settleMonth(),
-  ]);
+  // Score first: on the 1st, yesterday is the month's last day and must count.
+  const round = await scoreRound(yesterday);
+  const month = await settleMonth();
   return Response.json({ date: yesterday, ...round, settled: month });
 }

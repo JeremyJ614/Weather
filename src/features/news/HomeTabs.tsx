@@ -11,7 +11,14 @@ import {
 } from "@/features/motion/morph";
 import s from "./HomeTabs.module.css";
 
-type Tab = { id: string; label: string; panel: ReactNode; icon?: ReactNode };
+type Tab = {
+  id: string;
+  label: string;
+  panel: ReactNode;
+  icon?: ReactNode;
+  /** One-line caption under the label (arcade cards). */
+  sub?: string;
+};
 
 const nextFrame = () =>
   new Promise<void>((r) =>
@@ -24,6 +31,7 @@ const nextFrame = () =>
  * `underline`: a fixed multicolor rule that keeps its colors in every theme.
  * `segment`: a dark segmented control whose active pill carries the beam.
  * `pills`: a sideways-scrolling row of dark pills (second-level tabs).
+ * `arcade`: big cards; the active one wears a spinning multicolor rim.
  */
 export function HomeTabs({
   tabs,
@@ -32,7 +40,7 @@ export function HomeTabs({
 }: {
   tabs: Tab[];
   label?: string;
-  variant?: "underline" | "segment" | "pills";
+  variant?: "underline" | "segment" | "pills" | "arcade";
 }) {
   const [active, setActive] = useState(tabs[0]?.id);
   const [seen, setSeen] = useState(() => new Set([tabs[0]?.id]));
@@ -79,15 +87,18 @@ export function HomeTabs({
             ? s.segment
             : variant === "pills"
               ? s.pills
-              : s.underline
+              : variant === "arcade"
+                ? s.arcade
+                : s.underline
         }
         style={
-          variant === "pills"
+          variant === "pills" || variant === "arcade"
             ? undefined
             : { gridTemplateColumns: `repeat(${tabs.length}, 1fr)` }
         }
       >
-        {variant === "pills" ? null : variant === "segment" ? (
+        {variant === "pills" || variant === "arcade" ? null : variant ===
+          "segment" ? (
           <Beam
             className={s.pill}
             style={{
@@ -110,7 +121,24 @@ export function HomeTabs({
           />
         )}
         {tabs.map((t) =>
-          variant === "pills" && t.id === active ? (
+          variant === "arcade" ? (
+            <button
+              key={t.id}
+              role="tab"
+              id={`tab-${t.id}`}
+              aria-selected={t.id === active}
+              aria-controls={`panel-${t.id}`}
+              onClick={() => select(t.id)}
+              className={s.card}
+            >
+              <span className={s.cardSpin} aria-hidden />
+              <span className={s.cardBody}>
+                <span className={s.cardIcon}>{t.icon}</span>
+                <b>{t.label}</b>
+                {t.sub && <small>{t.sub}</small>}
+              </span>
+            </button>
+          ) : variant === "pills" && t.id === active ? (
             <Beam key={t.id} className={s.pillBeam}>
               <button
                 role="tab"

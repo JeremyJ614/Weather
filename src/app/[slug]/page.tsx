@@ -15,6 +15,7 @@ const BUILT = new Set([
   "mosquito-index",
   "daylight-tracker",
   "wx-games",
+  "leaderboard",
 ]);
 
 export function generateStaticParams() {

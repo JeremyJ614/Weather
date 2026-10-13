@@ -4,10 +4,9 @@ import { useActionState, useEffect, useState } from "react";
 import Link from "next/link";
 import {
   CheckCircle2,
-  Crown,
-  Lock,
   MapPin,
   Medal,
+  Save,
   Timer,
   Tornado,
   Trophy,
@@ -15,22 +14,20 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
-import { AwardBadge } from "@/components/ui/award-badge";
 import { HomeTabs } from "@/features/news/HomeTabs";
 import { UsMap } from "@/features/maps/UsMap";
 import { Polys, useLayer } from "@/features/maps/useLayer";
 import { project, unproject } from "@/lib/map/usAlbers";
+import { PlaceSearch } from "@/features/location/PlaceSearch";
 import {
-  haversineMi,
   QUIET_DAY_BONUS,
   SEVERE_CONSOLATION,
   SEVERE_PLACES,
   TORNADO_BULLSEYE,
   TORNADO_PLACES,
-  LOCK_HOUR_ET,
+  secondsToReset,
 } from "@/lib/game/score";
-import { lockGuess } from "./actions";
-import { CITIES } from "./cities";
+import { savePins, type SaveState } from "./actions";
 import s from "./Game.module.css";
 
 export type Guess = {
@@ -45,23 +42,20 @@ export type Guess = {
   tornado_points: number | null;
   points: number | null;
 };
-export type Board = {
-  user_id: string;
-  name: string;
-  points: number;
-  games: number;
-}[];
 type Pin = { lat: number; lon: number; label: string };
 
-const near = (lat: number, lon: number) => {
-  const c = CITIES.reduce((a, b) =>
-    haversineMi(lat, lon, b.lat, b.lon) < haversineMi(lat, lon, a.lat, a.lon)
-      ? b
-      : a,
-  );
-  const d = Math.round(haversineMi(lat, lon, c.lat, c.lon));
-  return d < 15 ? c.name : `${d} mi from ${c.name}`;
-};
+/** "8 mi from Wichita Falls, TX", from our Census place index. */
+async function labelFor(lat: number, lon: number) {
+  try {
+    const r = await fetch(
+      `/api/geo/near?lat=${lat.toFixed(3)}&lon=${lon.toFixed(3)}`,
+    );
+    const { label } = (await r.json()) as { label: string | null };
+    return label ?? `${lat.toFixed(2)}, ${lon.toFixed(2)}`;
+  } catch {
+    return `${lat.toFixed(2)}, ${lon.toFixed(2)}`;
+  }
+}
 const ord = (n: number) => {
   const v = n % 100;
   return (
@@ -72,24 +66,11 @@ const ord = (n: number) => {
   );
 };
 
-/** Time left until the noon Eastern lock, or null once closed. */
-function useLockClock() {
+/** Seconds until the next round (midnight Eastern), ticking. */
+function useResetClock() {
   const [left, setLeft] = useState<number | null>(null);
   useEffect(() => {
-    const tick = () => {
-      const p = new Intl.DateTimeFormat("en-US", {
-        timeZone: "America/New_York",
-        hour: "numeric",
-        minute: "numeric",
-        second: "numeric",
-        hourCycle: "h23",
-      }).formatToParts(new Date());
-      const g = (k: string) => Number(p.find((x) => x.type === k)?.value ?? 0);
-      const sec =
-        LOCK_HOUR_ET * 3600 -
-        (g("hour") * 3600 + g("minute") * 60 + g("second"));
-      setLeft(sec > 0 ? sec : 0);
-    };
+    const tick = () => setLeft(secondsToReset());
     tick();
     const t = setInterval(tick, 1000);
     return () => clearInterval(t);
@@ -104,52 +85,12 @@ function PinMark({ pin, kind }: { pin: Pin; kind: "severe" | "tornado" }) {
       transform={`translate(${x} ${y})`}
       className={kind === "severe" ? s.pinS : s.pinT}
     >
-      <circle r="22" className={s.pinPulse} />
-      <circle r="11" className={s.pinRing} />
-      <circle r="5" className={s.pinDot} />
+      <g className={s.pinScale}>
+        <circle r="22" className={s.pinPulse} />
+        <circle r="11" className={s.pinRing} />
+        <circle r="5" className={s.pinDot} />
+      </g>
     </g>
-  );
-}
-
-function Podium({ board }: { board: Board }) {
-  if (!board.length)
-    return (
-      <p className={s.empty}>
-        No scored rounds yet in this period. Be the first on the board.
-      </p>
-    );
-  const top = board.slice(0, 3);
-  const order = [top[1], top[0], top[2]];
-  return (
-    <div className="grid gap-3">
-      <div className={s.podium}>
-        {order.map((r, i) =>
-          r ? (
-            <div
-              key={r.user_id}
-              className={`${s.step} ${[s.silver, s.gold, s.bronze][i]}`}
-            >
-              {i === 1 ? <Crown aria-hidden /> : <Medal aria-hidden />}
-              <b>{r.name}</b>
-              <span>{r.points.toLocaleString()}</span>
-              <i />
-            </div>
-          ) : (
-            <div key={i} />
-          ),
-        )}
-      </div>
-      <ol className={s.board}>
-        {board.slice(3, 20).map((r, i) => (
-          <li key={r.user_id}>
-            <span className={s.rank}>{ord(i + 4)}</span>
-            <span className={s.who}>{r.name}</span>
-            <span className={s.games}>{r.games} rounds</span>
-            <b>{r.points.toLocaleString()}</b>
-          </li>
-        ))}
-      </ol>
-    </div>
   );
 }
 
@@ -158,54 +99,60 @@ export function GameView({
   today,
   mine,
   last,
-  month,
-  week,
-  champions,
 }: {
   signedIn: boolean;
   today: string;
   mine: Guess | null;
   last: Guess | null;
-  month: Board;
-  week: Board;
-  champions: { month: string; name: string; points: number }[];
 }) {
   const { layer, status } = useLayer("spc1");
-  const left = useLockClock();
+  const left = useResetClock();
   const [mode, setMode] = useState<"severe" | "tornado">("severe");
-  const [severe, setSevere] = useState<Pin | null>(null);
-  const [tornado, setTornado] = useState<Pin | null>(null);
-  const [quiet, setQuiet] = useState(false);
-  const [state, action, pending] = useActionState(lockGuess, null);
-  const locked = !!mine || !!state?.ok;
-  const open = left === null || left > 0;
-
-  const shownSevere: Pin | null = mine
-    ? { lat: mine.lat, lon: mine.lon, label: mine.city_label ?? "" }
-    : severe;
-  const shownTornado: Pin | null = mine
-    ? mine.tor_lat !== null && mine.tor_lon !== null
+  const [severe, setSevere] = useState<Pin | null>(() =>
+    mine
+      ? { lat: mine.lat, lon: mine.lon, label: mine.city_label ?? "" }
+      : null,
+  );
+  const [tornado, setTornado] = useState<Pin | null>(() =>
+    mine && mine.tor_lat !== null && mine.tor_lon !== null
       ? {
           lat: mine.tor_lat,
           lon: mine.tor_lon,
           label: mine.tor_city_label ?? "",
         }
-      : null
-    : quiet
-      ? null
-      : tornado;
+      : null,
+  );
+  const [quiet, setQuiet] = useState(!!mine && mine.tor_lat === null);
+  const [dirty, setDirty] = useState(false);
+  const [state, action, pending] = useActionState(
+    async (prev: SaveState, fd: FormData) => {
+      const r = await savePins(prev, fd);
+      if (r?.ok) setDirty(false);
+      return r;
+    },
+    null,
+  );
+  const saved = (!!mine || !!state?.ok) && !dirty;
+  const canPlay = signedIn;
 
-  const place = (lat: number, lon: number) => {
-    if (locked || !open) return;
-    const pin = { lat, lon, label: near(lat, lon) };
-    if (mode === "severe") {
-      setSevere(pin);
+  const place = (lat: number, lon: number, label?: string) => {
+    if (!canPlay) return;
+    const pin = { lat, lon, label: label ?? "Locating…" };
+    const which = quiet ? "severe" : mode;
+    const set = which === "severe" ? setSevere : setTornado;
+    set(pin);
+    setDirty(true);
+    if (which === "severe") {
       if (!tornado && !quiet) setMode("tornado");
-    } else {
-      setTornado(pin);
-      setQuiet(false);
-    }
+    } else setQuiet(false);
+    if (!label)
+      labelFor(lat, lon).then((l) =>
+        set((p) =>
+          p && p.lat === lat && p.lon === lon ? { ...p, label: l } : p,
+        ),
+      );
   };
+  const shownTornado = quiet ? null : tornado;
   const hh = left !== null ? Math.floor(left / 3600) : 0;
   const mm = left !== null ? Math.floor((left % 3600) / 60) : 0;
   const ss = left !== null ? left % 60 : 0;
@@ -222,24 +169,19 @@ export function GameView({
         <div>
           <p className="eyebrow">Today&apos;s round</p>
           <p className={s.day}>{dayLabel}</p>
+          {saved && (
+            <span className={s.savedTag}>
+              <CheckCircle2 aria-hidden /> Pins saved
+            </span>
+          )}
         </div>
-        {locked ? (
-          <span className={s.lockedTag}>
-            <CheckCircle2 aria-hidden /> Locked in
-          </span>
-        ) : open ? (
-          <div className={s.clock} aria-label="Time until pins lock">
-            <Timer aria-hidden />
-            <b>
-              {hh}:{String(mm).padStart(2, "0")}:{String(ss).padStart(2, "0")}
-            </b>
-            <span>until noon ET lock</span>
-          </div>
-        ) : (
-          <span className={s.closedTag}>
-            <Lock aria-hidden /> Closed · scored tomorrow morning
-          </span>
-        )}
+        <div className={s.clock} aria-label="Time until the next round">
+          <Timer aria-hidden />
+          <b>
+            {hh}:{String(mm).padStart(2, "0")}:{String(ss).padStart(2, "0")}
+          </b>
+          <span>until the next round</span>
+        </div>
       </section>
 
       {!signedIn ? (
@@ -250,33 +192,43 @@ export function GameView({
           </Link>
         </section>
       ) : (
-        !locked &&
-        open && (
-          <div className={s.modes} role="group" aria-label="Which pin to place">
-            <Chip pressed={mode === "severe"} onClick={() => setMode("severe")}>
-              <Zap className="mr-1 inline size-3.5" aria-hidden /> Severe pin
-            </Chip>
-            <Chip
-              pressed={mode === "tornado" && !quiet}
-              onClick={() => {
-                setMode("tornado");
-                setQuiet(false);
-              }}
-            >
-              <Tornado className="mr-1 inline size-3.5" aria-hidden /> Tornado
-              pin
-            </Chip>
-            <Chip
-              pressed={quiet}
-              onClick={() => {
-                setQuiet(!quiet);
-                setTornado(null);
-              }}
-            >
-              No tornadoes today
-            </Chip>
-          </div>
-        )
+        <div className={s.modes} role="group" aria-label="Which pin to place">
+          <Chip pressed={mode === "severe"} onClick={() => setMode("severe")}>
+            <Zap className="mr-1 inline size-3.5" aria-hidden /> Severe pin
+          </Chip>
+          <Chip
+            pressed={mode === "tornado" && !quiet}
+            onClick={() => {
+              setMode("tornado");
+              setQuiet(false);
+            }}
+          >
+            <Tornado className="mr-1 inline size-3.5" aria-hidden /> Tornado pin
+          </Chip>
+          <Chip
+            pressed={quiet}
+            onClick={() => {
+              setQuiet(!quiet);
+              setDirty(true);
+              if (!quiet) setMode("severe");
+            }}
+          >
+            No tornadoes today
+          </Chip>
+        </div>
+      )}
+
+      {canPlay && (
+        <div className={s.pick}>
+          <span>
+            Search a city for the{" "}
+            {mode === "severe" || quiet ? "severe" : "tornado"} pin
+          </span>
+          <PlaceSearch
+            placeholder="City or state"
+            onPick={(p) => place(p.lat, p.lon, p.label)}
+          />
+        </div>
       )}
 
       <UsMap
@@ -286,17 +238,19 @@ export function GameView({
         status={status === "empty" ? "ready" : status}
         file={`sswx-game-${today}`}
         actions={false}
+        zoomable
         onTap={
-          signedIn && !locked && open
+          canPlay
             ? (x, y) => {
                 const { lat, lon } = unproject(x, y);
-                place(lat, lon);
+                if (lat >= 18 && lat <= 72 && lon >= -180 && lon <= -60)
+                  place(lat, lon);
               }
             : undefined
         }
         overlay={
           <>
-            {shownSevere && <PinMark pin={shownSevere} kind="severe" />}
+            {severe && <PinMark pin={severe} kind="severe" />}
             {shownTornado && <PinMark pin={shownTornado} kind="tornado" />}
           </>
         }
@@ -304,33 +258,12 @@ export function GameView({
         {layer && <Polys polys={layer.polys} />}
       </UsMap>
 
-      {signedIn && !locked && open && (
-        <label className={s.pick}>
-          <span>
-            Or pick a city for the{" "}
-            {mode === "severe" && !quiet ? "severe" : "tornado"} pin
-          </span>
-          <select
-            value=""
-            onChange={(e) => {
-              const c = CITIES.find((x) => x.name === e.target.value);
-              if (c) place(c.lat, c.lon);
-            }}
-          >
-            <option value="">Choose a city…</option>
-            {CITIES.map((c) => (
-              <option key={c.name}>{c.name}</option>
-            ))}
-          </select>
-        </label>
-      )}
-
       <div className={s.pins}>
         <article className={`${s.pinCard} ${s.cardS}`}>
           <Zap aria-hidden />
           <div>
             <p>Severe pin</p>
-            <b>{shownSevere?.label || "Tap the map"}</b>
+            <b>{severe?.label || "Tap the map"}</b>
           </div>
         </article>
         <article className={`${s.pinCard} ${s.cardT}`}>
@@ -338,16 +271,15 @@ export function GameView({
           <div>
             <p>Tornado pin</p>
             <b>
-              {shownTornado?.label ||
-                ((mine && mine.tor_lat === null) || quiet
-                  ? "Quiet day called"
-                  : "Tap the map")}
+              {quiet
+                ? "Quiet day called"
+                : shownTornado?.label || "Tap the map"}
             </b>
           </div>
         </article>
       </div>
 
-      {signedIn && !locked && open && (
+      {canPlay && (
         <form action={action} className="grid gap-2">
           {severe && (
             <>
@@ -367,10 +299,16 @@ export function GameView({
           <Button
             type="submit"
             variant="primary"
-            disabled={pending || !severe || (!tornado && !quiet)}
+            disabled={pending || saved || !severe || (!tornado && !quiet)}
           >
-            <Lock className="size-4" aria-hidden />{" "}
-            {pending ? "Locking…" : "Lock my pins"}
+            <Save className="size-4" aria-hidden />{" "}
+            {pending
+              ? "Saving…"
+              : saved
+                ? "Saved · move a pin to change it"
+                : mine || state?.ok
+                  ? "Update my pins"
+                  : "Save my pins"}
           </Button>
           {state?.error && <p className={s.err}>{state.error}</p>}
         </form>
@@ -382,11 +320,7 @@ export function GameView({
             Last round ·{" "}
             {new Date(`${last.guess_date}T12:00:00Z`).toLocaleDateString(
               "en-US",
-              {
-                month: "short",
-                day: "numeric",
-                timeZone: "UTC",
-              },
+              { month: "short", day: "numeric", timeZone: "UTC" },
             )}
           </p>
           <div className={s.resultRow}>
@@ -408,40 +342,10 @@ export function GameView({
           </div>
         </section>
       )}
+      <Link href="/leaderboard" className={s.boardLink}>
+        <Trophy aria-hidden /> Standings &amp; Champions Hall
+      </Link>
     </div>
-  );
-
-  const boards = signedIn ? (
-    <div className="grid gap-4">
-      <HomeTabs
-        variant="segment"
-        label="Leaderboard period"
-        tabs={[
-          { id: "month", label: "This month", panel: <Podium board={month} /> },
-          { id: "week", label: "This week", panel: <Podium board={week} /> },
-        ]}
-      />
-      {champions.length > 0 && (
-        <section className={s.hall}>
-          <p className="eyebrow">Hall of champions</p>
-          <div className={s.badges}>
-            {champions.map((c) => (
-              <div key={c.month} className={s.badgeRow}>
-                <AwardBadge
-                  kicker="Forecast Game"
-                  title={`${new Date(`${c.month}-15T12:00:00Z`).toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" })} Champion`}
-                />
-                <span>
-                  {c.name} · {c.points.toLocaleString()} pts
-                </span>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-    </div>
-  ) : (
-    <p className={s.empty}>Sign in to see the leaderboard.</p>
   );
 
   const rules = (
@@ -496,10 +400,11 @@ export function GameView({
         </ul>
       </section>
       <p className={s.fine}>
-        One round per day on the Eastern clock. Pins lock at noon ET and are
-        scored the next morning against SPC&apos;s storm reports for the
-        convective day (12Z to 12Z). The month&apos;s top scorer is crowned on
-        the 1st.
+        One round per day on the Eastern clock. Move your pins as often as you
+        like until midnight ET; whatever is on the map then is your call. Rounds
+        are scored the next morning against SPC&apos;s storm reports for the
+        convective day (12Z to 12Z). The month&apos;s and the year&apos;s top
+        scorers are crowned in the Champions Hall.
       </p>
     </div>
   );
@@ -514,12 +419,6 @@ export function GameView({
           label: "Play",
           icon: <MapPin aria-hidden />,
           panel: play,
-        },
-        {
-          id: "board",
-          label: "Leaderboard",
-          icon: <Trophy aria-hidden />,
-          panel: boards,
         },
         {
           id: "rules",

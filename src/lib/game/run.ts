@@ -105,33 +105,48 @@ export async function scoreRound(ymd: string) {
   return { scored, entrants: field.length, reports: all.length };
 }
 
-/** On the 1st (Eastern), crowns last month's champion once. */
+/** Crowns one period's champion once: the top total across all WX Games points. */
+async function crown(
+  kind: "month" | "year",
+  period: string,
+  from: string,
+  to: string,
+) {
+  const db = supabaseAdmin();
+  const { data: done } = await db
+    .from("game_titles")
+    .select("id")
+    .eq("kind", kind)
+    .eq("period", period)
+    .maybeSingle();
+  if (done) return null;
+  const { data } = await db
+    .from("game_points")
+    .select("user_id,points")
+    .gte("earned_on", from)
+    .lt("earned_on", to);
+  const tally = new Map<string, number>();
+  for (const r of data ?? [])
+    tally.set(r.user_id, (tally.get(r.user_id) ?? 0) + r.points);
+  const top = [...tally].sort((a, b) => b[1] - a[1])[0];
+  if (!top || top[1] <= 0) return null;
+  await db
+    .from("game_titles")
+    .insert({ kind, period, user_id: top[0], points: top[1] });
+  return period;
+}
+
+/** On the 1st (Eastern), crowns last month; on January 1st, last year too. */
 export async function settleMonth(at = new Date()) {
   const today = gameDate(at);
   if (!today.endsWith("-01")) return null;
   const d = new Date(`${today}T12:00:00Z`);
   d.setUTCMonth(d.getUTCMonth() - 1);
   const month = d.toISOString().slice(0, 7);
-  const db = supabaseAdmin();
-  const { data: done } = await db
-    .from("game_winners")
-    .select("month")
-    .eq("month", month)
-    .maybeSingle();
-  if (done) return null;
-  const { data } = await db
-    .from("game_points")
-    .select("user_id,points")
-    .eq("source", "forecast_game")
-    .gte("earned_on", `${month}-01`)
-    .lt("earned_on", `${today}`);
-  const tally = new Map<string, number>();
-  for (const r of data ?? [])
-    tally.set(r.user_id, (tally.get(r.user_id) ?? 0) + r.points);
-  const top = [...tally].sort((a, b) => b[1] - a[1])[0];
-  if (!top) return null;
-  await db
-    .from("game_winners")
-    .insert({ month, user_id: top[0], points: top[1] });
-  return month;
+  const settled = [await crown("month", month, `${month}-01`, today)];
+  if (today.endsWith("-01-01")) {
+    const year = String(Number(today.slice(0, 4)) - 1);
+    settled.push(await crown("year", year, `${year}-01-01`, today));
+  }
+  return settled.filter(Boolean);
 }

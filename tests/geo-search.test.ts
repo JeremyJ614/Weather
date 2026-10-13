@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { PLACES } from "@/lib/geo/places.data";
-import { parsePlaces, searchPlaces, splitState } from "@/lib/geo/search";
+import {
+  nearestPlace,
+  parsePlaces,
+  searchPlaces,
+  splitState,
+} from "@/lib/geo/search";
 
 const rows = parsePlaces(PLACES);
 const top = (q: string) =>
@@ -34,5 +39,15 @@ describe("place search", () => {
     expect(top("espanola")[0]).toBe("Española, NM");
     expect(top("43311")).toEqual([]);
     expect(top("a")).toEqual([]);
+  });
+});
+
+describe("nearest place", () => {
+  it("labels a pin by the closest sizable town", () => {
+    const n = nearestPlace(rows, 40.36, -83.76)!;
+    expect(`${n.hit.name}, ${n.hit.st}`).toBe("Bellefontaine, OH");
+    expect(n.miles).toBeLessThan(2);
+    const far = nearestPlace(rows, 39.0, -100.0)!;
+    expect(far.miles).toBeGreaterThan(5);
   });
 });
