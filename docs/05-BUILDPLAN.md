@@ -109,3 +109,4 @@ Personal Warnings & Alerts, Affected Communities Outlook, FairWeather Tracking, 
 | 19 | Sign-in | The owner's email and PIN were refused: no account existed for that email yet | Account is created through the email link + welcome form; founder role is granted automatically on profile creation |
 | 20 | Menus | Reopening Corner Sweep showed the last-opened group's sub-pages before the sweep animation, over the page | Closing folds every group |
 | 21 | Homepage | Two logos stacked at the top (header + page) | One small logo in a free top corner; the page opens with the Weather Clock |
+| 22 | Dashboard maps | WPC/CPC/Fall maps opened zoomed into one spot with tiles that looked like embeds | Static national maps drawn in our Albers projection (vector layers projected on the server, rasters exported by NOAA in the same projection), framed on the whole country, with PNG download and share |

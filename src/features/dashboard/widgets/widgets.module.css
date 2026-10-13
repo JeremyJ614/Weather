@@ -1,0 +1,581 @@
+/* ── shared ─────────────────────────────────────────────── */
+.big {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 30px;
+  line-height: 1;
+  color: var(--text);
+}
+.sub {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.fadeIn {
+  animation: fade 700ms ease 500ms both;
+}
+.breathe {
+  animation: breathe 5s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* ── gauge ─────────────────────────────────────────────── */
+.gauge {
+  position: relative;
+  display: grid;
+  justify-items: center;
+}
+.gauge svg {
+  width: 100%;
+  max-width: 230px;
+  overflow: visible;
+}
+.gTrack {
+  fill: none;
+  stroke: color-mix(in srgb, var(--line) 80%, transparent);
+  stroke-width: 12;
+  stroke-linecap: round;
+}
+.gArc {
+  fill: none;
+  stroke-width: 12;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 6px rgb(255 255 255 / 0.15));
+  animation: fade 900ms ease both;
+}
+.gTick {
+  stroke: color-mix(in srgb, var(--muted) 45%, transparent);
+  stroke-width: 1;
+}
+.gMark {
+  fill: #fff;
+  stroke: var(--bg);
+  stroke-width: 2;
+}
+.needle {
+  fill: var(--text);
+  transform-origin: 100px 100px;
+  transform: rotate(var(--deg));
+  animation: swing 1.4s cubic-bezier(0.34, 1.4, 0.64, 1) 200ms both;
+  filter: drop-shadow(
+    0 0 6px color-mix(in srgb, var(--accent) 60%, transparent)
+  );
+}
+.needle circle {
+  fill: var(--accent);
+}
+.gCenter {
+  margin-top: 6px;
+  text-align: center;
+}
+.gCaption {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* ── scene ─────────────────────────────────────────────── */
+.scene {
+  position: absolute;
+  right: -10px;
+  top: -6px;
+  width: 210px;
+  height: 145px;
+  pointer-events: none;
+}
+.rays {
+  fill: #ffd66b;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: spin 24s linear infinite;
+}
+.star {
+  fill: #fff;
+  animation: twinkle 3s ease-in-out infinite;
+  animation-delay: calc(var(--i) * 400ms);
+}
+.cloud,
+.cloudFront {
+  fill: color-mix(in srgb, #c9d2ee 70%, var(--surface));
+}
+.cloudFront {
+  fill: color-mix(in srgb, #eef2ff 85%, var(--surface));
+}
+.c1 {
+  animation: drift 14s ease-in-out infinite alternate;
+}
+.c2 {
+  opacity: 0.6;
+  animation: drift 18s ease-in-out -6s infinite alternate-reverse;
+}
+.c3 {
+  animation: drift 11s ease-in-out -3s infinite alternate;
+}
+.drop {
+  stroke: #6cc4ff;
+  stroke-width: 2;
+  stroke-linecap: round;
+  animation: fall 0.9s linear infinite;
+  animation-delay: calc(var(--i) * -130ms);
+}
+.flake {
+  fill: #fff;
+  animation: snow 2.6s linear infinite;
+  animation-delay: calc(var(--i) * -430ms);
+}
+.bolt {
+  fill: #ffe066;
+  filter: drop-shadow(0 0 8px #ffe066);
+  animation: flash 4.5s steps(1) infinite;
+}
+.fog {
+  fill: color-mix(in srgb, #d7def5 40%, transparent);
+  animation: drift 7s ease-in-out infinite alternate;
+  animation-delay: calc(var(--i) * -2s);
+}
+
+/* ── hourly chart ──────────────────────────────────────── */
+.chart {
+  width: 100%;
+  overflow: visible;
+}
+.grid {
+  stroke: color-mix(in srgb, var(--line) 70%, transparent);
+  stroke-dasharray: 2 4;
+}
+.reveal {
+  transform-origin: left;
+  animation: wipe 1.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.line {
+  fill: none;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  filter: drop-shadow(
+    0 0 6px color-mix(in srgb, var(--accent) 60%, transparent)
+  );
+}
+.popBar {
+  fill: #5ac8fa;
+  opacity: 0.45;
+  transform-box: fill-box;
+  transform-origin: bottom;
+  animation: grow 700ms var(--ease) both;
+  animation-delay: calc(400ms + var(--i) * 25ms);
+}
+.nowPulse {
+  fill: #fff;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: ping 2s ease-out infinite;
+}
+.peak {
+  font-size: 11px;
+  font-weight: 700;
+  fill: var(--text);
+}
+.axis {
+  font-size: 10px;
+  fill: var(--muted);
+}
+
+/* ── week ──────────────────────────────────────────────── */
+.week {
+  display: grid;
+  gap: 2px;
+}
+.week li {
+  display: grid;
+  grid-template-columns: 3.1rem 1.4rem 2.2rem 2rem 1fr 2rem;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  font-size: 13px;
+  animation: rise 500ms var(--ease) both;
+  animation-delay: calc(var(--i) * 60ms);
+}
+.wName {
+  font-weight: 700;
+}
+.wIcon {
+  width: 18px;
+  height: 18px;
+  color: var(--accent);
+}
+.wPop {
+  font-size: 11px;
+  color: #6cc4ff;
+}
+.wLo {
+  text-align: right;
+  color: var(--muted);
+}
+.wHi {
+  font-weight: 700;
+}
+.wTrack {
+  position: relative;
+  height: 6px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--line) 70%, transparent);
+}
+.wTrack i {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 3px;
+  transform-origin: left;
+  box-shadow: 0 0 8px rgb(255 170 60 / 0.35);
+  animation: wipe 900ms var(--ease) both;
+  animation-delay: calc(200ms + var(--i) * 60ms);
+}
+
+/* ── sun ───────────────────────────────────────────────── */
+.sun svg {
+  width: 100%;
+  max-width: 260px;
+  display: block;
+  margin: 0 auto;
+}
+.sunPath {
+  fill: none;
+  stroke: color-mix(in srgb, #ffb547 70%, transparent);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 5;
+}
+.horizon {
+  stroke: color-mix(in srgb, var(--line) 90%, transparent);
+}
+.sunRide {
+  transform-origin: 100px 96px;
+  transform: rotate(var(--deg));
+  animation: ride 1.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.sunDot {
+  fill: #ffd66b;
+  filter: drop-shadow(0 0 10px #ffb547);
+}
+.sunDotDown {
+  fill: #6a6f8f;
+}
+.sunTimes {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.sunTimes b {
+  display: block;
+  font-size: 15px;
+  color: var(--text);
+}
+
+/* ── moon ──────────────────────────────────────────────── */
+.moon {
+  width: 92px;
+  height: 92px;
+  flex: none;
+  animation: pop 900ms var(--spring) both;
+}
+
+/* ── compass ───────────────────────────────────────────── */
+.compass {
+  position: relative;
+  width: 150px;
+  height: 150px;
+  margin: 0 auto;
+}
+.compass svg {
+  width: 100%;
+  height: 100%;
+}
+.cRing {
+  fill: color-mix(in srgb, var(--bg) 60%, transparent);
+  stroke: color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.cTicks line {
+  stroke: color-mix(in srgb, var(--muted) 50%, transparent);
+}
+.cDir,
+.cNorth {
+  font-size: 10px;
+  font-weight: 700;
+  text-anchor: middle;
+  fill: var(--muted);
+}
+.cNorth {
+  fill: var(--accent);
+}
+.cArrow {
+  transform-origin: 60px 60px;
+  transform: rotate(var(--deg));
+  animation: spinIn 1.6s cubic-bezier(0.34, 1.3, 0.64, 1) both;
+}
+.cArrow path {
+  fill: var(--accent);
+  filter: drop-shadow(0 0 6px var(--accent));
+}
+.cArrow line {
+  stroke: color-mix(in srgb, var(--accent) 45%, transparent);
+  stroke-width: 1.5;
+}
+.cCenter {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  line-height: 1;
+}
+.cCenter b {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 85%, transparent);
+}
+.cCenter span {
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.cCenter em {
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 700;
+  color: #ff9f43;
+  margin-top: 3px;
+}
+
+/* ── thermometer ───────────────────────────────────────── */
+.thermo {
+  position: relative;
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  align-items: center;
+  gap: 14px;
+  min-height: 96px;
+}
+.tTube {
+  position: relative;
+  width: 12px;
+  height: 80px;
+  margin-left: 5px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--line) 80%, transparent);
+}
+.tTube i {
+  position: absolute;
+  inset: 0;
+  transform-origin: bottom;
+  animation: grow 1.2s var(--ease) 200ms both;
+}
+.tBulb {
+  position: absolute;
+  color: #ff9f3b;
+  left: 2px;
+  bottom: 0;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  box-shadow: 0 0 12px currentColor;
+}
+
+/* ── comfort ───────────────────────────────────────────── */
+.comfort {
+  display: grid;
+  gap: 10px;
+}
+.cfTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.drop2 {
+  display: grid;
+  justify-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #6cc4ff;
+}
+.drop2 svg {
+  width: 34px;
+  height: 44px;
+}
+.dropShell {
+  fill: color-mix(in srgb, var(--bg) 60%, transparent);
+  stroke: #6cc4ff;
+  stroke-width: 1.5;
+}
+.dropFill {
+  fill: #3ea6ff;
+  opacity: 0.85;
+  transition: transform 1.2s var(--ease);
+}
+.cfBar {
+  position: relative;
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(
+    90deg,
+    #5ac8fa,
+    #4cd964,
+    #a3e635,
+    #ffcc00,
+    #ff9500,
+    #ff3b30
+  );
+}
+.cfBar i {
+  position: absolute;
+  top: -4px;
+  width: 4px;
+  height: 14px;
+  margin-left: -2px;
+  border-radius: 2px;
+  background: #fff;
+  box-shadow: 0 0 8px #fff;
+  animation: fade 600ms ease 400ms both;
+}
+.cfLabels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--muted);
+}
+
+/* ── keyframes ─────────────────────────────────────────── */
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+}
+@keyframes breathe {
+  50% {
+    transform: scale(1.08);
+    opacity: 0.8;
+  }
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes twinkle {
+  50% {
+    opacity: 0.2;
+  }
+}
+@keyframes drift {
+  to {
+    transform: translateX(14px);
+  }
+}
+@keyframes fall {
+  from {
+    transform: translateY(-14px);
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+  }
+  to {
+    transform: translateY(26px);
+    opacity: 0;
+  }
+}
+@keyframes snow {
+  from {
+    transform: translate(0, -12px);
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+  }
+  to {
+    transform: translate(6px, 30px);
+    opacity: 0;
+  }
+}
+@keyframes flash {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  11% {
+    opacity: 0.2;
+  }
+  14% {
+    opacity: 1;
+  }
+  20% {
+    opacity: 0;
+  }
+}
+@keyframes wipe {
+  from {
+    transform: scaleX(0);
+  }
+}
+@keyframes grow {
+  from {
+    transform: scaleY(0);
+  }
+}
+@keyframes ping {
+  from {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  to {
+    transform: scale(3);
+    opacity: 0;
+  }
+}
+@keyframes swing {
+  from {
+    transform: rotate(-90deg);
+  }
+}
+@keyframes ride {
+  from {
+    transform: rotate(-90deg);
+  }
+}
+@keyframes spinIn {
+  from {
+    transform: rotate(calc(var(--deg) - 200deg));
+    opacity: 0;
+  }
+}
+:global(html[data-tier="low"]) .rays,
+:global(html[data-tier="low"]) .c1,
+:global(html[data-tier="low"]) .c2,
+:global(html[data-tier="low"]) .c3,
+:global(html[data-tier="low"]) .drop,
+:global(html[data-tier="low"]) .flake,
+:global(html[data-tier="low"]) .fog,
+:global(html[data-tier="low"]) .star,
+:global(html[data-tier="low"]) .nowPulse {
+  animation: none;
+}
