@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/Card";
 import { requireAdmin } from "@/lib/auth/admin-guard";
 import { age } from "@/lib/auth/signup";
 import { setMember, startLens } from "../../actions";
+import { Tools } from "./Tools";
 
 export const metadata: Metadata = { title: "Member · Admin · StormSync Media" };
 
@@ -151,6 +152,9 @@ export default async function Member({
           {isMember ? "Remove SSWX Member" : "Make SSWX Member"}
         </Button>
       </form>
+      {!r.includes("admin") && !r.includes("founder") && (
+        <Tools id={id} name={name} />
+      )}
       <section className="grid gap-2">
         <h2 className="font-bold">Referred {referred?.length ?? 0}</h2>
         {(referred ?? []).map((x, i) => (

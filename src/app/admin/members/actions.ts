@@ -106,3 +106,79 @@ export async function createMember(
     `/admin/members/${id}?created=${link ? "link" : pin ? "pin" : "none"}`,
   );
 }
+
+export type ToolState = { error?: string; ok?: string } | null;
+
+async function target(id: string) {
+  if (!/^[0-9a-f-]{36}$/.test(id)) return null;
+  const admin = supabaseAdmin();
+  const [{ data: u }, { data: roles }, { data: p }] = await Promise.all([
+    admin.auth.admin.getUserById(id),
+    admin.from("user_roles").select("role").eq("user_id", id),
+    admin
+      .from("profiles")
+      .select("first_name, last_name")
+      .eq("id", id)
+      .maybeSingle(),
+  ]);
+  if (!u.user?.email || !p) return null;
+  return {
+    admin,
+    email: u.user.email,
+    name: `${p.first_name} ${p.last_name}`,
+    staff: (roles ?? []).some(
+      (r) => r.role === "admin" || r.role === "founder",
+    ),
+  };
+}
+
+/** Sets a new 4-digit PIN for a member (VIP's "Reset PIN"); clears any lockout. */
+export async function resetPin(_: ToolState, fd: FormData): Promise<ToolState> {
+  const { supabase } = await requireAdmin("members");
+  const pin = String(fd.get("pin") ?? "");
+  if (!/^\d{4}$/.test(pin)) return { error: "A PIN is 4 digits." };
+  const t = await target(String(fd.get("userId") ?? ""));
+  if (!t) return { error: "That member couldn't be found." };
+  if (t.staff) return { error: "Admins change their own PIN." };
+  const { error } = await t.admin.auth.admin.updateUserById(
+    String(fd.get("userId")),
+    { password: pinPassword(t.email, pin) },
+  );
+  if (error) return { error: "The PIN couldn't be saved. Try again." };
+  await t.admin
+    .from("profiles")
+    .update({ pin_set: true })
+    .eq("id", String(fd.get("userId")));
+  await supabase.rpc("log_admin", { p_action: "reset_pin", p_target: t.name });
+  return { ok: "New PIN saved. Tell them in person or by text." };
+}
+
+/** Removes a member's account and everything tied to it. Typed confirmation; never admins. */
+export async function removeMember(
+  _: ToolState,
+  fd: FormData,
+): Promise<ToolState> {
+  const { supabase } = await requireAdmin("members");
+  const id = String(fd.get("userId") ?? "");
+  const t = await target(id);
+  if (!t) return { error: "That member couldn't be found." };
+  if (t.staff) return { error: "Admins and the owner can't be removed here." };
+  if (
+    String(fd.get("confirm") ?? "")
+      .trim()
+      .toLowerCase() !== t.name.toLowerCase()
+  )
+    return { error: `Type “${t.name}” to confirm.` };
+  // People they referred keep their accounts; only the link back goes.
+  await t.admin
+    .from("profiles")
+    .update({ referred_by: null })
+    .eq("referred_by", id);
+  const { error } = await t.admin.auth.admin.deleteUser(id);
+  if (error) return { error: "The account couldn't be removed. Try again." };
+  await supabase.rpc("log_admin", {
+    p_action: "remove_member",
+    p_target: t.name,
+  });
+  redirect("/admin/members");
+}
