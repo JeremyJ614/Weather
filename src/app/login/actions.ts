@@ -1,5 +1,6 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -145,6 +146,39 @@ async function savePin(_: FormState, fd: FormData): Promise<FormState> {
   return { error: undefined };
 }
 
+async function callbackUrl(next: string) {
+  const h = await headers();
+  const origin = h.get("origin") ?? `https://${h.get("host")}`;
+  return `${origin}/auth/callback?next=${encodeURIComponent(safeNext(next))}`;
+}
+
+async function google(_: FormState, fd: FormData): Promise<FormState> {
+  const supabase = await supabaseServer();
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: { redirectTo: await callbackUrl(String(fd.get("next") ?? "")) },
+  });
+  if (error || !data.url)
+    return { error: "Google sign-in couldn't start. Try again." };
+  redirect(data.url);
+}
+
+export type LinkState = { error?: string; sent?: string } | null;
+
+async function emailLink(_: LinkState, fd: FormData): Promise<LinkState> {
+  const email = normEmail(String(fd.get("email") ?? ""));
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+    return { error: "Enter your email." };
+  const supabase = await supabaseServer();
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: {
+      emailRedirectTo: await callbackUrl(String(fd.get("next") ?? "")),
+    },
+  });
+  return error ? { error: error.message } : { sent: email };
+}
+
 // Server misconfiguration (a missing key) must not crash the page; it shows a plain message.
 const unavailable = {
   error: "This is unavailable right now. Try Google or an email link.",
@@ -163,3 +197,15 @@ function guarded(fn: (s: FormState, fd: FormData) => Promise<FormState>) {
 export const signInWithPin = guarded(pinSignIn);
 export const createProfile = guarded(saveProfile);
 export const changePin = guarded(savePin);
+export const signInWithGoogle = guarded(google);
+export async function sendEmailLink(
+  s: LinkState,
+  fd: FormData,
+): Promise<LinkState> {
+  try {
+    return await emailLink(s, fd);
+  } catch (e) {
+    console.error(e);
+    return unavailable;
+  }
+}

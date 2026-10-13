@@ -1,66 +1,45 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { useActionState } from "react";
 import { Mail } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { supabaseBrowser } from "@/lib/supabase/browser";
-import { signInWithPin } from "./actions";
+import { sendEmailLink, signInWithGoogle, signInWithPin } from "./actions";
 
 const input = "min-h-11 w-full rounded-xl border border-line bg-bg px-3";
-const callback = (next: string) =>
-  `${location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
 
 export function LoginForm({ next }: { next: string }) {
-  const [state, pinAction, pinPending] = useActionState(signInWithPin, null);
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<{ text: string; error?: boolean } | null>(
+  const [pin, pinAction, pinPending] = useActionState(signInWithPin, null);
+  const [g, googleAction, googlePending] = useActionState(
+    signInWithGoogle,
     null,
   );
-  const emailRef = useRef<HTMLInputElement>(null);
-
-  const google = async () => {
-    setBusy(true);
-    const { error } = await supabaseBrowser().auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: callback(next) },
-    });
-    if (error) {
-      setBusy(false);
-      setMsg({ text: error.message, error: true });
-    }
-  };
-
-  const emailLink = async () => {
-    const el = emailRef.current;
-    if (!el?.reportValidity()) return;
-    const email = el.value.trim();
-    setBusy(true);
-    setMsg(null);
-    const { error } = await supabaseBrowser().auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: callback(next) },
-    });
-    setBusy(false);
-    setMsg(
-      error
-        ? { text: error.message, error: true }
-        : {
-            text: `Check ${email} for your sign-in link. It works once and expires in an hour.`,
-          },
-    );
-  };
+  const [link, linkAction, linkPending] = useActionState(sendEmailLink, null);
+  const busy = pinPending || googlePending || linkPending;
 
   return (
     <div className="grid gap-4">
-      <Button variant="primary" onClick={google} disabled={busy}>
-        <svg viewBox="0 0 24 24" className="size-4" aria-hidden>
-          <path
-            fill="currentColor"
-            d="M21.35 11.1H12v2.98h5.35c-.5 2.5-2.62 3.92-5.35 3.92a6 6 0 1 1 3.9-10.56l2.2-2.15A9.1 9.1 0 0 0 12 3a9 9 0 1 0 0 18c4.97 0 8.6-3.5 8.6-8.7 0-.42-.08-.83-.25-1.2Z"
-          />
-        </svg>
-        Continue with Google
-      </Button>
+      <form action={googleAction}>
+        <input type="hidden" name="next" value={next} />
+        <Button
+          type="submit"
+          variant="primary"
+          disabled={busy}
+          className="w-full"
+        >
+          <svg viewBox="0 0 24 24" className="size-4" aria-hidden>
+            <path
+              fill="currentColor"
+              d="M21.35 11.1H12v2.98h5.35c-.5 2.5-2.62 3.92-5.35 3.92a6 6 0 1 1 3.9-10.56l2.2-2.15A9.1 9.1 0 0 0 12 3a9 9 0 1 0 0 18c4.97 0 8.6-3.5 8.6-8.7 0-.42-.08-.83-.25-1.2Z"
+            />
+          </svg>
+          Continue with Google
+        </Button>
+        {g?.error && (
+          <p role="alert" className="mt-2 text-sm text-accent">
+            {g.error}
+          </p>
+        )}
+      </form>
       <div className="flex items-center gap-3 text-xs text-muted">
         <span className="h-px flex-1 bg-line" />
         or
@@ -71,7 +50,6 @@ export function LoginForm({ next }: { next: string }) {
         <label className="grid gap-1 text-sm font-bold">
           Email
           <input
-            ref={emailRef}
             name="email"
             type="email"
             required
@@ -91,30 +69,32 @@ export function LoginForm({ next }: { next: string }) {
             className={input}
           />
         </label>
-        {state?.error && (
+        {pin?.error && (
           <p role="alert" className="text-sm text-accent">
-            {state.error}
+            {pin.error}
           </p>
         )}
-        <Button type="submit" disabled={pinPending || busy}>
+        <Button type="submit" disabled={busy}>
           {pinPending ? "Signing in…" : "Sign in with PIN"}
         </Button>
         <Button
-          type="button"
+          type="submit"
           variant="ghost"
-          onClick={emailLink}
+          formAction={linkAction}
+          formNoValidate
           disabled={busy}
         >
           <Mail className="size-4" aria-hidden /> New here or forgot your PIN?
           Email me a link
         </Button>
       </form>
-      {msg && (
+      {link && (
         <p
           role="status"
-          className={`text-sm ${msg.error ? "text-accent" : "text-muted"}`}
+          className={`text-sm ${link.error ? "text-accent" : "text-muted"}`}
         >
-          {msg.text}
+          {link.error ??
+            `Check ${link.sent} for your sign-in link. It works once and expires in an hour.`}
         </p>
       )}
     </div>
