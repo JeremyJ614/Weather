@@ -7,8 +7,9 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 ## Planning
 - [x] S-A. Section A lab: menus, intro, admin extras, themes, pricing (`design-lab/section-a`)
 - [x] S-B. Section B answers (`docs/02-SECTION-B.md`) and this phase list
-- [ ] S-Q. Questionnaire (interactive) answered by the owner
-- [ ] S-P. Full BuildPlan with bug & glitch log (`docs/05-BUILDPLAN.md`)
+- [x] S-Q. Questionnaire (interactive) answered by the owner
+- [x] S-P. Full BuildPlan with bug & glitch log (`docs/05-BUILDPLAN.md`)
+- [ ] S-D. Owner picks Google DeepMind items
 
 ## Foundation
 - [ ] 01. Project skeleton: Next.js, TypeScript, lint, tests, `npm run verify`, CI, performance budget
@@ -18,7 +19,7 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 - [ ] 05. StormSync Media 3D intro as the launch screen: short, tiny "Created By: Jay Myers" at the end, tap to skip, off switch in account settings
 - [ ] 06. Menu system: every offered style as a component, each declaring its control spots; collision avoidance when two are combined; same menu can't be both; every launch page routed; unbuilt pages show an honest phase notice
 - [ ] 07. Second-menu lists, defaults set from the admin panel, and the four menu fixes (Radial Plates, Speed Dial, Color Morph Bar, Flip Tiles)
-- [ ] 08. Accounts: signup, login, sessions, password reset, Row Level Security on every table
+- [ ] 08. Accounts: 4-digit PIN sign-in with lockout, email link, Google, Apple, text code; signup form (editable), referral codes; owner account; RLS on every table
 - [ ] 09. Roles: user, SSWX Member, Admin as a second role, subscription tiers mapped to roles
 - [ ] 10. Saved location, permission flow and a shared weather-data layer with caching
 
@@ -48,7 +49,7 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 - [ ] 27. Daily Trivia with admin question and points editor
 - [ ] 28. Leaderboard (weekly, monthly, yearly) with admin points and past-winner entry
 - [ ] 29. Weekly Polls with admin scheduling
-- [ ] 30. Raffles (only if confirmed in the questionnaire)
+- [ ] 30. (moved to post-launch: Raffles)
 
 ## Severe Weather
 - [ ] 31. SSWXCon Score (port)
@@ -70,17 +71,17 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 - [ ] 45. Radar & Model Runs on one page with subtabs (port)
 - [ ] 46. River & Flood Gauges with the top 5 worst gauges
 - [ ] 47. 3D Soundings map with clickable soundings and hodographs
-- [ ] 48. StormNet, Google DeepMind and Traffic Cameras (only those confirmed)
+- [ ] 48. StormNet (when API approved), chosen Google DeepMind items, Traffic Cameras (owner-only until approved)
 
 ## Specialty Monitoring
 - [ ] 49. Star Gazing Forecast map (blended night-sky outlook, our style)
 - [ ] 50. Astronomy (Moon & Astronomy port)
 - [ ] 51. Aurora Center with view-line map, image download and interactive mode
 - [ ] 52. Lightning Monitoring (rebuilt)
-- [ ] 53. FairWeather Tracking (only if confirmed for launch)
+- [ ] 53. (moved to post-launch: FairWeather Tracking)
 
 ## Educational
-- [ ] 54. Climatology: tornado and lightning subtabs (port), plus a third if confirmed
+- [ ] 54. Climatology: tornado, lightning and hurricane subtabs
 - [ ] 55. Weather Glossary (port)
 - [ ] 56. Free Content Library (port from Academy)
 

@@ -2,7 +2,7 @@
 
 **Objective:** StormSync Weather (Weather.SSWX.Space): one mobile-first PWA + Android .apk merging the team's weather apps. Free to run until revenue.
 
-**Stage:** Planning. Section A + B published for owner answers. Questionnaire is on hold until the owner finishes A and B (owner instruction, 2026-10-13).
+**Stage:** Planning done (Sections A/B, questionnaire, BuildPlan). Waiting on owner's Google DeepMind picks, then phase 01.
 
 **Decisions so far**
 - Repo `JeremyJ614/Weather`, working branch `ccr-f5e0b71a-4vr2wk`. No `main` branch yet (repo was empty).
@@ -30,10 +30,10 @@
 **Blockers:** CodePen for A2 blocked by Cloudflare; owner may paste its code.
 
 **Next actions**
-1. Owner is writing out lost notes + B2/B3 engine marks; read `picks/selection` and `themes/selection`.
-2. Apply menu fixes (#31, #15, #30, #11); icons regenerated already.
-3. Build the Step 3A questionnaire (interactive, saves answers).
-4. Write `docs/05-BUILDPLAN.md` with bug & glitch log.
-5. Start phase 01.
+1. Get owner's DeepMind picks; add them to the BuildPlan.
+2. Create `main` from this branch (owner approved), open PR.
+3. Phase 01: project skeleton.
+
+**Lab answers:** questionnaire https://claude.ai/artifact/1S89fRJDQe5QzLj9xEKuQc (db `answers/owner`).
 
 **Resume:** `git -C /home/user/Weather log --oneline -5`; lab test: `node <scratchpad>/test-lab.js design-lab/section-a <outdir>`.
