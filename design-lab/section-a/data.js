@@ -165,3 +165,76 @@ const PRICING = [
     tiers: [["Basic", "$0", "Standard in-app alerts"], ["Personal", "$2.99/mo", "Custom alerts for your saved places"], ["Direct Line", "$19.99/mo", "Direct contact with the team during events"]],
     good: "Clear value for people who need it most.", watch: "Direct Line needs staff time during outbreaks." }
 ];
+
+/* ---------- Section B ---------- */
+const B1_DECISIONS = [
+  { id: "hosting", q: "When subscriptions start, where should the app live?", why: "Vercel's free plan does not allow selling. Cloudflare Pages stays free and allows it.",
+    opts: [["vercelpro", "Vercel Pro, $20/mo"], ["cloudflare", "Move to Cloudflare Pages, free"], ["later", "Decide when we start charging"]] },
+  { id: "sms", q: "Text-message briefs cost about 1 cent each. What should we do?", why: "Email, push and in-app briefs are free.",
+    opts: [["skip", "Launch without SMS"], ["later", "Add SMS once revenue covers it"], ["now", "Pay for SMS from launch"]] },
+  { id: "iphone", q: "How should iPhone users install the app?", why: "A file install is not possible on iPhone without Apple's $99/yr program.",
+    opts: [["pwa", "Add to Home Screen (free)"], ["appstore", "App Store ($99/yr)"], ["both", "Home Screen now, App Store later"]] },
+  { id: "android", q: "How should Android users install it?", why: "An .apk file installs directly and is free. Google Play is a one-time $25.",
+    opts: [["apk", ".apk file only (free)"], ["play", "Google Play ($25 once)"], ["both", ".apk now, Google Play later"]] },
+  { id: "engines", q: "How often should Extras engines update?", why: "GitHub Actions is free; faster updates use more of the free minutes.",
+    opts: [["hourly", "Hourly (fits free limits)"], ["30", "Every 30 min during storm season"], ["10", "Every 10 min (needs a paid runner)"]] }
+];
+const B1_FREE = [
+  ["Hosting", "Vercel Hobby", "Free while nothing is sold"],
+  ["Database & logins", "Supabase Free", "500 MB, 50k monthly users, pauses after 7 idle days"],
+  ["AI", "Gemini free tier", "Rate-limited; results are cached"],
+  ["Weather data", "NWS, SPC, WPC, CPC, NHC, USGS, MRMS, GOES, HRRR, IEM, SWPC", "Free"],
+  ["Maps", "MapLibre + free basemaps", "No key, no limit"],
+  ["Email briefs", "Resend", "3,000 a month, 100 a day"],
+  ["Push alerts", "Web Push", "Free and unlimited"],
+  ["Payments", "Stripe", "No monthly fee, about 2.9% + 30¢ per sale"],
+  ["Python engines", "GitHub Actions", "Free on public repos, 2,000 min/mo private"],
+  ["Domain", "Weather.SSWX.Space", "Already owned"]
+];
+const B2_ENGINES = [
+  ["probtor", "ProbTor 0–60 min tornadogenesis", "Buildable", "Good at 0–20 min, weak past 30", "Built on NOAA's free ProbSevere tornado probabilities, plus AzShear trend and lightning jumps, projected along storm motion as cones."],
+  ["probhail", "ProbHail 2\"+ swath & size", "Buildable", "Good 0–30 min", "MESH plus storm motion gives a reliable short swath, shown as probability bands for 1\", 1.75\" and 2.5\"+."],
+  ["ci", "Convective Initiation 90-min", "Buildable", "Fair", "GOES cloud-top cooling, HRRR cap erosion and first radar echoes, as fuzzy 30/60/90-min areas."],
+  ["merger", "Supercell Merger & Boundary Interaction", "Hard", "Experimental only", "Can flag a likely interaction and its timing; predicting good vs bad outcome is research-level, so no outcome label."],
+  ["llj", "Nocturnal Low-Level Jet Ramp-Up", "Buildable", "Good", "HRRR/RAP 850 and 925 mb winds, low-level helicity and instability overnight."],
+  ["derecho", "Derecho & Bow Echo Corridor", "Buildable", "Fair at 6–12 h", "Shear, DCAPE and Corfidi vectors make the corridor; radar notches only describe storms already there."],
+  ["dryline", "Dryline Bulge & Triple Point", "Buildable", "Fair", "Finds the dryline from HRRR moisture gradients and shades probability, not exact counties."],
+  ["photogenic", "Photogenic Supercell & Viewshed", "Buildable", "Entertainment, not verifiable", "A 0–100 Structure Score from cloud base height, rain efficiency, anvil winds and sun angle."],
+  ["pyrocb", "Wildfire Blowup & PyroCb", "Buildable", "Fair", "GOES fire heat output and smoke, plus the Hot-Dry-Windy Index and dry soundings."],
+  ["blindspot", "Radar Horizon Blind Spot", "Buildable", "High (it is geometry)", "Beam height from Earth curvature and terrain, computed once per radar. Cheapest and most trustworthy."],
+  ["svc", "Streamwise Vorticity Current Mapper", "Buildable", "Experimental", "HRRR's 3 km grid blurs the small features it looks for, so it is a research layer."],
+  ["nsv", "Non-Supercell Landspout & Waterspout", "Buildable", "Fair", "Close to SPC's proven Non-Supercell Tornado parameter."]
+];
+const B3_ENGINES = [
+  ["ljump", "Lightning Jump Alert", "A sudden rise in a storm's flash rate, often 10–20 minutes before severe weather."],
+  ["rottrack", "Rotation Track Persistence", "MRMS rotation tracks drawn as glowing trails showing which storms keep rotating."],
+  ["training", "Training Storms & Flash Flood Corridor", "Finds storms crossing the same ground again and again."],
+  ["burnscar", "Burn Scar Debris-Flow Watch", "Heavy rain rates over recent wildfire burn scars."],
+  ["capbust", "Cap Bust Meter", "How likely a big setup underperforms, from model spread in the cap and timing."],
+  ["recovery", "Airmass Recovery Clock", "A countdown to when instability returns after morning storms."],
+  ["intercept", "Chaser Intercept Planner", "Storm motion plus the road network gives the best roads and timing to intercept."],
+  ["downburst", "Downburst & Microburst Potential", "Microburst index from DCAPE, moisture and lapse rates."],
+  ["hailfoot", "Hail Damage Footprint", "Past hail swaths over population, feeding Disaster Response."],
+  ["squall", "Snow Squall Threat", "SPC's Snow Squall Parameter mapped hourly for drivers."],
+  ["ice", "Freezing Rain Accretion", "Ice thickness with power-outage risk tiers."],
+  ["fog", "Dense Fog for Drivers", "Satellite night fog plus visibility along interstates."],
+  ["ri", "Tropical Rapid Intensification Watch", "Ocean heat and shear for the Tropical Battle Royale."],
+  ["tctor", "Landfalling Hurricane Tornado Risk", "Shear and helicity in a landfalling storm's outer bands."],
+  ["heatburst", "Heat Burst & Wake Low Detector", "Sudden overnight temperature spikes and pressure falls."]
+];
+const B4_PHASES = [
+  ["Planning", ["Section A lab", "Section B answers and phase list", "Questionnaire", "Full BuildPlan with bug & glitch log"]],
+  ["Foundation", ["Project skeleton, checks, CI, performance budget", "Vercel, Supabase, secrets, domain", "Installable app: PWA, icons, offline, splash", "Design system and motion rules", "StormSync Media intro as launch screen", "Main menu with every launch page routed", "Second menu", "Accounts and Row Level Security", "Roles and subscription tiers", "Saved location and shared weather-data layer"]],
+  ["Admin Panel", ["Admin shell, admins and permissions, audit log", "News & Announcements editor", "Chosen admin extras, part 1", "Chosen admin extras, part 2"]],
+  ["Homepage", ["Weather News (top 15, auto)", "SSWX News with unread glow", "App Updates"]],
+  ["Localized Data", ["Dashboard widgets", "Dashboard: WPC subtab", "Dashboard: CPC and Fall Forecast subtabs", "Daily Brief", "Forecast Discussion (Simplified + Standard)", "AQI & Pollen", "Mosquito Index", "Daylight Tracker"]],
+  ["Community", ["Forecast Game", "Daily Trivia + admin editor", "Leaderboard + admin points and past winners", "Weekly Polls + admin scheduling", "Raffles (if confirmed)"]],
+  ["Severe Weather", ["SSWXCon Score", "Warnings & Reports", "SPC & Probability", "Mesoscale Discussions", "Atmospheric Ingredients", "Storm Timing Index", "Tropical Outlook", "Tropical Model Battle Royale", "Hazards & Droughts + interactive hazards map", "Flooding Outlook", "Fire Weather with active wildfires", "Winter Center", "Storm Chasing Outlook with lasting stats", "Severe Weather History, rebuilt for speed"]],
+  ["Tools & Other Data", ["Radar & Model Runs", "River & Flood Gauges + top 5", "3D Soundings map", "StormNet, DeepMind, Traffic Cameras (if confirmed)"]],
+  ["Specialty Monitoring", ["Star Gazing map", "Astronomy", "Aurora Center", "Lightning Monitoring", "FairWeather Tracking (if confirmed)"]],
+  ["Educational", ["Climatology", "Weather Glossary", "Free Content Library"]],
+  ["Everything Else", ["Weather Patterns", "Extras: engine pipeline", "Extras: first engines", "Extras: next engines", "Disaster Response + admin inbox"]],
+  ["Account", ["My Profile", "Notifications center", "Signup with live price tracker and Stripe"]],
+  ["Second menu", ["Tornado Archive: data pipeline", "Tornado Archive: replay", "Storm Chasing Log"]],
+  ["Finish", ["Bug, glitch, performance and style sweep", "Full walkthrough as a real user", "Packaging and launch"]]
+];

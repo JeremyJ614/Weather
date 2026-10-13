@@ -9,8 +9,8 @@
     <div class="brand"><img src="assets/logo-primary.webp" alt="StormSync Media" width="135" height="40"><small>Weather.SSWX.Space · Section A</small></div>
     <span class="save-state" id="save">Loading…</span>
   </header>
-  <h1>Pick the look of <em>StormSync Weather</em></h1>
-  <p class="lede">Everything here is live and works on your phone. Try each menu, choose one for the main menu and one for the second menu, then pick a theme, your admin extras and a pricing model. Your picks save as you go.</p>
+  <h1>Sections A &amp; B for <em>StormSync Weather</em></h1>
+  <p class="lede">Everything here is live and works on your phone. A1 to A5 are the design picks; B1 to B4 answer your Section B questions and ask for your call on each. Every tab has a notes box for anything else. Your answers save as you go.</p>
 
   <nav class="tabs" role="tablist" aria-label="Section A">
     <button class="tab" role="tab" data-p="a1" aria-selected="true"><b>A1</b>Menus</button>
@@ -18,6 +18,10 @@
     <button class="tab" role="tab" data-p="a3" aria-selected="false"><b>A3</b>Admin extras</button>
     <button class="tab" role="tab" data-p="a4" aria-selected="false"><b>A4</b>Themes</button>
     <button class="tab" role="tab" data-p="a5" aria-selected="false"><b>A5</b>Pricing</button>
+    <button class="tab" role="tab" data-p="b1" aria-selected="false"><b>B1</b>Free?</button>
+    <button class="tab" role="tab" data-p="b2" aria-selected="false"><b>B2</b>Your engines</button>
+    <button class="tab" role="tab" data-p="b3" aria-selected="false"><b>B3</b>New engines</button>
+    <button class="tab" role="tab" data-p="b4" aria-selected="false"><b>B4</b>Phases</button>
   </nav>
 
   <section class="panel" id="a1">
@@ -79,6 +83,32 @@
     <h2>10 pricing models</h2>
     <p class="sub">Prices are starting points you can change any time from the admin panel. Pick one, or shortlist a few to mix.</p>
     <div class="prices" id="prices"></div>
+  </section>
+
+  <section class="panel" id="b1" hidden>
+    <h2>Can it all be free?</h2>
+    <p class="sub"><b>Yes, at launch.</b> Every data source is free and public, and every service below has a free tier big enough to start. Four things cost money; your call on each is below.</p>
+    <div class="freetbl"><table><thead><tr><th>Need</th><th>Free option</th><th>Limit that matters</th></tr></thead><tbody id="b1-table"></tbody></table></div>
+    <h3 class="qh">Your decisions</h3>
+    <div class="decs" id="b1-decs"></div>
+  </section>
+
+  <section class="panel" id="b2" hidden>
+    <h2>Your 12 prototype engines</h2>
+    <p class="sub">All 12 can share one Extras page and stay smooth: a scheduled Python job does the heavy math and saves small map layers, and the page only draws the tab you open. Accuracy varies, so every engine gets an Experimental badge and a "How this works" panel. Mark each one for launch, later, or skip.</p>
+    <div class="engs" id="b2-list"></div>
+  </section>
+
+  <section class="panel" id="b3" hidden>
+    <h2>15 more engine ideas</h2>
+    <p class="sub">Each uses only free radar, MRMS, satellite or model data. Mark the ones you want.</p>
+    <div class="engs" id="b3-list"></div>
+  </section>
+
+  <section class="panel" id="b4" hidden>
+    <h2>The phase list</h2>
+    <p class="sub">Small phases, each tested and pushed before the next starts, and ticked off as they finish. Items marked "if confirmed" depend on your answers. Use the notes box to reorder or add anything.</p>
+    <div class="phases" id="b4-list"></div>
   </section>
 
   <div class="summary"><h3>Your picks</h3><dl id="summary-dl"></dl></div>

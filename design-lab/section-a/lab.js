@@ -5,7 +5,7 @@
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   /* ---------- picks: stored in the artifact database so Claude can read them ---------- */
-  const picks = { mainMenu: null, secondMenu: null, favMenus: [], theme: null, favThemes: [], admin: [], pricing: null, favPricing: [] };
+  const picks = { mainMenu: null, secondMenu: null, favMenus: [], theme: null, favThemes: [], admin: [], pricing: null, favPricing: [], b1: {}, engines: {}, newEngines: {}, notes: {} };
   let db = null, saveTimer = 0;
   const saveLabel = $("#save");
   function setSaveText(t) { saveLabel.innerHTML = t; }
@@ -170,16 +170,32 @@
   function renderSummary() {
     const mn = id => MENUS.find(m => m.id === id)?.name, tn = id => THEMES.find(t => t.id === id)?.name, pn = id => PRICING.find(p => p.id === id)?.name;
     const none = "<span style='color:var(--muted)'>Not chosen yet</span>";
-    $("#summary-dl").innerHTML = `<dt>Main menu</dt><dd>${mn(picks.mainMenu) || none}</dd><dt>Second menu</dt><dd>${mn(picks.secondMenu) || none}</dd><dt>Menu shortlist</dt><dd>${picks.favMenus.map(mn).join(", ") || none}</dd><dt>Theme</dt><dd>${tn(picks.theme) || none}</dd><dt>Theme shortlist</dt><dd>${picks.favThemes.map(tn).join(", ") || none}</dd><dt>Admin extras</dt><dd>${picks.admin.length ? picks.admin.length + " selected" : none}</dd><dt>Pricing</dt><dd>${pn(picks.pricing) || none}</dd><dt>Pricing shortlist</dt><dd>${picks.favPricing.map(pn).join(", ") || none}</dd>`;
+    const cnt = o => { const v = Object.values(o || {}); return v.length ? `${v.filter(x => x === "launch").length} at launch, ${v.filter(x => x === "later").length} later, ${v.filter(x => x === "skip").length} skipped` : none; };
+    $("#summary-dl").innerHTML = `<dt>Main menu</dt><dd>${mn(picks.mainMenu) || none}</dd><dt>Second menu</dt><dd>${mn(picks.secondMenu) || none}</dd><dt>Menu shortlist</dt><dd>${picks.favMenus.map(mn).join(", ") || none}</dd><dt>Theme</dt><dd>${tn(picks.theme) || none}</dd><dt>Theme shortlist</dt><dd>${picks.favThemes.map(tn).join(", ") || none}</dd><dt>Admin extras</dt><dd>${picks.admin.length ? picks.admin.length + " selected" : none}</dd><dt>Pricing</dt><dd>${pn(picks.pricing) || none}</dd><dt>Pricing shortlist</dt><dd>${picks.favPricing.map(pn).join(", ") || none}</dd><dt>B1 decisions</dt><dd>${Object.keys(picks.b1 || {}).length} of ${B1_DECISIONS.length} answered</dd><dt>Your engines</dt><dd>${cnt(picks.engines)}</dd><dt>New engines</dt><dd>${cnt(picks.newEngines)}</dd>`;
   }
+
+
+  /* ---------- Section B ---------- */
+  $("#b1-table").innerHTML = B1_FREE.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join("");
+  const seg = (key, id, opts) => `<div class="seg" data-key="${key}" data-id="${id}">${opts.map(([v, l]) => `<button data-val="${v}" aria-pressed="false">${l}</button>`).join("")}</div>`;
+  const ENG_OPTS = [["launch", "At launch"], ["later", "Post-launch"], ["skip", "Skip"]];
+  $("#b1-decs").innerHTML = B1_DECISIONS.map(d => `<div class="dec"><b>${d.q}</b><p>${d.why}</p>${seg("b1", d.id, d.opts)}</div>`).join("");
+  $("#b2-list").innerHTML = B2_ENGINES.map(([id, n, v, a, d]) => `<div class="eng"><b>${n}</b><div class="meta"><span class="pill ${v === "Hard" ? "hard" : ""}">${v}</span><span class="pill">Accuracy: ${a}</span></div><p>${d}</p>${seg("engines", id, ENG_OPTS)}</div>`).join("");
+  $("#b3-list").innerHTML = B3_ENGINES.map(([id, n, d]) => `<div class="eng"><b>${n}</b><p>${d}</p>${seg("newEngines", id, ENG_OPTS)}</div>`).join("");
+  $("#b4-list").innerHTML = B4_PHASES.map(([g, list], gi) => `<div class="phase"><h4>${g}</h4><ol>${list.map((t, i) => `<li class="${gi === 0 && i < 2 ? "done" : ""}">${t}</li>`).join("")}</ol></div>`).join("");
+  document.addEventListener("click", e => { const b = e.target.closest(".seg button"); if (!b) return; const w = b.parentElement, key = w.dataset.key, id = w.dataset.id; picks[key][id] = picks[key][id] === b.dataset.val ? undefined : b.dataset.val; if (picks[key][id] === undefined) delete picks[key][id]; syncSegs(); save(); });
+  function syncSegs() { $$(".seg").forEach(w => { const v = picks[w.dataset.key][w.dataset.id]; $$("button", w).forEach(b => b.setAttribute("aria-pressed", b.dataset.val === v)); }); }
+  const NOTE_LABEL = { a1: "Notes on the menus", a2: "Notes on the intro", a3: "Notes on the admin panel", a4: "Notes on themes", a5: "Notes on pricing", b1: "Notes on cost and installing", b2: "Notes on your engines", b3: "Notes on new engines", b4: "Changes to the phase order" };
+  $$("section.panel").forEach(p => { const n = el(`<div class="notes"><label for="note-${p.id}">${NOTE_LABEL[p.id]}</label><textarea id="note-${p.id}" placeholder="Anything to add, change or ask"></textarea></div>`); p.appendChild(n); const ta = n.querySelector("textarea"); ta.oninput = () => { picks.notes[p.id] = ta.value; save(); }; });
+  function syncNotes() { $$(".notes textarea").forEach(t => { const id = t.id.slice(5); if (document.activeElement !== t) t.value = picks.notes[id] || ""; }); }
 
   /* ---------- boot ---------- */
   function boot() {
     applyTheme("royal");
     placeKnob(); mount(MENUS.findIndex(m => m.id === "vortex"));
-    syncLists();
+    syncLists(); syncSegs();
     let tab = "a1"; try { tab = localStorage.getItem("lab-tab") || "a1"; } catch (e) {}
-    const want = location.hash.replace("#", ""); if (/^a[1-5]$/.test(want)) tab = want;
+    const want = location.hash.replace("#", ""); if (/^(a[1-5]|b[1-4])$/.test(want)) tab = want;
     $(`.tab[data-p="${tab}"]`)?.click();
     setSaveText("Connecting to save picks\u2026");
     (async () => {
@@ -187,7 +203,7 @@
       if (!db) { setSaveText("Picks are kept on this screen only"); return; }
       try {
         const snap = await db.doc("picks/selection").get(); const d = snap.data && snap.data();
-        if (d) { for (const k of Object.keys(picks)) if (d[k] !== undefined) picks[k] = d[k]; if (picks.theme) applyTheme(picks.theme); syncLists(); syncPickButtons(); }
+        if (d) { for (const k of Object.keys(picks)) if (d[k] !== undefined) picks[k] = d[k]; if (picks.theme) applyTheme(picks.theme); syncLists(); syncPickButtons(); syncSegs(); syncNotes(); }
         setSaveText("<b>Connected</b> \u00b7 your picks save automatically");
       } catch (e) { setSaveText("Could not load saved picks: " + (e?.message || e?.code || "unknown error")); }
     })();
