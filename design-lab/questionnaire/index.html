@@ -1,0 +1,118 @@
+<title>SSWX Build Questionnaire</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Mulish:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap">
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.184.0/examples/jsm/","animejs":"https://cdn.jsdelivr.net/npm/animejs@4.5.0/dist/modules/index.js","animejs/adapters/three":"https://cdn.jsdelivr.net/npm/animejs@4.5.0/dist/modules/adapters/three/index.js"}}</script>
+<style>
+/* Layout: one reading column; a sticky progress bar with section chips; question cards with tap-to-answer chips.
+   Dressed in the owner's default theme: VIP Gold palette with the Editorial Crown fonts. */
+:root {
+  --bg: #0b0c14; --surface: #13141f; --surface2: #1c1e2c; --line: #23253a; --text: #eceef5; --muted: #8f92a8;
+  --accent: #d9b76f; --accent2: #a9b0d6; --metal: #c9cbd6; --on-accent: #0b0a12;
+  --f-display: "Playfair Display", Georgia, serif; --f-body: "Mulish", system-ui, sans-serif; --f-mono: "JetBrains Mono", ui-monospace, monospace;
+  --ease: cubic-bezier(.2,.8,.2,1); --spring: cubic-bezier(.34,1.56,.64,1);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { background: var(--bg); color: var(--text); }
+body { font-family: var(--f-body); font-size: 16px; line-height: 1.55; padding-inline: 16px; padding-block: 0 80px; overflow-x: hidden; -webkit-tap-highlight-color: transparent; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+.wrap { max-width: 860px; margin-inline: auto; }
+.top { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding-block: 18px 4px; flex-wrap: wrap; }
+.top img { height: 36px; width: auto; filter: drop-shadow(0 0 12px color-mix(in srgb, var(--accent) 30%, transparent)); }
+.save { font-family: var(--f-mono); font-size: 11px; color: var(--muted); }
+.save b { color: var(--accent); }
+h1 { font-family: var(--f-display); font-weight: 800; font-size: clamp(32px, 6.5vw, 52px); line-height: 1.05; margin: 12px 0 8px; text-wrap: balance; }
+h1 em { color: var(--accent); font-style: italic; }
+.lede { color: var(--muted); margin: 0 0 18px; max-width: 62ch; }
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: linear-gradient(var(--bg) 82%, transparent); padding-block: 10px 12px; display: grid; gap: 8px; }
+.prog { height: 6px; border-radius: 6px; background: var(--surface2); overflow: hidden; }
+.prog i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); transform-origin: left; transform: scaleX(0); transition: transform .5s var(--ease); }
+.chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.chips::-webkit-scrollbar { display: none; }
+.sc { flex: none; padding: 6px 11px; border-radius: 999px; border: 1px solid var(--line); font-size: 12.5px; font-weight: 700; color: var(--muted); background: var(--surface); display: flex; gap: 6px; align-items: center; }
+.sc span { font-family: var(--f-mono); font-size: 10.5px; }
+.sc.done { color: var(--text); border-color: color-mix(in srgb, var(--accent) 60%, var(--line)); }
+.sc.done span { color: var(--accent); }
+section { padding-block: 22px 6px; scroll-margin-top: 90px; }
+h2 { font-family: var(--f-display); font-weight: 800; font-size: 28px; margin: 0 0 12px; display: flex; align-items: baseline; gap: 12px; }
+h2 small { font-family: var(--f-mono); font-size: 11px; color: var(--muted); font-weight: 400; letter-spacing: .1em; }
+.q { padding: 16px; border-radius: 18px; background: var(--surface); border: 1px solid var(--line); margin-bottom: 10px; display: grid; gap: 10px; transition: border-color .3s; }
+.q.answered { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.q h3 { margin: 0; font-size: 16.5px; font-weight: 800; line-height: 1.35; display: grid; grid-template-columns: auto 1fr; gap: 10px; }
+.q h3 .n { font-family: var(--f-mono); font-size: 11px; color: var(--accent); font-weight: 600; padding-top: 4px; }
+.q .help { margin: -4px 0 0 34px; color: var(--muted); font-size: 13.5px; }
+.opts { display: flex; flex-wrap: wrap; gap: 7px; }
+.opt { padding: 9px 13px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface2); font-size: 14px; font-weight: 700; text-align: left; transition: background .2s, color .2s, border-color .2s, transform .2s var(--spring); }
+.opt:active { transform: scale(.96); }
+.opt[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.many .opt[aria-pressed="true"]::before { content: "\2713  "; }
+textarea { width: 100%; min-height: 64px; resize: vertical; padding: 11px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface2); color: var(--text); font: 15px/1.5 var(--f-body); }
+textarea.main { min-height: 96px; }
+.notebtn { justify-self: start; font-size: 12.5px; color: var(--muted); font-weight: 700; padding: 2px 0; }
+/* Intro choice */
+.introbox { display: grid; gap: 12px; padding: 16px; border-radius: 20px; background: var(--surface); border: 1px solid var(--line); }
+.introbox p { margin: 0; color: var(--muted); font-size: 14.5px; }
+.duo { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 720px) { .duo { grid-template-columns: 1fr; } }
+.ver { display: grid; gap: 8px; }
+.ver h4 { margin: 0; font-family: var(--f-display); font-size: 20px; }
+.ver h4 small { font-family: var(--f-body); font-size: 13px; color: var(--muted); font-weight: 600; }
+.stage { position: relative; aspect-ratio: 16 / 10; border-radius: 16px; overflow: hidden; background: var(--bg); border: 1px solid var(--line); }
+.stage canvas { display: block; width: 100% !important; height: 100% !important; }
+.poster { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-family: var(--f-mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; text-align: center; padding: 12px; }
+.poster[hidden] { display: none; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn { padding: 10px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface2); font-weight: 800; font-size: 14px; }
+.btn.primary { background: var(--accent2); color: #0b0a12; border-color: var(--accent2); }
+.btn[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.done-card { margin-top: 26px; padding: 18px; border-radius: 20px; border: 1px solid var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
+.done-card h3 { margin: 0 0 6px; font-family: var(--f-display); font-size: 24px; }
+.done-card p { margin: 0 0 10px; color: var(--muted); }
+.toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translate(-50%, 20px); opacity: 0; visibility: hidden; padding: 10px 16px; border-radius: 12px; background: var(--text); color: var(--bg); font-weight: 800; font-size: 14px; transition: transform .4s var(--spring), opacity .25s, visibility .25s; z-index: 50; }
+.toast.show { transform: translate(-50%, 0); opacity: 1; visibility: visible; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; } }
+</style>
+
+<div class="wrap">
+  <header class="top"><img src="assets/logo-primary.webp" alt="StormSync Media" width="121" height="36"><span class="save" id="save">Loading&hellip;</span></header>
+  <h1>The <em>StormSync Weather</em> questionnaire</h1>
+  <p class="lede">Everything already settled in Sections A and B, the Theme Lab and our chat is left out. Tap an answer, add a note anywhere, and it saves as you go. This page wears your default theme: VIP Gold with Editorial Crown.</p>
+
+  <div class="bar"><div class="prog"><i id="prog"></i></div><nav class="chips" id="chips" aria-label="Sections"></nav></div>
+
+  <section id="s-intro">
+    <h2>Intro animation <small>CHOOSE ONE</small></h2>
+    <div class="introbox">
+      <p>Both end with “Created By: Jay Myers” appearing with the logo. The storm edit swaps the falling cube for a lightning bolt that turns into a tornado when it hits; everything else matches.</p>
+      <div class="duo">
+        <div class="ver"><h4>Original <small>cube</small></h4><div class="stage" id="st-classic"><div class="poster">Press Play</div></div><div class="row"><button class="btn primary" data-play="classic">Play</button><button class="btn" data-pick="classic" aria-pressed="false">Use this one</button></div></div>
+        <div class="ver"><h4>Storm edit <small>lightning to tornado</small></h4><div class="stage" id="st-storm"><div class="poster">Press Play</div></div><div class="row"><button class="btn primary" data-play="storm">Play</button><button class="btn" data-pick="storm" aria-pressed="false">Use this one</button></div></div>
+      </div>
+      <textarea id="note-intro" placeholder="Anything to change in the one you picked"></textarea>
+    </div>
+  </section>
+
+  <div id="qs"></div>
+
+  <div class="done-card"><h3>When you're done</h3><p>Answers save on their own. Tell me in chat that you've finished and I'll read them and write the full BuildPlan.</p><span class="save" id="count"></span></div>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script src="questions.js"></script>
+<script src="q.js"></script>
+<script src="intro-logo.js"></script>
+<script type="module">
+  import { playIntro } from "./intro3d.js";
+  const stops = {};
+  const tok = n => getComputedStyle(document.documentElement).getPropertyValue("--" + n).trim();
+  function play(v) {
+    const st = document.getElementById("st-" + v), poster = st.querySelector(".poster");
+    if (stops[v]) { stops[v](); stops[v] = null; }
+    poster.hidden = true;
+    try { stops[v] = playIntro(st, { bg: tok("bg"), metal: tok("metal"), accent: "#9aa8ff" }, { variant: v }); }
+    catch (e) { poster.hidden = false; poster.textContent = "This device could not start 3D graphics: " + e.message; }
+  }
+  document.querySelectorAll("[data-play]").forEach(b => b.onclick = () => play(b.dataset.play));
+</script>

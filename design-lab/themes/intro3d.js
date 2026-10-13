@@ -5,7 +5,7 @@
 import {
   Scene, WebGLRenderer, PerspectiveCamera, Color, Group, Box3, Vector3,
   Mesh, ExtrudeGeometry, MeshStandardMaterial, InstancedMesh, BoxGeometry, Object3D,
-  AmbientLight, DirectionalLight, ShaderMaterial, SphereGeometry, BackSide,
+  AmbientLight, DirectionalLight, ShaderMaterial, SphereGeometry, BackSide, Shape, TorusGeometry,
 } from 'three';
 import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
 import { animate, createTimeline, createTimer, stagger, utils, cubicBezier, linear } from 'animejs';
@@ -13,7 +13,8 @@ import { getInstances } from 'animejs/adapters/three';
 
 const mix = (a, b, t) => '#' + new Color(a).lerp(new Color(b), t).getHexString();
 
-export function playIntro(host, theme, { onEnd } = {}) {
+export function playIntro(host, theme, { onEnd, variant = 'classic' } = {}) {
+  const S = variant === 'storm';
   const L1 = INTRO_IDS.L1, L2 = INTRO_IDS.L2;
   const DEPTH = 0.2565, ITALIC_SKEW = 8;
   const BG = theme.bg, METAL = theme.metal, ACCENT = theme.accent;
@@ -85,6 +86,21 @@ export function playIntro(host, theme, { onEnd } = {}) {
   const cube = new Mesh(new BoxGeometry(tileSize, tileSize, tileSize), new MeshStandardMaterial({ color: ACCENT, roughness: 0.35, metalness: 0.2, emissive: new Color(ACCENT), emissiveIntensity: 0.15 }));
   scene.add(cube);
 
+  /* Storm variant: a lightning bolt falls instead of the cube and becomes a tornado on impact. */
+  let bolt = null, tornado = null; const rings = [];
+  if (S) {
+    const pts = [[0.2, 1.6], [-0.45, 0.1], [-0.02, 0.1], [-0.35, -1.6], [0.5, 0.35], [0.07, 0.35], [0.45, 1.6]];
+    const sh = new Shape(); pts.forEach(([x, y], i) => i ? sh.lineTo(x, y) : sh.moveTo(x, y)); sh.closePath();
+    const bg = new ExtrudeGeometry(sh, { depth: 0.25, bevelEnabled: false }); bg.translate(0, 1.6, -0.125);
+    bolt = new Mesh(bg, new MeshStandardMaterial({ color: '#ffffff', emissive: new Color(ACCENT), emissiveIntensity: 1.4, roughness: 0.3 }));
+    scene.add(bolt);
+    tornado = new Group();
+    const tMat = new MeshStandardMaterial({ color: mix(METAL, BG, 0.35), emissive: new Color(ACCENT), emissiveIntensity: 0.22, roughness: 0.6, transparent: true, opacity: 0.92 });
+    const N = 20;
+    for (let i = 0; i < N; i++) { const t = i / (N - 1); const ring = new Mesh(new TorusGeometry(0.1 + 0.95 * t ** 1.5, 0.04 + 0.05 * t, 8, 32), tMat); ring.rotation.x = Math.PI / 2; ring.position.y = -0.5 + t * 2.1; ring.userData.t = t; rings.push(ring); tornado.add(ring); }
+    scene.add(tornado);
+  }
+
   const ambient = new AmbientLight(0xffffff, 0.6); scene.add(ambient);
   const keyLight = new DirectionalLight(0xffffff, 1.6); scene.add(keyLight);
   const rimLight = new DirectionalLight(new Color(ACCENT), 0.6); scene.add(rimLight);
@@ -95,6 +111,10 @@ export function playIntro(host, theme, { onEnd } = {}) {
   const renderer = new WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1)); renderer.setSize(W(), H());
   host.appendChild(renderer.domElement); renderer.domElement.style.opacity = '0';
+  const credit = document.createElement('div');
+  credit.innerHTML = 'Created By:<br>Jay Myers';
+  credit.style.cssText = `position:absolute;right:12px;bottom:10px;z-index:2;font:600 9px/1.25 system-ui,sans-serif;letter-spacing:.06em;text-align:right;color:${METAL};opacity:0;pointer-events:none`;
+  host.appendChild(credit);
   const ro = new ResizeObserver(() => { camera.aspect = W() / H(); camera.updateProjectionMatrix(); renderer.setSize(W(), H()); });
   ro.observe(host);
 
@@ -114,13 +134,15 @@ export function playIntro(host, theme, { onEnd } = {}) {
   // The original frames a ~25-unit lockup on a wide screen; widen the pull-back for a longer lockup or a tall screen.
   const fitDezoom = () => 1.5 * Math.max(1, (FULL_W / 25) * (16 / 9) / (W() / H()) * 0.62);
 
-  const timer = createTimer({ priority: 0, onUpdate: () => { camera.position.z = FLATTEN_DIST_NUM * flattenDezoom.value / Math.tan(camera.fov * 0.5 * DEG2RAD); renderer.render(scene, camera); } });
+  let tl = null; const POP_AT = 8000;
+  const timer = createTimer({ priority: 0, onUpdate: () => { camera.position.z = FLATTEN_DIST_NUM * flattenDezoom.value / Math.tan(camera.fov * 0.5 * DEG2RAD); if (S) { const ct = tl ? tl.currentTime : 0; bolt.visible = ct < 2005; cube.visible = ct >= POP_AT; const k = performance.now() * 0.001; rings.forEach(r => { r.rotation.z = -k * (6 + 4 * (1 - r.userData.t)); r.position.x = Math.sin(k * 3 + r.userData.t * 5) * 0.09 * r.userData.t; }); } renderer.render(scene, camera); } });
 
   utils.set(skyMaterial, { topColor: mix(METAL, BG, 0.55), bottomColor: mix(METAL, BG, 0.2), offset: -38, exponent: 1.15 });
   utils.set(keyLight, { intensity: 1.6, color: '#ffffff', x: 0, y: 30, z: 0 });
   utils.set(rimLight, { intensity: 0.8, x: -200, y: -50, z: 150 });
   utils.set(tiles, { x: stagger(1, { grid: true, from: 'center', axis: 'x' }), z: stagger(1, { grid: true, from: 'center', axis: 'z' }), y: 0 });
   utils.set(cube, { x: 0, y: 0, z: 0, transformOriginY: -0.5 });
+  if (S) { cube.visible = false; utils.set(tornado, { scale: 0, transformOriginY: -0.5 }); utils.set(bolt, { x: 0, y: 24, z: 0 }); }
   utils.set(logoGroup, { x: X_POP, y: -0.31, z: -0.5 });
 
   const centerTile = tiles[Math.floor(FLOOR_ROWS / 2) * FLOOR_COLS + Math.floor(FLOOR_COLS / 2)];
@@ -135,13 +157,7 @@ export function playIntro(host, theme, { onEnd } = {}) {
   const lateShake = (amp, cycles, start, opts = {}) => { const inner = shake(amp, cycles, opts); return t => t < start ? 0 : inner((t - start) / (1 - start)); };
   const cb = cubicBezier;
 
-  const tl = createTimeline({ autoplay: false })
-  .add(renderer.domElement, { opacity: [0, 1], duration: 1300, ease: 'inOut(2)' }, 0)
-  .add(camera, {
-    rotateX: [{ to: 38, duration: 700, ease: 'inOut(2)' }, { to: 41, duration: 500, ease: 'inOutSine' }, { to: 40.5, duration: 200, ease: 'inOutSine' }, { to: 36, duration: 180, ease: 'in(2)' }, { to: 24, duration: 80, ease: 'in(2)' }, { to: -10, duration: 40, ease: 'in(1.5)' }, { to: -16.5, duration: 90, delay: 20, ease: 'out(2)' }, { to: -14.73, duration: 190, ease: 'inOutSine' }],
-    y: [{ to: 6.3, duration: 900, ease: 'inOut(2)' }, { to: 6.4, duration: 500, ease: 'inOutSine' }, { to: 6.15, duration: 180, ease: 'in(2)' }, { to: 5.04, duration: 120, ease: 'in(2)' }],
-  }, 300)
-  .add(cube, {
+  const CUBE_ENTER = {
     y: [{ from: 24, to: 1, duration: 300, delay: 1700, ease: 'in(5.0825)' }, { from: 0, to: 0.138, duration: 60, ease: cb(0, 1.1575, 0.5712, 0.9605) }, { to: -0.75, duration: 1040, ease: cb(0, 1.1575, 0.5712, 0.9605) }, { from: -1.75, to: -2.5, duration: 146, ease: 'out(9.8523)' }],
     scaleX: [{ from: 0, to: 1, duration: 2000 }, { from: 1.3, to: 1, duration: 100, ease: 'out(2)' }],
     scaleY: [{ from: 5, to: 2, duration: 2000 }, { to: 1.25, duration: 200, ease: cb(0.1, 0.7, 0.5763, 0.7728) }, { to: 1, duration: 900, ease: cb(0.1, 0.7, 0.5763, 0.7728) }],
@@ -149,7 +165,23 @@ export function playIntro(host, theme, { onEnd } = {}) {
     ease: 'in(2.4146)',
     skewX: { from: 0, to: 1, duration: 1143, delay: 2000, ease: 'linear', modifier: shake(8, 18, { decay: 2 }) },
     skewZ: { from: 0, to: 1, duration: 1143, delay: 2000, ease: 'linear', modifier: shake(8, 18, { decay: 2 }) },
-  }, 0)
+  };
+  const STORM_ENTER = {
+    y: [{ from: 0, to: 0.138, duration: 60, delay: 2000, ease: cb(0, 1.1575, 0.5712, 0.9605) }, { to: -0.75, duration: 1040, ease: cb(0, 1.1575, 0.5712, 0.9605) }, { from: -1.75, to: -2.5, duration: 146, ease: 'out(9.8523)' }],
+    scaleX: [{ from: 0, to: 1.3, duration: 90, delay: 2000, ease: 'out(2)' }, { to: 1, duration: 300, ease: 'out(2)' }],
+    scaleY: [{ from: 0, to: 1.25, duration: 200, delay: 2000, ease: cb(0.1, 0.7, 0.5763, 0.7728) }, { to: 1, duration: 900, ease: cb(0.1, 0.7, 0.5763, 0.7728) }],
+    scaleZ: [{ from: 0, to: 1.3, duration: 90, delay: 2000, ease: 'out(2)' }, { to: 1, duration: 300, ease: 'out(2)' }],
+    skewX: { from: 0, to: 1, duration: 1143, delay: 2000, ease: 'linear', modifier: shake(8, 18, { decay: 2 }) },
+    skewZ: { from: 0, to: 1, duration: 1143, delay: 2000, ease: 'linear', modifier: shake(8, 18, { decay: 2 }) },
+  };
+
+  tl = createTimeline({ autoplay: false })
+  .add(renderer.domElement, { opacity: [0, 1], duration: 1300, ease: 'inOut(2)' }, 0)
+  .add(camera, {
+    rotateX: [{ to: 38, duration: 700, ease: 'inOut(2)' }, { to: 41, duration: 500, ease: 'inOutSine' }, { to: 40.5, duration: 200, ease: 'inOutSine' }, { to: 36, duration: 180, ease: 'in(2)' }, { to: 24, duration: 80, ease: 'in(2)' }, { to: -10, duration: 40, ease: 'in(1.5)' }, { to: -16.5, duration: 90, delay: 20, ease: 'out(2)' }, { to: -14.73, duration: 190, ease: 'inOutSine' }],
+    y: [{ to: 6.3, duration: 900, ease: 'inOut(2)' }, { to: 6.4, duration: 500, ease: 'inOutSine' }, { to: 6.15, duration: 180, ease: 'in(2)' }, { to: 5.04, duration: 120, ease: 'in(2)' }],
+  }, 300)
+  .add(S ? tornado : cube, S ? STORM_ENTER : CUBE_ENTER, 0)
   .set(centerTile, { scale: 0 }, 2000)
   .add(tiles, {
     y: [
@@ -166,14 +198,14 @@ export function playIntro(host, theme, { onEnd } = {}) {
     rotateZ: { from: 0, to: 1, duration: 1437, ease: 'linear', modifier: t => shake(0.42, 10, { decay: 1.8 })(t) + lateShake(0.42, 2, 0.79, { decay: 1.4 })(t) },
     ease: 'inOutSine',
   }, 2000)
-  .add(cube, {
+  .add(S ? tornado : cube, {
     skewX: [-9, 7, -5, 3.5, -2, 1, -0.5, 0].map((to, i) => ({ to, duration: [58, 63, 71, 77, 82, 90, 96, 83][i], ease: cb(0.3815, 0.0684, 0.5, 1) })),
     scaleY: [[0.8, 77, 'out(3)'], [1.12, 102], [0.94, 109], [1.05, 115], [0.98, 109], [0.97, 108]].map(([to, duration, ease = 'inOutSine']) => ({ to, duration, ease })),
     scaleX: [[1.15, 77, 'out(3)'], [0.93, 102], [1.04, 109], [0.97, 115], [1.01, 109], [1.02, 108]].map(([to, duration, ease = 'inOutSine']) => ({ to, duration, ease })),
     scaleZ: [[1.15, 77, 'out(3)'], [0.93, 102], [1.04, 109], [0.97, 115], [1.01, 109], [1.02, 108]].map(([to, duration, ease = 'inOutSine']) => ({ to, duration, ease })),
     y: [[-2.56, 77, 'out(3)'], [-2.47, 128], [-2.52, 140], [-2.53, 275]].map(([to, duration, ease = 'inOutSine']) => ({ to, duration, ease })),
   }, 3230)
-  .add(cube, {
+  .add(S ? tornado : cube, {
     scaleY: { to: 4, duration: 4150, delay: 800, ease: cb(0.2423, -0.0053, 0.3107, 0.5533) },
     scaleX: { to: 0.8, duration: 4150, delay: 800, ease: cb(0.2423, -0.0053, 0.3107, 0.5533) },
     scaleZ: { to: 0.8, duration: 4150, delay: 800, ease: cb(0.2423, -0.0053, 0.3107, 0.5533) },
@@ -240,7 +272,13 @@ export function playIntro(host, theme, { onEnd } = {}) {
   .add(ambient, { intensity: [{ to: 3, duration: 300 }, { to: 1.7, duration: 700, delay: 1050 }], duration: 240, ease: 'inOut(1.8042)' }, 'POP+=1650')
   // Our finish: STORMSYNC shades from metal to the accent, left to right, like the logo's gray-to-violet.
   .add(letters, { color: (m, i) => mix(METAL, ACCENT, Math.pow(i / (letters.length - 1), 1.4)), duration: 900, delay: stagger(70), ease: 'inOutSine' }, 'POP+=1900')
-  .init();
+  .add(credit, { opacity: [0, 0.85], translateY: [6, 0], duration: 700, ease: 'out(2)' }, 'POP+=1100');
+  if (S) {
+    tl.add(bolt, { y: { from: 24, to: 0.5, duration: 300, delay: 1700, ease: 'in(5.0825)' }, scaleY: { from: 2.2, to: 1, duration: 300, delay: 1700, ease: 'in(3)' }, rotateY: { from: 60, to: 90, duration: 2000, ease: 'out(2)' } }, 0)
+      .add(ambient, { intensity: [{ to: 4.5, duration: 50 }, { to: 1.2, duration: 90 }, { to: 3, duration: 40 }, { to: 0.6, duration: 420 }], ease: 'out(2)' }, 1995)
+      .add(tornado, { scale: 0, duration: 260, ease: 'in(2)' }, 'POP');
+  }
+  tl.init();
 
   const end = tl.duration;
   const player = animate(tl, {
@@ -257,6 +295,6 @@ export function playIntro(host, theme, { onEnd } = {}) {
     try { player.cancel(); tl.cancel(); timer.cancel(); } catch (e) {}
     ro.disconnect();
     scene.traverse(o => { o.geometry && o.geometry.dispose(); if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.dispose()); });
-    renderer.dispose(); renderer.domElement.remove();
+    renderer.dispose(); renderer.domElement.remove(); credit.remove();
   };
 }
