@@ -47,8 +47,8 @@
     color 0.3s;
 }
 .cb[aria-pressed="true"] {
-  background: var(--accent);
-  color: var(--on-accent);
+  background: var(--lit);
+  color: var(--accent);
   border-color: var(--accent);
 }
 .body {
@@ -65,11 +65,12 @@
   flex-direction: column;
   justify-content: flex-end;
   margin-bottom: 10px;
-  color: #fff;
+  color: var(--accent);
+  border: 1px solid var(--lit-line);
   background: linear-gradient(
     135deg,
-    color-mix(in srgb, var(--accent) 70%, var(--bg)),
-    color-mix(in srgb, var(--accent2) 60%, var(--bg))
+    color-mix(in srgb, var(--accent) 14%, var(--bg)),
+    color-mix(in srgb, var(--accent2) 8%, var(--bg))
   );
   animation: rise 0.45s var(--ease);
 }

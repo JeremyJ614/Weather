@@ -59,11 +59,12 @@
   transform: rotate(var(--a)) translateY(-128px) rotate(calc(var(--a) * -1));
 }
 .pl[data-sel="true"] {
-  background: var(--accent);
-  color: var(--on-accent);
+  background: var(--lit);
+  color: var(--accent);
+  box-shadow: var(--glow);
 }
 .pl[data-sel="true"] small {
-  color: var(--on-accent);
+  color: var(--accent);
 }
 .main {
   position: fixed;
@@ -121,8 +122,9 @@
   animation-delay: calc(var(--i) * 35ms);
 }
 .mi[aria-current="page"] {
-  background: var(--accent);
-  color: var(--on-accent);
+  background: var(--lit);
+  color: var(--accent);
+  border-color: var(--accent);
 }
 @keyframes pop {
   from {

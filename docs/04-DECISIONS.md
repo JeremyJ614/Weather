@@ -25,3 +25,12 @@ Outline's requests + VIP AdminPanel (what fits) + the owner's 19 chosen extras +
 - **At launch:** ProbTor, ProbHail, Nocturnal LLJ, Wildfire/PyroCb, Radar Blind Spot, Landspout/Waterspout, Rotation Track Persistence, Snow Squall, Landfalling Hurricane Tornado Risk.
 - **Post-launch, built first in a private admin-only preview for approval:** Convective Initiation, Supercell Merger, Derecho Corridor, Dryline/Triple Point, Photogenic Supercell, Streamwise Vorticity, Cap Bust Meter, Downburst Potential, Lightning Jump, Airmass Recovery, Tropical RI Watch, Training Storms.
 - **Skipped:** Burn Scar, Dense Fog, Hail Footprint, Heat Burst, Freezing Rain, Intercept Planner.
+
+## House style (owner, after Phase 06)
+- **Dark everywhere; the primary color is text, outline and glow, never a fill.** Selected and primary controls use `--lit` (a dark tint of the primary) with primary text and a primary outline. Applied to every menu, Button and Chip.
+
+## Pricing (owner, 2026-10-13)
+See `docs/07-PRICING.md`: tiers Free / Basic $1.49 / Storm Chasers $2.99 / Advanced $3.99 / VIP $4.99 (monthly; yearly $0 / $13.99 / $19.99 / $25.99 / $29.99), build-your-own plans, add-ons on any plan ($0.50; Storm Chasing Outlook and Extras $0.75; Storm Chasing Log $1.00; admin-editable), launch promotions for the first 15 and next 10 signups, five ready-made promotions off by default, admin coupons. Guests see Homepage, News and Disaster Response plus a showcase intro that replays every 7 days.
+
+## Fall Forecast (phase 20)
+The outline asked for states colored over time. There is no public peak-foliage forecast, and state-level colors from the only public record (USA-NPN first-color reports) reflect which species volunteers watch, not climate (VIP tested it: New England "turned" a month early). The Fall subtab therefore replays each real report as a dot, colored by how long ago it turned, with a play/scrub timeline. Revisit if a public state-level product appears.

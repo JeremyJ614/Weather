@@ -33,3 +33,31 @@ self.addEventListener("fetch", (e) => {
     );
   }
 });
+
+// Daily Brief and alerts sent with Web Push.
+self.addEventListener("push", (e) => {
+  let data = {};
+  try {
+    data = e.data ? e.data.json() : {};
+  } catch {}
+  const title = data.title || "StormSync";
+  e.waitUntil(
+    self.registration.showNotification(title, {
+      body: data.body || "",
+      icon: "/icons/icon-192.png",
+      badge: "/icons/icon-192.png",
+      data: { url: data.url || "/" },
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (e) => {
+  e.notification.close();
+  const url = new URL(e.notification.data?.url || "/", self.location.origin).href;
+  e.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+      const open = list.find((c) => c.url === url);
+      return open ? open.focus() : self.clients.openWindow(url);
+    }),
+  );
+});

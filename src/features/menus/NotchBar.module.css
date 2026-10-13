@@ -27,12 +27,9 @@
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: radial-gradient(
-    circle at 35% 30%,
-    color-mix(in srgb, var(--accent) 70%, #fff),
-    var(--accent)
-  );
-  box-shadow: 0 8px 24px -4px var(--accent);
+  background: var(--lit);
+  border: 1.5px solid var(--accent);
+  box-shadow: var(--glow);
   transition: transform 0.6s var(--spring);
 }
 .nb {
@@ -47,7 +44,7 @@
     color 0.3s;
 }
 .nb[data-sel="true"] {
-  color: var(--on-accent);
+  color: var(--accent);
   transform: translateY(-27px);
 }
 .sheet {

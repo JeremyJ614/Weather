@@ -4,8 +4,20 @@ import { ALL_PAGES } from "@/lib/nav/registry";
 
 export const dynamicParams = false;
 
+// Pages that have their own route now.
+const BUILT = new Set([
+  "login",
+  "admin",
+  "dashboard",
+  "daily-brief",
+  "forecast-discussion",
+  "aqi-pollen",
+]);
+
 export function generateStaticParams() {
-  return ALL_PAGES.filter((p) => p.slug).map((p) => ({ slug: p.slug }));
+  return ALL_PAGES.filter((p) => p.slug && !BUILT.has(p.slug)).map((p) => ({
+    slug: p.slug,
+  }));
 }
 
 export async function generateMetadata({

@@ -1,0 +1,112 @@
+.sheet {
+  margin: auto auto 0;
+  width: min(100%, 520px);
+  max-height: 88dvh;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-bottom: 0;
+  border-radius: 24px 24px 0 0;
+  background: var(--surface);
+  color: var(--text);
+  transform: translateY(100%);
+  opacity: 0;
+  transition:
+    transform var(--t-slow) var(--ease),
+    opacity var(--t-base),
+    overlay var(--t-slow) allow-discrete,
+    display var(--t-slow) allow-discrete;
+}
+.sheet[open] {
+  transform: none;
+  opacity: 1;
+}
+@starting-style {
+  .sheet[open] {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+}
+.sheet::backdrop {
+  background: rgb(0 0 0 / 0.6);
+  opacity: 0;
+  transition:
+    opacity var(--t-base),
+    overlay var(--t-slow) allow-discrete,
+    display var(--t-slow) allow-discrete;
+}
+.sheet[open]::backdrop {
+  opacity: 1;
+}
+@starting-style {
+  .sheet[open]::backdrop {
+    opacity: 0;
+  }
+}
+.body {
+  display: grid;
+  gap: 16px;
+  padding: 20px 16px calc(24px + env(safe-area-inset-bottom, 0px));
+  overflow: auto;
+}
+.grip {
+  width: 40px;
+  height: 4px;
+  border-radius: 4px;
+  margin: 0 auto -6px;
+  background: var(--line);
+}
+.place {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.pick {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  font-weight: 700;
+  text-align: left;
+}
+.pick[aria-current="true"] {
+  background: var(--lit);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.remove {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  color: var(--muted);
+}
+.zip {
+  display: flex;
+  gap: 8px;
+}
+.zip input {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  letter-spacing: 0.08em;
+}
+.msg {
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+.msg[data-error="true"] {
+  color: var(--accent);
+}

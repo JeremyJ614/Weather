@@ -5,8 +5,9 @@ import { publicEnv } from "@/lib/env";
 
 /** Supabase client for server components and route handlers, as the signed-in user. */
 export async function supabaseServer() {
-  const { supabaseUrl, supabaseAnonKey } = publicEnv();
+  // Reading cookies first marks the page as per-request, so builds never try to prerender it.
   const store = await cookies();
+  const { supabaseUrl, supabaseAnonKey } = publicEnv();
   return createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
       getAll: () => store.getAll(),

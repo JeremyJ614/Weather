@@ -42,3 +42,4 @@ next-env.d.ts
 .lighthouseci
 budget.json
 __pycache__/
+/public/vendor/

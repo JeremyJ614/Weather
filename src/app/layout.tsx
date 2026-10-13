@@ -7,7 +7,9 @@ import { AppHeader } from "@/components/AppHeader";
 import { introBootScript } from "@/features/intro/schedule";
 import { themeBootScript, themeCss } from "@/lib/theme/css";
 import { fontClassNames } from "@/lib/theme/fonts";
-import { DEFAULT_THEME } from "@/lib/theme/registry";
+import { getSiteDefaults } from "@/lib/settings";
+import { ErrorReporter } from "@/components/ops/ErrorReporter";
+import { SiteBanner } from "@/components/ops/SiteBanner";
 
 export const metadata: Metadata = {
   title: "StormSync Media",
@@ -28,15 +30,16 @@ export const viewport: Viewport = {
 
 const css = themeCss();
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  const defaults = await getSiteDefaults();
   return (
     <html
       lang="en"
       className={fontClassNames}
-      data-palette={DEFAULT_THEME.palette}
-      data-font={DEFAULT_THEME.font}
+      data-palette={defaults.theme.palette}
+      data-font={defaults.theme.font}
       suppressHydrationWarning
     >
       <head>
@@ -46,12 +49,17 @@ export default function RootLayout({
       </head>
       <body>
         <DeviceSetup />
+        <ErrorReporter />
         <LaunchIntro />
         <AppHeader />
         <div id="app-content" className="pt-16">
+          <SiteBanner
+            text={defaults.banner.text}
+            until={defaults.banner.until}
+          />
           {children}
         </div>
-        <MenuHost />
+        <MenuHost defaults={defaults.menus} />
       </body>
     </html>
   );

@@ -4,7 +4,9 @@
   width: 60px;
   height: 60px;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--bg);
+  /* Scales with the blob into a soft primary ring sweeping outward. */
+  box-shadow: 0 0 1.5px 0.5px var(--accent);
   z-index: 55;
   transform: scale(1);
   transition: transform 0.65s var(--ease);
@@ -21,8 +23,10 @@
   border-radius: 50%;
   display: grid;
   place-items: center;
-  color: var(--on-accent);
-  box-shadow: 0 12px 30px -10px var(--accent);
+  color: var(--accent);
+  background: var(--lit);
+  border: 1.5px solid var(--accent);
+  box-shadow: var(--glow);
 }
 .fab svg {
   transition: transform 0.5s var(--spring);
@@ -51,7 +55,7 @@
   z-index: 56;
   overflow: auto;
   padding: calc(70px + env(safe-area-inset-top, 0px)) 18px 110px;
-  color: var(--on-accent);
+  color: var(--text);
   opacity: 0;
   visibility: hidden;
   transition:
@@ -70,6 +74,7 @@
   font-size: 40px;
   line-height: 0.95;
   margin: 0 0 14px;
+  color: var(--accent);
 }
 .sec {
   margin-bottom: 14px;
@@ -93,7 +98,8 @@
   font-size: 11px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  opacity: 0.75;
+  color: var(--accent);
+  opacity: 0.85;
 }
 .row {
   display: flex;
@@ -103,12 +109,14 @@
 .mi {
   padding: 8px 12px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--on-accent) 12%, transparent);
+  background: var(--surface);
+  border: 1px solid var(--line);
   font-size: 14px;
   font-weight: 700;
-  color: var(--on-accent);
+  color: var(--text);
 }
 .mi[aria-current="page"] {
-  background: var(--on-accent);
+  background: var(--lit);
   color: var(--accent);
+  border-color: var(--accent);
 }

@@ -3,6 +3,7 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { MAIN_NAV, SECOND_NAV, visibleNav } from "@/lib/nav/registry";
 import { resolvePlacements } from "@/lib/nav/spots";
+import { useViewer } from "@/features/account/useViewer";
 import { MENU_STYLES, pickMenus } from "./styles";
 
 const KEY = "sswx-menus";
@@ -19,13 +20,17 @@ const read = () => {
 };
 
 /** Renders the user's main and second menus with non-overlapping placements. */
-export function MenuHost() {
+export function MenuHost({
+  defaults,
+}: {
+  defaults: { main: string; second: string };
+}) {
   const raw = useSyncExternalStore(subscribe, read, () => "");
   let saved: { main?: string; second?: string } = {};
   try {
     saved = raw ? JSON.parse(raw) : {};
   } catch {}
-  const { main, second } = pickMenus(saved);
+  const { main, second } = pickMenus(saved, defaults);
   const M = MENU_STYLES[main];
   const S = MENU_STYLES[second];
   const { main: mp, second: sp } = resolvePlacements(
@@ -39,8 +44,8 @@ export function MenuHost() {
     if (bar) root.dataset.bottomBar = "";
     else delete root.dataset.bottomBar;
   }, [bar]);
-  // Admin-only pages appear once accounts exist (phase 08/09).
-  const isAdmin = false;
+  // Admin-only pages are listed only for admins; the pages themselves check on the server.
+  const { isAdmin } = useViewer();
   return (
     <>
       <M.Component

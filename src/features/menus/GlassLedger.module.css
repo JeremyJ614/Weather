@@ -8,10 +8,11 @@
   justify-content: center;
   gap: 8px;
   border-radius: 999px;
-  background: var(--accent);
-  color: var(--on-accent);
+  background: var(--lit);
+  color: var(--accent);
+  border: 1.5px solid var(--accent);
   font-weight: 800;
-  box-shadow: 0 10px 30px -8px var(--accent);
+  box-shadow: var(--glow);
   transition:
     transform 0.4s var(--spring),
     opacity 0.3s;
@@ -74,8 +75,8 @@
     color 0.3s;
 }
 .sec[data-open="true"] > .sh {
-  background: var(--accent);
-  color: var(--on-accent);
+  background: var(--lit);
+  color: var(--accent);
 }
 .chev {
   margin-left: auto;

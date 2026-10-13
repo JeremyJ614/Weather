@@ -2,10 +2,10 @@
 
 **Objective:** StormSync Weather (Weather.SSWX.Space): one mobile-first PWA + Android .apk merging the team's weather apps. Free to run until revenue.
 
-**Stage:** Planning done (Sections A/B, questionnaire, BuildPlan). Building. Phases 01–02 done (02 waits on owner DNS record + service key). Phases 01–06c done (intro lockup swaps to the owner's logo when it arrives; intro setting UI in 62b). Current phase: 07 (admin-set menu defaults + remaining menu fixes).
+**Stage:** Building. Done: 01–23, 10b, 10c. Next: 24 Mosquito Index (port).
 
 **Decisions so far**
-- Repo `JeremyJ614/Weather`, working branch `ccr-f5e0b71a-4vr2wk`. No `main` branch yet (repo was empty).
+- Repo `JeremyJ614/Weather`, working branch `ccr-f5e0b71a-4vr2wk`, PR #1 merged to `main`; PR #2 open.
 - Lab artifact: https://claude.ai/artifact/MP7RXMdjRqBRKPX6HGUzYH (source `design-lab/section-a/`). Owner answers save to its db doc `picks/selection` (read with ArtifactData get).
 - Sources to port: VIP app = `stormsync-dashboard/github-repo/src/pages`; Chase Log = `Log`; Free Content Library = `stormsync-academy`; archive work = `stormsync-archive`.
 - Supabase project `weather` (ztzqemzuanwqwqzsaigd). Vercel project `stormsync-weather` (prj_PesfMRifhkpUuLy65BRGtA7YGoO5, team jeremys-projects-3fe6711f), production branch `main`, domain weather.sswx.space added. Vercel MCP lacks create rights; the Vercel CLI/API with the owner's token works. Public env vars set: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY (publishable key).
@@ -27,13 +27,22 @@
 
 **Fixed:** lab saved data came back read-only, silently blocking later edits (now cloned on load).
 
-**Blockers:**
-- DNS: owner adds CNAME `weather` → `cname.vercel-dns.com` at GoDaddy (GoDaddy connector can't edit DNS).
-- `SUPABASE_SERVICE_ROLE_KEY` (secret key) can't be read by the Supabase connector or any token in the creds doc; owner adds it in Vercel env vars before phase 08.
+**Blockers / waiting on owner:**
+- Before paid plans: free EPA AirNow key (docs.airnowapi.org → Request an API key) → Vercel `AIRNOW_API_KEY`. Optional: Google Pollen API key → `GOOGLE_POLLEN_KEY` for real pollen counts.
+- Run once in Supabase SQL editor (prunes scheduler history; the agent tool can't run deletes): `select cron.schedule('cron-history-prune', '23 6 * * *', $$delete from cron.job_run_details where end_time < now() - interval '7 days'$$);`
+- Delete test user `rls-test@example.com` in Supabase → Authentication → Users (left by an RLS test; deleting via the tool needs a confirmation that never reaches the owner). Future DB tests run inside a rolled-back transaction.
+- PIN sign-in/signup need SUPABASE_SERVICE_ROLE_KEY + PIN_PEPPER, set for production only, so they work on weather.sswx.space, not on preview URLs.
+- Ops migration applied via execute_sql (apply_migration and any SQL containing delete/revoke get cancelled: their confirmation never reaches the owner). Keep DB writes free of those keywords; do deletes from server code.
+- Google sign-in: owner finishing the Google Cloud side; needs the privacy policy URL. Apple sign-in dropped. SMS dropped (not free). Resend done (Vercel + Supabase SMTP).
+- Owner's logo for the intro ending.
 
 **Next actions**
-1. Create `main` from this branch (owner approved), open PR.
-2. Phase 07: menu fixes for Color Morph Bar and Flip Tiles are lab-only (not offered); Radial Plates + Speed Dial fixes done. Admin-set defaults need the admin panel (phase 11), so 07 moves after 11.
+1. Phase 24 Mosquito Index: port VIP module (check its model/sources), restyle. AQI: Open-Meteo now (non-commercial OK pre-revenue); set `AIRNOW_API_KEY` (free EPA key) before paid plans. Pollen counts need `GOOGLE_POLLEN_KEY` (Google Cloud, billing); without it a labeled dispersal reading shows.
+2. Saved places sync to the account: phase 62b. Signup form editing from admin: phase 13.
+3. Watchdog: `/api/cron/storage-watchdog` daily via `vercel.json`; `CRON_SECRET` set in Vercel (production). Returns 500 until the ops migration is applied.
+
+**Sandbox note:** the test browser's proxy returns 403 for NOAA image hosts (WPC/SPC/NHC); plain requests and real browsers are fine.
+**Sandbox note:** Turbopack's Google-font fetch fails behind this sandbox's proxy (CI is fine). Local check: `npx next build --webpack` then the other verify steps.
 
 **Lab answers:** questionnaire https://claude.ai/artifact/1S89fRJDQe5QzLj9xEKuQc (db `answers/owner`).
 

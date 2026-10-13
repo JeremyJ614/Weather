@@ -130,53 +130,5 @@ export const MENU_STYLES: Record<string, MenuStyle> = {
 };
 
 /** The owner's offered lists (docs/04-DECISIONS.md), limited to styles already built. */
-const OFFER_MAIN = [
-  "sweep",
-  "plates",
-  "ledger",
-  "split",
-  "spotlight",
-  "bentoboard",
-  "bentolive",
-  "tabsheet",
-  "scrolltabs",
-  "railpop",
-  "vortex",
-  "notch",
-];
-const OFFER_SECOND = [
-  "morph",
-  "plates",
-  "depth",
-  "split",
-  "scrolltabs",
-  "dial",
-  "curtain",
-  "vortex",
-];
-export const OFFERED = {
-  main: OFFER_MAIN.filter((id) => MENU_STYLES[id]),
-  second: OFFER_SECOND.filter((id) => MENU_STYLES[id]),
-};
 
-/** The owner's defaults (changeable from the admin panel in phase 07). */
-export const DEFAULT_MENUS = { main: "sweep", second: "morph" };
-
-/** Valid, offered, distinct choices; anything else falls back to a default. */
-export function pickMenus(saved: { main?: string; second?: string }) {
-  const main =
-    saved.main && OFFERED.main.includes(saved.main)
-      ? saved.main
-      : DEFAULT_MENUS.main;
-  let second =
-    saved.second && OFFERED.second.includes(saved.second)
-      ? saved.second
-      : DEFAULT_MENUS.second;
-  if (second === main)
-    second =
-      second === DEFAULT_MENUS.second
-        ? (OFFERED.second.find((k) => k !== main) ?? DEFAULT_MENUS.second)
-        : DEFAULT_MENUS.second;
-  if (second === main) second = OFFERED.second.find((k) => k !== main)!;
-  return { main, second };
-}
+export { DEFAULT_MENUS, OFFERED, pickMenus } from "./catalog";

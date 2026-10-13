@@ -15,6 +15,16 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      {
+        // Versioned copies of third-party worker files (scripts/vendor-maplibre.mjs).
+        source: "/vendor/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
+      },
     ];
   },
 };

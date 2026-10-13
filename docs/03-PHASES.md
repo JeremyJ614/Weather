@@ -20,29 +20,31 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 - [x] 06a. Navigation registry, every launch route with PhaseNotice, menu framework with declared spots and collision resolver, default menus (Corner Sweep, Morph FAB)
 - [x] 06b. Remaining main-menu styles (Radial Plates, Glass Ledger, Split Sidebar, Mega Spotlight, Bento Board, Live Bento, Tab Bar + Sheet, Swipe Tabs, Bottom Rail Pop, StormSync Vortex, Notch Bar)
 - [x] 06c. Remaining second-menu styles (Depth Drawer, Speed Dial, Curtain Reveal) and menu preferences stored per user
-- [ ] 07. Second-menu lists, defaults set from the admin panel, and the four menu fixes (Radial Plates, Speed Dial, Color Morph Bar, Flip Tiles)
-- [ ] 08. Accounts: 4-digit PIN sign-in with lockout, email link, Google, Apple, text code; signup form (editable), referral codes; owner account; RLS on every table
-- [ ] 09. Roles: user, SSWX Member, Admin as a second role, subscription tiers mapped to roles
-- [ ] 10. Saved location, permission flow and a shared weather-data layer with caching
+- [x] 07. Second-menu lists, defaults set from the admin panel (menus and theme), menu fixes (Radial Plates, Speed Dial; Color Morph Bar and Flip Tiles were not offered, so their fixes stay in the lab)
+- [x] 08. Accounts: 4-digit PIN sign-in with lockout, email link, Google (Apple dropped); signup form (editable), referral codes; owner account; RLS on every table
+- [x] 09. Roles: user, SSWX Member, Admin as a second role, subscription tiers mapped to roles
+- [x] 10. Saved location, permission flow and a shared weather-data layer with caching
+- [x] 10b. Storage safety: retention rule on every growing table (test-enforced), daily size watchdog (Vercel cron, emails at 60%/80%), cron history pruning. Database side waits on the ops migration being applied.
+- [x] 10c. Shared map component: Mapbox GL v3 with automatic MapLibre v6 fallback at the monthly free limit
 
 ## Admin Panel (built early so later pages plug into it)
-- [ ] 11. Admin shell, owner-only access, add admins with per-section permissions, audit log
-- [ ] 12. News & Announcements editor (mobile-first, rich, image upload, schedule)
-- [ ] 13. Admin: outline requests + VIP AdminPanel port + chosen extras, part 1
-- [ ] 14. Chosen admin extras, part 2
+- [x] 11. Admin shell, owner-only access, add admins with per-section permissions, audit log
+- [x] 12. News & Announcements editor (mobile-first, rich, image upload, schedule)
+- [x] 13. Admin: outline requests + VIP AdminPanel port + chosen extras, part 1
+- [x] 14. Chosen admin extras, part 2 (signup-form editor, members CSV export; the rest ship with their features, see BuildPlan §6)
 
 ## Homepage
-- [ ] 15. Weather News tab: top 15 auto-collected stories, refreshed 1–2 times a day
-- [ ] 16. SSWX News tab with the glowing unread section and "unread shows first" rule
-- [ ] 17. App Updates tab (new members, game winners, releases)
+- [x] 15. Weather News tab: top 15 auto-collected stories, refreshed 1–2 times a day
+- [x] 16. SSWX News tab with the glowing unread section and "unread shows first" rule
+- [x] 17. App Updates tab (new members, game winners, releases)
 
 ## Localized Data
-- [ ] 18. Dashboard: movable widgets (daily, 7-day, SPC level, UV, 5–10 more)
-- [ ] 19. Dashboard: WPC subtab (days 1–7 precip, 1-2/1-3/1-5/1-7, rapid drought onset, HeatRisk)
-- [ ] 20. Dashboard: CPC subtab and Fall Forecast subtab with the state color time scrubber
-- [ ] 21. Daily Brief: in-app, push and email, with schedule options
-- [ ] 22. Forecast Discussion: AI "Simplified" tab and restyled "Standard" tab
-- [ ] 23. AQI & Pollen (port from VIP: AQI Outlook, Pollen Index)
+- [x] 18. Dashboard: movable widgets (right now, 24-hour graph, 7-day, SPC level, UV, sunrise/sunset, moon, wind, pressure trend, feels like, dew point); AQI, pollen and river-gauge widgets join in phases 23 and 46
+- [x] 19. Dashboard: WPC subtab (days 1–7 precip, 1-2/1-3/1-5/1-7, rapid drought onset, HeatRisk)
+- [x] 20. Dashboard: CPC subtab (6–10, 8–14, monthly, seasonal, drought outlooks) and Fall subtab (first-color reports with a time scrubber; per-site, not state colors — see BuildPlan bug/decision note)
+- [x] 21. Daily Brief: in-app, push and email, with schedule options (texts requested by members appear in the admin panel; owner sends them)
+- [x] 22. Forecast Discussion: AI "Simplified" tab and restyled "Standard" tab (+ AI usage meter in Live ops)
+- [x] 23. AQI & Pollen (port from VIP: AQI Outlook, Pollen Index) + dashboard widgets + brief line
 - [ ] 24. Mosquito Index (port from VIP, restyled)
 - [ ] 25. Daylight Tracker (rebuilt, modeled on Max Velocity's)
 
@@ -99,9 +101,9 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 ## Account
 - [ ] 62. My Profile
 - [ ] 62b. Account settings: menus, offered themes, intro on/off
-- [ ] 62c. New-user intro guide covering every section, ending with menu choice
+- [ ] 62c. New-user intro guide covering every section, ending with menu choice; guest showcase guide (first visit, skippable, replay button in the second menu, replays after 7 days) — see `docs/07-PRICING.md`
 - [ ] 63. Notifications center with every toggle
-- [ ] 64. Signup with the live price tracker, editable form and Stripe
+- [ ] 64. Signup page `/join` (wow-factor design, tiers + build-your-own + add-ons, live pricing tracker, promotions, coupons, guest-guide button) with Stripe; admin pricing/add-on/promotion/coupon editors; tier access enforcement — see `docs/07-PRICING.md`
 
 ## Second menu
 - [ ] 65. Official Tornado Archive: data pipeline (significant events, 2000 onward, NWS DAT updates)
