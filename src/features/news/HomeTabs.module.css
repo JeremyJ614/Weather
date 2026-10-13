@@ -1,0 +1,84 @@
+.underline {
+  position: relative;
+  display: grid;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+}
+/* Fixed spectrum on purpose: this rule keeps its colors in every theme. */
+.rule {
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(
+    90deg,
+    #ff4d6d,
+    #ff9f43,
+    #ffd93d,
+    #3ddc84,
+    #38bdf8,
+    #8b5cf6,
+    #e879f9
+  );
+  box-shadow:
+    0 0 10px rgb(56 189 248 / 0.55),
+    0 0 18px rgb(232 121 249 / 0.35);
+  transition: transform var(--t-base) var(--ease);
+}
+.underline .tab {
+  min-height: 44px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  transition: color var(--t-fast);
+}
+.underline .tab[aria-selected="true"] {
+  color: var(--accent);
+}
+.segment {
+  position: relative;
+  display: grid;
+  padding: 3px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  border: 1px solid color-mix(in srgb, var(--line) 85%, transparent);
+}
+.pill {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  border-radius: 13px;
+  transition: transform var(--t-base) var(--ease);
+}
+.pillFill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--bg) 70%, #000);
+  box-shadow:
+    inset 0 0 0 1px rgb(44 47 54 / 0.5),
+    inset 0 0 40px rgb(255 255 255 / 0.03);
+}
+.segment .tab {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 40px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--muted);
+  transition: color var(--t-fast);
+}
+.segment .tab svg {
+  width: 15px;
+  height: 15px;
+}
+.segment .tab[aria-selected="true"] {
+  color: var(--accent);
+}

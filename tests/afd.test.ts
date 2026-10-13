@@ -54,3 +54,21 @@ it("splits an AFD into readable sections", () => {
   ]);
   expect(s[0].paragraphs[0]).toBe("- Storms possible Wednesday night.");
 });
+
+import { officeName, rawBlocks } from "@/lib/afd/raw";
+
+it("keeps the official text verbatim in display blocks", () => {
+  const text = `000\nFXUS61 KILN 131018\nAFDILN\n\nArea Forecast Discussion\nNational Weather Service Wilmington OH\n618 AM EDT Tue Oct 13 2026\n\n.SYNOPSIS...\nWarm and dry today.\n  Storms tonight.\n\n&&\n\n.AVIATION /12Z THROUGH 12Z/...\nVFR.\n\n$$\n\nSYNOPSIS...Smith\n`;
+  const b = rawBlocks(text);
+  expect(b.map((x) => x.kind)).toEqual(["head", "section", "section", "sign"]);
+  expect(b[1].lines).toEqual([
+    ".SYNOPSIS...",
+    "Warm and dry today.",
+    "  Storms tonight.",
+    "",
+    "&&",
+  ]);
+  expect(b[2].title).toBe("AVIATION /12Z THROUGH 12Z/");
+  expect(b[3].lines.at(-1)).toBe("SYNOPSIS...Smith");
+  expect(officeName(text)).toBe("Wilmington OH");
+});

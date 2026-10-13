@@ -1,5 +1,5 @@
-/* eslint-disable @next/next/no-img-element -- a single small local logo */
 import { TodayCard } from "@/features/weather/TodayCard";
+import { WeatherClock } from "@/features/home/WeatherClock";
 import { ModuleOff } from "@/components/ops/ModuleOff";
 import { getSiteDefaults } from "@/lib/settings";
 import { WeatherNews } from "@/features/news/WeatherNews";
@@ -21,50 +21,43 @@ export default async function Home() {
     excerpt: excerpt(p.body),
   }));
   return (
-    <main className="mx-auto flex min-h-[80dvh] max-w-xl flex-col justify-center gap-5 px-4 py-12">
-      <img
-        src="/brand/logo-primary.webp"
-        alt="StormSync Media"
-        width={240}
-        height={71}
-      />
-      <h1 className="display text-4xl">StormSync Weather is being built</h1>
-      <p className="text-muted">
-        The app is under construction, one tested phase at a time. Your local
-        forecast and the three news tabs work now.
-      </p>
-      {disabled.includes("weather") ? (
-        <ModuleOff label="The local forecast" />
-      ) : (
-        <TodayCard />
-      )}
-      <HomeTabs
-        tabs={[
-          {
-            id: "weather-news",
-            label: "Weather News",
-            panel: disabled.includes("weather-news") ? (
-              <ModuleOff label="Weather News" />
-            ) : (
-              <WeatherNews />
-            ),
-          },
-          {
-            id: "sswx-news",
-            label: "SSWX News",
-            panel: disabled.includes("news") ? (
-              <ModuleOff label="SSWX News" />
-            ) : (
-              <SswxNews posts={cards} />
-            ),
-          },
-          {
-            id: "app-updates",
-            label: "App Updates",
-            panel: <AppUpdates />,
-          },
-        ]}
-      />
+    <main className="mx-auto grid max-w-5xl gap-5 px-4 pt-2 pb-28">
+      {!disabled.includes("weather") && <WeatherClock />}
+      <div className="mx-auto grid w-full max-w-xl gap-5">
+        {disabled.includes("weather") ? (
+          <ModuleOff label="The local forecast" />
+        ) : (
+          <TodayCard />
+        )}
+        <HomeTabs
+          label="News"
+          tabs={[
+            {
+              id: "weather-news",
+              label: "Weather News",
+              panel: disabled.includes("weather-news") ? (
+                <ModuleOff label="Weather News" />
+              ) : (
+                <WeatherNews />
+              ),
+            },
+            {
+              id: "sswx-news",
+              label: "SSWX News",
+              panel: disabled.includes("news") ? (
+                <ModuleOff label="SSWX News" />
+              ) : (
+                <SswxNews posts={cards} />
+              ),
+            },
+            {
+              id: "app-updates",
+              label: "App Updates",
+              panel: <AppUpdates />,
+            },
+          ]}
+        />
+      </div>
     </main>
   );
 }

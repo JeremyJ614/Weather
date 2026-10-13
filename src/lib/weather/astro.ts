@@ -9,11 +9,16 @@ function dayOfYear(d: Date) {
   );
 }
 
-/** Sunrise and sunset for the UTC calendar date of `date`, as Dates; null when the sun never rises/sets. */
+/**
+ * Sunrise and sunset for the UTC calendar date of `date`, as Dates; null when the sun never
+ * rises/sets. `zenith` picks the event: 90.833° sunrise/sunset, 96° civil, 102° nautical,
+ * 108° astronomical twilight, 84° the end/start of golden hour.
+ */
 export function sunTimes(
   lat: number,
   lon: number,
   date: Date,
+  zenith = 90.833,
 ): { rise: Date | null; set: Date | null; dayMinutes: number } {
   const n = dayOfYear(date);
   const g = ((2 * Math.PI) / 365) * (n - 1 + 0.5);
@@ -33,7 +38,7 @@ export function sunTimes(
     0.002697 * Math.cos(3 * g) +
     0.00148 * Math.sin(3 * g);
   const cosHa =
-    Math.cos(90.833 * rad) / (Math.cos(lat * rad) * Math.cos(decl)) -
+    Math.cos(zenith * rad) / (Math.cos(lat * rad) * Math.cos(decl)) -
     Math.tan(lat * rad) * Math.tan(decl);
   if (cosHa > 1) return { rise: null, set: null, dayMinutes: 0 };
   if (cosHa < -1) return { rise: null, set: null, dayMinutes: 1440 };

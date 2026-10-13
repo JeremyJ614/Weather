@@ -1,6 +1,6 @@
 import { getLatestAfd } from "@/lib/afd/fetch";
 
-/** GET /api/afd?office=OUN → the latest Area Forecast Discussion, in sections. */
+/** GET /api/afd?office=OUN → the latest Area Forecast Discussion: verbatim text plus sections. */
 export async function GET(request: Request) {
   const office = (
     new URL(request.url).searchParams.get("office") ?? ""
@@ -16,9 +16,7 @@ export async function GET(request: Request) {
       },
       { status: 502 },
     );
-  const { text: _text, ...rest } = afd;
-  void _text;
-  return Response.json(rest, {
+  return Response.json(afd, {
     headers: {
       "Cache-Control": "public, s-maxage=600, stale-while-revalidate=600",
     },

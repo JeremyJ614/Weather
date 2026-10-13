@@ -12,6 +12,9 @@ const BUILT = new Set([
   "daily-brief",
   "forecast-discussion",
   "aqi-pollen",
+  "mosquito-index",
+  "daylight-tracker",
+  "wx-games",
 ]);
 
 export function generateStaticParams() {
@@ -40,5 +43,5 @@ export default async function Page({
   const { slug } = await params;
   const page = ALL_PAGES.find((p) => p.slug === slug);
   if (!page) notFound();
-  return <PhaseNotice page={page.label} phase={page.phase} />;
+  return <PhaseNotice page={page.label} phase={page.phase} icon={page.icon} />;
 }

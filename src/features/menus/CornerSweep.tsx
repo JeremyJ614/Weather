@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { NavIcon } from "@/components/NavIcon";
+import { Beam } from "@/components/ui/Beam";
 import { href } from "@/lib/nav/registry";
 import s from "./CornerSweep.module.css";
 import type { MenuProps } from "./types";
@@ -11,6 +12,8 @@ import { useMenuNav } from "./useMenuNav";
 export function CornerSweep({ groups, placement, role }: MenuProps) {
   const { open, setOpen, path } = useMenuNav(role);
   const [expanded, setExpanded] = useState<string | null>(null);
+  // Closing folds every group, so reopening never flashes old sub-pages ahead of the sweep.
+  if (!open && expanded) setExpanded(null);
   const side = placement.id.startsWith("top-left") ? "left" : "right";
   return (
     <div className={open ? s.on : undefined} data-menu-role={role}>
@@ -46,16 +49,20 @@ export function CornerSweep({ groups, placement, role }: MenuProps) {
               {expanded === g.id && (
                 <div className={s.subs}>
                   {g.pages.map((pg, k) => (
-                    <Link
-                      key={pg.slug}
-                      href={href(pg)}
-                      className={s.mi}
-                      style={{ ["--i" as string]: k }}
-                      aria-current={path === href(pg) ? "page" : undefined}
-                    >
-                      <NavIcon name={pg.icon} className="size-4 text-accent" />
-                      {pg.label}
-                    </Link>
+                    <Beam key={pg.slug} className={s.beam}>
+                      <Link
+                        href={href(pg)}
+                        className={s.mi}
+                        style={{ ["--i" as string]: k }}
+                        aria-current={path === href(pg) ? "page" : undefined}
+                      >
+                        <NavIcon
+                          name={pg.icon}
+                          className="size-4 text-accent"
+                        />
+                        {pg.label}
+                      </Link>
+                    </Beam>
                   ))}
                 </div>
               )}

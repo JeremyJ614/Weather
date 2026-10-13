@@ -1,28 +1,103 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
+import { flushSync } from "react-dom";
+import { Beam } from "@/components/ui/Beam";
+import {
+  morphCover,
+  morphEnabled,
+  morphReveal,
+  visible,
+} from "@/features/motion/morph";
+import s from "./HomeTabs.module.css";
 
-/** Tabs (homepage, dashboard). Panels render on first open and stay mounted. */
+type Tab = { id: string; label: string; panel: ReactNode; icon?: ReactNode };
+
+const nextFrame = () =>
+  new Promise<void>((r) =>
+    requestAnimationFrame(() => requestAnimationFrame(() => r())),
+  );
+
+/**
+ * Subtabs. Switching morphs the panel through a noise dissolve (the shared
+ * WebGL overlay). Panels render on first open and stay mounted (maps keep state).
+ * `underline`: a fixed multicolor rule that keeps its colors in every theme.
+ * `segment`: a dark segmented control whose active pill carries the beam.
+ */
 export function HomeTabs({
   tabs,
+  label = "Sections",
+  variant = "underline",
 }: {
-  tabs: { id: string; label: string; panel: ReactNode }[];
+  tabs: Tab[];
+  label?: string;
+  variant?: "underline" | "segment";
 }) {
   const [active, setActive] = useState(tabs[0]?.id);
-  // A panel mounts the first time it is opened and stays mounted (maps keep their state).
   const [seen, setSeen] = useState(() => new Set([tabs[0]?.id]));
+  const wrap = useRef<HTMLDivElement>(null);
+  const busy = useRef(false);
   const index = Math.max(
     0,
     tabs.findIndex((t) => t.id === active),
   );
+
+  const select = async (id: string) => {
+    if (id === active || busy.current) return;
+    const to = tabs.findIndex((t) => t.id === id);
+    const show = () => {
+      setActive(id);
+      setSeen((x) => new Set(x).add(id));
+    };
+    if (!wrap.current || !morphEnabled()) return show();
+    busy.current = true;
+    const dir = to > index ? 1 : -1;
+    const before = visible(wrap.current);
+    await morphCover(before, dir);
+    flushSync(show);
+    await nextFrame();
+    const after = visible(wrap.current);
+    const top = Math.min(before.top, after.top);
+    const bottom = Math.max(before.bottom, after.bottom);
+    await morphReveal(
+      new DOMRect(after.left, top, after.width, bottom - top),
+      dir,
+    );
+    busy.current = false;
+  };
+
+  const w = `${100 / tabs.length}%`;
+  const shift = `translateX(${index * 100}%)`;
   return (
     <div className="grid gap-4">
       <div
         role="tablist"
-        aria-label="Homepage"
-        className="relative grid border-b border-line"
+        aria-label={label}
+        className={variant === "segment" ? s.segment : s.underline}
         style={{ gridTemplateColumns: `repeat(${tabs.length}, 1fr)` }}
       >
+        {variant === "segment" ? (
+          <Beam
+            className={s.pill}
+            style={{
+              position: "absolute",
+              top: 3,
+              bottom: 3,
+              left: 3,
+              width: `calc(${w} - 6px)`,
+              transform: shift,
+            }}
+            strength={0.9}
+          >
+            <span className={s.pillFill} />
+          </Beam>
+        ) : (
+          <span
+            aria-hidden
+            className={s.rule}
+            style={{ width: w, transform: shift }}
+          />
+        )}
         {tabs.map((t) => (
           <button
             key={t.id}
@@ -30,35 +105,27 @@ export function HomeTabs({
             id={`tab-${t.id}`}
             aria-selected={t.id === active}
             aria-controls={`panel-${t.id}`}
-            onClick={() => {
-              setActive(t.id);
-              setSeen((s) => new Set(s).add(t.id));
-            }}
-            className={`min-h-11 text-sm font-bold transition-colors ${t.id === active ? "text-accent" : "text-muted"}`}
+            onClick={() => select(t.id)}
+            className={s.tab}
           >
+            {t.icon}
             {t.label}
           </button>
         ))}
-        <span
-          aria-hidden
-          className="absolute bottom-0 left-0 h-0.5 bg-accent transition-transform duration-[var(--t-base)] ease-[var(--ease)]"
-          style={{
-            width: `${100 / tabs.length}%`,
-            transform: `translateX(${index * 100}%)`,
-          }}
-        />
       </div>
-      {tabs.map((t) => (
-        <div
-          key={t.id}
-          role="tabpanel"
-          id={`panel-${t.id}`}
-          aria-labelledby={`tab-${t.id}`}
-          hidden={t.id !== active}
-        >
-          {seen.has(t.id) ? t.panel : null}
-        </div>
-      ))}
+      <div ref={wrap}>
+        {tabs.map((t) => (
+          <div
+            key={t.id}
+            role="tabpanel"
+            id={`panel-${t.id}`}
+            aria-labelledby={`tab-${t.id}`}
+            hidden={t.id !== active}
+          >
+            {seen.has(t.id) ? t.panel : null}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

@@ -71,7 +71,7 @@
   font-family: var(--font-display);
   font-weight: var(--display-weight);
   text-transform: var(--display-case);
-  font-size: 40px;
+  font-size: 30px;
   line-height: 0.95;
   margin: 0 0 14px;
   color: var(--accent);
@@ -106,17 +106,23 @@
   flex-wrap: wrap;
   gap: 6px;
 }
-.mi {
-  padding: 8px 12px;
+.beam {
+  display: inline-flex;
   border-radius: 999px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  font-size: 14px;
-  font-weight: 700;
+}
+.mi {
+  padding: 8px 13px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg) 70%, #000);
+  border: 1px solid rgb(255 255 255 / 0.06);
+  box-shadow:
+    inset 0 0 0 1px rgb(44 47 54 / 0.5),
+    inset 0 0 40px 0 rgb(255 255 255 / 0.02);
+  font-size: 13px;
+  font-weight: 600;
   color: var(--text);
 }
 .mi[aria-current="page"] {
-  background: var(--lit);
   color: var(--accent);
   border-color: var(--accent);
 }

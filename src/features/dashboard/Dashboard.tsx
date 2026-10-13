@@ -9,17 +9,30 @@ import {
 import {
   ArrowDown,
   ArrowUp,
+  CalendarDays,
   ChevronDown,
+  Clock,
+  CloudSun,
+  Droplets,
   Eye,
   EyeOff,
+  Flower2,
+  Gauge as GaugeIcon,
+  Leaf,
   MapPin,
+  Moon,
   Settings2,
+  SunMedium,
+  Sunrise,
+  Thermometer,
+  Wind,
+  Zap,
+  type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { LocationSheet } from "@/features/location/LocationSheet";
 import { usePlaces } from "@/features/location/usePlaces";
-import { WeatherIcon } from "@/features/weather/WeatherIcon";
 import { moonPhase, sunTimes } from "@/lib/weather/astro";
 import { SPC_NAMES, uvLabel } from "@/lib/weather/conditions-math";
 import type { Conditions } from "@/lib/weather/conditions";
@@ -27,6 +40,18 @@ import type { WeatherBundle } from "@/lib/weather/types";
 import type { AirReport } from "@/lib/air/air";
 import { aqiBand } from "@/lib/air/scales";
 import { HourlyChart } from "./HourlyChart";
+import { CountUp } from "./widgets/CountUp";
+import { Gauge } from "./widgets/Gauge";
+import { Scene } from "./widgets/Scene";
+import {
+  Comfort,
+  Compass,
+  MoonDisc,
+  SunArc,
+  Thermo,
+  WeekRanges,
+} from "./widgets/Visuals";
+import s from "./Dashboard.module.css";
 import {
   DEFAULT_LAYOUT,
   WIDGETS,
@@ -45,17 +70,26 @@ type Data = {
   air?: AirReport;
   error?: string;
 };
-const COMPASS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
 const dash = "–";
+const SPC_LEVELS = ["TSTM", "MRGL", "SLGT", "ENH", "MDT", "HIGH"];
 
-function Big({ value, sub }: { value: ReactNode; sub?: ReactNode }) {
-  return (
-    <div>
-      <p className="display text-4xl leading-none">{value}</p>
-      {sub && <p className="mt-1 text-sm text-muted">{sub}</p>}
-    </div>
-  );
-}
+/** Each widget's icon and the light it glows with. */
+const LOOK: Record<WidgetId, { icon: LucideIcon; tint: string }> = {
+  now: { icon: CloudSun, tint: "var(--accent)" },
+  hourly: { icon: Clock, tint: "var(--accent)" },
+  week: { icon: CalendarDays, tint: "#5ac8fa" },
+  spc: { icon: Zap, tint: "#ffcc00" },
+  uv: { icon: SunMedium, tint: "#af52de" },
+  sun: { icon: Sunrise, tint: "#ff9f43" },
+  moon: { icon: Moon, tint: "#b9c6ff" },
+  wind: { icon: Wind, tint: "#5ac8fa" },
+  pressure: { icon: GaugeIcon, tint: "#8b9cff" },
+  feels: { icon: Thermometer, tint: "#ff7a45" },
+  dew: { icon: Droplets, tint: "#3ea6ff" },
+  aqi: { icon: Leaf, tint: "#4cd964" },
+  pollen: { icon: Flower2, tint: "#e879f9" },
+};
+const WIDE: WidgetId[] = ["now", "hourly", "week"];
 
 export function Dashboard() {
   const { active } = usePlaces();
@@ -99,8 +133,8 @@ export function Dashboard() {
   if (!active) {
     return (
       <Card className="grid gap-3">
-        <h2 className="display text-2xl text-accent">Your dashboard</h2>
-        <p className="text-muted">
+        <p className="eyebrow">Your dashboard</p>
+        <p className="text-sm text-muted">
           Add your location or a ZIP code to fill your dashboard.
         </p>
         <Button variant="primary" onClick={() => setSheet(true)}>
@@ -134,159 +168,195 @@ export function Dashboard() {
     new Date(`${localDate}T12:00:00Z`),
   );
   const moon = moonPhase(now);
+  const h0 = w?.hourly[0];
+  const temp = c?.tempF ?? h0?.temp ?? null;
+  const hi = w?.daily.find((p) => p.isDay)?.temp;
+  const lo = w?.daily.find((p) => !p.isDay)?.temp;
+  const aqi = cur?.air?.aqi?.now ?? null;
+  const pollen = cur?.air?.pollen;
+  const topPollen =
+    pollen?.kind === "counts"
+      ? pollen.days[0]?.types.reduce((a, b) => (b.index > a.index ? b : a), {
+          label: "None",
+          index: 0,
+          category: "None",
+        })
+      : null;
 
   const body: Record<WidgetId, ReactNode> = {
-    now: w && (
-      <div className="flex items-center gap-4">
-        <WeatherIcon
-          short={w.hourly[0]?.short ?? ""}
-          isDay={w.hourly[0]?.isDay ?? true}
-          className="size-12 text-accent"
-        />
-        <Big
-          value={`${c?.tempF ?? w.hourly[0]?.temp ?? dash}°`}
-          sub={w.hourly[0]?.short}
-        />
+    now: w && h0 && (
+      <div className={s.now}>
+        <Scene short={h0.short} isDay={h0.isDay} />
+        <div className={s.nowMain}>
+          <p className={s.nowTemp}>
+            {temp != null ? <CountUp value={temp} /> : dash}
+            <sup>°F</sup>
+          </p>
+          <p className={s.nowShort}>{h0.short}</p>
+          <p className={s.nowHiLo}>
+            <ArrowUp aria-hidden /> {hi ?? dash}°
+            <ArrowDown aria-hidden /> {lo ?? dash}°
+          </p>
+        </div>
+        <dl className={s.nowGrid}>
+          <div>
+            <dt>Feels like</dt>
+            <dd>{c?.feelsF ?? dash}°</dd>
+          </div>
+          <div>
+            <dt>Humidity</dt>
+            <dd>{c?.rh ?? h0.rh ?? dash}%</dd>
+          </div>
+          <div>
+            <dt>Wind</dt>
+            <dd>{c?.windMph != null ? `${c.windMph} mph` : h0.wind}</dd>
+          </div>
+          <div>
+            <dt>Pressure</dt>
+            <dd>{c?.pressureMb ? `${Math.round(c.pressureMb)} mb` : dash}</dd>
+          </div>
+        </dl>
       </div>
     ),
     hourly: w && <HourlyChart hours={w.hourly} timeZone={tz} />,
-    week: w && (
-      <ol className="grid gap-1.5">
-        {w.daily
-          .filter((p) => p.isDay)
-          .slice(0, 7)
-          .map((d) => {
-            const night = w.daily.find(
-              (n) => !n.isDay && Date.parse(n.start) > Date.parse(d.start),
-            );
-            return (
-              <li
-                key={d.start}
-                className="grid grid-cols-[5.5rem_1.5rem_1fr_auto] items-center gap-2 text-sm"
-              >
-                <span className="font-bold">
-                  {d.name.replace(" Night", "").slice(0, 9)}
-                </span>
-                <WeatherIcon
-                  short={d.short}
-                  isDay
-                  className="size-5 text-accent"
-                />
-                <span className="truncate text-muted">{d.short}</span>
-                <span className="font-bold">
-                  {d.temp}°{" "}
-                  <span className="font-normal text-muted">
-                    / {night?.temp ?? dash}°
-                  </span>
-                </span>
-              </li>
-            );
-          })}
-      </ol>
-    ),
+    week: w && <WeekRanges daily={w.daily} />,
     spc: cur && (
-      <Big
-        value={c?.spc ?? "None"}
-        sub={c?.spc ? SPC_NAMES[c.spc] : "No severe or thunderstorm risk today"}
+      <Gauge
+        value={c?.spc ? SPC_LEVELS.indexOf(c.spc) + 1 : 0}
+        min={0}
+        max={6}
+        stops={[
+          "#3a3f55",
+          "#c1e9c1",
+          "#66a366",
+          "#ffe066",
+          "#ffa366",
+          "#e06666",
+          "#ee99ee",
+        ]}
+        center={<p className={s.gValue}>{c?.spc ?? "None"}</p>}
+        caption={
+          c?.spc ? SPC_NAMES[c.spc] : "No severe or thunderstorm risk today"
+        }
       />
     ),
     uv:
       cur &&
       (c?.uv ? (
-        <Big
+        <Gauge
           value={c.uv.now}
-          sub={`${uvLabel(c.uv.now)} · today's peak ${c.uv.max}`}
+          min={0}
+          max={12}
+          stops={["#4cd964", "#ffcc00", "#ff9500", "#ff3b30", "#af52de"]}
+          marks={[{ value: c.uv.max, label: `Today's peak ${c.uv.max}` }]}
+          center={
+            <p className={s.gValue}>
+              <CountUp value={c.uv.now} />
+            </p>
+          }
+          caption={`${uvLabel(c.uv.now)} · peak ${c.uv.max} today`}
         />
       ) : (
-        <p className="text-sm text-muted">No EPA UV forecast for this place.</p>
+        <p className={s.none}>No EPA UV forecast for this place.</p>
       )),
     sun: (
-      <Big
-        value={
-          <span className="text-3xl">
-            {time(sun.rise)} – {time(sun.set)}
-          </span>
-        }
-        sub={`${Math.floor(sun.dayMinutes / 60)} h ${Math.round(sun.dayMinutes % 60)} min of daylight`}
-      />
+      <div>
+        <SunArc rise={sun.rise} set={sun.set} now={now} label={time} />
+        <p className={s.caption}>
+          {Math.floor(sun.dayMinutes / 60)} h {Math.round(sun.dayMinutes % 60)}{" "}
+          min of daylight
+        </p>
+      </div>
     ),
     moon: (
-      <Big
-        value={<span className="text-3xl">{moon.name}</span>}
-        sub={`${Math.round(moon.illumination * 100)}% lit · full in ${Math.round(moon.daysToFull)} days`}
-      />
+      <div className={s.moonRow}>
+        <MoonDisc phase={moon.phase} />
+        <div>
+          <p className={s.mid}>{moon.name}</p>
+          <p className={s.caption}>
+            {Math.round(moon.illumination * 100)}% lit · full in{" "}
+            {Math.round(moon.daysToFull)} days
+          </p>
+        </div>
+      </div>
     ),
     wind: cur && (
-      <Big
-        value={`${c?.windMph ?? dash} mph`}
-        sub={
-          [
-            c?.windDir != null
-              ? `from the ${COMPASS[Math.round(c.windDir / 45) % 8]}`
-              : null,
-            c?.gustMph ? `gusts ${c.gustMph} mph` : null,
-          ]
-            .filter(Boolean)
-            .join(" · ") || "Calm"
-        }
+      <Compass
+        from={c?.windDir ?? null}
+        mph={c?.windMph ?? null}
+        gust={c?.gustMph ?? null}
       />
     ),
     pressure: cur && (
-      <Big
-        value={c?.pressureMb ? `${c.pressureMb} mb` : dash}
-        sub={
+      <Gauge
+        value={c?.pressureMb ?? null}
+        min={980}
+        max={1045}
+        stops={["#5856d6", "#5ac8fa", "#4cd964", "#ffcc00", "#ff9500"]}
+        center={
+          <p className={s.gValue}>
+            {c?.pressureMb ? Math.round(c.pressureMb) : dash}
+            <small> mb</small>
+          </p>
+        }
+        caption={
           c?.trend
-            ? `${c.trend.trend[0].toUpperCase()}${c.trend.trend.slice(1)} (${c.trend.change > 0 ? "+" : ""}${c.trend.change} mb in 3 h)`
+            ? `${c.trend.trend[0].toUpperCase()}${c.trend.trend.slice(1)} · ${c.trend.change > 0 ? "+" : ""}${c.trend.change} mb in 3 h`
             : "Trend unavailable"
         }
       />
     ),
     feels: cur && (
-      <Big
-        value={`${c?.feelsF ?? dash}°`}
-        sub={`Actual ${c?.tempF ?? dash}°`}
-      />
+      <Thermo feels={c?.feelsF ?? null} actual={c?.tempF ?? null} />
     ),
-    dew: cur && (
-      <Big value={`${c?.dewF ?? dash}°`} sub={`Humidity ${c?.rh ?? dash}%`} />
-    ),
+    dew: cur && <Comfort dew={c?.dewF ?? null} rh={c?.rh ?? null} />,
     aqi:
       cur &&
-      (cur.air?.aqi?.now != null ? (
-        <Big
-          value={
-            <span style={{ color: aqiBand(cur.air.aqi.now).color }}>
-              {cur.air.aqi.now}
-            </span>
+      (aqi != null ? (
+        <Gauge
+          value={aqi}
+          min={0}
+          max={300}
+          stops={[
+            "#00e400",
+            "#ffff00",
+            "#ff7e00",
+            "#ff0000",
+            "#8f3f97",
+            "#7e0023",
+          ]}
+          center={
+            <p className={s.gValue} style={{ color: aqiBand(aqi).color }}>
+              <CountUp value={aqi} />
+            </p>
           }
-          sub={aqiBand(cur.air.aqi.now).label}
+          caption={aqiBand(aqi).label}
         />
       ) : (
-        <p className="text-sm text-muted">No air-quality reading here.</p>
+        <p className={s.none}>No air-quality reading here.</p>
       )),
     pollen:
       cur &&
-      (cur.air?.pollen?.kind === "dispersal" && cur.air.pollen.peak ? (
-        <Big
-          value={<span className="text-3xl">{cur.air.pollen.peak.band}</span>}
-          sub="Worst pollen dispersal in the next 24 h (not a count)"
+      (pollen?.kind === "dispersal" && pollen.peak ? (
+        <Gauge
+          value={pollen.peak.score}
+          min={0}
+          max={100}
+          stops={["#4cd964", "#a3e635", "#ffcc00", "#ff9500", "#ff3b30"]}
+          center={<p className={s.gMid}>{pollen.peak.band}</p>}
+          caption="Worst dispersal in the next 24 h (not a count)"
         />
-      ) : cur.air?.pollen?.kind === "counts" ? (
-        <Big
-          value={
-            <span className="text-3xl">
-              {
-                cur.air.pollen.days[0]?.types.reduce(
-                  (a, b) => (b.index > a.index ? b : a),
-                  { label: "None", index: 0, category: "None" },
-                ).category
-              }
-            </span>
-          }
-          sub="Highest pollen type today"
+      ) : topPollen ? (
+        <Gauge
+          value={topPollen.index}
+          min={0}
+          max={5}
+          stops={["#4cd964", "#a3e635", "#ffcc00", "#ff9500", "#ff3b30"]}
+          center={<p className={s.gMid}>{topPollen.category}</p>}
+          caption={`Highest today: ${topPollen.label}`}
         />
       ) : (
-        <p className="text-sm text-muted">Pollen isn&apos;t available here.</p>
+        <p className={s.none}>Pollen isn&apos;t available here.</p>
       )),
   };
 
@@ -298,78 +368,73 @@ export function Dashboard() {
       <div className="flex items-center justify-between gap-2">
         <button
           onClick={() => setSheet(true)}
-          className="flex items-center gap-2 font-bold text-accent"
+          className="flex items-center gap-1.5 text-[13px] font-semibold"
           aria-label={`Location: ${active.label}. Change`}
         >
-          <MapPin className="size-4" aria-hidden /> {active.label}{" "}
-          <ChevronDown className="size-4 text-muted" aria-hidden />
+          <MapPin className="size-4 text-accent" aria-hidden /> {active.label}
+          <ChevronDown className="size-3.5 text-muted" aria-hidden />
         </button>
         <Button
           variant={editing ? "primary" : "secondary"}
           onClick={() => setEditing(!editing)}
         >
-          <Settings2 className="size-4" aria-hidden />{" "}
+          <Settings2 className="size-4" aria-hidden />
           {editing ? "Done" : "Arrange"}
         </Button>
       </div>
       {cur?.error && (
         <Card className="grid gap-2">
-          <p className="text-muted">{cur.error}</p>
+          <p className="text-sm text-muted">{cur.error}</p>
           <Button onClick={() => setRetry((n) => n + 1)}>Try again</Button>
         </Card>
       )}
-      <ul className="grid gap-3 sm:grid-cols-2">
-        {visible.map((id, i) => (
-          <li
-            key={id}
-            className={id === "hourly" || id === "week" ? "sm:col-span-2" : ""}
-          >
-            <Card className="grid gap-3">
-              <div className="flex items-center justify-between gap-2">
-                <h2 className="text-xs font-bold tracking-wider text-muted uppercase">
+      <ul className={s.wall}>
+        {visible.map((id, i) => {
+          const { icon: Icon, tint } = LOOK[id];
+          return (
+            <li
+              key={id}
+              className={`${s.tile} ${WIDE.includes(id) ? s.wide : ""} ${editing ? s.editing : ""}`}
+              style={{ ["--tint" as string]: tint, ["--d" as string]: i }}
+            >
+              <div className={s.head}>
+                <h2>
+                  <Icon aria-hidden />
                   {title(id)}
                 </h2>
                 {editing && (
-                  <span className="flex gap-1">
+                  <span className={s.tools}>
                     <button
                       aria-label={`Move ${title(id)} up`}
                       disabled={i === 0}
                       onClick={() => writeLayout(move(layout, id, -1))}
-                      className="grid size-8 place-items-center rounded-lg border border-line text-accent disabled:opacity-30"
                     >
-                      <ArrowUp className="size-4" aria-hidden />
+                      <ArrowUp aria-hidden />
                     </button>
                     <button
                       aria-label={`Move ${title(id)} down`}
                       disabled={i === visible.length - 1}
                       onClick={() => writeLayout(move(layout, id, 1))}
-                      className="grid size-8 place-items-center rounded-lg border border-line text-accent disabled:opacity-30"
                     >
-                      <ArrowDown className="size-4" aria-hidden />
+                      <ArrowDown aria-hidden />
                     </button>
                     <button
                       aria-label={`Hide ${title(id)}`}
                       onClick={() => writeLayout(toggle(layout, id))}
-                      className="grid size-8 place-items-center rounded-lg border border-line text-accent"
                     >
-                      <EyeOff className="size-4" aria-hidden />
+                      <EyeOff aria-hidden />
                     </button>
                   </span>
                 )}
               </div>
-              {body[id] ?? (
-                <div
-                  className="h-16 animate-pulse rounded-xl bg-surface2"
-                  aria-label="Loading"
-                />
-              )}
-            </Card>
-          </li>
-        ))}
+              {body[id] ?? <div className={s.skeleton} aria-label="Loading" />}
+            </li>
+          );
+        })}
       </ul>
       {editing && layout.hidden.length > 0 && (
         <Card className="grid gap-2">
-          <h2 className="text-sm font-bold">Hidden widgets</h2>
+          <p className="label">Hidden widgets</p>
           <div className="flex flex-wrap gap-2">
             {layout.hidden.map((id) => (
               <Button key={id} onClick={() => writeLayout(toggle(layout, id))}>
@@ -380,9 +445,10 @@ export function Dashboard() {
         </Card>
       )}
       {w && (
-        <p className="mono text-xs text-muted">
+        <p className="mono text-[10px] text-muted">
           NWS {w.place.office}
           {c?.station ? ` · station ${c.station}` : ""} · SPC Day 1 · EPA UV
+          {cur?.air?.aqi ? ` · ${cur.air.aqi.source}` : ""}
         </p>
       )}
       {sheetEl}

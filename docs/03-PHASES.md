@@ -45,11 +45,11 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 - [x] 21. Daily Brief: in-app, push and email, with schedule options (texts requested by members appear in the admin panel; owner sends them)
 - [x] 22. Forecast Discussion: AI "Simplified" tab and restyled "Standard" tab (+ AI usage meter in Live ops)
 - [x] 23. AQI & Pollen (port from VIP: AQI Outlook, Pollen Index) + dashboard widgets + brief line
-- [ ] 24. Mosquito Index (port from VIP, restyled)
-- [ ] 25. Daylight Tracker (rebuilt, modeled on Max Velocity's)
+- [x] 24. Mosquito Index (port from VIP, restyled)
+- [x] 25. Daylight Tracker (rebuilt, modeled on Max Velocity's)
 
 ## Community
-- [ ] 26. Forecast Game (port from VIP, redesigned)
+- [x] 26. Forecast Game (port from VIP, redesigned)
 - [ ] 27. Daily Trivia with admin question and points editor
 - [ ] 28. Leaderboard (weekly, monthly, yearly) with admin points and past-winner entry
 - [ ] 29. Weekly Polls with admin scheduling

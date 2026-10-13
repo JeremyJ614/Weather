@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { NavIcon } from "@/components/NavIcon";
+import { Beam } from "@/components/ui/Beam";
 import { href } from "@/lib/nav/registry";
 import s from "./MorphFab.module.css";
 import type { MenuProps } from "./types";
@@ -33,15 +34,16 @@ export function MorphFab({ groups, placement, role }: MenuProps) {
             </h2>
             <div className={s.row}>
               {g.pages.map((pg) => (
-                <Link
-                  key={pg.slug}
-                  href={href(pg)}
-                  className={s.mi}
-                  tabIndex={open ? 0 : -1}
-                  aria-current={path === href(pg) ? "page" : undefined}
-                >
-                  {pg.label}
-                </Link>
+                <Beam key={pg.slug} className={s.beam}>
+                  <Link
+                    href={href(pg)}
+                    className={s.mi}
+                    tabIndex={open ? 0 : -1}
+                    aria-current={path === href(pg) ? "page" : undefined}
+                  >
+                    {pg.label}
+                  </Link>
+                </Beam>
               ))}
             </div>
           </div>

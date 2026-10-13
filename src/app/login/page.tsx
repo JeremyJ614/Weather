@@ -33,9 +33,12 @@ export default async function Login({
       <Card className="grid gap-5">
         {user ? (
           <>
-            <h1 className="display text-3xl text-accent">
-              You&apos;re signed in
-            </h1>
+            <div>
+              <p className="eyebrow">Your account</p>
+              <h1 className="font-[family-name:var(--font-display)] text-2xl font-extrabold">
+                You&apos;re signed in
+              </h1>
+            </div>
             <p className="text-muted">{user.email}</p>
             <ChangePin />
             <form action="/auth/signout" method="post">
@@ -46,7 +49,12 @@ export default async function Login({
           </>
         ) : (
           <>
-            <h1 className="display text-3xl text-accent">Sign in</h1>
+            <div>
+              <p className="eyebrow">SSWX Weather Center</p>
+              <h1 className="font-[family-name:var(--font-display)] text-2xl font-extrabold">
+                Sign in
+              </h1>
+            </div>
             {error === "link" && (
               <p className="text-sm text-accent" role="alert">
                 That sign-in link expired or was already used. Send a new one.

@@ -1,12 +1,16 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { WeatherMap, type AnyMap } from "@/features/map/WeatherMap";
-import { usePlaces } from "@/features/location/usePlaces";
-import { eddiTiles, heatRiskTiles, setRaster } from "@/lib/map/raster";
-import { HEATRISK_LEVELS, WPC_QPF } from "@/lib/weather/wpc";
-import { Chips } from "./Chips";
+import { useState } from "react";
+import { CloudRain, Droplets, Flame, Sun } from "lucide-react";
+import { Chip } from "@/components/ui/Chip";
+import { UsMap } from "@/features/maps/UsMap";
+import { Picker, Section } from "@/features/maps/Section";
+import { Polys, useLayer } from "@/features/maps/useLayer";
+import { ERO, QPF } from "@/lib/map/products";
+import { HEATRISK_LEVELS } from "@/lib/weather/wpc";
 
+const W = 975;
+const H = 610;
 const day = (ms: number) =>
   new Date(ms).toLocaleDateString("en-US", {
     weekday: "short",
@@ -15,102 +19,146 @@ const day = (ms: number) =>
     timeZone: "UTC",
   });
 
-/** WPC subtab: rain totals, HeatRisk and rapid-onset drought. */
-export function WpcPanel({ heatDays }: { heatDays: number[] }) {
-  const { active } = usePlaces();
-  const center: [number, number] = active
-    ? [active.lon, active.lat]
-    : [-97.5, 38.5];
-  const [qpf, setQpf] = useState<string>("d1");
-  const [heatDay, setHeatDay] = useState(heatDays[0] ?? 0);
-  const heatMap = useRef<AnyMap | null>(null);
-  const img = WPC_QPF.find((q) => q.id === qpf)!;
-
+function Vector({
+  ids,
+  label,
+}: {
+  ids: { id: string; label: string }[];
+  label: string;
+}) {
+  const [pick, setPick] = useState(ids[0].id);
+  const { layer, status } = useLayer(pick);
   return (
-    <div className="grid gap-6">
-      <section className="grid gap-3">
-        <h2 className="display text-2xl text-accent">Rainfall forecast</h2>
-        <Chips
-          items={WPC_QPF.map((q) => ({ id: q.id as string, label: q.label }))}
-          value={qpf}
-          onPick={setQpf}
-        />
-        {/* eslint-disable-next-line @next/next/no-img-element -- official WPC graphic, loaded directly */}
-        <img
-          key={img.src}
-          src={img.src}
-          alt={`WPC rainfall forecast, ${img.label}`}
-          className="w-full rounded-2xl border border-line bg-white"
-        />
-        <p className="text-xs text-muted">
-          Weather Prediction Center quantitative precipitation forecast. Updated
-          by WPC several times a day.
-        </p>
-      </section>
+    <>
+      <Picker>
+        {ids.map((q) => (
+          <Chip
+            key={q.id}
+            pressed={q.id === pick}
+            onClick={() => setPick(q.id)}
+          >
+            {q.label}
+          </Chip>
+        ))}
+      </Picker>
+      <UsMap
+        title={layer?.title ?? label}
+        sub={layer?.valid}
+        legend={layer?.legend ?? []}
+        status={status}
+        file={`sswx-${pick}`}
+      >
+        {layer && <Polys polys={layer.polys} />}
+      </UsMap>
+    </>
+  );
+}
 
-      <section className="grid gap-3">
-        <h2 className="display text-2xl text-accent">HeatRisk</h2>
+function Raster({
+  src,
+  title,
+  sub,
+  file,
+}: {
+  src: string;
+  title: string;
+  sub?: string;
+  file: string;
+}) {
+  const [status, setStatus] = useState<{ src: string; ok: boolean } | null>(
+    null,
+  );
+  const st = status?.src === src ? (status.ok ? "ready" : "error") : "loading";
+  return (
+    <UsMap
+      title={title}
+      sub={sub}
+      legend={file === "sswx-heatrisk" ? HEATRISK_LEVELS : []}
+      status={st}
+      file={file}
+    >
+      <image
+        key={src}
+        href={src}
+        width={W}
+        height={H}
+        preserveAspectRatio="none"
+        opacity={0.85}
+        onLoad={() => setStatus({ src, ok: true })}
+        onError={() => setStatus({ src, ok: false })}
+      />
+    </UsMap>
+  );
+}
+
+/** WPC subtab: rainfall totals, flood risk, HeatRisk and flash drought on static national maps. */
+export function WpcPanel({ heatDays }: { heatDays: number[] }) {
+  const [heatDay, setHeatDay] = useState(heatDays[0] ?? 0);
+  return (
+    <div className="grid gap-8">
+      <Section
+        icon={<CloudRain aria-hidden />}
+        eyebrow="Weather Prediction Center · QPF"
+        title="Rainfall forecast"
+        note="How much rain and melted snow WPC forecasters expect, in inches, for each day and as running totals. Warmer colors mean more water."
+      >
+        <Vector ids={QPF} label="Rainfall forecast" />
+      </Section>
+
+      <Section
+        icon={<Droplets aria-hidden />}
+        eyebrow="Weather Prediction Center · ERO"
+        title="Excessive rainfall risk"
+        note="The chance that rain falls fast enough to cause flash flooding within 25 miles of a point. Most flood deaths happen in Slight or Moderate risk areas, not just High."
+      >
+        <Vector ids={ERO} label="Excessive rainfall risk" />
+      </Section>
+
+      <Section
+        icon={<Sun aria-hidden />}
+        eyebrow="National Weather Service · HeatRisk"
+        title="HeatRisk"
+        note="How dangerous the heat is for health, from 0 (little risk) to 4 (extreme), judged against what is normal for that place and time of year."
+      >
         {heatDays.length > 0 ? (
           <>
-            <Chips
-              items={heatDays.map((t) => ({ id: t, label: day(t) }))}
-              value={heatDay}
-              onPick={(t) => {
-                setHeatDay(t);
-                if (heatMap.current)
-                  setRaster(
-                    heatMap.current,
-                    "heatrisk",
-                    heatRiskTiles(t),
-                    0.75,
-                  );
-              }}
-            />
-            <WeatherMap
-              center={center}
-              zoom={active ? 5 : 3}
-              label="NWS HeatRisk map"
-              className="h-80"
-              onReady={({ map }) => {
-                heatMap.current = map;
-                setRaster(map, "heatrisk", heatRiskTiles(heatDay), 0.75);
-              }}
-            />
-            <ul className="flex flex-wrap gap-3 text-xs text-muted">
-              {HEATRISK_LEVELS.map((l) => (
-                <li key={l.label} className="flex items-center gap-1.5">
-                  <span
-                    className="size-3 rounded-sm"
-                    style={{ background: l.color }}
-                    aria-hidden
-                  />
-                  {l.label}
-                </li>
+            <Picker>
+              {heatDays.map((t) => (
+                <Chip
+                  key={t}
+                  pressed={t === heatDay}
+                  onClick={() => setHeatDay(t)}
+                >
+                  {day(t)}
+                </Chip>
               ))}
-            </ul>
+            </Picker>
+            <Raster
+              src={`/api/maps/raster?p=heat&t=${heatDay}`}
+              title="HeatRisk"
+              sub={day(heatDay)}
+              file="sswx-heatrisk"
+            />
           </>
         ) : (
           <p className="text-sm text-muted">
             The NWS HeatRisk service isn&apos;t answering right now.
           </p>
         )}
-      </section>
+      </Section>
 
-      <section className="grid gap-3">
-        <h2 className="display text-2xl text-accent">Rapid drought onset</h2>
-        <p className="text-sm text-muted">
-          Evaporative Demand Drought Index, 2-week: warm colors show the air
-          drying the land faster than normal, an early warning of flash drought.
-          Blues show wetter than normal.
-        </p>
-        <WeatherMap
-          center={center}
-          zoom={active ? 5 : 3}
-          label="Evaporative Demand Drought Index map"
-          className="h-80"
-          onReady={({ map }) => setRaster(map, "eddi", eddiTiles(11), 0.75)}
+      <Section
+        icon={<Flame aria-hidden />}
+        eyebrow="NOAA PSL · EDDI"
+        title="Rapid drought onset"
+        note="The Evaporative Demand Drought Index over two weeks: warm colors show thirsty air pulling water from the land faster than normal, an early sign of flash drought. Blues are wetter than normal."
+      >
+        <Raster
+          src="/api/maps/raster?p=eddi"
+          title="Evaporative Demand Drought Index (2 weeks)"
+          file="sswx-eddi"
         />
-      </section>
+      </Section>
     </div>
   );
 }

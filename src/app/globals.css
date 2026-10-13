@@ -166,3 +166,107 @@ html[data-tier="low"][data-push][data-push-side="right"] #app-content {
   ) {
   filter: invert(1) hue-rotate(180deg);
 }
+
+/* ── VIP surface recipes (token-driven, so every theme follows) ─────────── */
+body {
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+/* The ground: a fixed, painted-once wash of the primary and a cool second light. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      70% 45% at 0% 0%,
+      color-mix(in srgb, var(--accent) 9%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      60% 40% at 100% 8%,
+      color-mix(in srgb, var(--accent2) 10%, transparent),
+      transparent 70%
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--surface) 55%, var(--bg)),
+      var(--bg) 60%
+    );
+}
+.panel {
+  position: relative;
+  background: color-mix(in srgb, var(--surface) 78%, transparent);
+  border: 1px solid color-mix(in srgb, var(--line) 90%, transparent);
+  box-shadow:
+    inset 0 1px 0 0 color-mix(in srgb, var(--accent) 20%, transparent),
+    0 22px 44px -30px rgb(0 0 0 / 0.95);
+}
+.btn-dark {
+  background: color-mix(in srgb, var(--bg) 70%, #000);
+  box-shadow:
+    inset 0 0 0 1px rgb(44 47 54 / 0.5),
+    inset 0 0 40px 0 rgb(255 255 255 / 0.02);
+}
+.eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.label {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.glow-text {
+  text-shadow: 0 0 18px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+.rise {
+  animation: rise var(--t-slow) var(--ease) both;
+  animation-delay: calc(var(--d, 0) * 60ms);
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Section titles across admin and tools pages: VIP scale, a drawn primary rule under each. */
+h1.display {
+  position: relative;
+  padding-bottom: 10px;
+  font-size: 24px;
+  color: var(--text);
+  text-transform: none;
+}
+h1.display::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 72px;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--accent), transparent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 60%, transparent);
+  transform-origin: left;
+  animation: draw-rule 900ms var(--ease) 150ms both;
+}
+@keyframes draw-rule {
+  from {
+    transform: scaleX(0);
+  }
+}

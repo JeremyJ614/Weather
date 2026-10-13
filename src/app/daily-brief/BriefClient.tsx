@@ -15,7 +15,12 @@ export function BriefClient(props: Props) {
     <div className="grid gap-6">
       <BriefView onTimeZone={onTz} />
       <section id="settings" className="grid gap-3">
-        <h2 className="display text-2xl text-accent">Delivery</h2>
+        <div>
+          <p className="eyebrow">Delivery</p>
+          <h2 className="font-[family-name:var(--font-display)] text-lg font-extrabold">
+            Get it every morning
+          </h2>
+        </div>
         <Card>
           <BriefSettings {...props} timeZone={tz} />
         </Card>

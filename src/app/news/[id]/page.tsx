@@ -59,7 +59,9 @@ export default async function NewsPost({ params }: Props) {
             dateStyle: "long",
           })}
         </p>
-        <h1 className="display text-4xl text-accent">{post.title}</h1>
+        <h1 className="font-[family-name:var(--font-display)] text-[26px] leading-tight font-extrabold">
+          {post.title}
+        </h1>
         <NewsBody source={post.body} />
       </article>
     </main>

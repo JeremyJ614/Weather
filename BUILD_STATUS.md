@@ -2,7 +2,7 @@
 
 **Objective:** StormSync Weather (Weather.SSWX.Space): one mobile-first PWA + Android .apk merging the team's weather apps. Free to run until revenue.
 
-**Stage:** Building. Done: 01–23, 10b, 10c. Next: 24 Mosquito Index (port).
+**Stage:** Building. Done: 01–26, 10b, 10c, plus the owner's 18-point redesign pass (2026-10-13, PR #3). Next: 27 Daily Trivia (WX Games tab, shares the game_points ledger).
 
 **Decisions so far**
 - Repo `JeremyJ614/Weather`, working branch `ccr-f5e0b71a-4vr2wk`, PR #1 merged to `main`; PR #2 open.
@@ -27,7 +27,11 @@
 
 **Fixed:** lab saved data came back read-only, silently blocking later edits (now cloned on load).
 
+**Design system (2026-10-13 redesign):** VIP Classic type (Raleway + DM Sans) at the VIP scale; `PageHero` on every page; `Card`/`.panel` glass recipe; `Beam` (border-beam, lazy) on bordered buttons, pressed chips and menu items; `HomeTabs` subtabs morph through the WebGL noise dissolve (`features/motion/morph.ts`, subtabs only); national maps via `features/maps/UsMap` + `/api/maps/*` (Albers USA, PNG download); dashboard widgets in `features/dashboard/widgets`; `AwardBadge` for the badges phase. New pages must meet this bar.
+
 **Blockers / waiting on owner:**
+- Owner sign-in: no account existed for the founder email. Use "Email me a link" with that email on /login, then fill the welcome form and choose the PIN there; the founder role is granted automatically.
+- Google Pollen: add the same `GOOGLE_POLLEN_KEY` the VIP app uses to Vercel (Production) to turn on real pollen counts, plant photos and advice (the UI is built).
 - Before paid plans: free EPA AirNow key (docs.airnowapi.org → Request an API key) → Vercel `AIRNOW_API_KEY`. Optional: Google Pollen API key → `GOOGLE_POLLEN_KEY` for real pollen counts.
 - Run once in Supabase SQL editor (prunes scheduler history; the agent tool can't run deletes): `select cron.schedule('cron-history-prune', '23 6 * * *', $$delete from cron.job_run_details where end_time < now() - interval '7 days'$$);`
 - Delete test user `rls-test@example.com` in Supabase → Authentication → Users (left by an RLS test; deleting via the tool needs a confirmation that never reaches the owner). Future DB tests run inside a rolled-back transaction.

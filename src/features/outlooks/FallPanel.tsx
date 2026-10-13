@@ -1,9 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Pause, Play } from "lucide-react";
-import { WeatherMap, type AnyMap } from "@/features/map/WeatherMap";
+import { useEffect, useMemo, useState } from "react";
+import { Leaf, Pause, Play } from "lucide-react";
+import { Beam } from "@/components/ui/Beam";
+import { UsMap } from "@/features/maps/UsMap";
+import { Section } from "@/features/maps/Section";
+import { project } from "@/lib/map/usAlbers";
 import { leafColor, timeline, type FallReport } from "@/lib/weather/foliage";
+import s from "./FallPanel.module.css";
 
 const DAY = 86_400_000;
 const fmt = (t: number) =>
@@ -13,22 +17,7 @@ const fmt = (t: number) =>
     timeZone: "UTC",
   });
 
-type GeoSource = { setData(d: object): void };
-
-function collection(report: FallReport, asOf: number) {
-  return {
-    type: "FeatureCollection",
-    features: report.sites
-      .filter((s) => s[2] <= asOf)
-      .map((s) => ({
-        type: "Feature",
-        geometry: { type: "Point", coordinates: [s[0], s[1]] },
-        properties: { c: leafColor((asOf - s[2]) / DAY) },
-      })),
-  };
-}
-
-/** Fall Forecast subtab: replay the season's first-color reports across the country. */
+/** Fall subtab: replay the season's first-color reports across the country. */
 export function FallPanel({ report }: { report: FallReport | null }) {
   const stops = useMemo(
     () => (report ? timeline(report.start, report.end) : []),
@@ -36,19 +25,28 @@ export function FallPanel({ report }: { report: FallReport | null }) {
   );
   const [i, setI] = useState(Math.max(0, stops.length - 1));
   const [playing, setPlaying] = useState(false);
-  const map = useRef<AnyMap | null>(null);
   const asOf = stops[i] ?? 0;
 
-  useEffect(() => {
-    const src =
-      map.current &&
-      (
-        map.current as unknown as {
-          getSource(id: string): GeoSource | undefined;
-        }
-      ).getSource("fall");
-    if (src && report) src.setData(collection(report, asOf));
-  }, [asOf, report]);
+  // Every site projected once.
+  const pts = useMemo(
+    () =>
+      (report?.sites ?? []).map((st) => {
+        const { x, y } = project(st[0], st[1]);
+        return { x, y, t: st[2], sp: st[3] };
+      }),
+    [report],
+  );
+  // Reports per scrubber step, for the histogram above the track.
+  const hist = useMemo(() => {
+    const h = stops.map(() => 0);
+    let k = 0;
+    for (const p of pts) {
+      while (k < stops.length - 1 && p.t > stops[k]) k++;
+      h[k]++;
+    }
+    return h;
+  }, [pts, stops]);
+  const peak = Math.max(1, ...hist);
 
   useEffect(() => {
     if (!playing) return;
@@ -60,126 +58,179 @@ export function FallPanel({ report }: { report: FallReport | null }) {
         }
         return n + 1;
       });
-    }, 350);
+    }, 260);
     return () => clearInterval(t);
   }, [playing, stops.length]);
 
   if (!report) {
     return (
-      <p className="rounded-2xl border border-line bg-surface p-4 text-sm text-muted">
+      <p className="panel rounded-2xl p-4 text-sm text-muted">
         The phenology network isn&apos;t answering right now.
       </p>
     );
   }
-  const shown = report.sites.filter((s) => s[2] <= asOf);
-  const recent = shown.filter((s) => asOf - s[2] <= 14 * DAY).length;
+  const shown = pts.filter((p) => p.t <= asOf);
+  const recent = shown.filter((p) => asOf - p.t <= 14 * DAY).length;
   const counts = new Map<number, number>();
-  shown.forEach((s) => counts.set(s[3], (counts.get(s[3]) ?? 0) + 1));
+  shown.forEach((p) => counts.set(p.sp, (counts.get(p.sp) ?? 0) + 1));
   const top = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const topMax = top[0]?.[1] ?? 1;
+  const frac = stops.length > 1 ? i / (stops.length - 1) : 1;
+  const months = stops.filter(
+    (t, k) => k === 0 || new Date(t).getUTCDate() <= 3,
+  );
 
   return (
-    <section className="grid gap-3">
-      <h2 className="display text-2xl text-accent">
-        Fall color {report.season}
-      </h2>
-      <p className="text-sm text-muted">
-        {report.current
-          ? "This season so far"
-          : "Last season (the next one starts in August)"}
-        : every place a volunteer recorded the first colored leaves or needles,
-        from the USA National Phenology Network. Each dot is one plant on one
-        date; it reddens as the turn ages.
-      </p>
-      <WeatherMap
-        center={[-92, 40]}
-        zoom={3}
-        label="Fall color reports map"
-        className="h-96"
-        onReady={({ map: m }) => {
-          map.current = m;
-          const mm = m as unknown as {
-            addSource(id: string, s: object): void;
-            addLayer(l: object): void;
-          };
-          mm.addSource("fall", {
-            type: "geojson",
-            data: collection(report, asOf),
-          });
-          mm.addLayer({
-            id: "fall",
-            type: "circle",
-            source: "fall",
-            paint: {
-              "circle-radius": 4,
-              "circle-color": ["get", "c"],
-              "circle-stroke-width": 0.6,
-              "circle-stroke-color": "rgba(0,0,0,.55)",
-            },
-          });
-        }}
-      />
-      <div className="flex items-center gap-3">
-        <button
-          onClick={() => {
-            if (i >= stops.length - 1) setI(0);
-            setPlaying(!playing);
-          }}
-          aria-label={playing ? "Pause" : "Play the season"}
-          className="grid size-11 flex-none place-items-center rounded-full border border-accent bg-lit text-accent"
-        >
-          {playing ? (
-            <Pause className="size-5" aria-hidden />
-          ) : (
-            <Play className="size-5" aria-hidden />
-          )}
-        </button>
-        <input
-          type="range"
-          min={0}
-          max={stops.length - 1}
-          value={i}
-          onChange={(e) => {
-            setPlaying(false);
-            setI(Number(e.target.value));
-          }}
-          aria-label="Season date"
-          aria-valuetext={fmt(asOf)}
-          className="flex-1 accent-[var(--accent)]"
+    <div className="grid gap-5">
+      <Section
+        icon={<Leaf aria-hidden />}
+        eyebrow="USA National Phenology Network"
+        title={`Fall color ${report.season}`}
+        note={
+          <>
+            {report.current
+              ? "This season so far"
+              : "Last season (the next one starts in August)"}
+            : every place a volunteer recorded the first colored leaves or
+            needles. Each dot is one plant on one date, glowing yellow-green
+            when fresh and deepening to red as the turn ages. Press play to
+            watch the color sweep south.
+          </>
+        }
+      >
+        <UsMap
+          title={`Fall color reports · ${fmt(asOf)}`}
+          sub={`${report.season} season`}
+          legend={[
+            { label: "Just turned", color: leafColor(0) },
+            { label: "3 weeks", color: leafColor(21) },
+            { label: "6+ weeks", color: leafColor(42) },
+          ]}
+          status="ready"
+          file={`sswx-fall-${new Date(asOf).toISOString().slice(0, 10)}`}
+          overlay={
+            <g className={s.dots}>
+              {shown.map((p, k) => {
+                const age = (asOf - p.t) / DAY;
+                return (
+                  <circle
+                    key={k}
+                    cx={p.x}
+                    cy={p.y}
+                    r={age < 4 ? 6 : 4.6}
+                    fill={leafColor(age)}
+                    className={age < 4 ? s.fresh : undefined}
+                  />
+                );
+              })}
+            </g>
+          }
         />
-        <span className="mono w-16 text-right text-sm">{fmt(asOf)}</span>
-      </div>
-      <dl className="grid grid-cols-2 gap-2 text-sm">
-        <div className="rounded-xl border border-line bg-surface p-3">
-          <dt className="text-muted">Reports by {fmt(asOf)}</dt>
-          <dd className="text-lg font-bold">{shown.length.toLocaleString()}</dd>
+      </Section>
+
+      <div className={s.scrub}>
+        <div className={s.row}>
+          <Beam className={s.playWrap}>
+            <button
+              className={s.play}
+              onClick={() => {
+                if (i >= stops.length - 1) setI(0);
+                setPlaying(!playing);
+              }}
+              aria-label={playing ? "Pause" : "Play the season"}
+            >
+              {playing ? <Pause aria-hidden /> : <Play aria-hidden />}
+            </button>
+          </Beam>
+          <div className={s.date}>
+            <b>{fmt(asOf)}</b>
+            <span>{shown.length.toLocaleString()} reports</span>
+          </div>
         </div>
-        <div className="rounded-xl border border-line bg-surface p-3">
-          <dt className="text-muted">In the last 2 weeks</dt>
-          <dd className="text-lg font-bold">{recent.toLocaleString()}</dd>
-        </div>
-      </dl>
-      {top.length > 0 && (
-        <p className="text-sm text-muted">
-          Most reported:{" "}
-          {top.map(([sp, n], k) => (
-            <span key={sp}>
-              {k ? ", " : ""}
-              {report.species[sp]} ({n})
+        <div className={s.track}>
+          <div className={s.hist} aria-hidden>
+            {hist.map((n, k) => (
+              <i
+                key={k}
+                className={k <= i ? s.on : undefined}
+                style={{ transform: `scaleY(${Math.max(0.04, n / peak)})` }}
+              />
+            ))}
+          </div>
+          <div className={s.rail} aria-hidden>
+            <span className={s.fill} style={{ transform: `scaleX(${frac})` }} />
+            <span
+              className={s.lane}
+              style={{ transform: `translateX(${frac * 100}%)` }}
+            >
+              <i className={s.thumb} />
             </span>
-          ))}
-        </p>
-      )}
-      <div className="flex items-center gap-2 text-xs text-muted">
-        <span>Just turned</span>
-        <span
-          className="h-2 flex-1 rounded-full"
-          style={{
-            background: `linear-gradient(90deg, ${leafColor(0)}, ${leafColor(21)}, ${leafColor(42)})`,
-          }}
-          aria-hidden
-        />
-        <span>6+ weeks ago</span>
+          </div>
+          <input
+            type="range"
+            min={0}
+            max={stops.length - 1}
+            value={i}
+            onChange={(e) => {
+              setPlaying(false);
+              setI(Number(e.target.value));
+            }}
+            aria-label="Season date"
+            aria-valuetext={fmt(asOf)}
+            className={s.range}
+          />
+          <div className={s.months} aria-hidden>
+            {months.map((t) => (
+              <span
+                key={t}
+                style={{
+                  left: `${(stops.indexOf(t) / Math.max(1, stops.length - 1)) * 100}%`,
+                }}
+              >
+                {new Date(t).toLocaleDateString("en-US", {
+                  month: "short",
+                  timeZone: "UTC",
+                })}
+              </span>
+            ))}
+          </div>
+        </div>
       </div>
-    </section>
+
+      <div className={s.stats}>
+        <div>
+          <p className="label">Reports by {fmt(asOf)}</p>
+          <p className={s.num}>{shown.length.toLocaleString()}</p>
+        </div>
+        <div>
+          <p className="label">Turned in 2 weeks</p>
+          <p className={s.num} style={{ color: leafColor(2) }}>
+            {recent.toLocaleString()}
+          </p>
+        </div>
+      </div>
+
+      {top.length > 0 && (
+        <div className={s.species}>
+          <p className="label">Most reported</p>
+          <ol>
+            {top.map(([sp, n], k) => (
+              <li key={sp} style={{ ["--d" as string]: k }}>
+                <span className={s.spName}>{report.species[sp]}</span>
+                <span className={s.spBar}>
+                  <i
+                    style={{
+                      transform: `scaleX(${n / topMax})`,
+                      background: leafColor(k * 9),
+                    }}
+                  />
+                </span>
+                <span className={s.spN}>{n}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+    </div>
   );
 }

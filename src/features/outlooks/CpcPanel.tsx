@@ -1,53 +1,63 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { WeatherMap, type AnyMap } from "@/features/map/WeatherMap";
-import { usePlaces } from "@/features/location/usePlaces";
-import { outlookTiles, setRaster } from "@/lib/map/raster";
-import { CPC_LEGEND, CPC_OUTLOOKS } from "@/lib/weather/cpc";
-import { Chips } from "./Chips";
+import { useState } from "react";
+import { Thermometer } from "lucide-react";
+import { Chip } from "@/components/ui/Chip";
+import { UsMap } from "@/features/maps/UsMap";
+import { Picker, Section } from "@/features/maps/Section";
+import { Polys, useLayer } from "@/features/maps/useLayer";
+import { CPC } from "@/lib/map/products";
+import s from "./CpcPanel.module.css";
 
-/** CPC subtab: 6–10 and 8–14 day, monthly, seasonal and drought outlooks on the map. */
+/** CPC subtab: 6–10 and 8–14 day, monthly, seasonal and drought outlooks on a static national map. */
 export function CpcPanel() {
-  const { active } = usePlaces();
-  const [pick, setPick] = useState<string>("610t");
-  const map = useRef<AnyMap | null>(null);
-  const o = CPC_OUTLOOKS.find((x) => x.id === pick)!;
-  const show = (id: string) => {
-    setPick(id);
-    const next = CPC_OUTLOOKS.find((x) => x.id === id)!;
-    if (map.current)
-      setRaster(
-        map.current,
-        "cpc",
-        outlookTiles(next.service, next.layer),
-        0.8,
-      );
-  };
+  const [pick, setPick] = useState(CPC[0].id);
+  const { layer, status } = useLayer(pick);
   return (
-    <section className="grid gap-3">
-      <h2 className="display text-2xl text-accent">
-        Climate Prediction Center
-      </h2>
-      <Chips
-        items={CPC_OUTLOOKS.map((x) => ({
-          id: x.id as string,
-          label: x.label,
-        }))}
-        value={pick}
-        onPick={show}
-      />
-      <WeatherMap
-        center={active ? [active.lon, active.lat] : [-97.5, 38.5]}
-        zoom={active ? 4.5 : 3}
-        label={`CPC ${o.label} outlook map`}
-        className="h-96"
-        onReady={({ map: m }) => {
-          map.current = m;
-          setRaster(m, "cpc", outlookTiles(o.service, o.layer), 0.8);
-        }}
-      />
-      <p className="text-sm text-muted">{CPC_LEGEND[o.kind]}</p>
-    </section>
+    <div className="grid gap-6">
+      <Section
+        icon={<Thermometer aria-hidden />}
+        eyebrow="Climate Prediction Center"
+        title="Outlooks: the weeks and months ahead"
+        note="These are odds, not forecasts of an amount. Each color is the chance that the period ends up above, near or below normal. Where no side is favored the map is left plain: equal chances."
+      >
+        <Picker>
+          {CPC.map((x) => (
+            <Chip
+              key={x.id}
+              pressed={x.id === pick}
+              onClick={() => setPick(x.id)}
+            >
+              {x.label}
+            </Chip>
+          ))}
+        </Picker>
+        <UsMap
+          title={layer?.title ?? "Climate outlook"}
+          sub={layer?.valid}
+          legend={layer?.legend ?? []}
+          status={status}
+          file={`sswx-cpc-${pick}`}
+        >
+          {layer && <Polys polys={layer.polys} />}
+        </UsMap>
+      </Section>
+      <div className={s.learn}>
+        <div>
+          <b>33%</b>
+          <p>Normal odds. Each of the three outcomes is equally likely.</p>
+        </div>
+        <div>
+          <b>50%+</b>
+          <p>
+            A real lean: one outcome is now as likely as the other two together.
+          </p>
+        </div>
+        <div>
+          <b>70%+</b>
+          <p>Strong confidence. Rare, and worth planning around.</p>
+        </div>
+      </div>
+    </div>
   );
 }

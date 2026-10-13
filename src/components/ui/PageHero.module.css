@@ -1,0 +1,186 @@
+.hero {
+  position: relative;
+  overflow: hidden;
+  padding: 18px 4px 20px 30px;
+  margin-bottom: 18px;
+}
+.plate {
+  position: absolute;
+  top: 0;
+  right: -12px;
+  width: min(520px, 125%);
+  height: 190px;
+  pointer-events: none;
+  fill: none;
+}
+.ring {
+  stroke: var(--accent2);
+  stroke-opacity: 0.12;
+  transform-origin: 370px -40px;
+  animation: grow 1100ms var(--ease) both;
+  animation-delay: calc(120ms + var(--i) * 70ms);
+}
+.ring:last-child {
+  stroke-opacity: 0.2;
+}
+.spoke,
+.spokeMajor {
+  stroke: var(--accent2);
+  stroke-opacity: 0.07;
+  animation: fade 700ms ease-out both;
+  animation-delay: calc(420ms + var(--i) * 26ms);
+}
+.spokeMajor {
+  stroke-opacity: 0.14;
+}
+.trace {
+  stroke: var(--accent);
+  stroke-opacity: 0.6;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  transform-origin: 370px -40px;
+  animation: sweep 1300ms var(--ease) 600ms both;
+}
+.ladder {
+  position: absolute;
+  left: 0;
+  top: 8px;
+  display: grid;
+  gap: 8px;
+}
+.ladder i {
+  display: block;
+  width: 6px;
+  height: 1px;
+  background: var(--accent2);
+  opacity: 0.25;
+  animation: fade 500ms ease-out both;
+  animation-delay: calc(200ms + var(--i) * 18ms);
+}
+.ladder i.long {
+  width: 14px;
+  opacity: 0.5;
+}
+.body {
+  position: relative;
+}
+.eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 6px;
+  animation: rise 500ms var(--ease) both;
+}
+.dot {
+  width: 5px;
+  height: 5px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--accent);
+  animation: pulse 2.4s ease-in-out infinite;
+}
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border-radius: 12px;
+  color: var(--accent);
+  background: var(--lit);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  box-shadow: 0 0 26px -8px var(--accent);
+  animation: pop 600ms var(--spring) 80ms both;
+}
+.icon svg {
+  width: 20px;
+  height: 20px;
+}
+.title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: var(--display-weight);
+  text-transform: var(--display-case);
+  font-size: 26px;
+  line-height: 1.1;
+  letter-spacing: 0.01em;
+  color: var(--text);
+  animation: rise 600ms var(--ease) 60ms both;
+}
+.action {
+  flex: none;
+}
+.sub {
+  margin: 8px 0 0;
+  max-width: 34rem;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--muted);
+  animation: rise 600ms var(--ease) 140ms both;
+}
+.rule {
+  display: block;
+  margin-top: 16px;
+  height: 1px;
+  width: 72%;
+  background: linear-gradient(
+    90deg,
+    var(--accent),
+    color-mix(in srgb, var(--accent) 30%, transparent) 70%,
+    transparent
+  );
+  transform-origin: left;
+  animation: draw 900ms var(--ease) 300ms both;
+}
+@keyframes grow {
+  from {
+    opacity: 0;
+    transform: scale(0.82);
+  }
+}
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes sweep {
+  from {
+    opacity: 0;
+    transform: rotate(-40deg);
+  }
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+}
+@keyframes draw {
+  from {
+    transform: scaleX(0);
+  }
+}
+@keyframes pulse {
+  50% {
+    opacity: 0.35;
+  }
+}

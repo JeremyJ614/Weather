@@ -30,7 +30,10 @@ export default async function Welcome({
     <main className="mx-auto max-w-md px-4 pt-6 pb-24">
       <Card className="grid gap-5">
         <div>
-          <h1 className="display text-3xl text-accent">Welcome to StormSync</h1>
+          <p className="eyebrow">Create your account</p>
+          <h1 className="font-[family-name:var(--font-display)] text-2xl font-extrabold">
+            Welcome to StormSync
+          </h1>
           <p className="mt-1 text-sm text-muted">{user.email}</p>
         </div>
         <SignupForm next={next} form={await getSignupForm()} />

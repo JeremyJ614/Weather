@@ -105,3 +105,9 @@ Personal Warnings & Alerts, Affected Communities Outlook, FairWeather Tracking, 
 | 15 | CI | From phase 08 on, CI (which has no Supabase settings) failed while prerendering admin pages: the server client validated settings before reading cookies | Cookies are read first, so those pages are per-request; verified by building without the env file |
 | 16 | Fall map | Every fall-color dot drew black: the map libraries reject space-separated `hsl()` colors | Colors use the comma form |
 | 17 | Daily Brief | At 2 AM the brief called today's daytime "Tomorrow", because NWS's first period is "Overnight" | Days matched by each period's local date |
+| 18 | CI | Builds failed at random fetching 24 Google font families at build time | Fonts bundled with the app (`src/lib/theme/fonts/`, latin subset); builds never fetch fonts |
+| 19 | Sign-in | The owner's email and PIN were refused: no account existed for that email yet | Account is created through the email link + welcome form; founder role is granted automatically on profile creation |
+| 20 | Menus | Reopening Corner Sweep showed the last-opened group's sub-pages before the sweep animation, over the page | Closing folds every group |
+| 21 | Homepage | Two logos stacked at the top (header + page) | One small logo in a free top corner; the page opens with the Weather Clock |
+| 22 | Dashboard maps | WPC/CPC/Fall maps opened zoomed into one spot with tiles that looked like embeds | Static national maps drawn in our Albers projection (vector layers projected on the server, rasters exported by NOAA in the same projection), framed on the whole country, with PNG download and share |
+| 23 | Forecast Discussion | The Standard tab reworded section titles and reflowed the text, so it wasn't the official product | Standard now shows the NWS text verbatim (header, sections, && breaks, signature), with jump links |
