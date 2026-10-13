@@ -28,6 +28,18 @@ export async function GET(request: Request) {
   if (snap.error) {
     return Response.json({ error: snap.error.message }, { status: 500 });
   }
+  // Retention (storage safety rule 2): snapshots 400 days, map-load months 24 months.
+  const day = (n: number) =>
+    new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
+  const pruned = await Promise.all([
+    db.from("storage_snapshots").delete().lt("day", day(400)),
+    db.from("map_load_months").delete().lt("month", day(731)),
+  ]);
+  const pruneError = pruned.find((r) => r.error)?.error;
+  if (pruneError) {
+    return Response.json({ error: pruneError.message }, { status: 500 });
+  }
+
   const latest = await db
     .from("storage_snapshots")
     .select("db_bytes, storage_bytes")

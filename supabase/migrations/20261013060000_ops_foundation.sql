@@ -13,7 +13,7 @@ alter table public.app_config enable row level security;
 insert into public.app_config (key, value) values ('mapbox_monthly_limit', '45000'::jsonb)
 on conflict (key) do nothing;
 
--- One row per UTC month. Retention: 24 months (pruned daily by take_storage_snapshot).
+-- One row per UTC month. Retention: 24 months (pruned by /api/cron/storage-watchdog).
 create table if not exists public.map_load_months (
   month date primary key,
   mapbox_loads integer not null default 0 check (mapbox_loads >= 0)
@@ -56,10 +56,8 @@ begin
 end;
 $$;
 
-revoke all on function public.map_provider() from public;
-revoke all on function public.count_map_load() from public;
-grant execute on function public.map_provider() to anon, authenticated;
-grant execute on function public.count_map_load() to anon, authenticated;
+-- Callable by anyone (Supabase grants execute on public functions by default); the worst a
+-- caller can do is spend the Mapbox budget early, which only forces the free fallback.
 
 -- Storage watchdog: one size reading a day, taken by the Vercel cron
 -- (/api/cron/storage-watchdog). Retention: 400 days.
@@ -71,6 +69,8 @@ create table if not exists public.storage_snapshots (
 );
 alter table public.storage_snapshots enable row level security;
 
+-- Only the service-role key may record sizes. Retention (400 days here, 24 months for
+-- map_load_months) is enforced by the daily cron route, which deletes older rows.
 create or replace function public.take_storage_snapshot()
 returns void
 language plpgsql
@@ -78,6 +78,9 @@ security definer
 set search_path = ''
 as $$
 begin
+  if coalesce(auth.role(), '') <> 'service_role' then
+    raise exception 'not allowed' using errcode = '42501';
+  end if;
   insert into public.storage_snapshots (day, db_bytes, storage_bytes)
   values (
     (now() at time zone 'utc')::date,
@@ -86,17 +89,5 @@ begin
   )
   on conflict (day) do update
     set db_bytes = excluded.db_bytes, storage_bytes = excluded.storage_bytes, taken_at = now();
-
-  delete from public.storage_snapshots where day < (now() at time zone 'utc')::date - 400;
-  delete from public.map_load_months
-    where month < date_trunc('month', now() at time zone 'utc')::date - interval '24 months';
 end;
 $$;
-revoke all on function public.take_storage_snapshot() from public, anon, authenticated;
-
-create extension if not exists pg_cron;
--- pg_cron keeps a row per run forever unless pruned (part of the VIP leak); keep 7 days.
-select cron.schedule('cron-history-prune', '23 6 * * *',
-  $$delete from cron.job_run_details where end_time < now() - interval '7 days'$$);
-
-select public.take_storage_snapshot();
