@@ -16,6 +16,7 @@ const BUILT = new Set([
   "daylight-tracker",
   "wx-games",
   "leaderboard",
+  "weekly-polls",
 ]);
 
 export function generateStaticParams() {

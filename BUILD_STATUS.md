@@ -2,7 +2,7 @@
 
 **Objective:** StormSync Weather (Weather.SSWX.Space): one mobile-first PWA + Android .apk merging the team's weather apps. Free to run until revenue.
 
-**Stage:** Building. Done: 01–28, 10b, 10c, the 18-point redesign (PR #3) and the 14-item fix list (PR #4). Next: 29 Weekly Polls with admin scheduling.
+**Stage:** Building. Done: 01–29, 10b, 10c, the 18-point redesign (PR #3) and the 14-item fix list (PR #4). Next: phase 30 (see docs/03-PHASES.md).
 
 **Decisions so far**
 - Repo `JeremyJ614/Weather`, working branch `ccr-f5e0b71a-4vr2wk`, PR #1 merged to `main`; PR #2 open.
@@ -42,7 +42,7 @@
 - Owner's logo for the intro ending.
 
 **Next actions**
-1. Phase 29 Weekly Polls (admin scheduling), same design bar (arcade/pills subtabs, morph, Beam).
+1. Next phase in docs/03-PHASES.md, same design bar (arcade/pills subtabs, morph, Beam).
 2. Owner: paste `supabase/templates/*.html` into Supabase Auth email templates (see its README) and set the SMTP sender name to "StormSync Weather" — the biggest remaining spam fix.
 3. After PR #4 merges: Weather News and Daily Trivia self-heal on first visit; the database scheduler runs news (11/12 UTC) and trivia (04/05 UTC).
 4. Saved places sync to the account: phase 62b. Pricing/signup: phase 64; guest intro guide: 62c.

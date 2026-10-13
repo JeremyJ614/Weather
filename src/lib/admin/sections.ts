@@ -95,7 +95,13 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     phase: "28",
     href: "/admin/leaderboard",
   },
-  { id: "polls", label: "Weekly polls", icon: "Vote", phase: "29" },
+  {
+    id: "polls",
+    label: "Weekly polls",
+    icon: "Vote",
+    phase: "29",
+    href: "/admin/polls",
+  },
   { id: "cameras", label: "Traffic cameras", icon: "Cctv", phase: "48" },
   { id: "engines", label: "Engine preview", icon: "Cpu", phase: "60b" },
   {

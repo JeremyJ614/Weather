@@ -1,0 +1,121 @@
+.form {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+}
+.item .form {
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+}
+.label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.label input,
+.optRow input {
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 15px;
+}
+.options {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.options legend {
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.optRow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 8px;
+}
+.optRow button {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  color: var(--muted);
+}
+.optRow svg,
+.add svg {
+  width: 16px;
+  height: 16px;
+}
+.add {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  justify-self: start;
+  font-size: 13px;
+  color: var(--accent);
+}
+.item {
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+}
+.item summary {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  cursor: pointer;
+  font-size: 14px;
+}
+.week,
+.count {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--muted);
+}
+.sumQ {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tally {
+  display: grid;
+  gap: 4px;
+  padding: 0 14px 12px;
+}
+.tally li {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+}
+.tally b {
+  font-family: var(--font-mono);
+  color: var(--accent);
+}
+.remove {
+  padding: 0 14px 14px;
+}
+.remove button {
+  font-size: 13px;
+  color: #ff6b6b;
+}
+.ok {
+  font-size: 13px;
+  color: #4cd964;
+}
+.err {
+  font-size: 13px;
+  color: var(--accent);
+}

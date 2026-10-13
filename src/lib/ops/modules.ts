@@ -9,6 +9,7 @@ export const MODULES = [
   { id: "daylight", label: "Daylight Tracker" },
   { id: "game", label: "Forecast Game" },
   { id: "trivia", label: "Daily Trivia" },
+  { id: "polls", label: "Weekly Polls" },
   { id: "maps", label: "Maps" },
   { id: "weather-news", label: "Weather News" },
   { id: "news", label: "SSWX News" },
