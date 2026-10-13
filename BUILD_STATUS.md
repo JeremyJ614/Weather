@@ -2,10 +2,10 @@
 
 **Objective:** StormSync Weather (Weather.SSWX.Space): one mobile-first PWA + Android .apk merging the team's weather apps. Free to run until revenue.
 
-**Stage:** Planning done (Sections A/B, questionnaire, BuildPlan). Building. Phases 01–02 done (02 waits on owner DNS record + service key). Phases 01–06c done (intro lockup swaps to the owner's logo when it arrives; intro setting UI in 62b). Current phase: 07 (admin-set menu defaults + remaining menu fixes).
+**Stage:** Building. Done: 01–06c, 10c (shared map), dark house style. Next: 10b storage safety (migration written, not applied), 10 location + weather data, privacy page for Google sign-in, then 08 accounts.
 
 **Decisions so far**
-- Repo `JeremyJ614/Weather`, working branch `ccr-f5e0b71a-4vr2wk`. No `main` branch yet (repo was empty).
+- Repo `JeremyJ614/Weather`, working branch `ccr-f5e0b71a-4vr2wk`, PR #1 merged to `main`; PR #2 open.
 - Lab artifact: https://claude.ai/artifact/MP7RXMdjRqBRKPX6HGUzYH (source `design-lab/section-a/`). Owner answers save to its db doc `picks/selection` (read with ArtifactData get).
 - Sources to port: VIP app = `stormsync-dashboard/github-repo/src/pages`; Chase Log = `Log`; Free Content Library = `stormsync-academy`; archive work = `stormsync-archive`.
 - Supabase project `weather` (ztzqemzuanwqwqzsaigd). Vercel project `stormsync-weather` (prj_PesfMRifhkpUuLy65BRGtA7YGoO5, team jeremys-projects-3fe6711f), production branch `main`, domain weather.sswx.space added. Vercel MCP lacks create rights; the Vercel CLI/API with the owner's token works. Public env vars set: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY (publishable key).
@@ -27,13 +27,16 @@
 
 **Fixed:** lab saved data came back read-only, silently blocking later edits (now cloned on load).
 
-**Blockers:**
-- DNS: owner adds CNAME `weather` → `cname.vercel-dns.com` at GoDaddy (GoDaddy connector can't edit DNS).
-- `SUPABASE_SERVICE_ROLE_KEY` (secret key) can't be read by the Supabase connector or any token in the creds doc; owner adds it in Vercel env vars before phase 08.
+**Blockers / waiting on owner:**
+- `supabase/migrations/20261013060000_ops_foundation.sql` (map-load counter, storage watchdog, cron pruning) not applied: apply_migration was cancelled twice. Until applied, every map uses MapLibre.
+- Google sign-in: owner finishing the Google Cloud side; needs the privacy policy URL. Apple sign-in dropped. SMS dropped (not free). Resend done (Vercel + Supabase SMTP).
+- Owner's logo for the intro ending.
 
 **Next actions**
-1. Create `main` from this branch (owner approved), open PR.
-2. Phase 07: menu fixes for Color Morph Bar and Flip Tiles are lab-only (not offered); Radial Plates + Speed Dial fixes done. Admin-set defaults need the admin panel (phase 11), so 07 moves after 11.
+1. Privacy policy page (`/privacy`) for Google sign-in; give owner the link.
+2. Phase 10b app side (retention rules + test), then 10 (location + weather-data layer), then 08 accounts.
+
+**Sandbox note:** Turbopack's Google-font fetch fails behind this sandbox's proxy (CI is fine). Local check: `npx next build --webpack` then the other verify steps.
 
 **Lab answers:** questionnaire https://claude.ai/artifact/1S89fRJDQe5QzLj9xEKuQc (db `answers/owner`).
 

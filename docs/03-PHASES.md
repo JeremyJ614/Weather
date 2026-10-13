@@ -21,11 +21,11 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 - [x] 06b. Remaining main-menu styles (Radial Plates, Glass Ledger, Split Sidebar, Mega Spotlight, Bento Board, Live Bento, Tab Bar + Sheet, Swipe Tabs, Bottom Rail Pop, StormSync Vortex, Notch Bar)
 - [x] 06c. Remaining second-menu styles (Depth Drawer, Speed Dial, Curtain Reveal) and menu preferences stored per user
 - [ ] 07. Second-menu lists, defaults set from the admin panel, and the four menu fixes (Radial Plates, Speed Dial, Color Morph Bar, Flip Tiles)
-- [ ] 08. Accounts: 4-digit PIN sign-in with lockout, email link, Google, Apple, text code; signup form (editable), referral codes; owner account; RLS on every table
+- [ ] 08. Accounts: 4-digit PIN sign-in with lockout, email link, Google, Apple; signup form (editable), referral codes; owner account; RLS on every table
 - [ ] 09. Roles: user, SSWX Member, Admin as a second role, subscription tiers mapped to roles
 - [ ] 10. Saved location, permission flow and a shared weather-data layer with caching
 - [ ] 10b. Storage safety: retention rule on every growing table (test-enforced), daily size watchdog, cron history pruning
-- [ ] 10c. Shared map component: Mapbox GL v3 with automatic MapLibre v6 fallback at the monthly free limit
+- [x] 10c. Shared map component: Mapbox GL v3 with automatic MapLibre v6 fallback at the monthly free limit
 
 ## Admin Panel (built early so later pages plug into it)
 - [ ] 11. Admin shell, owner-only access, add admins with per-section permissions, audit log

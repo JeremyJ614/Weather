@@ -142,3 +142,27 @@ html[data-tier="low"][data-push][data-push-side="right"] #app-content {
   --lit-line: color-mix(in srgb, var(--accent) 65%, transparent);
   --glow: 0 0 18px -6px var(--accent);
 }
+
+/* Map controls follow the house style (both map libraries). */
+[data-map] :is(.maplibregl-ctrl-attrib, .mapboxgl-ctrl-attrib),
+[data-map]
+  :is(
+    .maplibregl-ctrl-attrib.maplibregl-compact,
+    .mapboxgl-ctrl-attrib.mapboxgl-compact
+  ),
+[data-map] :is(.maplibregl-ctrl-group, .mapboxgl-ctrl-group) {
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  color: var(--muted);
+}
+[data-map] :is(.maplibregl-ctrl-attrib, .mapboxgl-ctrl-attrib) a {
+  color: var(--muted);
+}
+[data-map]
+  :is(
+    .maplibregl-ctrl-icon,
+    .mapboxgl-ctrl-icon,
+    .maplibregl-ctrl-attrib-button,
+    .mapboxgl-ctrl-attrib-button
+  ) {
+  filter: invert(1) hue-rotate(180deg);
+}
