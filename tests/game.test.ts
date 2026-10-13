@@ -4,7 +4,7 @@ import {
   parseReports,
   QUIET_DAY_BONUS,
   rankedAwards,
-  roundOpen,
+  secondsToReset,
   scoreSevere,
   scoreTornado,
   type Report,
@@ -48,6 +48,7 @@ it("reads SPC report CSVs and the Eastern contest clock", () => {
     { lat: 35.47, lon: -97.52, kind: "torn" },
   ]);
   expect(gameDate(new Date("2026-10-14T02:00:00Z"))).toBe("2026-10-13");
-  expect(roundOpen(new Date("2026-10-13T15:59:00Z"))).toBe(true);
-  expect(roundOpen(new Date("2026-10-13T16:01:00Z"))).toBe(false);
+  // 11:30 PM EDT → 30 minutes to the reset; 1 AM EDT → 23 hours.
+  expect(secondsToReset(new Date("2026-10-14T03:30:00Z"))).toBe(1800);
+  expect(secondsToReset(new Date("2026-10-13T05:00:00Z"))).toBe(23 * 3600);
 });

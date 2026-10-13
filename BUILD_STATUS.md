@@ -2,7 +2,7 @@
 
 **Objective:** StormSync Weather (Weather.SSWX.Space): one mobile-first PWA + Android .apk merging the team's weather apps. Free to run until revenue.
 
-**Stage:** Building. Done: 01–26, 10b, 10c, plus the owner's 18-point redesign pass (2026-10-13, PR #3). Next: 27 Daily Trivia (WX Games tab, shares the game_points ledger).
+**Stage:** Building. Done: 01–29, 31–34, 10b, 10c, the 18-point redesign (PR #3) and the 14-item fix list (PR #4). Next: 35 Atmospheric Ingredients (port).
 
 **Decisions so far**
 - Repo `JeremyJ614/Weather`, working branch `ccr-f5e0b71a-4vr2wk`, PR #1 merged to `main`; PR #2 open.
@@ -36,14 +36,16 @@
 - Run once in Supabase SQL editor (prunes scheduler history; the agent tool can't run deletes): `select cron.schedule('cron-history-prune', '23 6 * * *', $$delete from cron.job_run_details where end_time < now() - interval '7 days'$$);`
 - Delete test user `rls-test@example.com` in Supabase → Authentication → Users (left by an RLS test; deleting via the tool needs a confirmation that never reaches the owner). Future DB tests run inside a rolled-back transaction.
 - PIN sign-in/signup need SUPABASE_SERVICE_ROLE_KEY + PIN_PEPPER, set for production only, so they work on weather.sswx.space, not on preview URLs.
+- Retired table `game_winners` (empty) and function `game_champions()` remain; drop them in the SQL editor when convenient (drops get cancelled from the agent tool).
 - Ops migration applied via execute_sql (apply_migration and any SQL containing delete/revoke get cancelled: their confirmation never reaches the owner). Keep DB writes free of those keywords; do deletes from server code.
 - Google sign-in: owner finishing the Google Cloud side; needs the privacy policy URL. Apple sign-in dropped. SMS dropped (not free). Resend done (Vercel + Supabase SMTP).
 - Owner's logo for the intro ending.
 
 **Next actions**
-1. Phase 24 Mosquito Index: port VIP module (check its model/sources), restyle. AQI: Open-Meteo now (non-commercial OK pre-revenue); set `AIRNOW_API_KEY` (free EPA key) before paid plans. Pollen counts need `GOOGLE_POLLEN_KEY` (Google Cloud, billing); without it a labeled dispersal reading shows.
-2. Saved places sync to the account: phase 62b. Signup form editing from admin: phase 13.
-3. Watchdog: `/api/cron/storage-watchdog` daily via `vercel.json`; `CRON_SECRET` set in Vercel (production). Returns 500 until the ops migration is applied.
+1. Next phase in docs/03-PHASES.md, same design bar (arcade/pills subtabs, morph, Beam).
+2. Owner: paste `supabase/templates/*.html` into Supabase Auth email templates (see its README) and set the SMTP sender name to "StormSync Weather" — the biggest remaining spam fix.
+3. After PR #4 merges: Weather News and Daily Trivia self-heal on first visit; the database scheduler runs news (11/12 UTC) and trivia (04/05 UTC).
+4. Saved places sync to the account: phase 62b. Pricing/signup: phase 64; guest intro guide: 62c.
 
 **Sandbox note:** the test browser's proxy returns 403 for NOAA image hosts (WPC/SPC/NHC); plain requests and real browsers are fine.
 **Sandbox note:** Turbopack's Google-font fetch fails behind this sandbox's proxy (CI is fine). Local check: `npx next build --webpack` then the other verify steps.

@@ -3,8 +3,9 @@ import webpush from "web-push";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { buildBrief } from "./build";
 import { briefText, isDue, type Brief } from "./compose";
+import { unsubUrl } from "./unsub";
 
-const FROM = "StormSync Media <no-reply@send.sswx.space>";
+const FROM = "StormSync Weather <brief@send.sswx.space>";
 const SITE = "https://weather.sswx.space";
 
 const esc = (s: string) =>
@@ -13,15 +14,17 @@ const esc = (s: string) =>
     (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!,
   );
 
-function emailHtml(b: Brief) {
+function emailHtml(b: Brief, unsub: string) {
   const t = briefText(b);
-  return `<!doctype html><body style="margin:0;background:#0b0c14;color:#eceef5;font-family:Arial,sans-serif">
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${esc(t.subject)}</title></head><body style="margin:0;background:#0b0c14;color:#eceef5;font-family:Arial,sans-serif">
+<div style="display:none;max-height:0;overflow:hidden">${esc(t.push)}</div>
 <div style="max-width:560px;margin:0 auto;padding:24px">
 <p style="color:#d9b76f;font-size:12px;letter-spacing:.12em;text-transform:uppercase;margin:0">StormSync Daily Brief</p>
 <h1 style="font-family:Georgia,serif;color:#d9b76f;margin:6px 0 16px">${esc(b.place)}</h1>
 ${t.lines.map((l) => `<p style="margin:0 0 10px;line-height:1.5">${esc(l)}</p>`).join("")}
-<p style="margin:22px 0 0"><a href="${SITE}/daily-brief" style="color:#d9b76f">Open your brief</a> · <a href="${SITE}/daily-brief#settings" style="color:#8f92a8">Change or stop these emails</a></p>
-</div></body>`;
+<p style="margin:22px 0 0"><a href="${SITE}/daily-brief" style="color:#d9b76f">Open your brief</a> · <a href="${SITE}/daily-brief#settings" style="color:#8f92a8">Change these emails</a> · <a href="${unsub}" style="color:#8f92a8">Unsubscribe</a></p>
+<p style="margin:14px 0 0;color:#8f92a8;font-size:12px">You get this because you turned on the Daily Brief at weather.sswx.space. StormSync Weather, weather.sswx.space</p>
+</div></body></html>`;
 }
 
 type Sub = {
@@ -73,6 +76,7 @@ export async function deliverBriefs(now = new Date()) {
     if (s.by_email && process.env.RESEND_API_KEY) {
       const { data } = await db.auth.admin.getUserById(s.user_id);
       const to = data.user?.email;
+      const unsub = unsubUrl(SITE, s.user_id);
       const ok = to
         ? await fetch("https://api.resend.com/emails", {
             method: "POST",
@@ -84,8 +88,19 @@ export async function deliverBriefs(now = new Date()) {
               from: FROM,
               to,
               subject: text.subject,
-              html: emailHtml(brief),
-              text: text.lines.join("\n"),
+              html: emailHtml(brief, unsub),
+              text: [
+                `StormSync Daily Brief: ${brief.place}`,
+                "",
+                ...text.lines,
+                "",
+                `Open your brief: ${SITE}/daily-brief`,
+                `Unsubscribe: ${unsub}`,
+              ].join("\n"),
+              headers: {
+                "List-Unsubscribe": `<${unsub}>`,
+                "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+              },
             }),
           }).then((r) => r.ok)
         : false;

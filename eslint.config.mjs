@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Generated Census place list.
+    "src/lib/geo/places.data.ts",
     // Static design labs: plain browser scripts published as artifacts.
     "design-lab/**",
     "public/vendor/**",

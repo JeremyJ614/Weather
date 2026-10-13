@@ -1,5 +1,7 @@
 import { ExternalLink, Pin } from "lucide-react";
+import { after } from "next/server";
 import { getWeatherNews } from "@/lib/news/read";
+import { refreshIfStale } from "@/lib/news/store";
 
 const fmt = (iso: string) =>
   new Date(iso).toLocaleString("en-US", {
@@ -13,11 +15,12 @@ const fmt = (iso: string) =>
 /** Weather News tab: today's top 15 official and science stories, most severe first. */
 export async function WeatherNews() {
   const { stories, fetchedAt } = await getWeatherNews();
+  after(() => refreshIfStale(fetchedAt));
   if (!stories.length) {
     return (
       <p className="rounded-2xl border border-line bg-surface p-4 text-sm text-muted">
-        Today&apos;s weather stories are collected at 7 AM Eastern. Check back
-        then.
+        Today&apos;s weather stories are being collected now. Check back in a
+        few minutes.
       </p>
     );
   }

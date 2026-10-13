@@ -13,7 +13,7 @@ export type Place = {
   label: string;
   lat: number;
   lon: number;
-  source: "gps" | "zip";
+  source: "gps" | "zip" | "search";
 };
 export type Places = { list: Place[]; active: string | null };
 

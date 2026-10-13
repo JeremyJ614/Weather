@@ -2,9 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { supabaseServer } from "@/lib/supabase/server";
-import { gameDate, roundOpen } from "@/lib/game/score";
+import { gameDate } from "@/lib/game/score";
 
-export type LockState = { error?: string; ok?: boolean } | null;
+export type SaveState = { error?: string; ok?: boolean } | null;
 
 const num = (fd: FormData, k: string) => {
   const v = Number(fd.get(k));
@@ -18,17 +18,13 @@ const inUS = (lat: number | null, lon: number | null) =>
   lon >= -180 &&
   lon <= -60;
 
-/** Locks today's two pins. The database re-checks the date, the noon cutoff and ownership. */
-export async function lockGuess(
-  _: LockState,
-  fd: FormData,
-): Promise<LockState> {
+/** Saves (or moves) today's two pins. The database re-checks the date and ownership. */
+export async function savePins(_: SaveState, fd: FormData): Promise<SaveState> {
   const supabase = await supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { error: "Sign in to play." };
-  if (!roundOpen()) return { error: "Today's round closed at noon Eastern." };
   const lat = num(fd, "lat");
   const lon = num(fd, "lon");
   const quiet = fd.get("quiet") === "on";
@@ -38,23 +34,20 @@ export async function lockGuess(
   if (!quiet && !inUS(tlat, tlon))
     return { error: "Drop your tornado pin, or call a quiet day." };
   const label = (k: string) => String(fd.get(k) ?? "").slice(0, 80) || null;
-  const { error } = await supabase.from("game_guesses").insert({
-    user_id: user.id,
-    guess_date: gameDate(),
-    lat,
-    lon,
-    city_label: label("label"),
-    tor_lat: tlat,
-    tor_lon: tlon,
-    tor_city_label: quiet ? null : label("tlabel"),
-  });
-  if (error)
-    return {
-      error:
-        error.code === "23505"
-          ? "Your pins for today are already locked."
-          : "Your pins couldn't be locked. Try again.",
-    };
+  const { error } = await supabase.from("game_guesses").upsert(
+    {
+      user_id: user.id,
+      guess_date: gameDate(),
+      lat,
+      lon,
+      city_label: label("label"),
+      tor_lat: tlat,
+      tor_lon: tlon,
+      tor_city_label: quiet ? null : label("tlabel"),
+    },
+    { onConflict: "user_id,guess_date" },
+  );
+  if (error) return { error: "Your pins couldn't be saved. Try again." };
   revalidatePath("/wx-games");
   return { ok: true };
 }

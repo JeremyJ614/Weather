@@ -5,3 +5,4 @@ package-lock.json
 design-lab
 docs
 *.md
+src/lib/geo/places.data.ts

@@ -45,6 +45,8 @@ html,
 body {
   background: var(--bg);
   color: var(--text);
+  /* Nothing may widen the page sideways (a phone would zoom out to fit it). */
+  overflow-x: clip;
 }
 
 body {

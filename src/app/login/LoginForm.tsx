@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { Mail } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { sendEmailLink, signInWithGoogle, signInWithPin } from "./actions";
@@ -15,11 +15,30 @@ export function LoginForm({ next }: { next: string }) {
   );
   const [link, linkAction, linkPending] = useActionState(sendEmailLink, null);
   const busy = pinPending || googlePending || linkPending;
+  const [remember, setRemember] = useState(true);
+  const keep = (
+    <input type="hidden" name="remember" value={remember ? "1" : "0"} />
+  );
 
   return (
     <div className="grid gap-4">
+      <label className="flex items-center justify-between gap-3 rounded-xl border border-line px-3 py-2.5 text-[13px]">
+        <span>
+          <b className="block">Remember this device</b>
+          <span className="text-muted">
+            Stay signed in here until you sign out.
+          </span>
+        </span>
+        <input
+          type="checkbox"
+          checked={remember}
+          onChange={(e) => setRemember(e.target.checked)}
+          className="size-5 accent-[var(--accent)]"
+        />
+      </label>
       <form action={googleAction}>
         <input type="hidden" name="next" value={next} />
+        {keep}
         <Button
           type="submit"
           variant="primary"
@@ -47,6 +66,7 @@ export function LoginForm({ next }: { next: string }) {
       </div>
       <form action={pinAction} className="grid gap-3">
         <input type="hidden" name="next" value={next} />
+        {keep}
         <label className="grid gap-1 text-sm font-bold">
           Email
           <input

@@ -4,8 +4,6 @@
  * storm reports. This copy is authoritative; scoring never trusts the browser.
  */
 export const GAME_TZ = "America/New_York";
-/** Entries close at noon Eastern, before the day's storms fire. */
-export const LOCK_HOUR_ET = 12;
 
 /** ⚡ The five closest severe pins of the day, in order. */
 export const SEVERE_PLACES = [1000, 950, 750, 500, 250];
@@ -118,16 +116,17 @@ export function gameDate(at: Date = new Date()) {
   }).format(at);
 }
 
-/** Whether entries are still open (before noon Eastern). */
-export function roundOpen(at: Date = new Date()) {
-  const h = Number(
-    new Intl.DateTimeFormat("en-US", {
-      timeZone: GAME_TZ,
-      hour: "numeric",
-      hourCycle: "h23",
-    }).format(at),
-  );
-  return h < LOCK_HOUR_ET;
+/** Seconds until the next round starts (midnight Eastern), when today's pins become final. */
+export function secondsToReset(at: Date = new Date()) {
+  const p = new Intl.DateTimeFormat("en-US", {
+    timeZone: GAME_TZ,
+    hour: "numeric",
+    minute: "numeric",
+    second: "numeric",
+    hourCycle: "h23",
+  }).formatToParts(at);
+  const g = (k: string) => Number(p.find((x) => x.type === k)?.value ?? 0);
+  return 86_400 - (g("hour") * 3600 + g("minute") * 60 + g("second"));
 }
 
 /** Parses an SPC daily reports CSV into points. */

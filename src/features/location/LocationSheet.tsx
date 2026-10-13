@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Crosshair, MapPin, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { snap } from "@/lib/weather/geo";
@@ -14,6 +14,7 @@ import {
   type Place,
 } from "./store";
 import { usePlaces } from "./usePlaces";
+import { PlaceSearch } from "./PlaceSearch";
 import s from "./LocationSheet.module.css";
 
 type Msg = { text: string; error?: boolean } | null;
@@ -46,7 +47,7 @@ export function LocationSheet({
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const { places } = usePlaces();
-  const [busy, setBusy] = useState<"gps" | "zip" | null>(null);
+  const [busy, setBusy] = useState<"gps" | null>(null);
   const [msg, setMsg] = useState<Msg>(null);
   const full = places.list.length >= MAX_PLACES;
 
@@ -66,7 +67,7 @@ export function LocationSheet({
   const useGps = () => {
     if (!("geolocation" in navigator)) {
       setMsg({
-        text: "This device can't share its location. Enter a ZIP code instead.",
+        text: "This device can't share its location. Search for your city or ZIP instead.",
         error: true,
       });
       return;
@@ -89,27 +90,12 @@ export function LocationSheet({
         done({
           text:
             err.code === err.PERMISSION_DENIED
-              ? "Location is blocked for this site. Turn it on in your browser or phone settings, or enter a ZIP code."
-              : "Your location couldn't be found. Try again, or enter a ZIP code.",
+              ? "Location is blocked for this site. Turn it on in your browser or phone settings, or search for your city or ZIP."
+              : "Your location couldn't be found. Try again, or search for your city or ZIP.",
           error: true,
         }),
       { enableHighAccuracy: false, timeout: 12000, maximumAge: 600000 },
     );
-  };
-
-  const useZip = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const zip = String(new FormData(e.currentTarget).get("zip") ?? "");
-    setBusy("zip");
-    setMsg(null);
-    try {
-      const z = await getJson<{ lat: number; lon: number; label: string }>(
-        `/api/geo/zip?zip=${encodeURIComponent(zip)}`,
-      );
-      done(save({ label: z.label, lat: z.lat, lon: z.lon, source: "zip" }));
-    } catch (err) {
-      done({ text: (err as Error).message, error: true });
-    }
   };
 
   return (
@@ -167,6 +153,20 @@ export function LocationSheet({
           </p>
         ) : (
           <>
+            <PlaceSearch
+              disabled={busy !== null}
+              onPick={(p) => {
+                const [lat, lon] = snap(p.lat, p.lon);
+                done(
+                  save({
+                    label: p.label,
+                    lat,
+                    lon,
+                    source: p.zip ? "zip" : "search",
+                  }),
+                );
+              }}
+            />
             <div className="grid gap-2">
               <Button
                 variant="primary"
@@ -181,21 +181,6 @@ export function LocationSheet({
                 is saved, on this device.
               </p>
             </div>
-            <form className={s.zip} onSubmit={useZip}>
-              <input
-                name="zip"
-                inputMode="numeric"
-                autoComplete="postal-code"
-                pattern="[0-9]{5}"
-                maxLength={5}
-                required
-                placeholder="ZIP code"
-                aria-label="ZIP code"
-              />
-              <Button type="submit" disabled={busy !== null}>
-                {busy === "zip" ? "Looking…" : "Add"}
-              </Button>
-            </form>
           </>
         )}
         {msg && (

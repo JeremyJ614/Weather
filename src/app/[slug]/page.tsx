@@ -15,6 +15,12 @@ const BUILT = new Set([
   "mosquito-index",
   "daylight-tracker",
   "wx-games",
+  "leaderboard",
+  "weekly-polls",
+  "sswxcon",
+  "warnings-reports",
+  "spc-probability",
+  "mesoscale-discussions",
 ]);
 
 export function generateStaticParams() {

@@ -1,0 +1,238 @@
+.muted {
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+.status,
+.statusLive {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  font-size: 14px;
+}
+.status i,
+.statusLive i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #7c8098;
+}
+.statusLive {
+  border-color: rgb(255 146 43 / 0.55);
+  background: rgb(255 146 43 / 0.08);
+}
+.statusLive i {
+  background: #ff922b;
+  box-shadow: 0 0 10px #ff922b;
+  animation: blink 1.4s ease-in-out infinite;
+}
+.mdLive path,
+.mdOld path {
+  fill: rgb(255 146 43 / 0.16);
+  stroke: #ff922b;
+  stroke-width: calc(2px * var(--zs, 1));
+  stroke-dasharray: 6 4;
+  stroke-linejoin: round;
+}
+.mdOld path {
+  fill: rgb(124 128 152 / 0.12);
+  stroke: #7c8098;
+}
+.mdLive text,
+.mdOld text {
+  font-size: calc(12px * var(--zs, 1));
+  font-weight: 800;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  fill: #fff;
+  paint-order: stroke;
+  stroke: rgb(0 0 0 / 0.7);
+  stroke-width: calc(3px * var(--zs, 1));
+}
+.card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  animation: rise 520ms var(--ease) both;
+  animation-delay: calc(var(--i) * 70ms);
+}
+.live {
+  border-color: rgb(255 146 43 / 0.5);
+  background:
+    radial-gradient(90% 120% at 0% 0%, rgb(255 146 43 / 0.12), transparent 60%),
+    color-mix(in srgb, var(--surface) 90%, #000);
+}
+.old {
+  opacity: 0.85;
+}
+.here {
+  box-shadow:
+    inset 0 0 0 1px rgb(255 77 77 / 0.7),
+    0 0 22px rgb(255 77 77 / 0.25);
+}
+.head {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: center;
+}
+.title {
+  display: grid;
+  gap: 3px;
+}
+.num {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #ff922b;
+}
+.title b {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 800;
+}
+.when {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.ring {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+}
+.ring svg {
+  position: absolute;
+  inset: 0;
+  transform: rotate(-90deg);
+}
+.ringTrack {
+  fill: none;
+  stroke: color-mix(in srgb, var(--line) 80%, transparent);
+  stroke-width: 6;
+}
+.ringArc {
+  fill: none;
+  stroke: var(--c);
+  stroke-width: 6;
+  stroke-linecap: round;
+  animation: fade 900ms ease both;
+}
+.ring b {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--c);
+}
+.mine {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #ff7b7b;
+}
+.mine svg,
+.areas svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+}
+.hz {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.hz span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--line));
+  font-size: 12px;
+  color: var(--accent);
+}
+.hz svg {
+  width: 13px;
+  height: 13px;
+}
+.read {
+  font-size: 14px;
+  line-height: 1.55;
+}
+.areas {
+  display: flex;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.more {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  justify-self: start;
+  font-size: 13px;
+  color: var(--accent);
+}
+.more svg {
+  width: 15px;
+  height: 15px;
+  transition: transform 200ms ease;
+}
+.chevOpen {
+  transform: rotate(180deg);
+}
+.body {
+  display: grid;
+  gap: 8px;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.body pre {
+  white-space: pre-wrap;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.body a {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--accent);
+  font-size: 13px;
+}
+.body a svg {
+  width: 14px;
+  height: 14px;
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes blink {
+  50% {
+    opacity: 0.35;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .card,
+  .ringArc,
+  .statusLive i {
+    animation: none;
+  }
+}

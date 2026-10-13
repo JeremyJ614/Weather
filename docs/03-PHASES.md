@@ -50,16 +50,16 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 
 ## Community
 - [x] 26. Forecast Game (port from VIP, redesigned)
-- [ ] 27. Daily Trivia with admin question and points editor
-- [ ] 28. Leaderboard (weekly, monthly, yearly) with admin points and past-winner entry
-- [ ] 29. Weekly Polls with admin scheduling
+- [x] 27. Daily Trivia with admin question and points editor
+- [x] 28. Leaderboard (weekly, monthly, yearly) with admin points and past-winner entry
+- [x] 29. Weekly Polls with admin scheduling
 - [ ] 30. (moved to post-launch: Raffles)
 
 ## Severe Weather
-- [ ] 31. SSWXCon Score (port)
-- [ ] 32. Warnings & Reports (port)
-- [ ] 33. SPC & Probability (two subtabs, port)
-- [ ] 34. Mesoscale Discussions (port)
+- [x] 31. SSWXCon Score (port, v2 formula approved)
+- [x] 32. Warnings & Reports (port)
+- [x] 33. SPC & Probability (two subtabs, port)
+- [x] 34. Mesoscale Discussions (port)
 - [ ] 35. Atmospheric Ingredients (port)
 - [ ] 36. Storm Timing Index (port)
 - [ ] 37. Tropical Outlook (port) with smoother playback

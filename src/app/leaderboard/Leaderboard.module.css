@@ -1,0 +1,228 @@
+.signin {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px dashed color-mix(in srgb, var(--accent) 40%, transparent);
+  font-size: 14px;
+  color: var(--muted);
+}
+.empty {
+  padding: 16px;
+  border-radius: 16px;
+  font-size: 13px;
+  text-align: center;
+  color: var(--muted);
+  border: 1px solid var(--line);
+}
+.podium {
+  display: grid;
+  grid-template-columns: 1fr 1.15fr 1fr;
+  align-items: end;
+  gap: 8px;
+}
+.step {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 14px 6px 0;
+  text-align: center;
+  animation: rise 700ms var(--spring) both;
+}
+.step svg {
+  width: 22px;
+  height: 22px;
+  color: var(--m);
+  filter: drop-shadow(0 0 8px var(--m));
+}
+.step b {
+  font-size: 12.5px;
+  line-height: 1.2;
+}
+.step span {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 15px;
+  color: var(--m);
+}
+.step i {
+  display: block;
+  width: 100%;
+  height: var(--h);
+  margin-top: 6px;
+  border-radius: 12px 12px 4px 4px;
+  border: 1px solid color-mix(in srgb, var(--m) 50%, transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--m) 28%, transparent),
+    transparent
+  );
+  transform-origin: bottom;
+  animation: grow 900ms var(--spring) 200ms both;
+}
+.gold {
+  --m: #ffd43b;
+  --h: 96px;
+}
+.silver {
+  --m: #ced4da;
+  --h: 70px;
+}
+.bronze {
+  --m: #e8a06b;
+  --h: 52px;
+}
+.board {
+  display: grid;
+  gap: 4px;
+}
+.board li {
+  display: grid;
+  grid-template-columns: 2.6rem 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface) 75%, transparent);
+  font-size: 13px;
+}
+.rank {
+  font-weight: 800;
+  color: var(--muted);
+}
+.who {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.games {
+  font-size: 10.5px;
+  color: var(--muted);
+}
+.hall {
+  display: grid;
+  gap: 10px;
+}
+.badges {
+  display: grid;
+  gap: 10px;
+}
+.badgeRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.step {
+  animation-delay: calc(var(--d, 0) * 120ms);
+}
+.meStep b {
+  color: var(--accent);
+}
+.board li {
+  animation: rise 500ms var(--ease) both;
+  animation-delay: calc(var(--d, 0) * 40ms);
+}
+.meRow {
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 60%, transparent),
+    0 0 18px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.meRow .who {
+  color: var(--accent);
+  font-weight: 700;
+}
+.you {
+  margin: 0;
+  font-size: 13px;
+  text-align: center;
+  color: var(--accent);
+}
+.yearCard {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, #ffd43b 35%, var(--line));
+  background:
+    radial-gradient(
+      90% 140% at 0% 50%,
+      rgb(255 212 59 / 0.12),
+      transparent 60%
+    ),
+    color-mix(in srgb, var(--surface) 90%, #000);
+  animation: rise 700ms var(--spring) both;
+  animation-delay: calc(var(--d, 0) * 120ms);
+}
+.yearCard div {
+  display: grid;
+  gap: 2px;
+}
+.yearCard b {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 800;
+}
+.yearCard span {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.months {
+  display: grid;
+  gap: 6px;
+}
+.months li {
+  display: grid;
+  grid-template-columns: 18px 6.5rem 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--line) 85%, transparent);
+  background: color-mix(in srgb, var(--surface) 78%, transparent);
+  font-size: 13.5px;
+  animation: rise 520ms var(--ease) both;
+  animation-delay: calc(var(--d, 0) * 50ms);
+}
+.months svg {
+  width: 16px;
+  height: 16px;
+  color: #ffd43b;
+}
+.month {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.pts {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--accent);
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+@keyframes grow {
+  from {
+    transform: scaleY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .step,
+  .step i,
+  .board li,
+  .yearCard,
+  .months li {
+    animation: none;
+  }
+}

@@ -3,6 +3,9 @@
  * colored. Vector products are projected on our server; rasters are exported
  * by NOAA in our projection and proxied so they can be downloaded.
  */
+import { pick, type Colors } from "@/lib/colors/pick";
+import { SPC_PALETTES } from "@/lib/colors/spc";
+
 const V = "https://mapservices.weather.noaa.gov/vector/rest/services";
 
 export type Swatch = { label: string; color: string };
@@ -146,14 +149,13 @@ export const SPC: VectorProduct[] = [
   },
 ];
 export const VECTOR = [...QPF, ...ERO, ...CPC, ...SPC];
-const SPC_CAT: Record<string, Swatch> = {
-  TSTM: { label: "Thunder", color: "#c1e9c1" },
-  MRGL: { label: "Marginal", color: "#66a366" },
-  SLGT: { label: "Slight", color: "#ffe066" },
-  ENH: { label: "Enhanced", color: "#ffa366" },
-  MDT: { label: "Moderate", color: "#e06666" },
-  HIGH: { label: "High", color: "#ee99ee" },
-};
+// VIP's categorical palette and labels (lib/colors/spc), keyed by SPC label.
+const SPC_CAT: Record<string, Swatch> = Object.fromEntries(
+  ["TSTM", "MRGL", "SLGT", "ENH", "MDT", "HIGH"].map((k, i) => [
+    k,
+    { label: SPC_PALETTES.cat[i].label, color: SPC_PALETTES.cat[i].color },
+  ]),
+);
 const SPC_ORDER = Object.keys(SPC_CAT);
 
 export const QPF_SCALE: { at: number; color: string }[] = [
@@ -175,14 +177,14 @@ export const QPF_SCALE: { at: number; color: string }[] = [
   { at: 10, color: "#74c0fc" },
   { at: 15, color: "#e7f5ff" },
 ];
-const ERO_COLORS: Swatch[] = [
+export const ERO_COLORS: Swatch[] = [
   { label: "Marginal (≥5%)", color: "#7bd389" },
   { label: "Slight (≥15%)", color: "#ffe066" },
   { label: "Moderate (≥40%)", color: "#ff6b6b" },
   { label: "High (≥70%)", color: "#f783ac" },
 ];
 const PROBS = [33, 40, 50, 60, 70, 80, 90];
-const RAMP = {
+export const RAMP = {
   above: [
     "#ffd8a8",
     "#ffa94d",
@@ -220,7 +222,7 @@ const RAMP = {
     "#5c3815",
   ],
 };
-const DROUGHT: Record<string, Swatch> = {
+export const DROUGHT: Record<string, Swatch> = {
   Persistence: { label: "Drought persists", color: "#a0782c" },
   Improvement: { label: "Drought improves", color: "#e3d3b0" },
   Removal: { label: "Drought ends", color: "#9bc26b" },
@@ -233,50 +235,82 @@ const step = (p: number) =>
     PROBS.findLastIndex((x) => p >= x),
   );
 
-/** Fill color for one feature, or null to leave it undrawn. */
+/** Fill color for one feature, or null to leave it undrawn (admin overrides applied). */
 export function colorFor(
   kind: VectorProduct["kind"],
   props: Record<string, unknown>,
+  colors: Colors = {},
 ): string | null {
   if (kind === "qpf") {
     const v = Number(props.qpf);
-    return QPF_SCALE.findLast((s) => v >= s.at)?.color ?? null;
+    const i = QPF_SCALE.findLastIndex((s) => v >= s.at);
+    return i < 0 ? null : pick(colors, `qpf:${i}`, QPF_SCALE[i].color);
   }
-  if (kind === "ero") return ERO_COLORS[Number(props.dn) - 1]?.color ?? null;
-  if (kind === "drought") return DROUGHT[String(props.outlook)]?.color ?? null;
-  if (kind === "spcCat") return SPC_CAT[String(props.LABEL)]?.color ?? null;
+  if (kind === "ero") {
+    const i = Number(props.dn) - 1;
+    return ERO_COLORS[i] ? pick(colors, `ero:${i}`, ERO_COLORS[i].color) : null;
+  }
+  if (kind === "drought") {
+    const k = String(props.outlook);
+    return DROUGHT[k] ? pick(colors, `drought:${k}`, DROUGHT[k].color) : null;
+  }
+  if (kind === "spcCat") {
+    const k = String(props.LABEL);
+    const i = SPC_ORDER.indexOf(k);
+    return i < 0 ? null : pick(colors, `spc:cat:${i}`, SPC_CAT[k].color);
+  }
   const cat = String(props.cat);
   const p = Number(props.prob);
-  if (cat === "Normal") return "#adb5bd";
+  if (cat === "Normal") return pick(colors, "cpc:normal", "#adb5bd");
   if (cat !== "Above" && cat !== "Below") return null;
-  const ramp =
+  const name =
     kind === "cpcTemp"
       ? cat === "Above"
-        ? RAMP.above
-        : RAMP.below
+        ? "above"
+        : "below"
       : cat === "Above"
-        ? RAMP.wet
-        : RAMP.dry;
-  return ramp[step(p)];
+        ? "wet"
+        : "dry";
+  const i = step(p);
+  return pick(colors, `cpc:${name}:${i}`, RAMP[name][i]);
 }
 
-export function legendFor(kind: VectorProduct["kind"]): Swatch[] {
+export function legendFor(
+  kind: VectorProduct["kind"],
+  colors: Colors = {},
+): Swatch[] {
   if (kind === "qpf")
-    return QPF_SCALE.map((s) => ({ label: `${s.at}"`, color: s.color }));
-  if (kind === "ero") return ERO_COLORS;
-  if (kind === "drought") return Object.values(DROUGHT);
-  if (kind === "spcCat") return Object.values(SPC_CAT);
-  const [a, b] =
-    kind === "cpcTemp" ? [RAMP.above, RAMP.below] : [RAMP.wet, RAMP.dry];
+    return QPF_SCALE.map((s, i) => ({
+      label: `${s.at}"`,
+      color: pick(colors, `qpf:${i}`, s.color),
+    }));
+  if (kind === "ero")
+    return ERO_COLORS.map((s, i) => ({
+      ...s,
+      color: pick(colors, `ero:${i}`, s.color),
+    }));
+  if (kind === "drought")
+    return Object.entries(DROUGHT).map(([k, s]) => ({
+      ...s,
+      color: pick(colors, `drought:${k}`, s.color),
+    }));
+  if (kind === "spcCat")
+    return Object.values(SPC_CAT).map((s, i) => ({
+      ...s,
+      color: pick(colors, `spc:cat:${i}`, s.color),
+    }));
+  const [a, b] = kind === "cpcTemp" ? ["above", "below"] : ["wet", "dry"];
+  const c = (n: string, i: number) =>
+    pick(colors, `cpc:${n}:${i}`, RAMP[n as keyof typeof RAMP][i]);
   const word = kind === "cpcTemp" ? ["Warmer", "Colder"] : ["Wetter", "Drier"];
   return [
-    { label: `${word[0]} 33–40%`, color: a[0] },
-    { label: `${word[0]} 50%+`, color: a[2] },
-    { label: `${word[0]} 70%+`, color: a[4] },
-    { label: "Near normal", color: "#adb5bd" },
-    { label: `${word[1]} 33–40%`, color: b[0] },
-    { label: `${word[1]} 50%+`, color: b[2] },
-    { label: `${word[1]} 70%+`, color: b[4] },
+    { label: `${word[0]} 33–40%`, color: c(a, 0) },
+    { label: `${word[0]} 50%+`, color: c(a, 2) },
+    { label: `${word[0]} 70%+`, color: c(a, 4) },
+    { label: "Near normal", color: pick(colors, "cpc:normal", "#adb5bd") },
+    { label: `${word[1]} 33–40%`, color: c(b, 0) },
+    { label: `${word[1]} 50%+`, color: c(b, 2) },
+    { label: `${word[1]} 70%+`, color: c(b, 4) },
   ];
 }
 

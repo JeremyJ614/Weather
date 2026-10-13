@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Download, Share2 } from "lucide-react";
+import { Check, Download, Hand, Minus, Plus, Scan, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { useZoom } from "./useZoom";
 import s from "./UsMap.module.css";
 
 export type Swatch = { label: string; color: string };
@@ -101,7 +102,10 @@ export function UsMap({
   overlay,
   onTap,
   actions = true,
+  zoomable = false,
 }: {
+  /** Still at first; "Zoom & pan" makes it grab-, pinch- and wheel-zoomable. */
+  zoomable?: boolean;
   /** Tap handler in canvas coordinates (975×610); makes the map a picker. */
   onTap?: (x: number, y: number) => void;
   /** Show the Download/Share buttons. */
@@ -120,6 +124,11 @@ export function UsMap({
   const [base, setBase] = useState<Base | null>(null);
   const [busy, setBusy] = useState(false);
   const svg = useRef<SVGSVGElement>(null);
+  const [live, setLive] = useState(false);
+  const z = useZoom(svg, W, H, live, onTap);
+  const vb = zoomable
+    ? `${z.view.x} ${z.view.y} ${z.view.w} ${(z.view.w * H) / W}`
+    : `0 0 ${W} ${H}`;
   useEffect(() => {
     let live = true;
     loadBase().then((b) => live && setBase(b));
@@ -160,13 +169,15 @@ export function UsMap({
       <div className={s.stage}>
         <svg
           ref={svg}
-          viewBox={`0 0 ${W} ${H}`}
+          viewBox={vb}
           xmlns="http://www.w3.org/2000/svg"
-          className={`${s.svg} ${onTap ? s.picker : ""}`}
+          className={`${s.svg} ${onTap ? s.picker : ""} ${live ? s.live : ""}`}
+          style={{ ["--zs" as string]: z.view.w / W }}
+          {...(zoomable ? z.handlers : {})}
           onClick={(e) => {
             const el = svg.current;
             const m = el?.getScreenCTM();
-            if (!onTap || !el || !m) return;
+            if (live || !onTap || !el || !m) return;
             const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(
               m.inverse(),
             );
@@ -198,6 +209,7 @@ export function UsMap({
                   <path key={st.id} d={st.d} />
                 ))}
               </g>
+              <path d={base.nation} className={s.glow} />
               <path d={base.nation} className={s.outline} />
               <g className={s.labels}>
                 {base.labels.map((l) => (
@@ -213,6 +225,36 @@ export function UsMap({
             WEATHER.SSWX.SPACE
           </text>
         </svg>
+        {zoomable && base && (
+          <div className={s.zoom}>
+            {live ? (
+              <>
+                <button onClick={z.zoomIn} aria-label="Zoom in">
+                  <Plus aria-hidden />
+                </button>
+                <button onClick={z.zoomOut} aria-label="Zoom out">
+                  <Minus aria-hidden />
+                </button>
+                {z.zoomed && (
+                  <button onClick={z.reset} aria-label="Whole country">
+                    <Scan aria-hidden />
+                  </button>
+                )}
+                <button
+                  className={s.zoomDone}
+                  onClick={() => setLive(false)}
+                  aria-label="Done moving the map"
+                >
+                  <Check aria-hidden /> Done
+                </button>
+              </>
+            ) : (
+              <button className={s.zoomGrab} onClick={() => setLive(true)}>
+                <Hand aria-hidden /> Zoom &amp; pan
+              </button>
+            )}
+          </div>
+        )}
         {(status === "loading" || !base) && (
           <div className={s.loading} aria-label="Loading map" />
         )}
