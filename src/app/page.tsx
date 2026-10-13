@@ -8,13 +8,8 @@ export default function Home() {
         width={240}
         height={71}
       />
-      <h1
-        className="text-4xl leading-tight"
-        style={{ fontFamily: "var(--font-display)", fontWeight: 800 }}
-      >
-        StormSync Weather is being built
-      </h1>
-      <p style={{ color: "var(--muted)" }}>
+      <h1 className="display text-4xl">StormSync Weather is being built</h1>
+      <p className="text-muted">
         The app is under construction, one tested phase at a time. This page
         will become the Homepage when its phase is built.
       </p>

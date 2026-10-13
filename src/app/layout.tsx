@@ -1,14 +1,9 @@
 import type { Metadata, Viewport } from "next";
-import { Mulish, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import { DeviceSetup } from "@/components/DeviceSetup";
-
-const body = Mulish({ subsets: ["latin"], variable: "--font-body" });
-const display = Playfair_Display({
-  subsets: ["latin"],
-  weight: ["700", "800"],
-  variable: "--font-display",
-});
+import { themeBootScript, themeCss } from "@/lib/theme/css";
+import { fontClassNames } from "@/lib/theme/fonts";
+import { DEFAULT_THEME } from "@/lib/theme/registry";
 
 export const metadata: Metadata = {
   title: "StormSync Media",
@@ -27,11 +22,23 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
+const css = themeCss();
+
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${body.variable} ${display.variable}`}>
+    <html
+      lang="en"
+      className={fontClassNames}
+      data-palette={DEFAULT_THEME.palette}
+      data-font={DEFAULT_THEME.font}
+      suppressHydrationWarning
+    >
+      <head>
+        <style id="themes" dangerouslySetInnerHTML={{ __html: css }} />
+        <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
+      </head>
       <body>
         <DeviceSetup />
         {children}
