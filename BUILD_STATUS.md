@@ -2,7 +2,7 @@
 
 **Objective:** StormSync Weather (Weather.SSWX.Space): one mobile-first PWA + Android .apk merging the team's weather apps. Free to run until revenue.
 
-**Stage:** Planning done (Sections A/B, questionnaire, BuildPlan). Building. Phases 01–02 done (02 waits on owner DNS record + service key). Phases 01–06a done (intro lockup swaps to the owner's logo when it arrives; intro setting UI in 62b). Current phase: 06b (remaining main-menu styles, each loaded only when chosen).
+**Stage:** Planning done (Sections A/B, questionnaire, BuildPlan). Building. Phases 01–02 done (02 waits on owner DNS record + service key). Phases 01–06b done (intro lockup swaps to the owner's logo when it arrives; intro setting UI in 62b). Current phase: 06c (Depth Drawer, Speed Dial, Curtain Reveal; menu prefs per user).
 
 **Decisions so far**
 - Repo `JeremyJ614/Weather`, working branch `ccr-f5e0b71a-4vr2wk`. No `main` branch yet (repo was empty).
@@ -33,7 +33,7 @@
 
 **Next actions**
 1. Create `main` from this branch (owner approved), open PR.
-2. Phase 06b: port remaining main-menu styles from design-lab/section-a (menus-1.js, menus-2.js) as React components with placements; load styles lazily (next/dynamic) so routes only ship the chosen two.
+2. Phase 06c: port Depth Drawer, Speed Dial (better icons), Curtain Reveal into src/features/menus; register in styles.ts; menu preference storage per user (localStorage now, profile sync in 62b).
 
 **Lab answers:** questionnaire https://claude.ai/artifact/1S89fRJDQe5QzLj9xEKuQc (db `answers/owner`).
 

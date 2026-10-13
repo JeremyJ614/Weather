@@ -11,5 +11,5 @@ export interface MenuStyle {
   id: string;
   name: string;
   placements: Placement[];
-  Component: (props: MenuProps) => React.ReactNode;
+  Component: React.ComponentType<MenuProps>;
 }

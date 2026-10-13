@@ -18,7 +18,7 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 - [x] 04. Design system: chosen theme tokens, type scale, motion rules (transform/opacity only), base components
 - [x] 05. StormSync Media 3D intro as the launch screen: short, tiny "Created By: Jay Myers" at the end, tap to skip, off switch in account settings
 - [x] 06a. Navigation registry, every launch route with PhaseNotice, menu framework with declared spots and collision resolver, default menus (Corner Sweep, Morph FAB)
-- [ ] 06b. Remaining main-menu styles (Radial Plates, Glass Ledger, Split Sidebar, Mega Spotlight, Bento Board, Live Bento, Tab Bar + Sheet, Swipe Tabs, Bottom Rail Pop, StormSync Vortex, Notch Bar)
+- [x] 06b. Remaining main-menu styles (Radial Plates, Glass Ledger, Split Sidebar, Mega Spotlight, Bento Board, Live Bento, Tab Bar + Sheet, Swipe Tabs, Bottom Rail Pop, StormSync Vortex, Notch Bar)
 - [ ] 06c. Remaining second-menu styles (Depth Drawer, Speed Dial, Curtain Reveal) and menu preferences stored per user
 - [ ] 07. Second-menu lists, defaults set from the admin panel, and the four menu fixes (Radial Plates, Speed Dial, Color Morph Bar, Flip Tiles)
 - [ ] 08. Accounts: 4-digit PIN sign-in with lockout, email link, Google, Apple, text code; signup form (editable), referral codes; owner account; RLS on every table

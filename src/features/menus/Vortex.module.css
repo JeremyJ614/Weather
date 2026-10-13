@@ -1,0 +1,138 @@
+.veil {
+  position: fixed;
+  inset: 0;
+  z-index: 64;
+  background: radial-gradient(
+    circle at 50% 92%,
+    color-mix(in srgb, var(--accent) 20%, transparent),
+    color-mix(in srgb, var(--bg) 94%, transparent) 62%
+  );
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.5s;
+}
+.on .veil {
+  opacity: 1;
+  pointer-events: auto;
+}
+.cv {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 64;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.5s;
+}
+.on .cv {
+  opacity: 1;
+}
+.list {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: calc(64px + env(safe-area-inset-top, 0px));
+  bottom: calc(110px + env(safe-area-inset-bottom, 0px));
+  z-index: 65;
+  overflow: auto;
+  padding: 4px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  pointer-events: none;
+}
+.on .list {
+  pointer-events: auto;
+}
+.vb {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 11px 14px;
+  border-radius: 16px;
+  text-align: left;
+  font-weight: 800;
+  font-size: 15px;
+  background: color-mix(in srgb, var(--surface) 78%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--line));
+}
+.vb svg {
+  color: var(--accent);
+}
+.vb em {
+  margin-left: auto;
+  font-style: normal;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+}
+.vb[aria-current="page"] {
+  border-color: var(--accent);
+}
+.h {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0 6px;
+  font-family: var(--font-display);
+  font-weight: var(--display-weight);
+  text-transform: var(--display-case);
+  font-size: 28px;
+  line-height: 1;
+}
+.h button {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: var(--surface2);
+}
+.core {
+  position: fixed;
+  z-index: 66;
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+  background: radial-gradient(
+    circle at 35% 30%,
+    #fff 0,
+    var(--metal) 18%,
+    #4a4d5a 60%,
+    #1b1c22
+  );
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--accent) 60%, transparent),
+    0 0 36px -2px var(--accent);
+}
+.core svg {
+  filter: drop-shadow(0 0 6px var(--accent));
+  transition: transform 0.8s var(--spring);
+}
+.on .core svg {
+  transform: rotate(-360deg) scale(1.1);
+}
+.core::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  border-top-color: var(--accent);
+  border-right-color: var(--accent2);
+  animation: spin 1.2s linear infinite;
+  opacity: 0.8;
+}
+[data-tier="low"] .core::after {
+  animation: none;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

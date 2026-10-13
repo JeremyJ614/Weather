@@ -1,0 +1,106 @@
+.bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 66;
+  display: grid;
+  padding: 8px 6px calc(10px + env(safe-area-inset-bottom, 0px));
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-top: 1px solid var(--line);
+}
+.tb {
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  padding: 6px 0;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--muted);
+  transition: color 0.3s;
+}
+.tb[aria-pressed="true"],
+.tb[aria-current="page"] {
+  color: var(--text);
+}
+.tb[aria-pressed="true"] svg,
+.tb[aria-current="page"] svg {
+  color: var(--accent);
+  transform: translateY(-2px) scale(1.1);
+}
+.tb svg {
+  transition: transform 0.4s var(--spring);
+}
+.light {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100px;
+  height: 3px;
+  border-radius: 0 0 4px 4px;
+  background: var(--accent);
+  box-shadow: 0 0 16px 2px var(--accent);
+  transform-origin: 0 0;
+  transition:
+    transform 0.5s var(--spring),
+    opacity 0.3s;
+}
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 64;
+  background: rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+.on .scrim {
+  opacity: 1;
+  pointer-events: auto;
+}
+.sheet {
+  position: fixed;
+  left: 8px;
+  right: 8px;
+  bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+  z-index: 65;
+  max-height: 66dvh;
+  overflow: auto;
+  padding: 10px;
+  border-radius: 22px;
+  background: var(--surface2);
+  border: 1px solid var(--line);
+  transform: translateY(30px) scale(0.95);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform 0.45s var(--spring),
+    opacity 0.25s;
+}
+.on .sheet {
+  transform: none;
+  opacity: 1;
+  pointer-events: auto;
+}
+.h {
+  margin: 4px 6px 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.mi {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 14px;
+}
+.mi[aria-current="page"] {
+  background: var(--surface);
+}

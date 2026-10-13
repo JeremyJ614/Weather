@@ -1,0 +1,129 @@
+.panel {
+  position: fixed;
+  z-index: 65;
+  left: 8px;
+  right: 8px;
+  top: calc(62px + env(safe-area-inset-top, 0px));
+  bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  display: grid;
+  grid-template-rows: auto 1fr;
+  overflow: hidden;
+  border-radius: 22px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  transform: translateY(-16px) scale(0.96);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform 0.5s var(--spring),
+    opacity 0.3s;
+}
+.on .panel {
+  transform: none;
+  opacity: 1;
+  pointer-events: auto;
+}
+.cats {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 10px;
+  border-bottom: 1px solid var(--line);
+  scrollbar-width: none;
+}
+.cb {
+  flex: none;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 7px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--muted);
+  transition:
+    background 0.3s,
+    color 0.3s;
+}
+.cb[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: var(--accent);
+}
+.body {
+  overflow: auto;
+  padding: 12px;
+}
+.hero {
+  position: relative;
+  height: 120px;
+  border-radius: 18px;
+  overflow: hidden;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  margin-bottom: 10px;
+  color: #fff;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--accent) 70%, var(--bg)),
+    color-mix(in srgb, var(--accent2) 60%, var(--bg))
+  );
+  animation: rise 0.45s var(--ease);
+}
+.big {
+  position: absolute;
+  right: -10px;
+  top: -10px;
+  width: 120px;
+  height: 120px;
+  opacity: 0.22;
+  animation: spin 18s linear infinite;
+}
+.hero small {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  opacity: 0.85;
+}
+.hero b {
+  font-family: var(--font-display);
+  font-weight: var(--display-weight);
+  text-transform: var(--display-case);
+  font-size: 28px;
+  line-height: 1;
+}
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.mi {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 10px;
+  border-radius: 12px;
+  background: var(--surface2);
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.2;
+  animation: rise 0.4s var(--ease) both;
+  animation-delay: calc(var(--i) * 30ms);
+}
+.mi[aria-current="page"] {
+  outline: 2px solid var(--accent);
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

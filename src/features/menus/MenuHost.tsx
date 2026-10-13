@@ -1,6 +1,6 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { MAIN_NAV, SECOND_NAV, visibleNav } from "@/lib/nav/registry";
 import { resolvePlacements } from "@/lib/nav/spots";
 import { MENU_STYLES, pickMenus } from "./styles";
@@ -32,6 +32,13 @@ export function MenuHost() {
     M.placements,
     S.placements,
   );
+  const bar = [mp, sp].some((p) => p.id === "bottom-bar");
+  useEffect(() => {
+    // Pages keep their last lines clear of a full-width bottom bar.
+    const root = document.documentElement;
+    if (bar) root.dataset.bottomBar = "";
+    else delete root.dataset.bottomBar;
+  }, [bar]);
   // Admin-only pages appear once accounts exist (phase 08/09).
   const isAdmin = false;
   return (
