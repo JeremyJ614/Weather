@@ -13,6 +13,7 @@ const BUILT = new Set([
   "forecast-discussion",
   "aqi-pollen",
   "mosquito-index",
+  "daylight-tracker",
 ]);
 
 export function generateStaticParams() {

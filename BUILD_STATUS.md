@@ -2,7 +2,7 @@
 
 **Objective:** StormSync Weather (Weather.SSWX.Space): one mobile-first PWA + Android .apk merging the team's weather apps. Free to run until revenue.
 
-**Stage:** Building. Done: 01–24, 10b, 10c, plus the owner's 18-point redesign pass (2026-10-13, PR #3). Next: 25 Daylight Tracker (rebuilt, modeled on Max Velocity's).
+**Stage:** Building. Done: 01–25, 10b, 10c, plus the owner's 18-point redesign pass (2026-10-13, PR #3). Next: 26 Forecast Game (port from VIP, redesigned).
 
 **Decisions so far**
 - Repo `JeremyJ614/Weather`, working branch `ccr-f5e0b71a-4vr2wk`, PR #1 merged to `main`; PR #2 open.
