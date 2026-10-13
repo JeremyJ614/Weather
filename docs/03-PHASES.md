@@ -56,7 +56,7 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 - [ ] 30. (moved to post-launch: Raffles)
 
 ## Severe Weather
-- [ ] 31. SSWXCon Score (port)
+- [x] 31. SSWXCon Score (port, v2 formula approved)
 - [ ] 32. Warnings & Reports (port)
 - [ ] 33. SPC & Probability (two subtabs, port)
 - [ ] 34. Mesoscale Discussions (port)

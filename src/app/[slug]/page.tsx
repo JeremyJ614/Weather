@@ -17,6 +17,7 @@ const BUILT = new Set([
   "wx-games",
   "leaderboard",
   "weekly-polls",
+  "sswxcon",
 ]);
 
 export function generateStaticParams() {
