@@ -22,6 +22,7 @@ const BUILT = new Set([
   "spc-probability",
   "mesoscale-discussions",
   "atmospheric-ingredients",
+  "join",
 ]);
 
 export function generateStaticParams() {

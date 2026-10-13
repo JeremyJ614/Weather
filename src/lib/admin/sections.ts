@@ -24,6 +24,15 @@ export const ADMIN_GROUPS: { id: AdminGroup; label: string }[] = [
 
 export const ADMIN_SECTIONS: AdminSection[] = [
   {
+    id: "billing",
+    group: "members",
+    desc: "Plan prices and pages, add-ons, promotions and promo codes",
+    label: "Pricing & plans",
+    icon: "Crown",
+    phase: "64",
+    href: "/admin/pricing",
+  },
+  {
     id: "navigation",
     group: "look",
     desc: "Arrange the menus: sections, order, names, icons and hidden pages",
