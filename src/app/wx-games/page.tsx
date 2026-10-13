@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { after } from "next/server";
 import { CircleHelp, Gamepad2, Radar } from "lucide-react";
 import { ModuleOff } from "@/components/ops/ModuleOff";
 import { PageHero } from "@/components/ui/PageHero";
@@ -7,7 +8,9 @@ import { getViewer } from "@/lib/auth/viewer";
 import { getSiteDefaults } from "@/lib/settings";
 import { supabaseServer } from "@/lib/supabase/server";
 import { gameDate } from "@/lib/game/score";
+import { healDay } from "@/lib/trivia/generate";
 import { GameView, type Guess } from "./GameView";
+import { TriviaView, type TriviaQ } from "./TriviaView";
 
 export const metadata: Metadata = { title: "WX Games · StormSync Media" };
 
@@ -22,9 +25,10 @@ export default async function WxGames() {
   const today = gameDate();
   let mine: Guess | null = null;
   let last: Guess | null = null;
+  let trivia: TriviaQ[] = [];
   if (viewer.signedIn) {
     const sb = await supabaseServer();
-    const [a, b] = await Promise.all([
+    const [a, b, t] = await Promise.all([
       sb
         .from("game_guesses")
         .select(SELECT)
@@ -37,9 +41,12 @@ export default async function WxGames() {
         .order("guess_date", { ascending: false })
         .limit(1)
         .maybeSingle(),
+      sb.rpc("trivia_today"),
     ]);
     mine = a.data as Guess | null;
     last = b.data as Guess | null;
+    trivia = (t.data ?? []) as TriviaQ[];
+    if (!t.error && !trivia.length) after(() => healDay(today));
   }
   return (
     <main className="mx-auto max-w-2xl px-4 pt-4 pb-28">
@@ -72,12 +79,12 @@ export default async function WxGames() {
           {
             id: "daily-trivia",
             label: "Daily Trivia",
-            sub: "Five questions a day",
+            sub: "Fresh questions daily",
             icon: <CircleHelp aria-hidden />,
-            panel: (
-              <p className="panel rounded-2xl p-4 text-sm text-muted">
-                Daily Trivia is being built in phase 27.
-              </p>
+            panel: disabled.includes("trivia") ? (
+              <ModuleOff label="Daily Trivia" />
+            ) : (
+              <TriviaView signedIn={viewer.signedIn} questions={trivia} />
             ),
           },
         ]}

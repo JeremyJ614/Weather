@@ -44,6 +44,7 @@ export async function GET(request: Request) {
     db.from("afd_simplified").delete().lt("created_at", day(7)),
     db.from("game_guesses").delete().lt("guess_date", day(731)),
     db.from("game_points").delete().lt("earned_on", day(731)),
+    db.from("trivia_answers").delete().lt("answered_at", day(731)),
     db.from("ai_usage").delete().lt("day", day(90)),
   ]);
   const pruneError = pruned.find((r) => r.error)?.error;

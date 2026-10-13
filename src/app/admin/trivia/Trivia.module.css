@@ -1,0 +1,172 @@
+.days {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+}
+.days a {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  color: var(--accent);
+}
+.days div {
+  display: grid;
+  justify-items: center;
+}
+.days span {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.item {
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+}
+.item summary {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  cursor: pointer;
+  font-size: 14px;
+}
+.slot {
+  font-family: var(--font-mono);
+  color: var(--muted);
+}
+.sumQ {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sumPts {
+  font-family: var(--font-mono);
+  color: var(--accent);
+}
+.spark {
+  width: 16px;
+  height: 16px;
+  color: #ffd43b;
+}
+.form {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+}
+.item .form {
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+}
+.isBonus {
+  box-shadow: inset 0 0 0 1px rgb(255 212 59 / 0.45);
+}
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.src {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--muted);
+}
+.label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.label textarea,
+.label input,
+.choiceRow input {
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 15px;
+}
+.points {
+  width: 7rem;
+}
+.choices {
+  display: grid;
+  gap: 8px;
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+.choices legend {
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.choiceRow {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  align-items: center;
+  gap: 8px;
+}
+.radio {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  border: 2px solid var(--line);
+}
+.radio[aria-pressed="true"] {
+  border-color: #4cd964;
+  box-shadow:
+    inset 0 0 0 4px var(--bg),
+    inset 0 0 0 12px #4cd964;
+}
+.icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  color: var(--muted);
+}
+.icon svg,
+.add svg {
+  width: 16px;
+  height: 16px;
+}
+.add {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  justify-self: start;
+  font-size: 13px;
+  color: var(--accent);
+}
+.remove {
+  padding: 0 14px 14px;
+}
+.remove button {
+  font-size: 13px;
+  color: #ff6b6b;
+}
+.ok {
+  font-size: 13px;
+  color: #4cd964;
+}
+.err {
+  font-size: 13px;
+  color: var(--accent);
+}

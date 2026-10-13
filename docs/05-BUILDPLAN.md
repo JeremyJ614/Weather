@@ -121,3 +121,4 @@ Personal Warnings & Alerts, Affected Communities Outlook, FairWeather Tracking, 
 | 31 | Email | App emails landed in Gmail spam: a bare default sign-up template linking to a different domain, and no unsubscribe header | Branded templates link to our own `/auth/confirm`; brief emails carry one-click List-Unsubscribe, a full plain-text part and a clear sender |
 | 32 | Forecast Game | The month's champion could be crowned before the month's last day was scored (both ran at once) | The scorer runs first, then the crowning |
 | 33 | Forecast Game | Pins locked at noon ET and couldn't be moved | Pins move freely until the midnight ET reset (database-enforced, today only, scores untouchable) |
+| 34 | Daily Trivia | (VIP) points were minted from the browser and silently rejected | Answers are graded and paid only by `trivia_answer()` in the database; the key is never readable before answering |

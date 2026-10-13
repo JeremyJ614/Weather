@@ -81,7 +81,13 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     phase: "21",
     href: "/admin/sms",
   },
-  { id: "trivia", label: "Trivia & points", icon: "CircleHelp", phase: "27" },
+  {
+    id: "trivia",
+    label: "Daily Trivia",
+    icon: "CircleHelp",
+    phase: "27",
+    href: "/admin/trivia",
+  },
   {
     id: "leaderboard",
     label: "Leaderboard & champions",

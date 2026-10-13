@@ -50,7 +50,7 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 
 ## Community
 - [x] 26. Forecast Game (port from VIP, redesigned)
-- [ ] 27. Daily Trivia with admin question and points editor
+- [x] 27. Daily Trivia with admin question and points editor
 - [x] 28. Leaderboard (weekly, monthly, yearly) with admin points and past-winner entry
 - [ ] 29. Weekly Polls with admin scheduling
 - [ ] 30. (moved to post-launch: Raffles)
