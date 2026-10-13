@@ -31,7 +31,7 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 - [x] 11. Admin shell, owner-only access, add admins with per-section permissions, audit log
 - [x] 12. News & Announcements editor (mobile-first, rich, image upload, schedule)
 - [x] 13. Admin: outline requests + VIP AdminPanel port + chosen extras, part 1
-- [ ] 14. Chosen admin extras, part 2
+- [x] 14. Chosen admin extras, part 2 (signup-form editor, members CSV export; the rest ship with their features, see BuildPlan §6)
 
 ## Homepage
 - [ ] 15. Weather News tab: top 15 auto-collected stories, refreshed 1–2 times a day

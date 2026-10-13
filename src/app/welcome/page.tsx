@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/Card";
 import { supabaseServer } from "@/lib/supabase/server";
 import { safeNext } from "@/lib/safe-next";
 import { SignupForm } from "./SignupForm";
+import { getSignupForm } from "@/lib/auth/signup-form";
 
 export const metadata: Metadata = { title: "Welcome · StormSync Media" };
 
@@ -32,7 +33,7 @@ export default async function Welcome({
           <h1 className="display text-3xl text-accent">Welcome to StormSync</h1>
           <p className="mt-1 text-sm text-muted">{user.email}</p>
         </div>
-        <SignupForm next={next} />
+        <SignupForm next={next} form={await getSignupForm()} />
       </Card>
     </main>
   );

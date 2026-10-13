@@ -5,6 +5,7 @@ import { SITE_DEFAULTS_TAG, cleanDefaults } from "@/lib/settings";
 import { requireAdmin } from "@/lib/auth/admin-guard";
 import { sectionIds } from "@/lib/admin/sections";
 import { moduleIds } from "@/lib/ops/modules";
+import { cleanForm } from "@/lib/auth/signup-form";
 
 const UUID = /^[0-9a-f-]{36}$/;
 
@@ -170,4 +171,33 @@ export async function setMember(fd: FormData) {
       p_target: name,
     });
   revalidatePath(`/admin/members/${id}`);
+}
+
+export async function saveSignupForm(
+  _: SaveState,
+  fd: FormData,
+): Promise<SaveState> {
+  const { supabase } = await requireAdmin("signup-form");
+  const form = cleanForm({
+    show: {
+      nickname: fd.get("nickname") === "on",
+      phone: fd.get("phone") === "on",
+      foundUs: fd.get("foundUs") === "on",
+      referral: fd.get("referral") === "on",
+    },
+    foundUsOptions: String(fd.get("options") ?? "").split("\n"),
+    intro: String(fd.get("intro") ?? "").trim(),
+  });
+  const { error } = await supabase
+    .from("app_config")
+    .update({ value: form, updated_at: new Date().toISOString() })
+    .eq("key", "signup_form");
+  if (error) return { error: "Couldn't save. Try again." };
+  await supabase.rpc("log_admin", {
+    p_action: "edit_signup_form",
+    p_target: "signup form",
+    p_detail: form,
+  });
+  updateTag("signup-form");
+  return { saved: true };
 }

@@ -50,11 +50,21 @@ export default async function Members({
 
   return (
     <main className="mx-auto grid max-w-2xl gap-4 px-4 pt-6 pb-24">
-      <div>
-        <h1 className="display text-3xl text-accent">Members</h1>
-        <p className="mt-1 text-sm text-muted">
-          {count ?? 0} {q ? "matching" : "accounts"}
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="display text-3xl text-accent">Members</h1>
+          <p className="mt-1 text-sm text-muted">
+            {count ?? 0} {q ? "matching" : "accounts"}
+          </p>
+        </div>
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- a file download, not a page */}
+        <a
+          download
+          href="/api/admin/export?what=members"
+          className="rounded-xl border border-line bg-surface px-3 py-2 text-sm font-bold text-accent"
+        >
+          Download CSV
+        </a>
       </div>
       <form className="flex gap-2">
         <input
