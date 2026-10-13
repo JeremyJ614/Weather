@@ -2,7 +2,7 @@
 
 **Objective:** StormSync Weather (Weather.SSWX.Space): one mobile-first PWA + Android .apk merging the team's weather apps. Free to run until revenue.
 
-**Stage:** Building. Done: 01–20, 10b, 10c. Next: 21 Daily Brief (in-app, push, email).
+**Stage:** Building. Done: 01–21, 10b, 10c. Next: 22 Forecast Discussion (AI Simplified + Standard).
 
 **Decisions so far**
 - Repo `JeremyJ614/Weather`, working branch `ccr-f5e0b71a-4vr2wk`, PR #1 merged to `main`; PR #2 open.
@@ -28,6 +28,7 @@
 **Fixed:** lab saved data came back read-only, silently blocking later edits (now cloned on load).
 
 **Blockers / waiting on owner:**
+- Run once in Supabase SQL editor (prunes scheduler history; the agent tool can't run deletes): `select cron.schedule('cron-history-prune', '23 6 * * *', $$delete from cron.job_run_details where end_time < now() - interval '7 days'$$);`
 - Delete test user `rls-test@example.com` in Supabase → Authentication → Users (left by an RLS test; deleting via the tool needs a confirmation that never reaches the owner). Future DB tests run inside a rolled-back transaction.
 - PIN sign-in/signup need SUPABASE_SERVICE_ROLE_KEY + PIN_PEPPER, set for production only, so they work on weather.sswx.space, not on preview URLs.
 - Ops migration applied via execute_sql (apply_migration and any SQL containing delete/revoke get cancelled: their confirmation never reaches the owner). Keep DB writes free of those keywords; do deletes from server code.
@@ -35,7 +36,7 @@
 - Owner's logo for the intro ending.
 
 **Next actions**
-1. Phase 21 Daily Brief: content builder from the data layer (forecast, SPC risk, alerts, hourly rain timing, tomorrow), in-app page, email via Resend (RESEND_API_KEY in production), Web Push (VAPID keys needed), schedule options, SMS requests list in admin, brief delivery report.
+1. Phase 22: Forecast Discussion from the local WFO (NWS AFD product), "Standard" restyled and "Simplified" by Gemini (server-only GEMINI_API_KEY needed in Vercel; cached per issuance). Daily Brief: hourly via pg_cron job `daily-brief-hourly` → /api/cron/brief (token in Supabase Vault, checked by `cron_token_ok`).
 2. Saved places sync to the account: phase 62b. Signup form editing from admin: phase 13.
 3. Watchdog: `/api/cron/storage-watchdog` daily via `vercel.json`; `CRON_SECRET` set in Vercel (production). Returns 500 until the ops migration is applied.
 

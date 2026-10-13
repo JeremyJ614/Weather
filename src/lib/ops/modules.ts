@@ -2,6 +2,7 @@
 export const MODULES = [
   { id: "weather", label: "Local forecast (Today card)" },
   { id: "dashboard", label: "Dashboard" },
+  { id: "brief", label: "Daily Brief" },
   { id: "maps", label: "Maps" },
   { id: "weather-news", label: "Weather News" },
   { id: "news", label: "SSWX News" },

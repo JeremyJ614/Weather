@@ -104,3 +104,4 @@ Personal Warnings & Alerts, Affected Communities Outlook, FairWeather Tracking, 
 | 14 | Homepage | Weather News never appeared on the homepage after phase 15: a scripted edit silently missed a line Prettier had reformatted | Wired by hand with the SSWX News tabs; scripted edits now assert their target exists |
 | 15 | CI | From phase 08 on, CI (which has no Supabase settings) failed while prerendering admin pages: the server client validated settings before reading cookies | Cookies are read first, so those pages are per-request; verified by building without the env file |
 | 16 | Fall map | Every fall-color dot drew black: the map libraries reject space-separated `hsl()` colors | Colors use the comma form |
+| 17 | Daily Brief | At 2 AM the brief called today's daytime "Tomorrow", because NWS's first period is "Overnight" | Days matched by each period's local date |
