@@ -243,3 +243,30 @@ body::before {
     opacity: 0;
   }
 }
+
+/* Section titles across admin and tools pages: VIP scale, a drawn primary rule under each. */
+h1.display {
+  position: relative;
+  padding-bottom: 10px;
+  font-size: 24px;
+  color: var(--text);
+  text-transform: none;
+}
+h1.display::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 72px;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--accent), transparent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 60%, transparent);
+  transform-origin: left;
+  animation: draw-rule 900ms var(--ease) 150ms both;
+}
+@keyframes draw-rule {
+  from {
+    transform: scaleX(0);
+  }
+}

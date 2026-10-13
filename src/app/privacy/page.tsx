@@ -1,3 +1,5 @@
+import { ShieldCheck } from "lucide-react";
+import { PageHero } from "@/components/ui/PageHero";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -142,9 +144,13 @@ const sections: { h: string; body: React.ReactNode }[] = [
 export default function Privacy() {
   return (
     <main className="mx-auto max-w-2xl px-4 pt-6 pb-24">
-      <h1 className="display text-4xl text-accent">Privacy Policy</h1>
-      <p className="mono mt-2 text-xs text-muted">Last updated {UPDATED}</p>
-      <div className="mt-8 grid gap-7 leading-relaxed text-muted [&_a]:text-accent [&_a]:underline [&_b]:text-text [&_li]:mt-1.5 [&_ul]:list-disc [&_ul]:pl-5">
+      <PageHero
+        icon={<ShieldCheck aria-hidden />}
+        eyebrow={["StormSync Media"]}
+        title="Privacy Policy"
+        subtitle={`Last updated ${UPDATED}`}
+      />
+      <div className="mt-2 text-sm grid gap-7 leading-relaxed text-muted [&_a]:text-accent [&_a]:underline [&_b]:text-text [&_li]:mt-1.5 [&_ul]:list-disc [&_ul]:pl-5">
         {sections.map((s) => (
           <section key={s.h}>
             <h2 className="mb-2 text-lg font-bold text-accent">{s.h}</h2>
