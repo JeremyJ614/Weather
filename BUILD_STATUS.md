@@ -10,14 +10,23 @@
 - Sources to port: VIP app = `stormsync-dashboard/github-repo/src/pages`; Chase Log = `Log`; Free Content Library = `stormsync-academy`; archive work = `stormsync-archive`.
 - Supabase project `weather` (ztzqemzuanwqwqzsaigd) is empty. Vercel project not created yet.
 
+**Owner decisions (2026-10-13)**
+- Menus: users pick from offered lists (main 12, second 8, in `picks/selection`); defaults main=Corner Sweep, second=Morph FAB; same menu can't be both; controls must auto-avoid overlap; admin sets defaults; new-user intro guide ends with menu picking; changeable in account settings.
+- Menu fixes: #31 Radial Plates dark with bright outlines + better icons; #15 Speed Dial better icons; #30 Color Morph Bar dark colors, no auto search/keyboard; #11 Flip Tiles scroll hint.
+- Themes: same offered-list model, changer in account settings only (not intro). Theme Lab: https://claude.ai/artifact/N2BYy78bktujX3LiUMDwNJ (`design-lab/themes/`, db doc `themes/selection`).
+- Hosting: Vercel Hobby until revenue allows Pro. SMS: owner handles separately. iPhone: Home Screen now, App Store later. Android: .apk now, Play later. Engines: repo goes public at launch (free Actions minutes).
+
 **Done:** Section A lab (31 menus, intro, 25 admin extras, 15 themes, 10 pricing), Section B answers (`docs/02-SECTION-B.md`), phase list (`docs/03-PHASES.md`), Section B tabs in the lab.
+
+**Fixed:** lab saved data came back read-only, silently blocking later edits (now cloned on load).
 
 **Blockers:** CodePen for A2 blocked by Cloudflare; owner may paste its code.
 
 **Next actions**
-1. Wait for owner's Section A + B answers; read `picks/selection`.
-2. Build the Step 3A questionnaire (interactive, saves answers).
-3. Write `docs/05-BUILDPLAN.md` with bug & glitch log.
-4. Start phase 01.
+1. Owner is writing out lost notes + B2/B3 engine marks; read `picks/selection` and `themes/selection`.
+2. Apply menu fixes (#31, #15, #30, #11); icons regenerated already.
+3. Build the Step 3A questionnaire (interactive, saves answers).
+4. Write `docs/05-BUILDPLAN.md` with bug & glitch log.
+5. Start phase 01.
 
 **Resume:** `git -C /home/user/Weather log --oneline -5`; lab test: `node <scratchpad>/test-lab.js design-lab/section-a <outdir>`.
