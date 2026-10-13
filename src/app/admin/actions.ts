@@ -1,6 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
+import { SITE_DEFAULTS_TAG, cleanDefaults } from "@/lib/settings";
 import { requireAdmin } from "@/lib/auth/admin-guard";
 import { sectionIds } from "@/lib/admin/sections";
 
@@ -70,4 +71,43 @@ export async function setSections(fd: FormData) {
     p_detail: { sections: want },
   });
   revalidatePath("/admin/admins");
+}
+
+export type SaveState = { error?: string; saved?: boolean } | null;
+
+/** Menu & theme defaults for everyone who hasn't picked their own. */
+export async function saveDefaults(
+  _: SaveState,
+  fd: FormData,
+): Promise<SaveState> {
+  const { supabase } = await requireAdmin("menus");
+  const want = cleanDefaults([
+    {
+      key: "menu_defaults",
+      value: { main: fd.get("main"), second: fd.get("second") },
+    },
+    {
+      key: "theme_default",
+      value: { palette: fd.get("palette"), font: fd.get("font") },
+    },
+  ]);
+  const results = await Promise.all([
+    supabase
+      .from("app_config")
+      .update({ value: want.menus, updated_at: new Date().toISOString() })
+      .eq("key", "menu_defaults"),
+    supabase
+      .from("app_config")
+      .update({ value: want.theme, updated_at: new Date().toISOString() })
+      .eq("key", "theme_default"),
+  ]);
+  if (results.some((r) => r.error))
+    return { error: "The defaults couldn't be saved. Try again." };
+  await supabase.rpc("log_admin", {
+    p_action: "set_defaults",
+    p_target: "menus & theme",
+    p_detail: want,
+  });
+  updateTag(SITE_DEFAULTS_TAG);
+  return { saved: true };
 }

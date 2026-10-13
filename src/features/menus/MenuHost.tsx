@@ -20,13 +20,17 @@ const read = () => {
 };
 
 /** Renders the user's main and second menus with non-overlapping placements. */
-export function MenuHost() {
+export function MenuHost({
+  defaults,
+}: {
+  defaults: { main: string; second: string };
+}) {
   const raw = useSyncExternalStore(subscribe, read, () => "");
   let saved: { main?: string; second?: string } = {};
   try {
     saved = raw ? JSON.parse(raw) : {};
   } catch {}
-  const { main, second } = pickMenus(saved);
+  const { main, second } = pickMenus(saved, defaults);
   const M = MENU_STYLES[main];
   const S = MENU_STYLES[second];
   const { main: mp, second: sp } = resolvePlacements(
