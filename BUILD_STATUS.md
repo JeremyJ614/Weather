@@ -2,7 +2,7 @@
 
 **Objective:** StormSync Weather (Weather.SSWX.Space): one mobile-first PWA + Android .apk merging the team's weather apps. Free to run until revenue.
 
-**Stage:** Building. Done: 01–29, 31–35, 10b, 10c, the 18-point redesign (PR #3) and the 14-item fix list (PR #4). Working: Fix-It List #4 (batch A done: news heal, account, warnings text, drought map, trivia form, admin no-verify, menus/signup tiles, games link). Next: B subtab motion + map city labels + SPC chips; C rich news editor + image fit; D admin reorg + menu editor + live color previews + admin quick links; E VIP admin port (create user, view-as); F signup tiers/pricing; then 36.
+**Stage:** Building. Done: 01–29, 31–35, 10b, 10c, the 18-point redesign (PR #3) and the 14-item fix list (PR #4). Working: Fix-It List #4 (batch A done: news heal, account, warnings text, drought map, trivia form, admin no-verify, menus/signup tiles, games link; batch B done: subtab slide on every phone, city names on zoom (all maps zoomable), SPC type grid). Next: C rich news editor + image fit; D admin reorg + menu editor + live color previews + admin quick links; E VIP admin port (create user, view-as); F signup tiers/pricing; then 36.
 
 **Decisions so far**
 - Repo `JeremyJ614/Weather`, working branch `ccr-f5e0b71a-4vr2wk`, PR #1 merged to `main`; PR #2 open.

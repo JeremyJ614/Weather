@@ -121,21 +121,6 @@
 }
 
 /* Phones that skip the WebGL morph still get a light slide-in on each switch. */
-:global(:root[data-tier="low"]) .panel {
-  animation: panelIn 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-@keyframes panelIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  :global(:root[data-tier="low"]) .panel {
-    animation: none;
-  }
-}
-
 /* ── arcade: big cards, the active one with a spinning multicolor rim ── */
 .arcade {
   display: grid;

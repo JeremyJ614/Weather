@@ -52,6 +52,10 @@
   animation-delay: calc(var(--i) * 55ms);
 }
 .strip li span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 10px;
   letter-spacing: 0.04em;
   color: var(--muted);
@@ -134,4 +138,57 @@
   .scale li {
     animation: none;
   }
+}
+
+/* Outlook types: Overview across the top, then hazards in columns, likelihood over intensity. */
+.types {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.type {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 10px 6px 9px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--muted);
+  transition:
+    transform 160ms ease,
+    opacity 160ms ease;
+}
+.type:active {
+  transform: scale(0.96);
+}
+.type svg {
+  width: 18px;
+  height: 18px;
+}
+.type b {
+  font-size: 12.5px;
+  color: var(--text);
+}
+.type small {
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.typeWide {
+  grid-column: 1 / -1;
+  grid-template-columns: auto auto auto;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+}
+.type[aria-pressed="true"] {
+  border-color: var(--lit-line);
+  background: var(--lit);
+  color: var(--accent);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.type[aria-pressed="true"] b {
+  color: var(--accent);
 }

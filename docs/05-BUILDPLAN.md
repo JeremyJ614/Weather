@@ -129,3 +129,5 @@ Personal Warnings & Alerts, Affected Communities Outlook, FairWeather Tracking, 
 | 39 | Admin · Daily Trivia | The Points box ran under the Bonus/Hidden buttons | The box stays its own width; the buttons sit beside it |
 | 40 | Admin | Menu & theme defaults and Signup form were built but locked as "coming" tiles | Both open from the panel |
 | 41 | Atmospheric Ingredients | The SWTI number in the ring showed tiny and grey (the label style caught the number) | Label has its own class |
+| 42 | Subtabs | Still no visible transition on the owner's phone: with Remove animations or Data Saver on, the morph is skipped and CSS animations are zeroed | Every switch slides the new panel in through the Web Animations API (a gentle fade under reduced motion); the morph still plays on top where allowed |
+| 43 | SPC Outlook | Seven type chips ran off the side of the screen; "Tomorrow" ran into "Thu" in the 8-day strip | Overview over a 3 × 2 hazard grid that fits in one view; the strip says "Tmrw" and clips labels |

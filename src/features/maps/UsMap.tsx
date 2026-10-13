@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Check, Download, Hand, Minus, Plus, Scan, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { pickCities, type City } from "@/lib/map/cityLabels";
 import { useZoom } from "./useZoom";
 import s from "./UsMap.module.css";
 
@@ -102,7 +103,7 @@ export function UsMap({
   overlay,
   onTap,
   actions = true,
-  zoomable = false,
+  zoomable = true,
 }: {
   /** Still at first; "Zoom & pan" makes it grab-, pinch- and wheel-zoomable. */
   zoomable?: boolean;
@@ -128,6 +129,38 @@ export function UsMap({
   const svg = useRef<SVGSVGElement>(null);
   const [live, setLive] = useState(false);
   const z = useZoom(svg, W, H, live, onTap);
+  const [cities, setCities] = useState<City[] | null>(null);
+  const deep = zoomable && z.view.w < W / 1.4;
+  useEffect(() => {
+    if (!deep || cities) return;
+    let off = false;
+    fetch("/api/maps/cities")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((c: City[]) => !off && setCities(c))
+      .catch(() => {});
+    return () => {
+      off = true;
+    };
+  }, [deep, cities]);
+  // Canvas units per screen pixel, so city names stay a readable 11px at any zoom.
+  const [cssW, setCssW] = useState(360);
+  useEffect(() => {
+    const el = svg.current;
+    if (!el || !zoomable) return;
+    const ro = new ResizeObserver(([e]) => setCssW(e.contentRect.width || 360));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [zoomable]);
+  const px = z.view.w / cssW;
+  const shown =
+    deep && cities
+      ? pickCities(
+          cities,
+          { x: z.view.x, y: z.view.y, w: z.view.w, h: (z.view.w * H) / W },
+          W,
+          11 * px,
+        )
+      : [];
   const vb = zoomable
     ? `${z.view.x} ${z.view.y} ${z.view.w} ${(z.view.w * H) / W}`
     : `0 0 ${W} ${H}`;
@@ -224,6 +257,19 @@ export function UsMap({
                   </text>
                 ))}
               </g>
+              {shown.length > 0 && (
+                <g className={s.cities} aria-hidden>
+                  {shown.map(([name, x, y]) => (
+                    <g
+                      key={`${name}${x}`}
+                      transform={`translate(${x} ${y}) scale(${px})`}
+                    >
+                      <circle r={2.2} />
+                      <text x={4.5}>{name}</text>
+                    </g>
+                  ))}
+                </g>
+              )}
               {overlay}
             </>
           )}
