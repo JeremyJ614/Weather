@@ -89,4 +89,5 @@ Personal Warnings & Alerts, Affected Communities Outlook, FairWeather Tracking, 
 | 6 | App icon | The mascot is only ~170 px tall inside the logo file, so the icon is slightly soft | Cut out and sharpened; a high-resolution mascot file from the owner would make it crisp |
 | 7 | Theme system | The default theme's CSS block outranked themes listed before it, so some picks didn't apply | Default block uses zero-specificity `:where(:root)` |
 | 8 | Launch intro | On tall screens the dropped floor stayed in view at the end once the far limit was raised | Floor hidden after it has fallen away |
+| 9 | Menus | With one menu open, the other menu's button floated on top of it | The other menu hides while one is open |
 | 5 | Storm-edit intro | Later "from" values showed the hidden cube and bolt early | Visibility driven by timeline time |

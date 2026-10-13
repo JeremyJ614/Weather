@@ -2,7 +2,7 @@
 
 **Objective:** StormSync Weather (Weather.SSWX.Space): one mobile-first PWA + Android .apk merging the team's weather apps. Free to run until revenue.
 
-**Stage:** Planning done (Sections A/B, questionnaire, BuildPlan). Building. Phases 01–02 done (02 waits on owner DNS record + service key). Phases 01–05 done (intro lockup swaps to the owner's logo when it arrives; its settings control comes with phase 62b). Current phase: 06 (menu system).
+**Stage:** Planning done (Sections A/B, questionnaire, BuildPlan). Building. Phases 01–02 done (02 waits on owner DNS record + service key). Phases 01–06a done (intro lockup swaps to the owner's logo when it arrives; intro setting UI in 62b). Current phase: 06b (remaining main-menu styles, each loaded only when chosen).
 
 **Decisions so far**
 - Repo `JeremyJ614/Weather`, working branch `ccr-f5e0b71a-4vr2wk`. No `main` branch yet (repo was empty).
@@ -33,7 +33,7 @@
 
 **Next actions**
 1. Create `main` from this branch (owner approved), open PR.
-2. Phase 06: menu system: offered menu components with declared control spots, collision avoidance, routing for every launch page with PhaseNotice.
+2. Phase 06b: port remaining main-menu styles from design-lab/section-a (menus-1.js, menus-2.js) as React components with placements; load styles lazily (next/dynamic) so routes only ship the chosen two.
 
 **Lab answers:** questionnaire https://claude.ai/artifact/1S89fRJDQe5QzLj9xEKuQc (db `answers/owner`).
 

@@ -59,6 +59,11 @@ html:not([data-intro="play"]) #launch-intro {
   display: none;
 }
 
+html[data-menu-open="main"] [data-menu-role="second"],
+html[data-menu-open="second"] [data-menu-role="main"] {
+  visibility: hidden;
+}
+
 .display {
   font-family: var(--font-display);
   font-weight: var(--display-weight);

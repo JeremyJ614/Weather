@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { DeviceSetup } from "@/components/DeviceSetup";
 import { LaunchIntro } from "@/features/intro/LaunchIntro";
+import { MenuHost } from "@/features/menus/MenuHost";
+import { AppHeader } from "@/components/AppHeader";
 import { introBootScript } from "@/features/intro/schedule";
 import { themeBootScript, themeCss } from "@/lib/theme/css";
 import { fontClassNames } from "@/lib/theme/fonts";
@@ -45,7 +47,9 @@ export default function RootLayout({
       <body>
         <DeviceSetup />
         <LaunchIntro />
-        {children}
+        <AppHeader />
+        <div className="pt-16">{children}</div>
+        <MenuHost />
       </body>
     </html>
   );
