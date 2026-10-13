@@ -1,0 +1,7 @@
+.next
+node_modules
+package-lock.json
+# Design labs and docs are hand-written reference material, not app source.
+design-lab
+docs
+*.md

@@ -1,0 +1,38 @@
+@import "tailwindcss";
+
+/* Default theme: VIP Gold palette with the Editorial Crown fonts.
+   A theme is a token swap; components read only these variables. */
+:root {
+  --bg: #0b0c14;
+  --surface: #13141f;
+  --surface2: #1c1e2c;
+  --line: #23253a;
+  --text: #eceef5;
+  --muted: #8f92a8;
+  --accent: #d9b76f;
+  --accent2: #a9b0d6;
+  --metal: #c9cbd6;
+  --on-accent: #0b0a12;
+  color-scheme: dark;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+body {
+  font-family: var(--font-body), system-ui, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

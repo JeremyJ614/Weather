@@ -2,7 +2,7 @@
 
 **Objective:** StormSync Weather (Weather.SSWX.Space): one mobile-first PWA + Android .apk merging the team's weather apps. Free to run until revenue.
 
-**Stage:** Planning done (Sections A/B, questionnaire, BuildPlan). Building. Current phase: 01 (project skeleton).
+**Stage:** Planning done (Sections A/B, questionnaire, BuildPlan). Building. Phase 01 done. Current phase: 02 (Vercel, Supabase, secrets, domain).
 
 **Decisions so far**
 - Repo `JeremyJ614/Weather`, working branch `ccr-f5e0b71a-4vr2wk`. No `main` branch yet (repo was empty).
@@ -31,8 +31,10 @@
 
 **Next actions**
 1. Create `main` from this branch (owner approved), open PR.
-2. Phase 01: project skeleton.
+2. Phase 02: Vercel project + Supabase + env vars + DNS for Weather.SSWX.Space.
 
 **Lab answers:** questionnaire https://claude.ai/artifact/1S89fRJDQe5QzLj9xEKuQc (db `answers/owner`).
 
 **Resume:** `git -C /home/user/Weather log --oneline -5`; lab test: `node <scratchpad>/test-lab.js design-lab/section-a <outdir>`.
+
+**Commands:** `npm run verify` (typecheck, lint, format, test, build, budget). Dev: `npm run dev`.
