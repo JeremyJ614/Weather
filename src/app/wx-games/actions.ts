@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { supabaseServer } from "@/lib/supabase/server";
 import { gameDate } from "@/lib/game/score";
+import { getViewer } from "@/lib/auth/viewer";
 
 export type SaveState = { error?: string; ok?: boolean } | null;
 
@@ -34,6 +35,21 @@ export async function savePins(_: SaveState, fd: FormData): Promise<SaveState> {
   if (!quiet && !inUS(tlat, tlon))
     return { error: "Drop your tornado pin, or call a quiet day." };
   const label = (k: string) => String(fd.get(k) ?? "").slice(0, 80) || null;
+  const viewer = await getViewer();
+  if (viewer.lens) {
+    const { error } = await supabase.rpc("lens_save_pins", {
+      p_user: viewer.id!,
+      p_lat: lat!,
+      p_lon: lon!,
+      p_label: label("label") ?? "",
+      p_tlat: tlat as number,
+      p_tlon: tlon as number,
+      p_tlabel: quiet ? "" : (label("tlabel") ?? ""),
+    });
+    if (error) return { error: "Their pins couldn't be saved. Try again." };
+    revalidatePath("/wx-games");
+    return { ok: true };
+  }
   const { error } = await supabase.from("game_guesses").upsert(
     {
       user_id: user.id,

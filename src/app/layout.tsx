@@ -12,6 +12,7 @@ import { applyLayout } from "@/lib/nav/layout";
 import { MAIN_NAV, SECOND_NAV } from "@/lib/nav/registry";
 import { ErrorReporter } from "@/components/ops/ErrorReporter";
 import { SiteBanner } from "@/components/ops/SiteBanner";
+import { ViewAsBar } from "@/components/ops/ViewAsBar";
 
 export const metadata: Metadata = {
   title: "StormSync Media",
@@ -61,6 +62,7 @@ export default async function RootLayout({
           />
           {children}
         </div>
+        <ViewAsBar />
         <MenuHost
           defaults={defaults.menus}
           main={applyLayout(MAIN_NAV, SECOND_NAV, defaults.layout, "main")}

@@ -1,7 +1,7 @@
 import "server-only";
 import { notFound } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
-import { getViewer } from "./viewer";
+import { getRealViewer } from "./viewer";
 
 /**
  * Admin rights are tied to the account itself (owner's call, Fix-It #4): any signed-in
@@ -9,7 +9,7 @@ import { getViewer } from "./viewer";
  * existence isn't revealed.
  */
 export async function requireAdmin(section?: string) {
-  const viewer = await getViewer();
+  const viewer = await getRealViewer();
   if (!viewer.isAdmin) notFound();
   const supabase = await supabaseServer();
   if (section) {

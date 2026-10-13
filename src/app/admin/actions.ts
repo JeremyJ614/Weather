@@ -1,6 +1,9 @@
 "use server";
 
 import { revalidatePath, updateTag } from "next/cache";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { LENS_COOKIE, LENS_NAME } from "@/lib/auth/lens-cookie";
 import { SITE_DEFAULTS_TAG, cleanDefaults } from "@/lib/settings";
 import { requireAdmin } from "@/lib/auth/admin-guard";
 import { sectionIds } from "@/lib/admin/sections";
@@ -245,4 +248,48 @@ export async function saveMenuLayout(raw: unknown): Promise<SaveState> {
   });
   updateTag(SITE_DEFAULTS_TAG);
   return { saved: true };
+}
+
+/** "View as member" (owner only): the app shows that member's view until "Back to me". */
+export async function startLens(fd: FormData) {
+  const { supabase, isFounder } = await requireAdmin("members");
+  const id = String(fd.get("userId") ?? "");
+  if (!isFounder || !UUID.test(id)) return;
+  const [{ data: ok }, { data: name }] = await Promise.all([
+    supabase.rpc("lens_target_ok", { p_user: id }),
+    supabase.rpc("member_name", { p_id: id }),
+  ]);
+  if (!ok) return;
+  await supabase.rpc("log_admin", {
+    p_action: "view_as_start",
+    p_target: String(name ?? id),
+    p_detail: { member: id },
+  });
+  const store = await cookies();
+  const opts = {
+    path: "/",
+    sameSite: "lax" as const,
+    secure: true,
+    maxAge: 4 * 3600,
+  };
+  store.set(LENS_COOKIE, id, { ...opts, httpOnly: true });
+  store.set(LENS_NAME, encodeURIComponent(String(name ?? "a member")), opts);
+  redirect("/");
+}
+
+export async function stopLens() {
+  const store = await cookies();
+  const id = store.get(LENS_COOKIE)?.value;
+  store.delete(LENS_COOKIE);
+  store.delete(LENS_NAME);
+  const { supabase } = await requireAdmin();
+  if (id && UUID.test(id)) {
+    await supabase.rpc("log_admin", {
+      p_action: "view_as_stop",
+      p_target: id,
+      p_detail: { member: id },
+    });
+    redirect(`/admin/members/${id}`);
+  }
+  redirect("/admin");
 }

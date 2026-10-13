@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { supabaseServer } from "@/lib/supabase/server";
+import { getViewer } from "@/lib/auth/viewer";
 
 export type BriefState = { error?: string; saved?: string } | null;
 
@@ -18,6 +19,10 @@ export async function saveBrief(
   _: BriefState,
   fd: FormData,
 ): Promise<BriefState> {
+  if ((await getViewer()).lens)
+    return {
+      error: "You're viewing as a member. Tap Back to me to change this.",
+    };
   const supabase = await supabaseServer();
   const {
     data: { user },
@@ -71,6 +76,10 @@ export async function saveBrief(
 }
 
 export async function stopBrief(): Promise<BriefState> {
+  if ((await getViewer()).lens)
+    return {
+      error: "You're viewing as a member. Tap Back to me to change this.",
+    };
   const supabase = await supabaseServer();
   const {
     data: { user },

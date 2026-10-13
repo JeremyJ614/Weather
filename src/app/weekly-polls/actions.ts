@@ -1,6 +1,7 @@
 "use server";
 
 import { supabaseServer } from "@/lib/supabase/server";
+import { getViewer } from "@/lib/auth/viewer";
 import type { Poll } from "./PollsView";
 
 /** Casts one vote; returns the poll with its results (shown after voting). */
@@ -10,6 +11,10 @@ export async function vote(
 ): Promise<Poll | { error: string }> {
   if (!/^[0-9a-f-]{36}$/.test(id) || !Number.isInteger(choice))
     return { error: "That vote couldn't be read." };
+  if ((await getViewer()).lens)
+    return {
+      error: "You're viewing as a member. Tap Back to me to change this.",
+    };
   const sb = await supabaseServer();
   const { error } = await sb.rpc("poll_vote", { p_poll: id, p_choice: choice });
   if (error)
