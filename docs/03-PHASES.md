@@ -25,7 +25,7 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 ## Admin Panel (built early so later pages plug into it)
 - [ ] 11. Admin shell, owner-only access, add admins with per-section permissions, audit log
 - [ ] 12. News & Announcements editor (mobile-first, rich, image upload, schedule)
-- [ ] 13. Chosen admin extras, part 1
+- [ ] 13. Admin: outline requests + VIP AdminPanel port + chosen extras, part 1
 - [ ] 14. Chosen admin extras, part 2
 
 ## Homepage
@@ -89,6 +89,7 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 - [ ] 58. Extras: engine pipeline (scheduled Python jobs writing map layers)
 - [ ] 59. Extras: first engines (Radar Blind Spot, ProbTor, ProbHail)
 - [ ] 60. Extras: next engines (chosen in the questionnaire)
+- [ ] 60b. Engine Preview: private admin-only area where post-launch engines are built and shown to the owner for approval before release
 - [ ] 61. Disaster Response directory, sign-up form and admin inbox
 
 ## Account
