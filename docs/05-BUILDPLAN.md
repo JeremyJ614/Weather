@@ -101,3 +101,4 @@ Personal Warnings & Alerts, Affected Communities Outlook, FairWeather Tracking, 
 | 11 | Shared map | The map rendered blank: the map libraries set `position: relative` on the map element, overriding its full-size positioning, so it collapsed to zero height | Map element sized with width/height 100% instead |
 | 12 | Shared map | MapLibre v6 could not start its tile worker because the bundler does not emit the worker file | Worker copied to a versioned `public/vendor` path before dev/build and set with `setWorkerUrl` |
 | 13 | Sign-in page | The Supabase browser library pushed `/login` 25% over the JavaScript budget | Google and email-link sign-in moved to server actions; the page ships 2.4 kB |
+| 14 | Homepage | Weather News never appeared on the homepage after phase 15: a scripted edit silently missed a line Prettier had reformatted | Wired by hand with the SSWX News tabs; scripted edits now assert their target exists |

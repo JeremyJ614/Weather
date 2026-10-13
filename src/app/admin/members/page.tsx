@@ -57,7 +57,6 @@ export default async function Members({
             {count ?? 0} {q ? "matching" : "accounts"}
           </p>
         </div>
-        {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- a file download, not a page */}
         <a
           download
           href="/api/admin/export?what=members"

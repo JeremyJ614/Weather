@@ -1,0 +1,39 @@
+.card {
+  position: relative;
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  transition: transform var(--t-fast) var(--spring);
+}
+.card:active {
+  transform: scale(0.98);
+}
+.unread {
+  border-color: var(--accent);
+}
+/* The glow is a separate layer whose opacity pulses, so only opacity animates. */
+.unread::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  box-shadow: 0 0 22px -4px var(--accent);
+  pointer-events: none;
+  animation: glow 2.6s ease-in-out infinite;
+}
+@keyframes glow {
+  50% {
+    opacity: 0.35;
+  }
+}
+[data-tier="low"] .unread::after {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .unread::after {
+    animation: none;
+  }
+}
