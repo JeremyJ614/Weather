@@ -19,6 +19,7 @@ const TITLES: Record<string, string> = {
 
 function nice(raw: string) {
   const key = raw.replace(/\.+$/, "").trim().toUpperCase();
+  if (key.includes("WATCHES/WARNINGS")) return "Watches, warnings & advisories";
   for (const [k, v] of Object.entries(TITLES)) if (key.startsWith(k)) return v;
   return key.charAt(0) + key.slice(1).toLowerCase();
 }

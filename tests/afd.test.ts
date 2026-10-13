@@ -38,6 +38,9 @@ SHORT TERM...04
 `;
 
 it("splits an AFD into readable sections", () => {
+  expect(
+    parseAfd(".OUN WATCHES/WARNINGS/ADVISORIES...\nNone.\n")[0].title,
+  ).toBe("Watches, warnings & advisories");
   const s = parseAfd(sample);
   expect(s.map((x) => x.title)).toEqual([
     "Key messages",
