@@ -2,7 +2,7 @@
 
 **Objective:** StormSync Weather (Weather.SSWX.Space): one mobile-first PWA + Android .apk merging the team's weather apps. Free to run until revenue.
 
-**Stage:** Building. Done: 01–18, 10b, 10c. Next: 19 Dashboard WPC subtab. Pricing spec in `docs/07-PRICING.md` (phases 62c, 64).
+**Stage:** Building. Done: 01–19, 10b, 10c. Next: 20 CPC subtab + Fall Forecast subtab (state color time scrubber). Pricing spec in `docs/07-PRICING.md` (phases 62c, 64).
 
 **Decisions so far**
 - Repo `JeremyJ614/Weather`, working branch `ccr-f5e0b71a-4vr2wk`, PR #1 merged to `main`; PR #2 open.
@@ -35,10 +35,11 @@
 - Owner's logo for the intro ending.
 
 **Next actions**
-1. Phase 19: WPC subtab on /dashboard (days 1–7 QPF images, 1-2/1-3/1-5/1-7 totals, rapid drought onset, HeatRisk) — official WPC/NWS images loaded directly (no storage). Dashboard: `src/features/dashboard/`, data `/api/conditions`.
+1. Phase 20: CPC subtab (6–10/8–14 day temp & precip, monthly/seasonal outlooks; NOAA map services as map layers) and Fall Forecast subtab (state color time scrubber). Map overlays: `src/lib/map/raster.ts` (`setRaster`), tabs: `HomeTabs` (mount on first open).
 2. Saved places sync to the account: phase 62b. Signup form editing from admin: phase 13.
 3. Watchdog: `/api/cron/storage-watchdog` daily via `vercel.json`; `CRON_SECRET` set in Vercel (production). Returns 500 until the ops migration is applied.
 
+**Sandbox note:** the test browser's proxy returns 403 for NOAA image hosts (WPC/SPC/NHC); plain requests and real browsers are fine.
 **Sandbox note:** Turbopack's Google-font fetch fails behind this sandbox's proxy (CI is fine). Local check: `npx next build --webpack` then the other verify steps.
 
 **Lab answers:** questionnaire https://claude.ai/artifact/1S89fRJDQe5QzLj9xEKuQc (db `answers/owner`).

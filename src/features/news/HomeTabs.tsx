@@ -2,13 +2,15 @@
 
 import { useState, type ReactNode } from "react";
 
-/** Homepage tabs. Every panel is rendered on the server; switching only shows another. */
+/** Tabs (homepage, dashboard). Panels render on first open and stay mounted. */
 export function HomeTabs({
   tabs,
 }: {
   tabs: { id: string; label: string; panel: ReactNode }[];
 }) {
   const [active, setActive] = useState(tabs[0]?.id);
+  // A panel mounts the first time it is opened and stays mounted (maps keep their state).
+  const [seen, setSeen] = useState(() => new Set([tabs[0]?.id]));
   const index = Math.max(
     0,
     tabs.findIndex((t) => t.id === active),
@@ -28,7 +30,10 @@ export function HomeTabs({
             id={`tab-${t.id}`}
             aria-selected={t.id === active}
             aria-controls={`panel-${t.id}`}
-            onClick={() => setActive(t.id)}
+            onClick={() => {
+              setActive(t.id);
+              setSeen((s) => new Set(s).add(t.id));
+            }}
             className={`min-h-11 text-sm font-bold transition-colors ${t.id === active ? "text-accent" : "text-muted"}`}
           >
             {t.label}
@@ -51,7 +56,7 @@ export function HomeTabs({
           aria-labelledby={`tab-${t.id}`}
           hidden={t.id !== active}
         >
-          {t.panel}
+          {seen.has(t.id) ? t.panel : null}
         </div>
       ))}
     </div>
