@@ -132,3 +132,12 @@ textarea { width: 100%; min-height: 110px; resize: vertical; padding: 12px; bord
 .toast { position: fixed; left: 50%; bottom: calc(130px + env(safe-area-inset-bottom, 0px)); transform: translate(-50%, 20px); opacity: 0; visibility: hidden; padding: 10px 16px; border-radius: 12px; background: var(--text); color: var(--bg); font-weight: 700; font-size: 14px; transition: transform .4s var(--spring), opacity .25s, visibility .25s; z-index: 50; }
 .toast.show { transform: translate(-50%, 0); opacity: 1; visibility: visible; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
+.intro { margin-block: 6px 26px; display: grid; gap: 12px; }
+.ihead { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.ihead .hint { max-width: 70ch; margin-bottom: 0; }
+.istage { position: relative; width: 100%; aspect-ratio: 16 / 9; max-height: 70vh; border-radius: 22px; overflow: hidden; background: var(--bg); border: 1px solid var(--line); margin-inline: auto; transition: max-width .4s var(--ease); }
+.istage.tall { aspect-ratio: 9 / 16; max-width: 380px; }
+.istage canvas { display: block; width: 100% !important; height: 100% !important; }
+.iposter { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-family: var(--ui-mono); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; padding: 16px; text-align: center; }
+.btn[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.iposter[hidden] { display: none; }

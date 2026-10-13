@@ -3,11 +3,20 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;600;700&family=JetBrains+Mono:wght@400;600&family=Barlow+Condensed:wght@600;700;800&display=swap">
 <link rel="stylesheet" href="theme-lab.css">
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.184.0/examples/jsm/","animejs":"https://cdn.jsdelivr.net/npm/animejs@4.5.0/dist/modules/index.js","animejs/adapters/three":"https://cdn.jsdelivr.net/npm/animejs@4.5.0/dist/modules/adapters/three/index.js"}}</script>
 
 <div class="wrap">
   <header class="top"><img src="assets/logo-primary.webp" alt="StormSync Media" width="128" height="38"><span class="save" id="save">Loading&hellip;</span></header>
   <h1>Theme Lab: <em>mix colors and fonts</em></h1>
   <p class="lede">Cycle colors and fonts separately with the bar at the bottom, or tap any card below. The whole page and both phone screens change as you go. Mark which palettes and font sets people can choose in their account settings, set the default, and save combos you like.</p>
+
+  <section class="intro" id="intro">
+    <div class="ihead">
+      <div><h2>StormSync Media intro</h2><p class="hint">Your CodePen, rebuilt in 3D with our lockup: the cube crashes through the floor, STORMSYNC bursts out in metal, the cube flips into place and MEDIA plugs in, then the letters shade from gray to the theme's accent like your logo. It uses whichever colors you have selected, so change the palette and press Play again.</p></div>
+      <div class="acts"><button class="btn primary" id="intro-play">Play intro</button><button class="btn" id="intro-shape" aria-pressed="false">Phone shape</button></div>
+    </div>
+    <div class="istage" id="istage"><div class="iposter" id="iposter">Press Play</div></div>
+  </section>
 
   <div class="layout">
     <div class="screens" aria-label="Live preview">
@@ -68,3 +77,19 @@
 <script src="icons.js"></script>
 <script src="theme-data.js"></script>
 <script src="theme-lab.js"></script>
+<script src="intro-logo.js"></script>
+<script type="module">
+  import { playIntro } from "./intro3d.js";
+  const stage = document.getElementById("istage"), poster = document.getElementById("iposter");
+  let stop = null;
+  const tok = n => getComputedStyle(document.documentElement).getPropertyValue("--" + n).trim();
+  function play() {
+    if (stop) { stop(); stop = null; }
+    poster.hidden = true;
+    try { stop = playIntro(stage, { bg: tok("bg"), metal: tok("metal"), accent: tok("accent") }); }
+    catch (e) { poster.hidden = false; poster.textContent = "This device could not start 3D graphics: " + e.message; }
+  }
+  document.getElementById("intro-play").onclick = play;
+  document.getElementById("intro-shape").onclick = e => { const on = stage.classList.toggle("tall"); e.currentTarget.setAttribute("aria-pressed", on); play(); };
+  new IntersectionObserver((en, ob) => { if (en[0].isIntersecting) { ob.disconnect(); play(); } }, { threshold: .4 }).observe(stage);
+</script>
