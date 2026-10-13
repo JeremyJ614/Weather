@@ -3,6 +3,7 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { MAIN_NAV, SECOND_NAV, visibleNav } from "@/lib/nav/registry";
 import { resolvePlacements } from "@/lib/nav/spots";
+import { useViewer } from "@/features/account/useViewer";
 import { MENU_STYLES, pickMenus } from "./styles";
 
 const KEY = "sswx-menus";
@@ -39,8 +40,8 @@ export function MenuHost() {
     if (bar) root.dataset.bottomBar = "";
     else delete root.dataset.bottomBar;
   }, [bar]);
-  // Admin-only pages appear once accounts exist (phase 08/09).
-  const isAdmin = false;
+  // Admin-only pages are listed only for admins; the pages themselves check on the server.
+  const { isAdmin } = useViewer();
   return (
     <>
       <M.Component

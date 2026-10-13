@@ -2,7 +2,7 @@
 
 **Objective:** StormSync Weather (Weather.SSWX.Space): one mobile-first PWA + Android .apk merging the team's weather apps. Free to run until revenue.
 
-**Stage:** Building. Done: 01–06c, 08, 10, 10b, 10c, dark house style, /privacy. Next: 09 roles (owner gets SSWX Founder), then 11 admin shell, then 07.
+**Stage:** Building. Done: 01–06c, 08, 09, 10, 10b, 10c, dark house style, /privacy. Next: 11 admin shell, then 07, 12…
 
 **Decisions so far**
 - Repo `JeremyJ614/Weather`, working branch `ccr-f5e0b71a-4vr2wk`, PR #1 merged to `main`; PR #2 open.
@@ -35,7 +35,7 @@
 - Owner's logo for the intro ending.
 
 **Next actions**
-1. Phase 09 roles. Owner signs up at /login with Google (jaywx@yahoo.com) and sets his own PIN; 09 grants Founder.
+1. Phase 11 admin shell (server-checked `getViewer().isAdmin`; roles in `user_roles`, `has_role()`/`is_admin()` in SQL). Owner signs up at /login with jaywx@yahoo.com → Founder automatically.
 2. Saved places sync to the account: phase 62b. Signup form editing from admin: phase 13.
 3. Watchdog: `/api/cron/storage-watchdog` daily via `vercel.json`; `CRON_SECRET` set in Vercel (production). Returns 500 until the ops migration is applied.
 
