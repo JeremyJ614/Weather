@@ -1,5 +1,8 @@
 "use client";
 
+import { Bell, Mail, MessageSquare } from "lucide-react";
+import st from "./BriefSettings.module.css";
+
 import { useActionState, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
@@ -113,12 +116,12 @@ export function BriefSettings({
           ? ` (currently ${sub.label})`
           : ""}
       </p>
-      <label className="grid gap-1 text-sm font-bold">
+      <label className={st.time}>
         Send it at
         <select
           name="hour"
           defaultValue={sub?.send_hour ?? 6}
-          className="min-h-11 rounded-xl border border-line bg-bg px-3"
+          className={st.select}
         >
           {HOURS.map((x) => (
             <option key={x.h} value={x.h}>
@@ -139,21 +142,23 @@ export function BriefSettings({
             sub?.by_text ?? false,
           ],
         ] as const
-      ).map(([name, label, on]) => (
-        <label
-          key={name}
-          className="flex items-center justify-between gap-3 text-sm"
-        >
-          {label}
-          <input
-            type="checkbox"
-            name={name}
-            defaultChecked={on}
-            disabled={name === "text" && !hasPhone}
-            className="size-5 accent-[var(--accent)]"
-          />
-        </label>
-      ))}
+      ).map(([name, label, on]) => {
+        const Icon =
+          name === "email" ? Mail : name === "push" ? Bell : MessageSquare;
+        return (
+          <label key={name} className={st.channel}>
+            <Icon aria-hidden />
+            <span>{label}</span>
+            <input
+              type="checkbox"
+              name={name}
+              defaultChecked={on}
+              disabled={name === "text" && !hasPhone}
+              className={st.switch}
+            />
+          </label>
+        );
+      })}
       {(pushMsg || state || stopState) && (
         <p role="status" className="text-sm text-accent">
           {pushMsg ??

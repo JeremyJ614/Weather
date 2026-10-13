@@ -110,3 +110,28 @@ describe("daily brief", () => {
     ).toBe(false);
   });
 });
+
+import { dayParts24 } from "@/lib/brief/parts";
+
+it("splits the next 24 hours into local day parts", () => {
+  const start = Date.parse("2026-10-13T11:00:00Z"); // 7 AM in New York
+  const hours = Array.from({ length: 24 }, (_, i) => ({
+    start: new Date(start + i * 3600000).toISOString(),
+    isDay: i < 12,
+    temp: 60 + i,
+    pop: i === 8 ? 70 : 10,
+    wind: "",
+    short: i < 5 ? "Sunny" : "Rain",
+    dewF: null,
+    rh: null,
+  }));
+  const parts = dayParts24(hours, "America/New_York");
+  expect(parts.map((p) => p.name)).toEqual([
+    "Morning",
+    "Afternoon",
+    "Evening",
+    "Overnight",
+  ]);
+  expect(parts[1].pop).toBe(70);
+  expect(parts[0].lo).toBe(60);
+});

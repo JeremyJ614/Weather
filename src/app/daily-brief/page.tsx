@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { Newspaper } from "lucide-react";
 import { ModuleOff } from "@/components/ops/ModuleOff";
+import { PageHero } from "@/components/ui/PageHero";
 import { getViewer } from "@/lib/auth/viewer";
 import { getSiteDefaults } from "@/lib/settings";
 import { supabaseServer } from "@/lib/supabase/server";
@@ -27,8 +29,13 @@ export default async function DailyBrief() {
     hasPhone = Boolean(p?.phone);
   }
   return (
-    <main className="mx-auto max-w-2xl px-4 pt-6 pb-28">
-      <h1 className="display mb-4 text-4xl text-accent">Daily Brief</h1>
+    <main className="mx-auto max-w-2xl px-4 pt-4 pb-28">
+      <PageHero
+        icon={<Newspaper aria-hidden />}
+        eyebrow={["NWS", "SPC", "Open-Meteo"]}
+        title="Daily Brief"
+        subtitle="Everything that matters about today, on one page, and in your inbox every morning."
+      />
       {disabled.includes("brief") ? (
         <ModuleOff label="The Daily Brief" />
       ) : (
