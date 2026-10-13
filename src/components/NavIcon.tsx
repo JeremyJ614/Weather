@@ -68,6 +68,18 @@ import {
   CircleHelp,
   Cpu,
   Rocket,
+  Crown,
+  Folder,
+  Heart,
+  Wrench,
+  Megaphone,
+  CalendarDays,
+  Camera,
+  Tornado,
+  Compass,
+  Bookmark,
+  Layers,
+  Globe,
 } from "lucide-react";
 
 /** Only the icons the navigation uses, so the bundle carries nothing else. */
@@ -140,7 +152,22 @@ const MAP: Record<string, LucideIcon> = {
   CircleHelp,
   Cpu,
   Rocket,
+  Crown,
+  Folder,
+  Heart,
+  Wrench,
+  Megaphone,
+  CalendarDays,
+  Camera,
+  Tornado,
+  Compass,
+  Bookmark,
+  Layers,
+  Globe,
 };
+
+/** Every icon the menus can show (the Menu editor offers these). */
+export const ICON_NAMES = Object.keys(MAP);
 
 export function NavIcon({
   name,

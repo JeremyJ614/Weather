@@ -72,6 +72,21 @@
   stroke: rgb(0 0 0 / 0.55);
   stroke-width: calc(2px * var(--zs, 1));
 }
+.cities circle {
+  fill: var(--text);
+  stroke: rgb(0 0 0 / 0.6);
+  stroke-width: 1;
+}
+.cities text {
+  font-size: 11px;
+  font-weight: 600;
+  dominant-baseline: middle;
+  fill: rgb(255 255 255 / 0.86);
+  paint-order: stroke;
+  stroke: rgb(0 0 0 / 0.7);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
 .mark {
   font-size: 11px;
   font-weight: 700;

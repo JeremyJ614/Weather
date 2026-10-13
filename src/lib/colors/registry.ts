@@ -5,6 +5,8 @@
  * swap); these are the meanings painted on maps and charts.
  */
 import { DROUGHT, ERO_COLORS, QPF_SCALE, RAMP } from "@/lib/map/products";
+import { PASTEL } from "@/lib/ingredients/calc";
+import { HAZ, HAZARDS, RISK } from "@/lib/timing/calc";
 import { KIND } from "@/lib/warnings/reports";
 import type { Colors } from "./pick";
 import { BANDS } from "@/lib/sswxcon/score";
@@ -128,6 +130,33 @@ export const GROUPS: Group[] = [
       label: v.label,
       def: v.color,
     })),
+  },
+  {
+    id: "ingredients",
+    label: "Storm ingredients & timing",
+    note: "VIP's pastel ramp, benign to violent, plus wind and rotation",
+    entries: Object.entries(PASTEL).map(([k, v]) => ({
+      key: `ing:${k}`,
+      label: k[0].toUpperCase() + k.slice(1),
+      def: v,
+    })),
+  },
+  {
+    id: "timing",
+    label: "Storm Timing Index",
+    note: "Hazard lines and the six threat words",
+    entries: [
+      ...HAZARDS.map((k) => ({
+        key: `timing:${k}`,
+        label: HAZ[k].label,
+        def: HAZ[k].color as string,
+      })),
+      ...RISK.map((r, i) => ({
+        key: `timing:risk:${i}`,
+        label: `Threat · ${r.label}`,
+        def: r.color as string,
+      })),
+    ],
   },
   {
     id: "sswxcon",

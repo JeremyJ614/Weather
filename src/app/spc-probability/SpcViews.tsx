@@ -1,7 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ExternalLink, MapPin } from "lucide-react";
+import {
+  CloudHail,
+  ExternalLink,
+  Layers,
+  MapPin,
+  Tornado,
+  Wind,
+} from "lucide-react";
 import { Chip } from "@/components/ui/Chip";
 import { usePlaces } from "@/features/location/usePlaces";
 import { Picker } from "@/features/maps/Section";
@@ -17,16 +24,22 @@ export type Step = {
   opacity: number;
 };
 
-// VIP's seven outlook types, in VIP's order.
+// VIP's seven outlook types, laid out as Overview over a hazard × (likelihood, intensity) grid.
 const TYPES: { hazard: Hazard; intensity: boolean; label: string }[] = [
   { hazard: "cat", intensity: false, label: "Overview" },
   { hazard: "torn", intensity: false, label: "Tornado Likelihood" },
-  { hazard: "torn", intensity: true, label: "Tornado Intensity" },
   { hazard: "hail", intensity: false, label: "Hail Likelihood" },
-  { hazard: "hail", intensity: true, label: "Hail Intensity" },
   { hazard: "wind", intensity: false, label: "Wind Likelihood" },
+  { hazard: "torn", intensity: true, label: "Tornado Intensity" },
+  { hazard: "hail", intensity: true, label: "Hail Intensity" },
   { hazard: "wind", intensity: true, label: "Wind Intensity" },
 ];
+const HAZ_ICON = {
+  cat: Layers,
+  torn: Tornado,
+  hail: CloudHail,
+  wind: Wind,
+} as const;
 
 type Outlook = {
   title: string;
@@ -110,7 +123,7 @@ export function PlaceStrip({
                 ["--i" as string]: i,
               }}
             >
-              <span>{label}</span>
+              <span>{label === "Tomorrow" ? "Tmrw" : label}</span>
               <i className={step ? s.sw : s.swNone} aria-hidden />
               <b>
                 {st === undefined
@@ -165,13 +178,30 @@ export function OutlookView({
         ))}
       </Picker>
       {typesOk ? (
-        <Picker>
-          {TYPES.map((x, i) => (
-            <Chip key={x.label} pressed={ti === i} onClick={() => setTi(i)}>
-              {x.label}
-            </Chip>
-          ))}
-        </Picker>
+        <div className={s.types} role="group" aria-label="Outlook type">
+          {TYPES.map((x, i) => {
+            const Icon = HAZ_ICON[x.hazard];
+            const [name, kind] =
+              x.hazard === "cat"
+                ? ["Overview", "All hazards"]
+                : x.label.split(" ");
+            return (
+              <button
+                key={x.label}
+                type="button"
+                aria-pressed={ti === i}
+                onClick={() => setTi(i)}
+                className={
+                  x.hazard === "cat" ? `${s.type} ${s.typeWide}` : s.type
+                }
+              >
+                <Icon aria-hidden />
+                <b>{name}</b>
+                <small>{kind}</small>
+              </button>
+            );
+          })}
+        </div>
       ) : (
         <p className={s.muted}>
           {day === 3

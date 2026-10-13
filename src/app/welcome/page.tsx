@@ -23,6 +23,7 @@ export default async function Welcome({
   const { data: profile } = await supabase
     .from("profiles")
     .select("id")
+    .eq("id", user.id)
     .maybeSingle();
   if (profile) redirect(next);
 

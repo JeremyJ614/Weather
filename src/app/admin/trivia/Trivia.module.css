@@ -104,6 +104,14 @@
 }
 .points {
   width: 7rem;
+  flex: none;
+}
+.points input {
+  width: 100%;
+  min-width: 0;
+}
+.pointsRow {
+  align-items: flex-end;
 }
 .choices {
   display: grid;

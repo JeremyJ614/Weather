@@ -11,9 +11,13 @@ export async function GET(request: Request) {
     const supabase = await supabaseServer();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       const { data: profile } = await supabase
         .from("profiles")
         .select("id")
+        .eq("id", user?.id ?? "")
         .maybeSingle();
       const to = profile ? next : `/welcome?next=${encodeURIComponent(next)}`;
       return NextResponse.redirect(new URL(to, url.origin));

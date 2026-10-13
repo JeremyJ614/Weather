@@ -26,17 +26,30 @@ export default async function WxGames() {
   let mine: Guess | null = null;
   let last: Guess | null = null;
   let trivia: TriviaQ[] = [];
-  if (viewer.signedIn) {
+  if (viewer.lens) {
+    // The owner viewing as a member: the member's rounds, through owner-only functions.
+    const sb = await supabaseServer();
+    const [g, t] = await Promise.all([
+      sb.rpc("lens_guesses", { p_user: viewer.id! }),
+      sb.rpc("lens_trivia_today", { p_user: viewer.id! }),
+    ]);
+    const rows = (g.data ?? []) as (Guess & { guess_date: string })[];
+    mine = rows.find((r) => r.guess_date === today) ?? null;
+    last = rows.find((r) => r.points !== null) ?? null;
+    trivia = (t.data ?? []) as TriviaQ[];
+  } else if (viewer.signedIn) {
     const sb = await supabaseServer();
     const [a, b, t] = await Promise.all([
       sb
         .from("game_guesses")
         .select(SELECT)
+        .eq("user_id", viewer.id!)
         .eq("guess_date", today)
         .maybeSingle(),
       sb
         .from("game_guesses")
         .select(SELECT)
+        .eq("user_id", viewer.id!)
         .not("points", "is", null)
         .order("guess_date", { ascending: false })
         .limit(1)
@@ -56,6 +69,13 @@ export default async function WxGames() {
         title="WX Games"
         subtitle="Call where today's severe weather and tornadoes will hit, and test your weather knowledge. Every point counts toward the Leaderboard."
       />
+      {viewer.lens && (
+        <p className="mb-4 rounded-2xl border border-[var(--lit-line)] bg-[var(--lit)] p-3 text-sm">
+          You&apos;re playing as <b className="text-accent">{viewer.name}</b>.
+          Pins and answers go in as theirs and count toward their points; each
+          one is recorded in the audit log under your name.
+        </p>
+      )}
       <HomeTabs
         variant="arcade"
         label="WX Games"

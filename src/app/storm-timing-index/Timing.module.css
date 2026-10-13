@@ -1,0 +1,399 @@
+.wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+}
+.place {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.place svg {
+  width: 14px;
+  height: 14px;
+}
+.empty {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+  color: var(--muted);
+}
+.skeleton {
+  height: 420px;
+  border-radius: 22px;
+  background: var(--surface);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+@keyframes pulse {
+  50% {
+    opacity: 0.5;
+  }
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+/* The answer first: the worst stretch, in its threat color. */
+.answer {
+  position: relative;
+  display: grid;
+  gap: 4px;
+  padding: 22px 20px 20px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--tone) 45%, var(--line));
+  border-radius: 24px;
+  background:
+    radial-gradient(
+      120% 140% at 50% -30%,
+      color-mix(in srgb, var(--tone) 18%, transparent),
+      transparent 60%
+    ),
+    var(--surface);
+  animation: rise 500ms var(--ease) both;
+}
+.answer::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--tone), transparent);
+}
+.badge {
+  justify-self: start;
+  padding: 3px 10px;
+  border: 1px solid color-mix(in srgb, var(--tone) 55%, transparent);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--tone);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--tone) 30%, transparent);
+}
+.eyebrow {
+  margin-top: 8px;
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.window {
+  font-family: var(--font-display);
+  font-size: clamp(24px, 7vw, 32px);
+  font-weight: 800;
+  line-height: 1.1;
+}
+.window span {
+  color: var(--tone);
+}
+.peak {
+  color: var(--muted);
+  font-size: 14px;
+}
+.night {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 13px;
+  color: #fbbf24;
+}
+.night svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+}
+
+.card {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: var(--surface);
+  animation: rise 500ms 80ms var(--ease) both;
+}
+.head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.head h3 {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.head span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.head svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* 72 bars; height and color carry the threat, night sits behind. */
+.ribbon {
+  display: flex;
+  align-items: stretch;
+  gap: 1px;
+  height: 92px;
+}
+.cell {
+  position: relative;
+  display: flex;
+  flex: 1;
+  align-items: flex-end;
+  min-width: 0;
+  padding: 0;
+  border-radius: 2px;
+}
+.dark {
+  background: rgb(204 204 255 / 0.07);
+}
+.midnight {
+  box-shadow: -1px 0 0 var(--line);
+}
+.cell i {
+  width: 100%;
+  height: 100%;
+  border-radius: 2px;
+  background: rgb(204 204 255 / 0.16);
+  transform-origin: bottom;
+  animation: grow 600ms var(--ease) both;
+  animation-delay: var(--d);
+}
+@keyframes grow {
+  from {
+    transform: scaleY(0.02);
+  }
+}
+.cell[aria-selected="true"] {
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.ticks {
+  position: relative;
+  height: 14px;
+  margin-top: -4px;
+}
+.ticks span {
+  position: absolute;
+  font-size: 10px;
+  color: var(--muted);
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+.detail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--bg);
+  font-size: 13px;
+}
+.detail b {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.detail b svg {
+  width: 13px;
+  height: 13px;
+  opacity: 0.6;
+}
+.detail span {
+  font-weight: 700;
+}
+.probs {
+  display: flex;
+  gap: 10px;
+}
+.probs em {
+  font-style: normal;
+}
+.detail small {
+  flex-basis: 100%;
+  color: var(--muted);
+}
+
+.days {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.day {
+  display: grid;
+  gap: 2px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--tone) 35%, var(--line));
+  border-radius: 18px;
+  background: var(--surface);
+  animation: rise 500ms var(--ease) both;
+  animation-delay: calc(120ms + var(--i) * 60ms);
+}
+.day b {
+  font-size: 13px;
+}
+.dayRisk {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--tone);
+}
+.day small {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.hazards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.haz {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+}
+.haz[data-live] {
+  border-color: color-mix(in srgb, var(--c) 45%, transparent);
+}
+.hazTop {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 6px;
+  align-items: center;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.hazTop svg {
+  width: 15px;
+  height: 15px;
+  color: var(--c);
+}
+.hazTop b {
+  grid-column: 1 / -1;
+  font-family: var(--font-mono);
+  font-size: 20px;
+  letter-spacing: 0;
+  color: var(--c);
+}
+.spark {
+  width: 100%;
+  height: 28px;
+}
+.spark polyline:last-child {
+  stroke-width: 1.4;
+  vector-effect: non-scaling-stroke;
+  stroke-linejoin: round;
+}
+.haz small {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.chart {
+  width: 100%;
+  height: auto;
+}
+.nightBand {
+  fill: rgb(204 204 255 / 0.06);
+}
+.trigger {
+  stroke-dasharray: 3 4;
+  stroke-opacity: 0.4;
+}
+.line {
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linejoin: round;
+}
+.cursor {
+  stroke: var(--accent);
+  stroke-opacity: 0.6;
+}
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.legend span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.legend i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+.nightKey {
+  border: 1px solid var(--line);
+  background: rgb(204 204 255 / 0.12);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.table th {
+  padding: 4px 3px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-align: right;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.table td {
+  padding: 6px 3px;
+  border-top: 1px solid var(--line);
+  text-align: right;
+}
+.table th:first-child,
+.table td:first-child {
+  text-align: left;
+  white-space: nowrap;
+}
+.table td svg {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  margin-right: 3px;
+  opacity: 0.5;
+  vertical-align: -1px;
+}
+.table tr[aria-current] td {
+  background: var(--lit);
+}
+.foot {
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--muted);
+}

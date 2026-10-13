@@ -15,6 +15,7 @@ BuildPlan → build → sweep → packaging.
 8. Post-launch items stay off the menus until their work starts.
 9. Log every bug fixed in the BuildPlan's bug & glitch log.
 10. Dark surfaces everywhere; the primary color is text, outline and glow, never a fill (`--lit`).
+11. Every map or data color goes through `pick(colors, key, default)` and is listed in `src/lib/colors/registry.ts`, so the owner can edit it in admin → Map & data colors (with a live preview source in `src/app/admin/colors/Preview.tsx` when a map draws it). `tests/color-registry.test.ts` fails when a pick is missing from the registry.
 
 ---
 

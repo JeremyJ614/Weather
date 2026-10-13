@@ -60,8 +60,8 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 - [x] 32. Warnings & Reports (port)
 - [x] 33. SPC & Probability (two subtabs, port)
 - [x] 34. Mesoscale Discussions (port)
-- [ ] 35. Atmospheric Ingredients (port)
-- [ ] 36. Storm Timing Index (port)
+- [x] 35. Atmospheric Ingredients (port: SWTI ring, 72-hour scrubber, ingredient cards with sparklines, SWTI parts, model agreement)
+- [x] 36. Storm Timing Index (port of VIP Severe Timing: worst window with after-dark warning, tappable 72-hour ribbon with night shading, three day cards, hazard cards, chances chart, hourly table; chances held back by available instability)
 - [ ] 37. Tropical Outlook (port) with smoother playback
 - [ ] 38. Tropical Model Battle Royale (includes Google Weather Lab AI tracks)
 - [ ] 38b. Tropical: Google AI Cyclone Model subtab beside the ported hurricane tracker

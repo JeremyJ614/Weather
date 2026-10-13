@@ -114,7 +114,7 @@ export function inline(text: string, key = "i"): ReactNode[] {
 export function NewsBody({ source }: { source: string }) {
   const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
   return (
-    <div className="news-body grid gap-3 leading-relaxed">
+    <div className="news-body grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3 leading-relaxed [overflow-wrap:anywhere]">
       {parseBlocks(source).map((b, i) => {
         const k = `b${i}`;
         switch (b.t) {
@@ -158,7 +158,7 @@ export function NewsBody({ source }: { source: string }) {
                 src={src}
                 alt={b.alt}
                 loading="lazy"
-                className="w-full rounded-xl border border-line"
+                className="mx-auto block h-auto max-h-[75vh] w-auto max-w-full rounded-xl border border-line object-contain"
               />
             ) : null;
           }

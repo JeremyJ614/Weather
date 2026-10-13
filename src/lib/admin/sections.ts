@@ -8,11 +8,53 @@ export type AdminSection = {
   founderOnly?: boolean;
   /** Permission that opens it, when it differs from `id`. */
   perm?: string;
+  /** Where it sits on the admin overview, and a one-line description. */
+  group: AdminGroup;
+  desc: string;
 };
+
+export type AdminGroup = "content" | "games" | "members" | "look" | "system";
+export const ADMIN_GROUPS: { id: AdminGroup; label: string }[] = [
+  { id: "content", label: "Content" },
+  { id: "games", label: "Games & community" },
+  { id: "members", label: "Members" },
+  { id: "look", label: "Look & menus" },
+  { id: "system", label: "System" },
+];
 
 export const ADMIN_SECTIONS: AdminSection[] = [
   {
+    id: "billing",
+    group: "members",
+    desc: "Plan prices and pages, add-ons, promotions and promo codes",
+    label: "Pricing & plans",
+    icon: "Crown",
+    phase: "64",
+    href: "/admin/pricing",
+  },
+  {
+    id: "navigation",
+    group: "look",
+    desc: "Arrange the menus: sections, order, names, icons and hidden pages",
+    label: "Menu editor",
+    icon: "PanelsTopLeft",
+    phase: "Fix-It 4",
+    href: "/admin/navigation",
+    perm: "menus",
+  },
+  {
+    id: "ops",
+    group: "system",
+    desc: "Switch modules off with a maintenance notice; site-wide banner",
+    label: "Live ops",
+    icon: "Gauge",
+    phase: "13",
+    href: "/admin/ops",
+  },
+  {
     id: "admins",
+    group: "system",
+    desc: "Who can open the panel and which sections each admin gets",
     label: "Admins & access",
     icon: "ShieldCheck",
     phase: "11",
@@ -21,6 +63,8 @@ export const ADMIN_SECTIONS: AdminSection[] = [
   },
   {
     id: "audit",
+    group: "system",
+    desc: "Every admin action, newest first",
     label: "Audit log",
     icon: "ScrollText",
     phase: "11",
@@ -28,6 +72,8 @@ export const ADMIN_SECTIONS: AdminSection[] = [
   },
   {
     id: "storage",
+    group: "system",
+    desc: "Database and file storage against the free limits",
     label: "Storage watchdog",
     icon: "HardDrive",
     phase: "11",
@@ -35,6 +81,8 @@ export const ADMIN_SECTIONS: AdminSection[] = [
   },
   {
     id: "releases",
+    group: "content",
+    desc: "App update notes shown on the homepage",
     label: "Release notes",
     icon: "Rocket",
     phase: "17",
@@ -43,12 +91,17 @@ export const ADMIN_SECTIONS: AdminSection[] = [
   },
   {
     id: "menus",
+    group: "look",
+    desc: "The menu styles and theme new visitors start with",
     label: "Menu & theme defaults",
     icon: "PanelsTopLeft",
     phase: "07",
+    href: "/admin/menus",
   },
   {
     id: "news",
+    group: "content",
+    desc: "Write, schedule and pin SSWX News posts",
     label: "News & announcements",
     icon: "Newspaper",
     phase: "12",
@@ -56,6 +109,8 @@ export const ADMIN_SECTIONS: AdminSection[] = [
   },
   {
     id: "members",
+    group: "members",
+    desc: "Every member, their details and referrals; CSV export",
     label: "Members & referrals",
     icon: "Users",
     phase: "13",
@@ -63,12 +118,17 @@ export const ADMIN_SECTIONS: AdminSection[] = [
   },
   {
     id: "signup-form",
+    group: "members",
+    desc: "Which optional questions the signup form asks",
     label: "Signup form",
     icon: "ClipboardList",
     phase: "13",
+    href: "/admin/signup-form",
   },
   {
     id: "errors",
+    group: "system",
+    desc: "Errors the app caught on people's phones",
     label: "Error inbox",
     icon: "Bug",
     phase: "13",
@@ -76,6 +136,8 @@ export const ADMIN_SECTIONS: AdminSection[] = [
   },
   {
     id: "sms",
+    group: "members",
+    desc: "Daily Brief text requests and the delivery report",
     label: "Text requests & brief report",
     icon: "MessageSquare",
     phase: "21",
@@ -83,6 +145,8 @@ export const ADMIN_SECTIONS: AdminSection[] = [
   },
   {
     id: "trivia",
+    group: "games",
+    desc: "Today's questions, AI drafts, points and bonus questions",
     label: "Daily Trivia",
     icon: "CircleHelp",
     phase: "27",
@@ -90,6 +154,8 @@ export const ADMIN_SECTIONS: AdminSection[] = [
   },
   {
     id: "leaderboard",
+    group: "games",
+    desc: "Point adjustments and past champions",
     label: "Leaderboard & champions",
     icon: "Trophy",
     phase: "28",
@@ -97,6 +163,8 @@ export const ADMIN_SECTIONS: AdminSection[] = [
   },
   {
     id: "polls",
+    group: "games",
+    desc: "Schedule weekly polls and see the tallies",
     label: "Weekly polls",
     icon: "Vote",
     phase: "29",
@@ -104,15 +172,33 @@ export const ADMIN_SECTIONS: AdminSection[] = [
   },
   {
     id: "colors",
+    group: "look",
+    desc: "Hex colors for every map and data scale, with live previews",
     label: "Map & data colors",
     icon: "Palette",
     phase: "33",
     href: "/admin/colors",
   },
-  { id: "cameras", label: "Traffic cameras", icon: "Cctv", phase: "48" },
-  { id: "engines", label: "Engine preview", icon: "Cpu", phase: "60b" },
+  {
+    id: "cameras",
+    group: "content",
+    desc: "Traffic camera sources",
+    label: "Traffic cameras",
+    icon: "Cctv",
+    phase: "48",
+  },
+  {
+    id: "engines",
+    group: "system",
+    desc: "Preview the forecast engines before they go public",
+    label: "Engine preview",
+    icon: "Cpu",
+    phase: "60b",
+  },
   {
     id: "disaster",
+    group: "content",
+    desc: "Help requests from the Disaster Response page",
     label: "Disaster response inbox",
     icon: "HeartHandshake",
     phase: "61",

@@ -57,13 +57,21 @@ export default async function Members({
             {count ?? 0} {q ? "matching" : "accounts"}
           </p>
         </div>
-        <a
-          download
-          href="/api/admin/export?what=members"
-          className="rounded-xl border border-line bg-surface px-3 py-2 text-sm font-bold text-accent"
-        >
-          Download CSV
-        </a>
+        <div className="flex flex-wrap justify-end gap-2">
+          <Link
+            href="/admin/members/new"
+            className="rounded-xl border border-[var(--lit-line)] bg-[var(--lit)] px-3 py-2 text-sm font-bold text-accent"
+          >
+            New member
+          </Link>
+          <a
+            download
+            href="/api/admin/export?what=members"
+            className="rounded-xl border border-line bg-surface px-3 py-2 text-sm font-bold text-accent"
+          >
+            Download CSV
+          </a>
+        </div>
       </div>
       <form className="flex gap-2">
         <input

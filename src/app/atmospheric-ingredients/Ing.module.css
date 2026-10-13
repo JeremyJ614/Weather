@@ -1,0 +1,304 @@
+.wrap {
+  display: grid;
+  gap: 16px;
+}
+.empty,
+.muted {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+.empty {
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  text-align: center;
+}
+.skeleton {
+  height: 320px;
+  border-radius: 22px;
+  border: 1px solid var(--line);
+  background: linear-gradient(
+    100deg,
+    transparent 30%,
+    color-mix(in srgb, var(--surface) 70%, transparent) 50%,
+    transparent 70%
+  );
+  background-size: 200% 100%;
+  opacity: 0.6;
+}
+.hero {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 18px 14px;
+  border-radius: 22px;
+  border: 1px solid color-mix(in srgb, var(--tone) 35%, var(--line));
+  background:
+    radial-gradient(
+      60% 55% at 50% 35%,
+      color-mix(in srgb, var(--tone) 16%, transparent),
+      transparent 70%
+    ),
+    color-mix(in srgb, var(--surface) 92%, #000);
+  text-align: center;
+}
+.gauge {
+  position: relative;
+  width: 168px;
+  height: 168px;
+  margin: 6px 0;
+}
+.gauge svg {
+  position: absolute;
+  inset: 0;
+  transform: rotate(-90deg);
+}
+.track {
+  fill: none;
+  stroke: color-mix(in srgb, var(--line) 85%, transparent);
+  stroke-width: 10;
+}
+.arc {
+  fill: none;
+  stroke: var(--tone);
+  stroke-width: 10;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--tone) 60%, transparent));
+  animation: fade 700ms ease both;
+}
+.read {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+}
+.read b {
+  font-family: var(--font-display);
+  font-size: 54px;
+  font-weight: 800;
+  line-height: 1;
+  color: #fff;
+  text-shadow: 0 0 22px color-mix(in srgb, var(--tone) 60%, transparent);
+}
+.unit {
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  color: var(--muted);
+}
+.level {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--tone);
+}
+.desc {
+  max-width: 26rem;
+  font-size: 13.5px;
+  color: var(--muted);
+}
+.risks {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+.risks span {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--tone) 45%, var(--line));
+  font-size: 12px;
+  color: var(--muted);
+}
+.risks b {
+  color: var(--text);
+  text-transform: capitalize;
+}
+.risks span[data-none] {
+  border-color: var(--line);
+  opacity: 0.6;
+}
+.strip {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+}
+.stripHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12.5px;
+}
+.peakBtn {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line));
+  color: var(--accent);
+  font-size: 12px;
+}
+.bars {
+  width: 100%;
+  height: 74px;
+  touch-action: pan-y;
+  cursor: ew-resize;
+}
+.selBar {
+  fill: color-mix(in srgb, #fff 10%, transparent);
+  stroke: #fff;
+  stroke-width: 0.6;
+}
+.ticks {
+  position: relative;
+  height: 14px;
+}
+.ticks span {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  font-size: 10.5px;
+  color: var(--muted);
+}
+.cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.card {
+  display: grid;
+  gap: 3px;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--c) 35%, var(--line));
+  background:
+    radial-gradient(
+      100% 120% at 0% 0%,
+      color-mix(in srgb, var(--c) 12%, transparent),
+      transparent 60%
+    ),
+    color-mix(in srgb, var(--surface) 86%, transparent);
+  animation: rise 480ms var(--ease) both;
+  animation-delay: calc(var(--i) * 50ms);
+}
+.cardLabel {
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.card b {
+  font-family: var(--font-mono);
+  font-size: 20px;
+}
+.card small {
+  font-size: 11px;
+  color: var(--muted);
+}
+.card em {
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--c);
+}
+.spark {
+  width: 100%;
+  height: 26px;
+  margin-top: 4px;
+}
+.spark polyline {
+  fill: none;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+  stroke-linejoin: round;
+}
+.parts,
+.models {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+}
+.part {
+  display: grid;
+  grid-template-columns: 6.5rem 1fr 3.4rem;
+  align-items: center;
+  gap: 10px;
+  font-size: 12.5px;
+}
+.part b {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  text-align: right;
+}
+.partBar {
+  overflow: hidden;
+  height: 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--line) 70%, transparent);
+}
+.partBar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--tone);
+  transform-origin: left;
+  animation: grow 900ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: calc(var(--i) * 70ms);
+}
+.chart {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+}
+.chart figcaption {
+  font-size: 12px;
+  font-weight: 700;
+}
+.chart svg {
+  width: 100%;
+  height: auto;
+}
+.chartLine {
+  fill: none;
+  stroke-width: 2.2;
+  stroke-linejoin: round;
+}
+.cursor {
+  stroke: color-mix(in srgb, #fff 45%, transparent);
+  stroke-dasharray: 2 3;
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes grow {
+  from {
+    transform: scaleX(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .arc,
+  .card,
+  .partBar i {
+    animation: none;
+  }
+}

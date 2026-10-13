@@ -22,8 +22,13 @@ export default async function DailyBrief() {
       supabase
         .from("brief_subscriptions")
         .select("label, send_hour, by_email, by_push, by_text")
+        .eq("user_id", viewer.id!)
         .maybeSingle(),
-      supabase.from("profiles").select("phone").maybeSingle(),
+      supabase
+        .from("profiles")
+        .select("phone")
+        .eq("id", viewer.id!)
+        .maybeSingle(),
     ]);
     sub = s;
     hasPhone = Boolean(p?.phone);

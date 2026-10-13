@@ -138,6 +138,7 @@ export const MAIN_NAV: NavGroup[] = [
       p("profile", "My Profile", "UserRound", "62"),
       p("settings", "Account Settings", "Settings", "62b"),
       p("notifications", "Notifications", "Bell", "63"),
+      p("join", "Plans & Pricing", "Crown", "64"),
       p("login", "Login / Signup", "LogIn", "08"),
       p("admin", "Admin Panel", "ShieldCheck", "11", true),
     ],

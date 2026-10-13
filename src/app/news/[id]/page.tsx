@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { ModuleOff } from "@/components/ops/ModuleOff";
 import { NewsBody } from "@/lib/news/markdown";
+import { RichBody } from "@/lib/news/RichBody";
 import { coverUrl, excerpt, getPost } from "@/lib/news/posts";
 import { getSiteDefaults } from "@/lib/settings";
 import { MarkRead } from "./MarkRead";
@@ -15,7 +16,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return post
     ? {
         title: `${post.title} · SSWX News`,
-        description: excerpt(post.body, 160),
+        description: excerpt(post.body, 160, Boolean(post.rich)),
       }
     : { title: "SSWX News" };
 }
@@ -44,7 +45,7 @@ export default async function NewsPost({ params }: Props) {
       >
         <ArrowLeft className="size-4" aria-hidden /> Home
       </Link>
-      <article className="grid gap-4">
+      <article className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4">
         {cover && (
           // eslint-disable-next-line @next/next/no-img-element -- resized WebP from our bucket
           <img
@@ -62,7 +63,11 @@ export default async function NewsPost({ params }: Props) {
         <h1 className="font-[family-name:var(--font-display)] text-[26px] leading-tight font-extrabold">
           {post.title}
         </h1>
-        <NewsBody source={post.body} />
+        {post.doc ? (
+          <RichBody doc={post.doc} />
+        ) : (
+          <NewsBody source={post.body} />
+        )}
       </article>
     </main>
   );

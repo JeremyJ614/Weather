@@ -2,7 +2,7 @@
 
 **Objective:** StormSync Weather (Weather.SSWX.Space): one mobile-first PWA + Android .apk merging the team's weather apps. Free to run until revenue.
 
-**Stage:** Building. Done: 01–29, 31–34, 10b, 10c, the 18-point redesign (PR #3) and the 14-item fix list (PR #4). Next: 35 Atmospheric Ingredients (port).
+**Stage:** Building. Done: 01–29, 31–36, 10b, 10c, the 18-point redesign (PR #3) and the 14-item fix list (PR #4). Working: Fix-It List #4 (batch A done: news heal, account, warnings text, drought map, trivia form, admin no-verify, menus/signup tiles, games link; batch B done: subtab slide on every phone, city names on zoom (all maps zoomable), SPC type grid; batch C done: rich news editor + image fit; batch D done: admin overview, Menu editor, live color previews + registry test, admin shortcuts switch; batch E done: View as member with Back-to-me bar and play-as games, New member, member points tiles). Batch F done: /join plans page (tiers, build-your-own, add-ons, launch promos with spots left, promo codes, live price tracker; plan saved server-priced), admin Pricing & plans (prices, page map, add-ons, promotions, codes). Next: Phase 37 (see docs/03-PHASES.md). Reset PIN and Remove account ported; broadcast notifications wait for Phase 63 (Notifications), usage stats for the ops sweep.
 
 **Decisions so far**
 - Repo `JeremyJ614/Weather`, working branch `ccr-f5e0b71a-4vr2wk`, PR #1 merged to `main`; PR #2 open.
@@ -30,6 +30,7 @@
 **Design system (2026-10-13 redesign):** VIP Classic type (Raleway + DM Sans) at the VIP scale; `PageHero` on every page; `Card`/`.panel` glass recipe; `Beam` (border-beam, lazy) on bordered buttons, pressed chips and menu items; `HomeTabs` subtabs morph through the WebGL noise dissolve (`features/motion/morph.ts`, subtabs only); national maps via `features/maps/UsMap` + `/api/maps/*` (Albers USA, PNG download); dashboard widgets in `features/dashboard/widgets`; `AwardBadge` for the badges phase. New pages must meet this bar.
 
 **Blockers / waiting on owner:**
+- Card payments (Phase 64 checkout): needs the owner's Stripe secret key as Vercel env `STRIPE_SECRET_KEY` (+ webhook secret). Until then paid plan choices are saved as `awaiting_payment`, nothing is charged, and tier locks stay off (every page stays open).
 - Owner sign-in: no account existed for the founder email. Use "Email me a link" with that email on /login, then fill the welcome form and choose the PIN there; the founder role is granted automatically.
 - Google Pollen: add the same `GOOGLE_POLLEN_KEY` the VIP app uses to Vercel (Production) to turn on real pollen counts, plant photos and advice (the UI is built).
 - Before paid plans: free EPA AirNow key (docs.airnowapi.org → Request an API key) → Vercel `AIRNOW_API_KEY`. Optional: Google Pollen API key → `GOOGLE_POLLEN_KEY` for real pollen counts.
@@ -37,6 +38,7 @@
 - Delete test user `rls-test@example.com` in Supabase → Authentication → Users (left by an RLS test; deleting via the tool needs a confirmation that never reaches the owner). Future DB tests run inside a rolled-back transaction.
 - PIN sign-in/signup need SUPABASE_SERVICE_ROLE_KEY + PIN_PEPPER, set for production only, so they work on weather.sswx.space, not on preview URLs.
 - Retired table `game_winners` (empty) and function `game_champions()` remain; drop them in the SQL editor when convenient (drops get cancelled from the agent tool).
+- Admin panel needs no step-up verification any more (owner decision, Fix-It #4).
 - Ops migration applied via execute_sql (apply_migration and any SQL containing delete/revoke get cancelled: their confirmation never reaches the owner). Keep DB writes free of those keywords; do deletes from server code.
 - Google sign-in: owner finishing the Google Cloud side; needs the privacy policy URL. Apple sign-in dropped. SMS dropped (not free). Resend done (Vercel + Supabase SMTP).
 - Owner's logo for the intro ending.

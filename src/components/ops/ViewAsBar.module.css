@@ -1,0 +1,62 @@
+.bar {
+  position: fixed;
+  top: calc(66px + env(safe-area-inset-top, 0px));
+  left: 50%;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: calc(100vw - 24px);
+  padding: 6px 6px 6px 14px;
+  border: 1px solid var(--lit-line);
+  border-radius: 999px;
+  background: var(--bg);
+  box-shadow:
+    0 0 24px color-mix(in srgb, var(--accent) 30%, transparent),
+    0 10px 30px rgb(0 0 0 / 0.6);
+  transform: translateX(-50%);
+  animation: drop 420ms var(--ease) both;
+}
+@keyframes drop {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -12px);
+  }
+}
+.who {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.who b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--accent);
+}
+.who svg,
+.back svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+.back {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--lit-line);
+  border-radius: 999px;
+  background: var(--lit);
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 800;
+}
+.back:active {
+  transform: scale(0.95);
+}

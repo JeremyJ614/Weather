@@ -1,12 +1,32 @@
 "use client";
 
 import { useEffect, useSyncExternalStore } from "react";
-import { MAIN_NAV, SECOND_NAV, visibleNav } from "@/lib/nav/registry";
+import { visibleNav, type NavGroup } from "@/lib/nav/registry";
+import { ADMIN_SECTIONS } from "@/lib/admin/sections";
 import { resolvePlacements } from "@/lib/nav/spots";
 import { useViewer } from "@/features/account/useViewer";
 import { MENU_STYLES, pickMenus } from "./styles";
 
 const KEY = "sswx-menus";
+const ADMIN_GROUP: NavGroup = {
+  id: "admin-shortcuts",
+  label: "Admin",
+  icon: "ShieldCheck",
+  pages: [
+    {
+      slug: "admin",
+      label: "Admin overview",
+      icon: "ShieldCheck",
+      phase: "11",
+    },
+    ...ADMIN_SECTIONS.filter((s) => s.href).map((s) => ({
+      slug: s.href!.slice(1),
+      label: s.label,
+      icon: s.icon,
+      phase: s.phase,
+    })),
+  ],
+};
 const subscribe = (cb: () => void) => {
   addEventListener("storage", cb);
   return () => removeEventListener("storage", cb);
@@ -22,8 +42,13 @@ const read = () => {
 /** Renders the user's main and second menus with non-overlapping placements. */
 export function MenuHost({
   defaults,
+  main: mainGroups,
+  second: secondGroups,
 }: {
   defaults: { main: string; second: string };
+  /** The menus after the owner's arrangement (admin → Menu editor). */
+  main: NavGroup[];
+  second: NavGroup[];
 }) {
   const raw = useSyncExternalStore(subscribe, read, () => "");
   let saved: { main?: string; second?: string } = {};
@@ -49,19 +74,18 @@ export function MenuHost({
     else delete root.dataset.logoSide;
   }, [bar, topLeft]);
   // Admin-only pages are listed only for admins; the pages themselves check on the server.
-  const { isAdmin, signedIn } = useViewer();
+  const { isAdmin, signedIn, adminShortcuts } = useViewer();
+  const seconds = visibleNav(secondGroups, isAdmin, signedIn);
+  // The owner's switchable Admin shortcuts group (admin → Overview).
+  if (adminShortcuts) seconds.push(ADMIN_GROUP);
   return (
     <>
       <M.Component
-        groups={visibleNav(MAIN_NAV, isAdmin, signedIn)}
+        groups={visibleNav(mainGroups, isAdmin, signedIn)}
         placement={mp}
         role="main"
       />
-      <S.Component
-        groups={visibleNav(SECOND_NAV, isAdmin, signedIn)}
-        placement={sp}
-        role="second"
-      />
+      <S.Component groups={seconds} placement={sp} role="second" />
     </>
   );
 }

@@ -17,7 +17,7 @@ export default async function ColorsAdmin() {
     .maybeSingle();
   const current = cleanColors(data?.value);
   return (
-    <main className="mx-auto grid max-w-2xl gap-4 px-4 pt-6 pb-24">
+    <main className="mx-auto grid max-w-2xl grid-cols-[minmax(0,1fr)] gap-4 px-4 pt-6 pb-24">
       <section className="grid gap-2">
         <h1 className="display text-3xl text-accent">Map &amp; data colors</h1>
         <p className="text-sm text-muted">

@@ -336,6 +336,7 @@ export const RASTERS = {
   eddi: {
     title: "Rapid drought onset (EDDI, 2 weeks)",
     url: "https://mapservices.weather.noaa.gov/experimental/rest/services/eddi_monitoring/MapServer/export",
-    extra: "&layers=show:11&format=png32",
+    // Layer 14 is the image alone; group 11 adds a white footprint and green outline.
+    extra: "&layers=show:14&format=png32",
   },
 } as const;

@@ -21,6 +21,9 @@ const BUILT = new Set([
   "warnings-reports",
   "spc-probability",
   "mesoscale-discussions",
+  "atmospheric-ingredients",
+  "join",
+  "storm-timing-index",
 ]);
 
 export function generateStaticParams() {

@@ -125,7 +125,13 @@ function Card({ w, i, big }: { w: Warning; i: number; big?: boolean }) {
           {text === null ? (
             <p className={s.muted}>Loading the full text…</p>
           ) : text === "err" ? (
-            <p className={s.muted}>The full text couldn&apos;t be loaded.</p>
+            <p>
+              {w.event} for {w.area}. Issued by {w.sender}, {until(w.expires)}.{" "}
+              <span className={s.muted}>
+                The National Weather Service didn&apos;t send the full text just
+                now; open this again in a minute.
+              </span>
+            </p>
           ) : (
             <>
               <pre>{text.description}</pre>

@@ -56,3 +56,16 @@ describe("warnings", () => {
     expect(statesOf(["OKC109", "OKZ025", "TXC001"])).toEqual(["OK", "TX"]);
   });
 });
+
+describe("alert ids", () => {
+  it("accepts NWS CAP ids with hex hashes and rejects anything else", async () => {
+    const { isAlertId } = await import("@/lib/warnings/style");
+    expect(
+      isAlertId(
+        "urn:oid:2.49.0.1.840.0.9fa2e83d0575fbafe86dc867af8a77eec4e366b1.001.1",
+      ),
+    ).toBe(true);
+    expect(isAlertId("urn:oid:2.49.0/../x")).toBe(false);
+    expect(isAlertId("https://evil.example")).toBe(false);
+  });
+});

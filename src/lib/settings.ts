@@ -1,5 +1,8 @@
 import { DEFAULT_MENUS, pickMenus } from "@/features/menus/catalog";
 import { DEFAULT_THEME, FONT_SETS, PALETTES } from "@/lib/theme/registry";
+import { ICON_NAMES } from "@/components/NavIcon";
+import { cleanLayout, type MenuLayout } from "@/lib/nav/layout";
+import { ALL_PAGES } from "@/lib/nav/registry";
 
 export const SITE_DEFAULTS_TAG = "site-defaults";
 
@@ -11,6 +14,8 @@ export type SiteDefaults = {
   /** Kill switches: modules showing a maintenance notice instead of their content. */
   disabled: string[];
   banner: Banner;
+  /** The owner's menu arrangement, or null for the built-in menus. */
+  layout: MenuLayout | null;
 };
 
 export const FALLBACK: SiteDefaults = {
@@ -18,6 +23,7 @@ export const FALLBACK: SiteDefaults = {
   theme: DEFAULT_THEME,
   disabled: [],
   banner: { text: "", until: null },
+  layout: null,
 };
 
 /** Keeps only valid, offered values; anything else falls back to the built-in default. */
@@ -50,7 +56,12 @@ export function cleanDefaults(
         ? b.until
         : null,
   };
-  return { menus, theme: { palette, font }, disabled, banner };
+  const layout = cleanLayout(
+    raw.find((r) => r.key === "menu_layout")?.value,
+    new Set(ALL_PAGES.map((p) => p.slug)),
+    new Set(ICON_NAMES),
+  );
+  return { menus, theme: { palette, font }, disabled, banner, layout };
 }
 
 /**
@@ -63,7 +74,7 @@ export async function getSiteDefaults(): Promise<SiteDefaults> {
   if (!url || !key) return FALLBACK;
   try {
     const res = await fetch(
-      `${url}/rest/v1/app_config?select=key,value&key=in.(menu_defaults,theme_default,disabled_modules,banner)`,
+      `${url}/rest/v1/app_config?select=key,value&key=in.(menu_defaults,theme_default,disabled_modules,banner,menu_layout)`,
       {
         headers: { apikey: key },
         next: { revalidate: 3600, tags: [SITE_DEFAULTS_TAG] },

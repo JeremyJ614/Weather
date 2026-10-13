@@ -26,6 +26,31 @@ const nextFrame = () =>
   );
 
 /**
+ * Every switch slides the new panel in through the Web Animations API, so it runs on
+ * every phone (CSS animations are zeroed under reduced motion). Reduced motion gets
+ * an opacity-only fade, which is safe for motion sensitivity.
+ */
+function slideIn(el: Element | null | undefined, dir: number) {
+  if (!el || typeof el.animate !== "function") return;
+  const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  el.animate(
+    calm
+      ? [{ opacity: 0 }, { opacity: 1 }]
+      : [
+          {
+            opacity: 0,
+            transform: `translate3d(${dir * 28}px, 0, 0) scale(.985)`,
+          },
+          { opacity: 1, transform: "none" },
+        ],
+    {
+      duration: calm ? 240 : 420,
+      easing: "cubic-bezier(.2,.8,.2,1)",
+    },
+  );
+}
+
+/**
  * Subtabs. Switching morphs the panel through a noise dissolve (the shared
  * WebGL overlay). Panels render on first open and stay mounted (maps keep state).
  * `underline`: a fixed multicolor rule that keeps its colors in every theme.
@@ -54,16 +79,19 @@ export function HomeTabs({
   const select = async (id: string) => {
     if (id === active || busy.current) return;
     const to = tabs.findIndex((t) => t.id === id);
+    const dir = to > index ? 1 : -1;
     const show = () => {
-      setActive(id);
-      setSeen((x) => new Set(x).add(id));
+      flushSync(() => {
+        setActive(id);
+        setSeen((x) => new Set(x).add(id));
+      });
+      slideIn(wrap.current?.querySelector(`#panel-${id}`), dir);
     };
     if (!wrap.current || !morphEnabled()) return show();
     busy.current = true;
-    const dir = to > index ? 1 : -1;
     const before = visible(wrap.current);
     await morphCover(before, dir);
-    flushSync(show);
+    show();
     await nextFrame();
     const after = visible(wrap.current);
     const top = Math.min(before.top, after.top);
@@ -175,7 +203,6 @@ export function HomeTabs({
             id={`panel-${t.id}`}
             aria-labelledby={`tab-${t.id}`}
             hidden={t.id !== active}
-            className={s.panel}
           >
             {seen.has(t.id) ? t.panel : null}
           </div>

@@ -155,7 +155,7 @@ export function QuestionForm({ day, q }: { day: string; q?: AdminQ }) {
         />
       </label>
 
-      <div className={s.row}>
+      <div className={`${s.row} ${s.pointsRow}`}>
         <label className={`${s.label} ${s.points}`}>
           Points
           <input

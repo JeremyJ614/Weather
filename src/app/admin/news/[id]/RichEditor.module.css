@@ -1,0 +1,292 @@
+.wrap {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.restore {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--lit-line);
+  border-radius: 12px;
+  background: var(--lit);
+  font-size: 13px;
+}
+.restore span {
+  flex: 1 1 12rem;
+}
+.restore button {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--lit-line);
+  border-radius: 999px;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+/* The toolbar stays in reach while writing long posts. Everything wraps: nothing scrolls sideways. */
+.bar {
+  position: sticky;
+  top: calc(66px + env(safe-area-inset-top, 0px));
+  z-index: 6;
+  display: grid;
+  gap: 8px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--bg);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.45);
+}
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+.sep {
+  width: 1px;
+  height: 22px;
+  margin: 0 2px;
+  background: var(--line);
+}
+.btn,
+.wide {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 38px;
+  height: 38px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  transition: transform 120ms ease;
+}
+.wide {
+  padding: 0 12px;
+  border-color: var(--line);
+  background: var(--surface);
+}
+.btn svg,
+.wide svg {
+  width: 18px;
+  height: 18px;
+}
+.btn:active,
+.wide:active {
+  transform: scale(0.93);
+}
+.btn[aria-pressed="true"],
+.wide[aria-pressed="true"] {
+  border-color: var(--lit-line);
+  background: var(--lit);
+  color: var(--accent);
+}
+.panel {
+  display: grid;
+  gap: 8px;
+  padding: 8px 4px 4px;
+  border-top: 1px solid var(--line);
+  animation: open 200ms var(--ease) both;
+}
+@keyframes open {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+.label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.label svg {
+  width: 14px;
+  height: 14px;
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.chips [data-style="h1"] {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 800;
+}
+.chips [data-style="h2"] {
+  font-family: var(--font-display);
+  font-weight: 800;
+}
+.chips [data-style="blockquote"] {
+  font-style: italic;
+}
+.swatches {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(30px, 1fr));
+  gap: 6px;
+}
+.sw,
+.swNone,
+.custom {
+  aspect-ratio: 1;
+  border: 1px solid rgb(255 255 255 / 0.18);
+  border-radius: 50%;
+  transition: transform 120ms ease;
+}
+.sw:active,
+.swNone:active {
+  transform: scale(0.88);
+}
+.swNone {
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+}
+.swNone svg {
+  width: 14px;
+  height: 14px;
+}
+.custom {
+  position: relative;
+  overflow: hidden;
+  background: conic-gradient(
+    #f87171,
+    #fbbf24,
+    #34d399,
+    #22d3ee,
+    #818cf8,
+    #f472b6,
+    #f87171
+  );
+}
+.custom input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+}
+.tone {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--accent);
+}
+.tone[data-tone="tip"] {
+  background: #34d399;
+}
+.tone[data-tone="warn"] {
+  background: #fbbf24;
+}
+.tone[data-tone="alert"] {
+  background: #f87171;
+}
+.ask {
+  display: flex;
+  gap: 6px;
+}
+.ask input {
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+}
+.ask button {
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--lit-line);
+  border-radius: 10px;
+  color: var(--accent);
+  font-weight: 700;
+}
+.ask svg {
+  width: 16px;
+  height: 16px;
+}
+.context {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+.context > span {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.area {
+  min-height: 18rem;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  outline: none;
+  caret-color: var(--accent);
+}
+.area:focus {
+  border-color: var(--lit-line);
+}
+.area:empty::before,
+.area > p:only-child:has(> br:only-child)::before {
+  content: attr(data-ph);
+  color: var(--muted);
+  pointer-events: none;
+}
+.area figure {
+  cursor: pointer;
+}
+.area figure:focus-within,
+.area figure:hover img {
+  outline: 2px solid var(--lit-line);
+  outline-offset: 2px;
+}
+.area figcaption {
+  min-width: 8rem;
+  cursor: text;
+  outline: none;
+}
+.area figcaption:empty::before {
+  content: attr(data-ph);
+  opacity: 0.6;
+}
+.area [data-video] {
+  position: relative;
+}
+.area [data-video]::after {
+  content: "▶";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 40px;
+  color: #fff;
+  text-shadow: 0 2px 12px #000;
+}
+.area hr {
+  margin: 6px 0;
+}
+.preview {
+  padding: 16px;
+  border: 1px dashed var(--lit-line);
+  border-radius: 16px;
+}
+.count {
+  font-size: 12px;
+  color: var(--muted);
+}
