@@ -5,7 +5,7 @@
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   /* ---------- picks: stored in the artifact database so Claude can read them ---------- */
-  const picks = { mainMenu: null, secondMenu: null, favMenus: [], theme: null, favThemes: [], admin: [], pricing: null, favPricing: [], b1: {}, engines: {}, newEngines: {}, notes: {} };
+  const picks = { mainMenu: null, secondMenu: null, favMenus: [], offerMain: [], offerSecond: [], theme: null, favThemes: [], admin: [], pricing: null, favPricing: [], b1: {}, engines: {}, newEngines: {}, notes: {} };
   let db = null, saveTimer = 0;
   const saveLabel = $("#save");
   function setSaveText(t) { saveLabel.innerHTML = t; }
@@ -60,7 +60,7 @@
     openTimer = setTimeout(() => { try { current.open && current.open(); } catch (e) {} }, 650);
   }
   const groupsEl = $("#groups"), cats = [...new Set(MENUS.map(m => m.cat))];
-  groupsEl.innerHTML = cats.map(c => `<div class="group"><h3>${c} <span>(${MENUS.filter(m => m.cat === c).length})</span></h3><div class="chips">${MENUS.map((m, i) => m.cat === c ? `<button class="chip" data-i="${i}" data-id="${m.id}"><span class="n">${String(i + 1).padStart(2, "0")}</span>${m.name}<span class="tag" data-k="main">MAIN</span><span class="tag alt" data-k="second">2ND</span><span class="tag" data-k="fav">\u2605</span></button>` : "").join("")}</div></div>`).join("");
+  groupsEl.innerHTML = cats.map(c => `<div class="group"><h3>${c} <span>(${MENUS.filter(m => m.cat === c).length})</span></h3><div class="chips">${MENUS.map((m, i) => m.cat === c ? `<button class="chip" data-i="${i}" data-id="${m.id}"><span class="n">${String(i + 1).padStart(2, "0")}</span>${m.name}<span class="tag" data-k="main">MAIN</span><span class="tag alt" data-k="second">2ND</span><span class="tag" data-k="fav">DEFAULT</span></button>` : "").join("")}</div></div>`).join("");
   $$(".chip").forEach(c => c.onclick = () => { mount(+c.dataset.i); if (matchMedia("(max-width: 880px)").matches) $(".stage-col").scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" }); });
   $("#prev").onclick = () => mount(idx - 1);
   $("#next").onclick = () => mount(idx + 1);
@@ -74,12 +74,16 @@
     const id = MENUS[idx].id;
     $("#pick-main").setAttribute("aria-pressed", picks.mainMenu === id);
     $("#pick-second").setAttribute("aria-pressed", picks.secondMenu === id);
-    $("#pick-fav").setAttribute("aria-pressed", picks.favMenus.includes(id));
-    $$(".chip").forEach(c => { const cid = c.dataset.id; c.querySelector('[data-k="main"]').classList.toggle("on", picks.mainMenu === cid); c.querySelector('[data-k="second"]').classList.toggle("on", picks.secondMenu === cid); c.querySelector('[data-k="fav"]').classList.toggle("on", picks.favMenus.includes(cid)); });
+    $("#offer-main").setAttribute("aria-pressed", picks.offerMain.includes(id));
+    $("#offer-second").setAttribute("aria-pressed", picks.offerSecond.includes(id));
+    $$(".chip").forEach(c => { const cid = c.dataset.id; c.querySelector('[data-k="main"]').classList.toggle("on", picks.offerMain.includes(cid)); c.querySelector('[data-k="second"]').classList.toggle("on", picks.offerSecond.includes(cid)); c.querySelector('[data-k="fav"]').classList.toggle("on", picks.mainMenu === cid || picks.secondMenu === cid); });
   }
-  $("#pick-main").onclick = () => { const id = MENUS[idx].id; picks.mainMenu = picks.mainMenu === id ? null : id; syncPickButtons(); save(); if (picks.mainMenu) toast(MENUS[idx].name + " set as the main menu"); };
-  $("#pick-second").onclick = () => { const id = MENUS[idx].id; picks.secondMenu = picks.secondMenu === id ? null : id; syncPickButtons(); save(); if (picks.secondMenu) toast(MENUS[idx].name + " set as the second menu"); };
-  $("#pick-fav").onclick = () => { const id = MENUS[idx].id; const k = picks.favMenus.indexOf(id); k >= 0 ? picks.favMenus.splice(k, 1) : picks.favMenus.push(id); syncPickButtons(); save(); };
+  const tog = (arr, id) => { const k = arr.indexOf(id); k >= 0 ? arr.splice(k, 1) : arr.push(id); };
+  const nm = () => MENUS[idx].name;
+  $("#offer-main").onclick = () => { const id = MENUS[idx].id; tog(picks.offerMain, id); if (!picks.offerMain.includes(id) && picks.mainMenu === id) picks.mainMenu = null; syncPickButtons(); save(); };
+  $("#offer-second").onclick = () => { const id = MENUS[idx].id; tog(picks.offerSecond, id); if (!picks.offerSecond.includes(id) && picks.secondMenu === id) picks.secondMenu = null; syncPickButtons(); save(); };
+  $("#pick-main").onclick = () => { const id = MENUS[idx].id; if (picks.mainMenu === id) { picks.mainMenu = null; } else { if (picks.secondMenu === id) { toast(nm() + " is already the default second menu"); return; } picks.mainMenu = id; if (!picks.offerMain.includes(id)) picks.offerMain.push(id); toast(nm() + " is the default main menu"); } syncPickButtons(); save(); };
+  $("#pick-second").onclick = () => { const id = MENUS[idx].id; if (picks.secondMenu === id) { picks.secondMenu = null; } else { if (picks.mainMenu === id) { toast(nm() + " is already the default main menu"); return; } picks.secondMenu = id; if (!picks.offerSecond.includes(id)) picks.offerSecond.push(id); toast(nm() + " is the default second menu"); } syncPickButtons(); save(); };
 
   /* Decorative radar backdrop for the mock screen, drawn once per theme. */
   const rc = $("#radar");
@@ -171,7 +175,7 @@
     const mn = id => MENUS.find(m => m.id === id)?.name, tn = id => THEMES.find(t => t.id === id)?.name, pn = id => PRICING.find(p => p.id === id)?.name;
     const none = "<span style='color:var(--muted)'>Not chosen yet</span>";
     const cnt = o => { const v = Object.values(o || {}); return v.length ? `${v.filter(x => x === "launch").length} at launch, ${v.filter(x => x === "later").length} later, ${v.filter(x => x === "skip").length} skipped` : none; };
-    $("#summary-dl").innerHTML = `<dt>Main menu</dt><dd>${mn(picks.mainMenu) || none}</dd><dt>Second menu</dt><dd>${mn(picks.secondMenu) || none}</dd><dt>Menu shortlist</dt><dd>${picks.favMenus.map(mn).join(", ") || none}</dd><dt>Theme</dt><dd>${tn(picks.theme) || none}</dd><dt>Theme shortlist</dt><dd>${picks.favThemes.map(tn).join(", ") || none}</dd><dt>Admin extras</dt><dd>${picks.admin.length ? picks.admin.length + " selected" : none}</dd><dt>Pricing</dt><dd>${pn(picks.pricing) || none}</dd><dt>Pricing shortlist</dt><dd>${picks.favPricing.map(pn).join(", ") || none}</dd><dt>B1 decisions</dt><dd>${Object.keys(picks.b1 || {}).length} of ${B1_DECISIONS.length} answered</dd><dt>Your engines</dt><dd>${cnt(picks.engines)}</dd><dt>New engines</dt><dd>${cnt(picks.newEngines)}</dd>`;
+    $("#summary-dl").innerHTML = `<dt>Default main menu</dt><dd>${mn(picks.mainMenu) || none}</dd><dt>Default second menu</dt><dd>${mn(picks.secondMenu) || none}</dd><dt>Main menu choices</dt><dd>${picks.offerMain.map(mn).join(", ") || none}</dd><dt>Second menu choices</dt><dd>${picks.offerSecond.map(mn).join(", ") || none}</dd><dt>Theme</dt><dd>${tn(picks.theme) || none}</dd><dt>Theme shortlist</dt><dd>${picks.favThemes.map(tn).join(", ") || none}</dd><dt>Admin extras</dt><dd>${picks.admin.length ? picks.admin.length + " selected" : none}</dd><dt>Pricing</dt><dd>${pn(picks.pricing) || none}</dd><dt>Pricing shortlist</dt><dd>${picks.favPricing.map(pn).join(", ") || none}</dd><dt>B1 decisions</dt><dd>${Object.keys(picks.b1 || {}).length} of ${B1_DECISIONS.length} answered</dd><dt>Your engines</dt><dd>${cnt(picks.engines)}</dd><dt>New engines</dt><dd>${cnt(picks.newEngines)}</dd>`;
   }
 
 
@@ -203,7 +207,7 @@
       if (!db) { setSaveText("Picks are kept on this screen only"); return; }
       try {
         const snap = await db.doc("picks/selection").get(); const d = snap.data && snap.data();
-        if (d) { for (const k of Object.keys(picks)) if (d[k] !== undefined) picks[k] = d[k]; if (picks.theme) applyTheme(picks.theme); syncLists(); syncPickButtons(); syncSegs(); syncNotes(); }
+        if (d) { for (const k of Object.keys(picks)) if (d[k] !== undefined) picks[k] = JSON.parse(JSON.stringify(d[k])); if (picks.theme) applyTheme(picks.theme); syncLists(); syncPickButtons(); syncSegs(); syncNotes(); }
         setSaveText("<b>Connected</b> \u00b7 your picks save automatically");
       } catch (e) { setSaveText("Could not load saved picks: " + (e?.message || e?.code || "unknown error")); }
     })();

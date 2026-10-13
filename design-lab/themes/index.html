@@ -1,0 +1,70 @@
+<title>SSWX Theme Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;600;700&family=JetBrains+Mono:wght@400;600&family=Barlow+Condensed:wght@600;700;800&display=swap">
+<link rel="stylesheet" href="theme-lab.css">
+
+<div class="wrap">
+  <header class="top"><img src="assets/logo-primary.webp" alt="StormSync Media" width="128" height="38"><span class="save" id="save">Loading&hellip;</span></header>
+  <h1>Theme Lab: <em>mix colors and fonts</em></h1>
+  <p class="lede">Cycle colors and fonts separately with the bar at the bottom, or tap any card below. The whole page and both phone screens change as you go. Mark which palettes and font sets people can choose in their account settings, set the default, and save combos you like.</p>
+
+  <div class="layout">
+    <div class="screens" aria-label="Live preview">
+      <div class="phone"><div class="scr">
+        <div class="sb"><span>9:41</span><span>5G</span></div>
+        <div class="hd"><img src="assets/logo-primary.webp" alt="" width="68" height="20"><span class="bell" id="ic-bell"></span></div>
+        <div class="body">
+          <div class="hero"><div><div class="mono">Good evening</div><div class="disp loc">Norman, OK</div></div><div class="disp temp">74&deg;</div><p>Partly cloudy &middot; High 81&deg; &middot; Low 62&deg;</p></div>
+          <div class="card"><div class="con"><div><div class="mono">SSWXCon</div><div class="disp">Level 3 &middot; Elevated</div></div><span class="chip">Until 10 PM</span></div><div class="lvl"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></div></div>
+          <div class="card"><div class="mono">SPC Day 1 for you</div><div class="spc"><span style="background:#c1e9c1">TSTM</span><span style="background:#7fc57f">MRGL</span><span class="now" style="background:#f6f67f">SLGT</span><span style="background:#e6c27f">ENH</span><span style="background:#e67f7f">MDT</span><span style="background:#ff7fff">HIGH</span></div></div>
+          <div class="card"><div class="mono">7 days</div><div class="week" id="week"></div></div>
+          <div class="card news"><div class="mono">SSWX News &middot; New</div><h4>Storm season kickoff stream this Friday</h4><p>Join the team live at 7 PM for the spring outlook.</p></div>
+          <div class="btns"><span class="p1">Open radar</span><span class="p2">Daily brief</span></div>
+        </div>
+        <div class="tabbar" id="tabbar"></div>
+      </div></div>
+
+      <div class="phone"><div class="scr">
+        <div class="sb"><span>9:41</span><span>5G</span></div>
+        <div class="hd"><img src="assets/logo-primary.webp" alt="" width="68" height="20"><span class="bell" id="ic-bell2"></span></div>
+        <div class="body">
+          <div><div class="mono">Severe Weather</div><div class="disp" style="font-size:30px">Warnings &amp; Reports</div></div>
+          <div class="card warn"><div class="row" id="w1"></div></div>
+          <div class="card"><div class="row" id="w2"></div></div>
+          <div class="card"><div class="row" id="w3"></div></div>
+          <div class="card spec"><div class="mono">Type sample</div><div class="disp big" id="spec-d">StormSync</div><div class="bodytxt" id="spec-b">Discrete supercells are possible after 4 PM with large hail and a few tornadoes.</div><div class="monotxt" id="spec-m">MLCAPE 2,800 J/kg &middot; 0&ndash;1 km SRH 220 m&sup2;/s&sup2;</div></div>
+          <div class="btns"><span class="p1">Set alert</span><span class="p2">Share</span></div>
+        </div>
+        <div class="tabbar" id="tabbar2"></div>
+      </div></div>
+    </div>
+
+    <aside class="ctrl">
+      <div class="now">
+        <span class="lbl">Showing</span>
+        <div class="nm" id="now-name"></div>
+        <div class="acts">
+          <button class="btn primary" id="save-combo">Save this combo</button>
+          <button class="btn" id="make-default">Make this the default</button>
+        </div>
+        <span class="lbl" id="default-line"></span>
+      </div>
+
+      <div><h2>Colors</h2><p class="hint">“Offer” puts a palette in the account-settings theme picker. Your seven keepers and the VIP palette start offered.</p><div id="pals"></div></div>
+      <div><h2>Fonts</h2><p class="hint">Each set has a heading face, a text face and a data face. Any font set works with any palette.</p><div class="fonts" id="fonts"></div></div>
+      <div><h2>Saved combos</h2><p class="hint">Combos you like, to compare or offer as ready-made looks.</p><div class="combos" id="combos"></div></div>
+      <div><h2>Notes</h2><p class="hint">Anything to change, mix or add.</p><textarea id="notes" placeholder="Write anything here"></textarea></div>
+    </aside>
+  </div>
+</div>
+
+<div class="cycler" aria-label="Cycle themes">
+  <div class="cy"><button id="p-prev" aria-label="Previous palette"></button><div><small>Colors</small><b id="p-name"></b></div><button id="p-next" aria-label="Next palette"></button></div>
+  <div class="cy"><button id="f-prev" aria-label="Previous font set"></button><div><small>Fonts</small><b id="f-name"></b></div><button id="f-next" aria-label="Next font set"></button></div>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script src="icons.js"></script>
+<script src="theme-data.js"></script>
+<script src="theme-lab.js"></script>
