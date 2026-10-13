@@ -86,4 +86,5 @@ Personal Warnings & Alerts, Affected Communities Outlook, FairWeather Tracking, 
 | 2 | Section A lab | Corner Sweep overlay didn't cover the full screen | Fixed-size circles anchored to the corner |
 | 3 | Theme Lab intro | On tall screens the final logo was beyond the camera's far limit and vanished | Far limit raised |
 | 4 | Theme Lab intro | "Press Play" label stayed over the running animation | Hidden state styled explicitly |
+| 6 | App icon | The mascot is only ~170 px tall inside the logo file, so the icon is slightly soft | Cut out and sharpened; a high-resolution mascot file from the owner would make it crisp |
 | 5 | Storm-edit intro | Later "from" values showed the hidden cube and bolt early | Visibility driven by timeline time |

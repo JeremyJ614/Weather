@@ -23,6 +23,9 @@ body {
 }
 
 body {
+  /* Content stays clear of notches and home bars. */
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
   font-family: var(--font-body), system-ui, sans-serif;
   -webkit-tap-highlight-color: transparent;
 }

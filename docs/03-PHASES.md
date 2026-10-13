@@ -14,7 +14,7 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 ## Foundation
 - [x] 01. Project skeleton: Next.js, TypeScript, lint, tests, `npm run verify`, CI, performance budget
 - [x] 02. Vercel project linked to GitHub, Supabase connected, server-only secrets, Weather.SSWX.Space DNS
-- [ ] 03. Installable app: PWA manifest, icons, offline screen, splash, safe areas, device-tier detection
+- [x] 03. Installable app: PWA manifest, icons, offline screen, splash, safe areas, device-tier detection
 - [ ] 04. Design system: chosen theme tokens, type scale, motion rules (transform/opacity only), base components
 - [ ] 05. StormSync Media 3D intro as the launch screen: short, tiny "Created By: Jay Myers" at the end, tap to skip, off switch in account settings
 - [ ] 06. Menu system: every offered style as a component, each declaring its control spots; collision avoidance when two are combined; same menu can't be both; every launch page routed; unbuilt pages show an honest phase notice

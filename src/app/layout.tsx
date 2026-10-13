@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Mulish, Playfair_Display } from "next/font/google";
 import "./globals.css";
+import { DeviceSetup } from "@/components/DeviceSetup";
 
 const body = Mulish({ subsets: ["latin"], variable: "--font-body" });
 const display = Playfair_Display({
@@ -11,6 +12,12 @@ const display = Playfair_Display({
 
 export const metadata: Metadata = {
   title: "StormSync Media",
+  applicationName: "StormSync Media",
+  appleWebApp: {
+    capable: true,
+    title: "StormSync",
+    statusBarStyle: "black-translucent",
+  },
   description:
     "Severe weather, forecasts and storm chasing from StormSync Media.",
 };
@@ -25,7 +32,10 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={`${body.variable} ${display.variable}`}>
-      <body>{children}</body>
+      <body>
+        <DeviceSetup />
+        {children}
+      </body>
     </html>
   );
 }
