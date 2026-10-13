@@ -21,6 +21,7 @@
     "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.112.3",
     "animejs": "^4.5.0",
+    "border-beam": "^1.4.1",
     "lucide-react": "^0.469.0",
     "mapbox-gl": "3.32.0",
     "maplibre-gl": "6.11.2",

@@ -1,5 +1,5 @@
 /* Every family a font set can use, bundled with the app (latin subset) so builds never
- fetch from Google. Only the default set preloads. Regenerate with the vendor-fonts tool. */
+ fetch from Google. Only the default set (VIP Classic + mono) preloads. Regenerate with the vendor-fonts tool. */
 import localFont from "next/font/local";
 
 const f_playfair_display = localFont({
@@ -16,7 +16,7 @@ const f_playfair_display = localFont({
     },
   ],
   display: "swap",
-  preload: true,
+  preload: false,
   variable: "--ff-playfair",
 });
 const f_mulish = localFont({
@@ -27,7 +27,7 @@ const f_mulish = localFont({
     { path: "./fonts/mulish-800.woff2", weight: "800", style: "normal" },
   ],
   display: "swap",
-  preload: true,
+  preload: false,
   variable: "--ff-mulish",
 });
 const f_jetbrains_mono = localFont({
@@ -86,7 +86,7 @@ const f_raleway = localFont({
     { path: "./fonts/raleway-800.woff2", weight: "800", style: "normal" },
   ],
   display: "swap",
-  preload: false,
+  preload: true,
   variable: "--ff-raleway",
 });
 const f_dm_sans = localFont({
@@ -96,7 +96,7 @@ const f_dm_sans = localFont({
     { path: "./fonts/dm_sans-700.woff2", weight: "700", style: "normal" },
   ],
   display: "swap",
-  preload: false,
+  preload: true,
   variable: "--ff-dmsans",
 });
 const f_cinzel = localFont({

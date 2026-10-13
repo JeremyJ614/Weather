@@ -292,6 +292,7 @@ export function AirView() {
       {cur?.error && <Card className="text-muted">{cur.error}</Card>}
       {cur?.data && (
         <HomeTabs
+          variant="segment"
           tabs={[
             {
               id: "aqi",

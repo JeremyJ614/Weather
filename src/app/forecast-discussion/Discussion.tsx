@@ -140,6 +140,7 @@ export function Discussion() {
             })}
           </p>
           <HomeTabs
+            variant="segment"
             tabs={[
               {
                 id: "simple",

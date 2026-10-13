@@ -445,4 +445,4 @@ export const TEMPLATES: { palette: string; font: string }[] = [
     font: "vip",
   },
 ];
-export const DEFAULT_THEME = { palette: "vip", font: "editorial" };
+export const DEFAULT_THEME = { palette: "vip", font: "vip" };

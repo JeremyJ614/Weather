@@ -1,13 +1,9 @@
 import type { HTMLAttributes } from "react";
 
+/** The default container: dark glass with a hairline primary rule along the top. */
 export function Card({
   className = "",
   ...rest
 }: HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div
-      className={`rounded-2xl border border-line bg-surface p-4 ${className}`}
-      {...rest}
-    />
-  );
+  return <div className={`panel rounded-2xl p-4 ${className}`} {...rest} />;
 }

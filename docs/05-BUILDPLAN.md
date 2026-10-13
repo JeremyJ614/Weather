@@ -107,3 +107,5 @@ Personal Warnings & Alerts, Affected Communities Outlook, FairWeather Tracking, 
 | 17 | Daily Brief | At 2 AM the brief called today's daytime "Tomorrow", because NWS's first period is "Overnight" | Days matched by each period's local date |
 | 18 | CI | Builds failed at random fetching 24 Google font families at build time | Fonts bundled with the app (`src/lib/theme/fonts/`, latin subset); builds never fetch fonts |
 | 19 | Sign-in | The owner's email and PIN were refused: no account existed for that email yet | Account is created through the email link + welcome form; founder role is granted automatically on profile creation |
+| 20 | Menus | Reopening Corner Sweep showed the last-opened group's sub-pages before the sweep animation, over the page | Closing folds every group |
+| 21 | Homepage | Two logos stacked at the top (header + page) | One small logo in a free top corner; the page opens with the Weather Clock |

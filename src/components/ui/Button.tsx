@@ -1,22 +1,44 @@
 import type { ButtonHTMLAttributes } from "react";
+import { Beam } from "./Beam";
 
 type Variant = "primary" | "secondary" | "ghost";
 
 const styles: Record<Variant, string> = {
-  primary: "bg-lit text-accent border-accent",
-  secondary: "bg-surface2 text-text border-line",
+  primary: "btn-dark text-accent border-accent/40",
+  secondary: "btn-dark text-text border-line",
   ghost: "bg-transparent text-text border-transparent",
 };
+
+// Layout classes belong on the beam wrapper so the outline follows the button.
+const LAYOUT =
+  /^(w-|flex-|grow|shrink|absolute|fixed|top-|right-|bottom-|left-|inset|justify-self|self-|m[trblxy]?-|ml-auto|mr-auto|col-|row-|order-)/;
 
 export function Button({
   variant = "secondary",
   className = "",
   ...rest
 }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant }) {
-  return (
+  const cls = className.split(/\s+/).filter(Boolean);
+  const outer = cls.filter((c) => LAYOUT.test(c)).join(" ");
+  const inner = cls.filter((c) => !LAYOUT.test(c)).join(" ");
+  const button = (
     <button
-      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-bold transition-transform duration-[var(--t-fast)] ease-[var(--spring)] active:scale-95 disabled:opacity-50 ${styles[variant]} ${className}`}
+      className={`inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border px-4 text-[13px] font-semibold tracking-wide transition-transform duration-[var(--t-fast)] ease-[var(--spring)] active:scale-95 disabled:opacity-50 ${styles[variant]} ${inner}`}
       {...rest}
     />
+  );
+  if (variant === "ghost")
+    return outer ? (
+      <span className={`inline-flex ${outer}`}>{button}</span>
+    ) : (
+      button
+    );
+  return (
+    <Beam
+      className={`inline-flex rounded-xl ${outer}`}
+      strength={variant === "primary" ? 1 : 0.7}
+    >
+      {button}
+    </Beam>
   );
 }
