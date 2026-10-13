@@ -13,10 +13,15 @@ type Counts = Record<string, number | string>;
 
 export default async function Ops() {
   const { supabase } = await requireAdmin("ops");
-  const [{ data: counts }, feeds, settings] = await Promise.all([
+  const [{ data: counts }, feeds, settings, { data: ai }] = await Promise.all([
     supabase.rpc("ops_counts"),
     checkFeeds(),
     getSiteDefaults(),
+    supabase
+      .from("ai_usage")
+      .select("day, feature, calls, failures")
+      .order("day", { ascending: false })
+      .limit(30),
   ]);
   const c = (counts ?? {}) as Counts;
   const tiles: [string, string | number][] = [
@@ -69,6 +74,37 @@ export default async function Ops() {
             </li>
           ))}
         </ul>
+      </section>
+      <section className="grid gap-2">
+        <h2 className="font-bold">
+          AI usage{" "}
+          <span className="text-sm text-muted">
+            · Gemini calls per day (free tier allows about 1,000 a day)
+          </span>
+        </h2>
+        {!ai?.length ? (
+          <p className="text-sm text-muted">No AI calls yet.</p>
+        ) : (
+          <ul className="grid gap-1.5">
+            {ai.map((r) => (
+              <li
+                key={r.day + r.feature}
+                className="flex justify-between rounded-xl border border-line bg-surface px-3 py-2 text-sm"
+              >
+                <span>
+                  {r.day} · {r.feature}
+                </span>
+                <span
+                  className={
+                    r.calls > 800 ? "font-bold text-accent" : "text-muted"
+                  }
+                >
+                  {r.calls} calls{r.failures ? `, ${r.failures} failed` : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
       <OpsForm
         modules={MODULES}

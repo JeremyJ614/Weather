@@ -2,7 +2,7 @@
 
 **Objective:** StormSync Weather (Weather.SSWX.Space): one mobile-first PWA + Android .apk merging the team's weather apps. Free to run until revenue.
 
-**Stage:** Building. Done: 01–21, 10b, 10c. Next: 22 Forecast Discussion (AI Simplified + Standard).
+**Stage:** Building. Done: 01–22, 10b, 10c. Next: 23 AQI & Pollen (port from VIP).
 
 **Decisions so far**
 - Repo `JeremyJ614/Weather`, working branch `ccr-f5e0b71a-4vr2wk`, PR #1 merged to `main`; PR #2 open.
@@ -36,7 +36,7 @@
 - Owner's logo for the intro ending.
 
 **Next actions**
-1. Phase 22: Forecast Discussion from the local WFO (NWS AFD product), "Standard" restyled and "Simplified" by Gemini (server-only GEMINI_API_KEY needed in Vercel; cached per issuance). Daily Brief: hourly via pg_cron job `daily-brief-hourly` → /api/cron/brief (token in Supabase Vault, checked by `cron_token_ok`).
+1. Phase 23 AQI & Pollen: port VIP AQI Outlook + Pollen Index (check VIP sources/keys), add AQI and pollen widgets to the dashboard and the Daily Brief. Gemini: `GEMINI_API_KEY` (production only), model alias `gemini-flash-lite-latest` (pinned 2.5 models are closed to new keys).
 2. Saved places sync to the account: phase 62b. Signup form editing from admin: phase 13.
 3. Watchdog: `/api/cron/storage-watchdog` daily via `vercel.json`; `CRON_SECRET` set in Vercel (production). Returns 500 until the ops migration is applied.
 

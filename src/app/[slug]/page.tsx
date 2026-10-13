@@ -5,7 +5,13 @@ import { ALL_PAGES } from "@/lib/nav/registry";
 export const dynamicParams = false;
 
 // Pages that have their own route now.
-const BUILT = new Set(["login", "admin", "dashboard", "daily-brief"]);
+const BUILT = new Set([
+  "login",
+  "admin",
+  "dashboard",
+  "daily-brief",
+  "forecast-discussion",
+]);
 
 export function generateStaticParams() {
   return ALL_PAGES.filter((p) => p.slug && !BUILT.has(p.slug)).map((p) => ({

@@ -41,6 +41,8 @@ export async function GET(request: Request) {
     db.from("client_errors").delete().lt("last_seen", day(30)),
     db.from("news_curation").delete().lt("created_at", day(30)),
     db.from("brief_deliveries").delete().lt("day", day(90)),
+    db.from("afd_simplified").delete().lt("created_at", day(7)),
+    db.from("ai_usage").delete().lt("day", day(90)),
   ]);
   const pruneError = pruned.find((r) => r.error)?.error;
   if (pruneError) {
