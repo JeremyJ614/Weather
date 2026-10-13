@@ -6,6 +6,7 @@ export type ClientViewer = {
   signedIn: boolean;
   name: string | null;
   isAdmin: boolean;
+  adminShortcuts?: boolean;
 };
 const SIGNED_OUT: ClientViewer = {
   signedIn: false,
@@ -44,11 +45,18 @@ export function useViewer(): ClientViewer {
     const onVis = () => document.visibilityState === "visible" && refresh();
     document.addEventListener("visibilitychange", onVis);
     addEventListener("focus", refresh);
+    // Fired after the viewer's own settings change (e.g. the admin shortcuts switch).
+    const reset = () => {
+      cached = null;
+      refresh();
+    };
+    addEventListener("sswx-viewer", reset);
     const t = setInterval(refresh, 15000);
     return () => {
       live = false;
       document.removeEventListener("visibilitychange", onVis);
       removeEventListener("focus", refresh);
+      removeEventListener("sswx-viewer", reset);
       clearInterval(t);
     };
   }, []);

@@ -10,6 +10,8 @@ export type Viewer = {
   tier: string | null;
   roles: Role[];
   isAdmin: boolean;
+  /** The owner chose to list admin sections in the second menu. */
+  adminShortcuts: boolean;
 };
 
 const SIGNED_OUT: Viewer = {
@@ -19,6 +21,7 @@ const SIGNED_OUT: Viewer = {
   tier: null,
   roles: [],
   isAdmin: false,
+  adminShortcuts: false,
 };
 
 /** Who is asking, once per request. Roles come from the database, never from the client. */
@@ -49,5 +52,7 @@ export const getViewer = cache(async (): Promise<Viewer> => {
     tier: profile?.tier ?? null,
     roles: r,
     isAdmin: r.includes("admin") || r.includes("founder"),
+    adminShortcuts:
+      r.includes("founder") && user.user_metadata?.admin_shortcuts === true,
   };
 });

@@ -6,6 +6,9 @@ import { requireAdmin } from "@/lib/auth/admin-guard";
 import { sectionIds } from "@/lib/admin/sections";
 import { moduleIds } from "@/lib/ops/modules";
 import { cleanForm } from "@/lib/auth/signup-form";
+import { ICON_NAMES } from "@/components/NavIcon";
+import { cleanLayout } from "@/lib/nav/layout";
+import { ALL_PAGES } from "@/lib/nav/registry";
 
 const UUID = /^[0-9a-f-]{36}$/;
 
@@ -97,13 +100,15 @@ export async function saveDefaults(
     supabase
       .from("app_config")
       .update({ value: want.menus, updated_at: new Date().toISOString() })
-      .eq("key", "menu_defaults"),
+      .eq("key", "menu_defaults")
+      .select("key"),
     supabase
       .from("app_config")
       .update({ value: want.theme, updated_at: new Date().toISOString() })
-      .eq("key", "theme_default"),
+      .eq("key", "theme_default")
+      .select("key"),
   ]);
-  if (results.some((r) => r.error))
+  if (results.some((r) => r.error || !r.data?.length))
     return { error: "The defaults couldn't be saved. Try again." };
   await supabase.rpc("log_admin", {
     p_action: "set_defaults",
@@ -199,5 +204,45 @@ export async function saveSignupForm(
     p_detail: form,
   });
   updateTag("signup-form");
+  return { saved: true };
+}
+
+/** The owner's switch for the Admin group in their second menu (stored on their account). */
+export async function setAdminShortcuts(on: boolean): Promise<SaveState> {
+  const { supabase, isFounder } = await requireAdmin();
+  if (!isFounder) return { error: "Only the owner has admin shortcuts." };
+  const { error } = await supabase.auth.updateUser({
+    data: { admin_shortcuts: on === true },
+  });
+  return error
+    ? { error: "That couldn't be saved. Try again." }
+    : { saved: true };
+}
+
+/** Saves the Menu editor's arrangement, or `null` to go back to the built-in menus. */
+export async function saveMenuLayout(raw: unknown): Promise<SaveState> {
+  const { supabase } = await requireAdmin("menus");
+  const layout =
+    raw === null
+      ? {}
+      : cleanLayout(
+          raw,
+          new Set(ALL_PAGES.map((p) => p.slug)),
+          new Set(ICON_NAMES),
+        );
+  if (!layout) return { error: "Every menu needs at least one section." };
+  const { data, error } = await supabase
+    .from("app_config")
+    .update({ value: layout, updated_at: new Date().toISOString() })
+    .eq("key", "menu_layout")
+    .select("key");
+  if (error || !data?.length)
+    return { error: "The menus couldn't be saved. Try again." };
+  await supabase.rpc("log_admin", {
+    p_action: raw === null ? "reset_menu_layout" : "set_menu_layout",
+    p_target: "menus",
+    p_detail: {},
+  });
+  updateTag(SITE_DEFAULTS_TAG);
   return { saved: true };
 }

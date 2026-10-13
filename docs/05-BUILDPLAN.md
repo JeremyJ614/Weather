@@ -133,3 +133,5 @@ Personal Warnings & Alerts, Affected Communities Outlook, FairWeather Tracking, 
 | 43 | SPC Outlook | Seven type chips ran off the side of the screen; "Tomorrow" ran into "Thu" in the 8-day strip | Overview over a 3 × 2 hazard grid that fits in one view; the strip says "Tmrw" and clips labels |
 | 44 | SSWX News | An uploaded team logo stretched past the screen | Post images always fit the column and at most 75% of the screen height (reader, preview and editor) |
 | 45 | Admin · SSWX News | Writing meant Markdown symbols (bold showed `**stars**`) | Rich what-you-see editor saved as a validated document (see D-entry); older Markdown posts open converted |
+| 46 | Admin · Menu & theme defaults | Saving silently did nothing: the two settings rows were never created, so the update matched no row | Rows seeded; the save now reports an error if it ever updates nothing |
+| 47 | Admin · Live ops | The kill-switch and banner page was built but linked from nowhere | Listed under System on the admin overview |

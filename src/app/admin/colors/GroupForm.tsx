@@ -5,6 +5,7 @@ import { RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import type { Group } from "@/lib/colors/registry";
 import { saveGroup } from "./actions";
+import { Preview, previewSource } from "./Preview";
 import s from "./Colors.module.css";
 
 const HEX = /^#[0-9a-f]{6}$/i;
@@ -23,12 +24,16 @@ export function GroupForm({
     ),
   );
   const [state, action, pending] = useActionState(saveGroup, null);
+  const [open, setOpen] = useState(false);
   const changed = group.entries.filter(
     (e) => (current[e.key] ?? e.def) !== vals[e.key],
   ).length;
   const custom = group.entries.filter((e) => current[e.key]).length;
   return (
-    <details className={s.group}>
+    <details
+      className={s.group}
+      onToggle={(e) => setOpen(e.currentTarget.open)}
+    >
       <summary>
         <span className={s.strip} aria-hidden>
           {group.entries.map((e) => (
@@ -46,6 +51,15 @@ export function GroupForm({
       <form action={action} className={s.form}>
         <input type="hidden" name="group" value={group.id} />
         {group.note && <p className={s.note}>{group.note}</p>}
+        {open &&
+          (previewSource(group.id) ? (
+            <Preview group={group} vals={vals} saved={current} />
+          ) : (
+            <p className={s.note}>
+              No map draws these colors yet; the strip above previews them live
+              as you edit.
+            </p>
+          ))}
         {group.entries.map((e) => {
           const v = vals[e.key];
           const ok = HEX.test(v);

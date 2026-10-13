@@ -47,3 +47,7 @@ The outline asked for states colored over time. There is no public peak-foliage 
 - Every national map can zoom and pan; city names appear when zoomed in and get denser further in.
 - Subtab switches always animate (slide; fade under reduced motion), independent of the WebGL morph.
 - Weather News has an hourly heal job besides the 7 AM run.
+- Admin overview: sections in five labeled groups (Content, Games & community, Members, Look & menus, System) as list rows with descriptions and a filter, replacing the tile grid.
+- Menu editor (admin → Menu editor, Menus permission): app_config `menu_layout` holds sections, order, page names/icons and hidden pages for both menus; pages built later join their built-in section automatically.
+- Admin shortcuts: the owner's switch (stored on their account) adds an Admin group with every built section to their second menu.
+- Map & data colors: each group with a live map shows today's real map recolored as you type; a test fails when a color pick isn't in the editor (AGENTS rule 11).

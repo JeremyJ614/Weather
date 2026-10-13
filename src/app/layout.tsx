@@ -8,6 +8,8 @@ import { introBootScript } from "@/features/intro/schedule";
 import { themeBootScript, themeCss } from "@/lib/theme/css";
 import { fontClassNames } from "@/lib/theme/fonts";
 import { getSiteDefaults } from "@/lib/settings";
+import { applyLayout } from "@/lib/nav/layout";
+import { MAIN_NAV, SECOND_NAV } from "@/lib/nav/registry";
 import { ErrorReporter } from "@/components/ops/ErrorReporter";
 import { SiteBanner } from "@/components/ops/SiteBanner";
 
@@ -59,7 +61,11 @@ export default async function RootLayout({
           />
           {children}
         </div>
-        <MenuHost defaults={defaults.menus} />
+        <MenuHost
+          defaults={defaults.menus}
+          main={applyLayout(MAIN_NAV, SECOND_NAV, defaults.layout, "main")}
+          second={applyLayout(SECOND_NAV, MAIN_NAV, defaults.layout, "second")}
+        />
       </body>
     </html>
   );
