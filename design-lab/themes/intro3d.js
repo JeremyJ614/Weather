@@ -135,7 +135,7 @@ export function playIntro(host, theme, { onEnd, variant = 'classic' } = {}) {
   const fitDezoom = () => 1.5 * Math.max(1, (FULL_W / 25) * (16 / 9) / (W() / H()) * 0.62);
 
   let tl = null; const POP_AT = 8000;
-  const timer = createTimer({ priority: 0, onUpdate: () => { camera.position.z = FLATTEN_DIST_NUM * flattenDezoom.value / Math.tan(camera.fov * 0.5 * DEG2RAD); if (S) { const ct = tl ? tl.currentTime : 0; bolt.visible = ct < 2005; cube.visible = ct >= POP_AT; const k = performance.now() * 0.001; rings.forEach(r => { r.rotation.z = -k * (6 + 4 * (1 - r.userData.t)); r.position.x = Math.sin(k * 3 + r.userData.t * 5) * 0.09 * r.userData.t; }); } renderer.render(scene, camera); } });
+  const timer = createTimer({ priority: 0, onUpdate: () => { if (tl) floorGroup.visible = tl.currentTime < POP_AT + 1600; camera.position.z = FLATTEN_DIST_NUM * flattenDezoom.value / Math.tan(camera.fov * 0.5 * DEG2RAD); if (S) { const ct = tl ? tl.currentTime : 0; bolt.visible = ct < 2005; cube.visible = ct >= POP_AT; const k = performance.now() * 0.001; rings.forEach(r => { r.rotation.z = -k * (6 + 4 * (1 - r.userData.t)); r.position.x = Math.sin(k * 3 + r.userData.t * 5) * 0.09 * r.userData.t; }); } renderer.render(scene, camera); } });
 
   utils.set(skyMaterial, { topColor: mix(METAL, BG, 0.55), bottomColor: mix(METAL, BG, 0.2), offset: -38, exponent: 1.15 });
   utils.set(keyLight, { intensity: 1.6, color: '#ffffff', x: 0, y: 30, z: 0 });

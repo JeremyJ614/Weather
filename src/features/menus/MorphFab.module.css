@@ -1,0 +1,114 @@
+/* Morph FAB: the button swells into a full-screen menu in one motion. */
+.blob {
+  position: fixed;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: var(--accent);
+  z-index: 55;
+  transform: scale(1);
+  transition: transform 0.65s var(--ease);
+  pointer-events: none;
+}
+.on .blob {
+  transform: scale(32);
+}
+.fab {
+  position: fixed;
+  z-index: 57;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--on-accent);
+  box-shadow: 0 12px 30px -10px var(--accent);
+}
+.fab svg {
+  transition: transform 0.5s var(--spring);
+}
+.on .fab svg {
+  transform: rotate(45deg);
+}
+.pos {
+  bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+}
+.raised {
+  bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+}
+.right {
+  right: 18px;
+}
+.left {
+  left: 18px;
+}
+.center {
+  left: calc(50% - 30px);
+}
+.in {
+  position: fixed;
+  inset: 0;
+  z-index: 56;
+  overflow: auto;
+  padding: calc(70px + env(safe-area-inset-top, 0px)) 18px 110px;
+  color: var(--on-accent);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.3s,
+    visibility 0.3s;
+}
+.on .in {
+  opacity: 1;
+  visibility: visible;
+  transition-delay: 0.3s;
+}
+.title {
+  font-family: var(--font-display);
+  font-weight: var(--display-weight);
+  text-transform: var(--display-case);
+  font-size: 40px;
+  line-height: 0.95;
+  margin: 0 0 14px;
+}
+.sec {
+  margin-bottom: 14px;
+  opacity: 0;
+  transform: translateY(16px);
+  transition:
+    opacity 0.35s,
+    transform 0.45s var(--ease);
+}
+.on .sec {
+  opacity: 1;
+  transform: none;
+  transition-delay: calc(var(--i) * 45ms + 0.35s);
+}
+.sec h2 {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin: 0 0 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.mi {
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--on-accent) 12%, transparent);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--on-accent);
+}
+.mi[aria-current="page"] {
+  background: var(--on-accent);
+  color: var(--accent);
+}

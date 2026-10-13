@@ -2,13 +2,13 @@
 
 **Objective:** StormSync Weather (Weather.SSWX.Space): one mobile-first PWA + Android .apk merging the team's weather apps. Free to run until revenue.
 
-**Stage:** Planning done (Sections A/B, questionnaire, BuildPlan). Building. Current phase: 01 (project skeleton).
+**Stage:** Planning done (Sections A/B, questionnaire, BuildPlan). Building. Phases 01–02 done (02 waits on owner DNS record + service key). Phases 01–06c done (intro lockup swaps to the owner's logo when it arrives; intro setting UI in 62b). Current phase: 07 (admin-set menu defaults + remaining menu fixes).
 
 **Decisions so far**
 - Repo `JeremyJ614/Weather`, working branch `ccr-f5e0b71a-4vr2wk`. No `main` branch yet (repo was empty).
 - Lab artifact: https://claude.ai/artifact/MP7RXMdjRqBRKPX6HGUzYH (source `design-lab/section-a/`). Owner answers save to its db doc `picks/selection` (read with ArtifactData get).
 - Sources to port: VIP app = `stormsync-dashboard/github-repo/src/pages`; Chase Log = `Log`; Free Content Library = `stormsync-academy`; archive work = `stormsync-archive`.
-- Supabase project `weather` (ztzqemzuanwqwqzsaigd) is empty. Vercel project not created yet.
+- Supabase project `weather` (ztzqemzuanwqwqzsaigd). Vercel project `stormsync-weather` (prj_PesfMRifhkpUuLy65BRGtA7YGoO5, team jeremys-projects-3fe6711f), production branch `main`, domain weather.sswx.space added. Vercel MCP lacks create rights; the Vercel CLI/API with the owner's token works. Public env vars set: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY (publishable key).
 
 **Owner decisions (2026-10-13)**
 - Menus: users pick from offered lists (main 12, second 8, in `picks/selection`); defaults main=Corner Sweep, second=Morph FAB; same menu can't be both; controls must auto-avoid overlap; admin sets defaults; new-user intro guide ends with menu picking; changeable in account settings.
@@ -27,12 +27,16 @@
 
 **Fixed:** lab saved data came back read-only, silently blocking later edits (now cloned on load).
 
-**Blockers:** CodePen for A2 blocked by Cloudflare; owner may paste its code.
+**Blockers:**
+- DNS: owner adds CNAME `weather` → `cname.vercel-dns.com` at GoDaddy (GoDaddy connector can't edit DNS).
+- `SUPABASE_SERVICE_ROLE_KEY` (secret key) can't be read by the Supabase connector or any token in the creds doc; owner adds it in Vercel env vars before phase 08.
 
 **Next actions**
 1. Create `main` from this branch (owner approved), open PR.
-2. Phase 01: project skeleton.
+2. Phase 07: menu fixes for Color Morph Bar and Flip Tiles are lab-only (not offered); Radial Plates + Speed Dial fixes done. Admin-set defaults need the admin panel (phase 11), so 07 moves after 11.
 
 **Lab answers:** questionnaire https://claude.ai/artifact/1S89fRJDQe5QzLj9xEKuQc (db `answers/owner`).
 
 **Resume:** `git -C /home/user/Weather log --oneline -5`; lab test: `node <scratchpad>/test-lab.js design-lab/section-a <outdir>`.
+
+**Commands:** `npm run verify` (typecheck, lint, format, test, build, budget). Dev: `npm run dev`.

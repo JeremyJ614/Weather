@@ -1,0 +1,33 @@
+.trig {
+  position: fixed;
+  z-index: 70;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 5px;
+  background: color-mix(in srgb, var(--surface2) 85%, transparent);
+  border: 1px solid var(--line);
+}
+.trig span {
+  display: block;
+  width: 18px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--text);
+  transition:
+    transform var(--t-base) var(--spring),
+    opacity 0.2s;
+}
+.trig[data-open="true"] span:nth-child(1) {
+  transform: translateY(7px) rotate(45deg);
+}
+.trig[data-open="true"] span:nth-child(2) {
+  opacity: 0;
+  transform: scaleX(0);
+}
+.trig[data-open="true"] span:nth-child(3) {
+  transform: translateY(-7px) rotate(-45deg);
+}
