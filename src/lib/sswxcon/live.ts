@@ -1,7 +1,10 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { pick } from "@/lib/colors/pick";
+import { getColors } from "@/lib/colors/server";
 import { activeAlerts } from "@/lib/nws/active";
 import {
+  BANDS,
   bandFor,
   computeScore,
   describe,
@@ -60,12 +63,22 @@ export async function nationalScore() {
     }),
   ]);
   const r = computeScore(list, spc);
+  const colors = await getColors();
+  const bands = BANDS.map((b, i) => ({
+    ...b,
+    color: pick(colors, `sswx:band:${i}`, b.color),
+  }));
+  const components = r.components.map((c) => ({
+    ...c,
+    color: pick(colors, `sswx:part:${c.key}`, c.color),
+  }));
   return {
     at: new Date().toISOString(),
     total: r.total,
-    band: bandFor(r.total),
+    band: bands[BANDS.indexOf(bandFor(r.total))],
+    bands,
     drivers: describe(r.components, r.total),
-    components: r.components,
+    components,
     alertCount: list.length,
     spc,
     spcOk,

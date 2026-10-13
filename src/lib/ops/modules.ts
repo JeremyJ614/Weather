@@ -12,6 +12,7 @@ export const MODULES = [
   { id: "polls", label: "Weekly Polls" },
   { id: "sswxcon", label: "SSWXCon Score" },
   { id: "warnings", label: "Warnings & Reports" },
+  { id: "spc", label: "SPC & Probability" },
   { id: "maps", label: "Maps" },
   { id: "weather-news", label: "Weather News" },
   { id: "news", label: "SSWX News" },

@@ -1,5 +1,7 @@
 import "server-only";
 import { geoPath, serviceLayer } from "@/lib/map/geo";
+import { pick } from "@/lib/colors/pick";
+import { getColors } from "@/lib/colors/server";
 import { activeAlerts } from "@/lib/nws/active";
 import { classify, type Report } from "./reports";
 import { colorOf, isMarine, rankOf, statesOf, tags } from "./style";
@@ -13,7 +15,7 @@ const SEV: Record<string, number> = {
 
 /** Every active land alert, most dangerous first, with its map polygon if storm-based. */
 export async function warningsList() {
-  const feats = await activeAlerts();
+  const [feats, colors] = await Promise.all([activeAlerts(), getColors()]);
   const items = feats
     .filter((f) => !isMarine(f.properties.event))
     .map((f) => {
@@ -29,7 +31,7 @@ export async function warningsList() {
         sent: p.sent ?? "",
         expires: p.ends ?? p.expires ?? "",
         sender: (p.senderName ?? "").replace(/^NWS /, ""),
-        color: colorOf(p.event),
+        color: pick(colors, `warn:${p.event}`, colorOf(p.event)),
         rank: rankOf(p.event),
         tags: tags({
           tornadoDamageThreat: one("tornadoDamageThreat"),
@@ -137,17 +139,21 @@ const WWA =
 
 /** Every active land watch, warning and advisory area, projected; most dangerous drawn last. */
 export async function warningMap() {
-  const feats = await serviceLayer<{ prod_type?: string }>(WWA, 120);
+  const [feats, colors] = await Promise.all([
+    serviceLayer<{ prod_type?: string }>(WWA, 120),
+    getColors(),
+  ]);
+  const col = (ev: string) => pick(colors, `warn:${ev}`, colorOf(ev));
   const polys = feats
     .map((f) => {
       const ev = String(f.properties.prod_type ?? "");
-      return { ev, r: rankOf(ev), c: colorOf(ev), d: geoPath(f.geometry) };
+      return { ev, r: rankOf(ev), c: col(ev), d: geoPath(f.geometry) };
     })
     .filter((p) => p.d && p.ev && !isMarine(p.ev))
     .sort((a, b) => b.r - a.r);
   const legend = [...new Set(polys.map((p) => p.ev))]
     .sort((a, b) => rankOf(a) - rankOf(b))
     .slice(0, 10)
-    .map((label) => ({ label, color: colorOf(label) }));
+    .map((label) => ({ label, color: col(label) }));
   return { polys: polys.map(({ c, d }) => ({ c, d })), legend };
 }

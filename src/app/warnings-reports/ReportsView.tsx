@@ -25,7 +25,11 @@ const ago = (iso: string, now: number) => {
 };
 
 /** Storm Reports: what people on the ground saw (IEM Local Storm Reports). */
-export function ReportsView() {
+export function ReportsView({
+  colors,
+}: {
+  colors: Record<ReportKind, string>;
+}) {
   const [hours, setHours] = useState(24);
   const [res, setRes] = useState<
     { hours: number; at: number; reports: Report[] } | "err" | null
@@ -96,7 +100,7 @@ export function ReportsView() {
             className={`${s.kind} ${n > 0 ? s.kindOn : ""}`}
             aria-pressed={kind === k}
             onClick={() => setKind(kind === k ? "" : k)}
-            style={{ ["--c" as string]: KIND[k].color, ["--i" as string]: i }}
+            style={{ ["--c" as string]: colors[k], ["--i" as string]: i }}
           >
             <b>{loading ? "–" : <CountUp value={n} />}</b>
             <span>{KIND[k].label}</span>
@@ -109,7 +113,7 @@ export function ReportsView() {
         sub={null}
         legend={SEVERE.map((k) => ({
           label: KIND[k].label,
-          color: KIND[k].color,
+          color: colors[k],
         }))}
         status={
           res === "err"
@@ -135,7 +139,7 @@ export function ReportsView() {
                   cx={x}
                   cy={y}
                   r={big ? 7 : 4.5}
-                  fill={KIND[r.kind].color}
+                  fill={colors[r.kind]}
                   className={big ? s.dotBig : s.dot}
                 />
               );
@@ -159,7 +163,7 @@ export function ReportsView() {
             <li
               key={i}
               style={{
-                ["--c" as string]: KIND[r.kind].color,
+                ["--c" as string]: colors[r.kind],
                 ["--i" as string]: Math.min(i, 12),
               }}
             >

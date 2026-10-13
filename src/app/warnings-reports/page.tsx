@@ -4,7 +4,10 @@ import { ModuleOff } from "@/components/ops/ModuleOff";
 import { PageHero } from "@/components/ui/PageHero";
 import { HomeTabs } from "@/features/news/HomeTabs";
 import { getSiteDefaults } from "@/lib/settings";
+import { pick } from "@/lib/colors/pick";
+import { getColors } from "@/lib/colors/server";
 import { warningsList } from "@/lib/warnings/feed";
+import { KIND, type ReportKind } from "@/lib/warnings/reports";
 import { ReportsView } from "./ReportsView";
 import { WarningsView } from "./WarningsView";
 import s from "./Warn.module.css";
@@ -15,9 +18,16 @@ export const metadata: Metadata = {
 
 export default async function WarningsReports() {
   const { disabled } = await getSiteDefaults();
-  const list = disabled.includes("warnings")
-    ? null
-    : await warningsList().catch(() => null);
+  const [list, colors] = await Promise.all([
+    disabled.includes("warnings") ? null : warningsList().catch(() => null),
+    getColors(),
+  ]);
+  const kinds = Object.fromEntries(
+    Object.entries(KIND).map(([k, v]) => [
+      k,
+      pick(colors, `report:${k}`, v.color),
+    ]),
+  ) as Record<ReportKind, string>;
   return (
     <main className="mx-auto max-w-2xl px-4 pt-4 pb-28">
       <PageHero
@@ -52,7 +62,7 @@ export default async function WarningsReports() {
               label: "Storm Reports",
               sub: "What people saw on the ground",
               icon: <Radio aria-hidden />,
-              panel: <ReportsView />,
+              panel: <ReportsView colors={kinds} />,
             },
           ]}
         />

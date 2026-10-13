@@ -1,4 +1,5 @@
 import { geoPath, serviceLayer } from "@/lib/map/geo";
+import { getColors } from "@/lib/colors/server";
 import { VECTOR, colorFor, legendFor, rank } from "@/lib/map/products";
 
 /** One national vector product, projected to our canvas: { title, valid, polys, legend }. */
@@ -7,13 +8,13 @@ export async function GET(req: Request) {
   const product = VECTOR.find((v) => v.id === id);
   if (!product) return Response.json({ error: "Unknown map" }, { status: 400 });
   try {
-    const feats = await serviceLayer<Record<string, unknown>>(
-      product.url,
-      1800,
-    );
+    const [feats, colors] = await Promise.all([
+      serviceLayer<Record<string, unknown>>(product.url, 1800),
+      getColors(),
+    ]);
     const polys = feats
       .map((f) => ({
-        c: colorFor(product.kind, f.properties),
+        c: colorFor(product.kind, f.properties, colors),
         r: rank(product.kind, f.properties),
         d: geoPath(f.geometry),
       }))
@@ -45,7 +46,7 @@ export async function GET(req: Request) {
         title: product.title,
         valid,
         polys,
-        legend: legendFor(product.kind),
+        legend: legendFor(product.kind, colors),
       },
       {
         headers: {

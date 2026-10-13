@@ -1,7 +1,7 @@
 "use client";
 
 import { CountUp } from "@/features/dashboard/widgets/CountUp";
-import { BANDS, GAUGE_MAX, bandFor } from "@/lib/sswxcon/score";
+import { GAUGE_MAX, type Band } from "@/lib/sswxcon/score";
 import s from "./Con.module.css";
 
 const C = 120;
@@ -19,12 +19,14 @@ const arc = (from: number, to: number, r = R) =>
  * sequence, a comet swings to the score, the number counts up. Transform and
  * opacity only.
  */
-export function Meter({ total }: { total: number }) {
-  const band = bandFor(total);
-  const segs = BANDS.filter((b) => b.min < GAUGE_MAX).map((b, i, all) => ({
-    ...b,
-    to: all[i + 1]?.min ?? GAUGE_MAX,
-  }));
+export function Meter({ total, bands }: { total: number; bands: Band[] }) {
+  const band = [...bands].reverse().find((b) => total >= b.min) ?? bands[0];
+  const segs = bands
+    .filter((b) => b.min < GAUGE_MAX)
+    .map((b, i, all) => ({
+      ...b,
+      to: all[i + 1]?.min ?? GAUGE_MAX,
+    }));
   return (
     <div className={s.meter} style={{ ["--band" as string]: band.color }}>
       <span className={s.sweep} aria-hidden />

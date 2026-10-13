@@ -90,8 +90,12 @@ export default async function SswxCon() {
               icon: <LineChart aria-hidden />,
               panel: (
                 <div className="grid gap-5">
-                  <Trend snaps={snaps} now={national.total} />
-                  <Ladder total={national.total} />
+                  <Trend
+                    snaps={snaps}
+                    now={national.total}
+                    bands={national.bands}
+                  />
+                  <Ladder total={national.total} bands={national.bands} />
                 </div>
               ),
             },

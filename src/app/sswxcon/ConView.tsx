@@ -55,7 +55,7 @@ export function ConView({ initial }: { initial: National }) {
   return (
     <div className="grid gap-5">
       <section className={s.hero}>
-        <Meter key={n.at} total={n.total} />
+        <Meter key={n.at} total={n.total} bands={n.bands} />
         <p className={s.drivers}>{n.drivers}</p>
         <div className={s.meta}>
           <span>

@@ -1,4 +1,7 @@
-import { BANDS, bandFor } from "@/lib/sswxcon/score";
+import type { Band } from "@/lib/sswxcon/score";
+
+const bandIn = (bands: Band[], v: number) =>
+  [...bands].reverse().find((b) => v >= b.min) ?? bands[0];
 import s from "./Con.module.css";
 
 export type Snap = { at: string; total: number };
@@ -7,7 +10,16 @@ const W = 340;
 const H = 150;
 
 /** The last 48 hourly snapshots, with the band thresholds behind the line. */
-export function Trend({ snaps, now }: { snaps: Snap[]; now: number }) {
+export function Trend({
+  snaps,
+  now,
+  bands,
+}: {
+  snaps: Snap[];
+  now: number;
+  bands: Band[];
+}) {
+  const bandFor = (v: number) => bandIn(bands, v);
   if (snaps.length < 2)
     return (
       <p className={s.empty}>
@@ -52,26 +64,28 @@ export function Trend({ snaps, now }: { snaps: Snap[]; now: number }) {
             <stop offset="1" stopColor={bandFor(peak).color} stopOpacity="0" />
           </linearGradient>
         </defs>
-        {BANDS.filter((b) => b.min > 0 && b.min < top).map((b) => (
-          <g key={b.label}>
-            <line
-              x1="8"
-              x2={W - 8}
-              y1={y(b.min)}
-              y2={y(b.min)}
-              stroke={b.color}
-              className={s.th}
-            />
-            <text
-              x={W - 10}
-              y={y(b.min) - 3}
-              className={s.thLabel}
-              fill={b.color}
-            >
-              {b.label}
-            </text>
-          </g>
-        ))}
+        {bands
+          .filter((b) => b.min > 0 && b.min < top)
+          .map((b) => (
+            <g key={b.label}>
+              <line
+                x1="8"
+                x2={W - 8}
+                y1={y(b.min)}
+                y2={y(b.min)}
+                stroke={b.color}
+                className={s.th}
+              />
+              <text
+                x={W - 10}
+                y={y(b.min) - 3}
+                className={s.thLabel}
+                fill={b.color}
+              >
+                {b.label}
+              </text>
+            </g>
+          ))}
         <path d={area} fill="url(#con-area)" className={s.trendArea} />
         <path d={line} className={s.trendLine} stroke={bandFor(peak).color} />
         <circle
@@ -97,11 +111,11 @@ export function Trend({ snaps, now }: { snaps: Snap[]; now: number }) {
 }
 
 /** VIP's band ladder with the current score marked. */
-export function Ladder({ total }: { total: number }) {
-  const cur = bandFor(total);
+export function Ladder({ total, bands }: { total: number; bands: Band[] }) {
+  const cur = bandIn(bands, total);
   return (
     <ol className={s.ladder}>
-      {[...BANDS].reverse().map((b) => (
+      {[...bands].reverse().map((b) => (
         <li
           key={b.label}
           className={b === cur ? s.here : undefined}

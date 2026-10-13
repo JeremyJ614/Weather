@@ -1,0 +1,91 @@
+.group {
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+}
+.group summary {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  cursor: pointer;
+  font-size: 14px;
+}
+.group summary em {
+  font-style: normal;
+  font-size: 11px;
+  color: var(--accent);
+}
+.strip {
+  display: flex;
+  overflow: hidden;
+  width: 84px;
+  height: 18px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+}
+.strip i {
+  flex: 1;
+}
+.form {
+  display: grid;
+  gap: 8px;
+  padding: 4px 14px 14px;
+}
+.note {
+  font-size: 12px;
+  color: var(--muted);
+}
+.row {
+  display: grid;
+  grid-template-columns: 40px 1fr 6.5rem 36px;
+  align-items: center;
+  gap: 8px;
+}
+.row input[type="color"] {
+  width: 40px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: none;
+}
+.label {
+  font-size: 13px;
+}
+.hex {
+  min-height: 36px;
+  padding: 0 8px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+.hex[aria-invalid="true"] {
+  border-color: #ff6b6b;
+}
+.reset {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  color: var(--muted);
+}
+.reset:disabled {
+  opacity: 0.3;
+}
+.reset svg {
+  width: 15px;
+  height: 15px;
+}
+.ok {
+  font-size: 13px;
+  color: #4cd964;
+}
+.err {
+  font-size: 13px;
+  color: var(--accent);
+}

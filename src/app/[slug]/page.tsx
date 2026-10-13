@@ -19,6 +19,7 @@ const BUILT = new Set([
   "weekly-polls",
   "sswxcon",
   "warnings-reports",
+  "spc-probability",
 ]);
 
 export function generateStaticParams() {
