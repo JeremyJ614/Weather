@@ -26,14 +26,17 @@ void main(){
  float n=fbm(vec2(uv.x*ar,uv.y)*2.6+vec2(u_seed,u_p*.6*u_dir))*.5+.5;
  float b=u_dir>0.?uv.x:1.-uv.x;
  float v=mix(n,b,.5);
- float e=.11;
+ float e=.14;
  float t=u_p*(1.+2.*e)-e;
- float cov=1.-smoothstep(t-e*.35,t+e*.35,v);
- float edge=exp(-abs(v-t)*38.)*(1.-abs(u_p*2.-1.)*.6);
- vec3 glow=mix(u_glow,u_glow2,uv.y);
- vec3 c=u_bg+glow*edge*1.4;
- float a=clamp(cov+edge*.85,0.,1.);
- gl_FragColor=vec4(c*a,a);
+ float cov=1.-smoothstep(t-e*.3,t+e*.3,v);
+ float d=v-t;
+ float k=1.-abs(u_p*2.-1.)*.35;
+ float edge=exp(-abs(d)*24.)*k;
+ float fringe=exp(-abs(d+.035)*55.)*k;
+ vec3 glow=mix(u_glow,u_glow2,clamp(uv.y+n*.4-.2,0.,1.));
+ vec3 ink=u_bg*(.75+.6*n)+glow*.09*n*n;
+ vec3 c=ink*cov+glow*edge*1.9+u_glow2*fringe*.7;
+ gl_FragColor=vec4(c,clamp(cov+edge*.9,0.,1.));
 }`;
 
 type GL = WebGLRenderingContext;
@@ -195,11 +198,11 @@ export function visible(el: Element): DOMRect {
   return new DOMRect(r.left, top, r.width, Math.max(0, bottom - top));
 }
 
-export const morphCover = (rect: DOMRect, dir = 1, ms = 260) => {
+export const morphCover = (rect: DOMRect, dir = 1, ms = 340) => {
   seed = Math.random() * 50;
   return run(rect, 0, 1, dir, ms);
 };
-export const morphReveal = (rect: DOMRect | null, dir = 1, ms = 460) =>
+export const morphReveal = (rect: DOMRect | null, dir = 1, ms = 600) =>
   run(
     rect ?? lastRect ?? new DOMRect(0, 0, innerWidth, innerHeight),
     1,

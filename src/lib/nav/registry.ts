@@ -167,12 +167,22 @@ export const ALL_PAGES: NavPage[] = [...MAIN_NAV, ...SECOND_NAV].flatMap(
 
 export const href = (page: NavPage) => `/${page.slug}`;
 
-/** Groups as a given viewer may see them. */
-export function visibleNav(groups: NavGroup[], isAdmin: boolean): NavGroup[] {
+/** Groups as a given viewer may see them; signed-in members see "My Account" instead of sign-in. */
+export function visibleNav(
+  groups: NavGroup[],
+  isAdmin: boolean,
+  signedIn = false,
+): NavGroup[] {
   return groups
     .map((g) => ({
       ...g,
-      pages: g.pages.filter((pg) => isAdmin || !pg.adminOnly),
+      pages: g.pages
+        .filter((pg) => isAdmin || !pg.adminOnly)
+        .map((pg) =>
+          pg.slug === "login" && signedIn
+            ? { ...pg, label: "My Account", icon: "UserRound" }
+            : pg,
+        ),
     }))
     .filter((g) => g.pages.length > 0);
 }

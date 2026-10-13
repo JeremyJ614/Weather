@@ -28,6 +28,7 @@
 .stage {
   position: relative;
   overflow: hidden;
+  contain: layout paint;
   border-radius: 14px;
   border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
 }
@@ -41,8 +42,6 @@
 }
 .data {
   opacity: 0.92;
-  animation: reveal 700ms var(--ease) both;
-  transform-origin: 50% 50%;
 }
 .states path {
   fill: none;
@@ -54,9 +53,13 @@
   fill: none;
   stroke: color-mix(in srgb, var(--accent) 70%, transparent);
   stroke-width: 1.4;
-  filter: drop-shadow(
-    0 0 4px color-mix(in srgb, var(--accent) 60%, transparent)
-  );
+}
+/* A wide faint stroke under the outline: the glow, without a per-frame blur filter. */
+.glow {
+  fill: none;
+  stroke: color-mix(in srgb, var(--accent) 22%, transparent);
+  stroke-width: 7;
+  stroke-linejoin: round;
 }
 .labels text {
   font-size: 9px;
@@ -119,12 +122,6 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
-}
-@keyframes reveal {
-  from {
-    opacity: 0;
-    transform: scale(0.985);
-  }
 }
 @keyframes sweep {
   from {

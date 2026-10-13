@@ -198,6 +198,7 @@ export function UsMap({
                   <path key={st.id} d={st.d} />
                 ))}
               </g>
+              <path d={base.nation} className={s.glow} />
               <path d={base.nation} className={s.outline} />
               <g className={s.labels}>
                 {base.labels.map((l) => (

@@ -23,6 +23,7 @@ const nextFrame = () =>
  * WebGL overlay). Panels render on first open and stay mounted (maps keep state).
  * `underline`: a fixed multicolor rule that keeps its colors in every theme.
  * `segment`: a dark segmented control whose active pill carries the beam.
+ * `pills`: a sideways-scrolling row of dark pills (second-level tabs).
  */
 export function HomeTabs({
   tabs,
@@ -31,7 +32,7 @@ export function HomeTabs({
 }: {
   tabs: Tab[];
   label?: string;
-  variant?: "underline" | "segment";
+  variant?: "underline" | "segment" | "pills";
 }) {
   const [active, setActive] = useState(tabs[0]?.id);
   const [seen, setSeen] = useState(() => new Set([tabs[0]?.id]));
@@ -73,10 +74,20 @@ export function HomeTabs({
       <div
         role="tablist"
         aria-label={label}
-        className={variant === "segment" ? s.segment : s.underline}
-        style={{ gridTemplateColumns: `repeat(${tabs.length}, 1fr)` }}
+        className={
+          variant === "segment"
+            ? s.segment
+            : variant === "pills"
+              ? s.pills
+              : s.underline
+        }
+        style={
+          variant === "pills"
+            ? undefined
+            : { gridTemplateColumns: `repeat(${tabs.length}, 1fr)` }
+        }
       >
-        {variant === "segment" ? (
+        {variant === "pills" ? null : variant === "segment" ? (
           <Beam
             className={s.pill}
             style={{
@@ -98,20 +109,35 @@ export function HomeTabs({
             style={{ width: w, transform: shift }}
           />
         )}
-        {tabs.map((t) => (
-          <button
-            key={t.id}
-            role="tab"
-            id={`tab-${t.id}`}
-            aria-selected={t.id === active}
-            aria-controls={`panel-${t.id}`}
-            onClick={() => select(t.id)}
-            className={s.tab}
-          >
-            {t.icon}
-            {t.label}
-          </button>
-        ))}
+        {tabs.map((t) =>
+          variant === "pills" && t.id === active ? (
+            <Beam key={t.id} className={s.pillBeam}>
+              <button
+                role="tab"
+                id={`tab-${t.id}`}
+                aria-selected
+                aria-controls={`panel-${t.id}`}
+                className={s.tab}
+              >
+                {t.icon}
+                {t.label}
+              </button>
+            </Beam>
+          ) : (
+            <button
+              key={t.id}
+              role="tab"
+              id={`tab-${t.id}`}
+              aria-selected={t.id === active}
+              aria-controls={`panel-${t.id}`}
+              onClick={() => select(t.id)}
+              className={s.tab}
+            >
+              {t.icon}
+              {t.label}
+            </button>
+          ),
+        )}
       </div>
       <div ref={wrap}>
         {tabs.map((t) => (
@@ -121,6 +147,7 @@ export function HomeTabs({
             id={`panel-${t.id}`}
             aria-labelledby={`tab-${t.id}`}
             hidden={t.id !== active}
+            className={s.panel}
           >
             {seen.has(t.id) ? t.panel : null}
           </div>

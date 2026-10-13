@@ -1,3 +1,4 @@
+import { REMEMBER_COOKIE, sessionOptions } from "@/lib/supabase/remember";
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
@@ -13,8 +14,9 @@ export async function proxy(request: NextRequest) {
       setAll: (list) => {
         list.forEach(({ name, value }) => request.cookies.set(name, value));
         response = NextResponse.next({ request });
+        const remember = request.cookies.get(REMEMBER_COOKIE)?.value;
         list.forEach(({ name, value, options }) =>
-          response.cookies.set(name, value, options),
+          response.cookies.set(name, value, sessionOptions(remember, options)),
         );
       },
     },

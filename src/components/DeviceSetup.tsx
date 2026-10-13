@@ -22,21 +22,27 @@ export function DeviceSetup() {
     const root = document.documentElement;
     root.dataset.tier = tier;
 
-    // Probe 60 frames after load; a slow phone gets demoted.
-    let frames = 0;
-    let start = 0;
+    // Probe 90 frames once the page settles (load jank is not the phone's
+    // speed); the median frame time ignores one-off long frames.
+    const times: number[] = [];
+    let last = 0;
     let raf = 0;
     const step = (t: number) => {
-      if (!start) start = t;
-      if (++frames < 60) {
+      if (last) times.push(t - last);
+      last = t;
+      if (times.length < 90) {
         raf = requestAnimationFrame(step);
         return;
       }
-      tier = demote(tier, (frames * 1000) / (t - start));
+      times.sort((a, b) => a - b);
+      tier = demote(tier, 1000 / times[times.length >> 1]);
       root.dataset.tier = tier;
     };
-    raf = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(raf);
+    const idle = setTimeout(() => (raf = requestAnimationFrame(step)), 2500);
+    return () => {
+      clearTimeout(idle);
+      cancelAnimationFrame(raf);
+    };
   }, []);
   return null;
 }

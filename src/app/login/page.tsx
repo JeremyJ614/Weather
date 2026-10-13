@@ -5,6 +5,8 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { supabaseServer } from "@/lib/supabase/server";
 import { safeNext } from "@/lib/safe-next";
+import { getViewer } from "@/lib/auth/viewer";
+import { ShieldCheck } from "lucide-react";
 import { LoginForm } from "./LoginForm";
 import { ChangePin } from "./ChangePin";
 
@@ -16,6 +18,7 @@ export default async function Login({
   searchParams: Promise<{ next?: string; error?: string }>;
 }) {
   const { next, error } = await searchParams;
+  const viewer = await getViewer();
   const supabase = await supabaseServer();
   const {
     data: { user },
@@ -40,6 +43,14 @@ export default async function Login({
               </h1>
             </div>
             <p className="text-muted">{user.email}</p>
+            {viewer.isAdmin && (
+              <Link href="/admin">
+                <Button variant="primary" className="w-full">
+                  <ShieldCheck className="size-4" aria-hidden /> Open the Admin
+                  Panel
+                </Button>
+              </Link>
+            )}
             <ChangePin />
             <form action="/auth/signout" method="post">
               <Button type="submit" className="w-full">

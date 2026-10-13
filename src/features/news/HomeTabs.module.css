@@ -82,3 +82,56 @@
 .segment .tab[aria-selected="true"] {
   color: var(--accent);
 }
+
+.pills {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  margin: 0 -16px;
+  padding: 2px 16px 4px;
+  scrollbar-width: none;
+}
+.pills .tab {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--bg) 70%, #000);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.pills .tab svg {
+  width: 14px;
+  height: 14px;
+}
+.pills .tab[aria-selected="true"] {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+.pillBeam {
+  flex: none;
+  display: inline-flex;
+  border-radius: 999px;
+}
+
+/* Phones that skip the WebGL morph still get a light slide-in on each switch. */
+:global(:root[data-tier="low"]) .panel {
+  animation: panelIn 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes panelIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  :global(:root[data-tier="low"]) .panel {
+    animation: none;
+  }
+}

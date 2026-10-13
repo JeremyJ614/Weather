@@ -49,16 +49,16 @@ export function MenuHost({
     else delete root.dataset.logoSide;
   }, [bar, topLeft]);
   // Admin-only pages are listed only for admins; the pages themselves check on the server.
-  const { isAdmin } = useViewer();
+  const { isAdmin, signedIn } = useViewer();
   return (
     <>
       <M.Component
-        groups={visibleNav(MAIN_NAV, isAdmin)}
+        groups={visibleNav(MAIN_NAV, isAdmin, signedIn)}
         placement={mp}
         role="main"
       />
       <S.Component
-        groups={visibleNav(SECOND_NAV, isAdmin)}
+        groups={visibleNav(SECOND_NAV, isAdmin, signedIn)}
         placement={sp}
         role="second"
       />

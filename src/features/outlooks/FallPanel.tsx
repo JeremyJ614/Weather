@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Leaf, Pause, Play } from "lucide-react";
 import { Beam } from "@/components/ui/Beam";
 import { UsMap } from "@/features/maps/UsMap";
+import { HomeTabs } from "@/features/news/HomeTabs";
 import { Section } from "@/features/maps/Section";
 import { project } from "@/lib/map/usAlbers";
 import { leafColor, timeline, type FallReport } from "@/lib/weather/foliage";
@@ -62,6 +63,29 @@ export function FallPanel({ report }: { report: FallReport | null }) {
     return () => clearInterval(t);
   }, [playing, stops.length]);
 
+  // The dot layer only rebuilds when the date moves, not on other renders.
+  const dots = useMemo(
+    () => (
+      <g className={s.dots}>
+        {pts.map((p, k) => {
+          if (p.t > asOf) return null;
+          const age = (asOf - p.t) / DAY;
+          return (
+            <circle
+              key={k}
+              cx={p.x}
+              cy={p.y}
+              r={age < 4 ? 6 : 4.6}
+              fill={leafColor(age)}
+              className={age < 4 ? s.fresh : undefined}
+            />
+          );
+        })}
+      </g>
+    ),
+    [pts, asOf],
+  );
+
   if (!report) {
     return (
       <p className="panel rounded-2xl p-4 text-sm text-muted">
@@ -80,7 +104,7 @@ export function FallPanel({ report }: { report: FallReport | null }) {
     (t, k) => k === 0 || new Date(t).getUTCDate() <= 3,
   );
 
-  return (
+  const replay = (
     <div className="grid gap-5">
       <Section
         icon={<Leaf aria-hidden />}
@@ -108,23 +132,7 @@ export function FallPanel({ report }: { report: FallReport | null }) {
           ]}
           status="ready"
           file={`sswx-fall-${new Date(asOf).toISOString().slice(0, 10)}`}
-          overlay={
-            <g className={s.dots}>
-              {shown.map((p, k) => {
-                const age = (asOf - p.t) / DAY;
-                return (
-                  <circle
-                    key={k}
-                    cx={p.x}
-                    cy={p.y}
-                    r={age < 4 ? 6 : 4.6}
-                    fill={leafColor(age)}
-                    className={age < 4 ? s.fresh : undefined}
-                  />
-                );
-              })}
-            </g>
-          }
+          overlay={dots}
         />
       </Section>
 
@@ -196,7 +204,10 @@ export function FallPanel({ report }: { report: FallReport | null }) {
           </div>
         </div>
       </div>
-
+    </div>
+  );
+  const season = (
+    <div className="grid gap-5">
       <div className={s.stats}>
         <div>
           <p className="label">Reports by {fmt(asOf)}</p>
@@ -232,5 +243,15 @@ export function FallPanel({ report }: { report: FallReport | null }) {
         </div>
       )}
     </div>
+  );
+  return (
+    <HomeTabs
+      label="Fall color"
+      variant="pills"
+      tabs={[
+        { id: "fall-map", label: "Color Map", panel: replay },
+        { id: "fall-season", label: "Season Stats", panel: season },
+      ]}
+    />
   );
 }

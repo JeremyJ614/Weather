@@ -1,6 +1,7 @@
 "use server";
 
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
+import { REMEMBER_COOKIE } from "@/lib/supabase/remember";
 import { redirect } from "next/navigation";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -12,6 +13,19 @@ import { checkSignup, type SignupInput } from "@/lib/auth/signup";
 
 export type FormState = { error?: string } | null;
 
+/** Records the "Remember this device" choice before a sign-in writes the session cookies. */
+async function rememberChoice(fd: FormData) {
+  (await cookies()).set(
+    REMEMBER_COOKIE,
+    fd.get("remember") === "0" ? "0" : "1",
+    {
+      path: "/",
+      sameSite: "lax",
+      maxAge: 400 * 86400,
+    },
+  );
+}
+
 const lockMsg = (until: number) =>
   `Too many wrong PINs. Try again in ${Math.ceil((until - Date.now()) / 60000)} minutes, or use an email link.`;
 
@@ -21,6 +35,7 @@ async function pinSignIn(_: FormState, fd: FormData): Promise<FormState> {
   if (!email || !validPin(pin))
     return { error: "Enter your email and 4-digit PIN." };
 
+  await rememberChoice(fd);
   const admin = supabaseAdmin();
   const hash = emailHash(email);
   const { data: row } = await admin
@@ -153,6 +168,7 @@ async function callbackUrl(next: string) {
 }
 
 async function google(_: FormState, fd: FormData): Promise<FormState> {
+  await rememberChoice(fd);
   const supabase = await supabaseServer();
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
@@ -169,6 +185,7 @@ async function emailLink(_: LinkState, fd: FormData): Promise<LinkState> {
   const email = normEmail(String(fd.get("email") ?? ""));
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
     return { error: "Enter your email." };
+  await rememberChoice(fd);
   const supabase = await supabaseServer();
   const { error } = await supabase.auth.signInWithOtp({
     email,
