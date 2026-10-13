@@ -1,9 +1,13 @@
+import type { Doc } from "./doc";
 export type PostCard = {
   id: string;
   title: string;
   cover_path: string | null;
   publish_at: string;
   body: string;
+  /** Set for posts from the rich editor (their `body` is already plain text). */
+  rich?: number | null;
+  doc?: Doc | null;
 };
 
 const cfg = () => ({
@@ -24,7 +28,7 @@ export async function getPublishedPosts(limit = 30): Promise<PostCard[]> {
   if (!url || !key) return [];
   try {
     const res = await fetch(
-      `${url}/rest/v1/news_posts?select=id,title,cover_path,publish_at,body&order=publish_at.desc&limit=${limit}`,
+      `${url}/rest/v1/news_posts?select=id,title,cover_path,publish_at,body,rich:doc->v&order=publish_at.desc&limit=${limit}`,
       { headers: { apikey: key }, ...cache },
     );
     return res.ok ? res.json() : [];
@@ -38,7 +42,7 @@ export async function getPost(id: string): Promise<PostCard | null> {
   if (!url || !key || !/^[0-9a-f-]{36}$/.test(id)) return null;
   try {
     const res = await fetch(
-      `${url}/rest/v1/news_posts?select=id,title,cover_path,publish_at,body&id=eq.${id}`,
+      `${url}/rest/v1/news_posts?select=id,title,cover_path,publish_at,body,doc,rich:doc->v&id=eq.${id}`,
       {
         headers: { apikey: key },
         ...cache,
@@ -52,14 +56,16 @@ export async function getPost(id: string): Promise<PostCard | null> {
 }
 
 /** Plain-text preview of a post body (Markdown syntax removed). */
-export function excerpt(body: string, max = 140): string {
-  const text = body
-    .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
-    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
-    .replace(/^[#>\-\d.\s]+/gm, "")
-    .replace(/\*+/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
+export function excerpt(body: string, max = 140, rich = false): string {
+  const text = rich
+    ? body.replace(/\s+/g, " ").trim()
+    : body
+        .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+        .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+        .replace(/^[#>\-\d.\s]+/gm, "")
+        .replace(/\*+/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
   return text.length > max
     ? `${text.slice(0, max).replace(/\s+\S*$/, "")}…`
     : text;

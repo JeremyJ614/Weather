@@ -1,40 +1,22 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
-import {
-  Bold,
-  Eye,
-  Heading2,
-  ImagePlus,
-  Italic,
-  Link2,
-  List,
-  Pencil,
-  Quote,
-  Trash2,
-} from "lucide-react";
+import { useActionState, useEffect, useState } from "react";
+import { ImagePlus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { NewsBody } from "@/lib/news/markdown";
+import { fromMarkdown, type Doc } from "@/lib/news/doc";
+import { RichEditor } from "./RichEditor";
 import { deleteNews, saveNews } from "../actions";
 
 type Post = {
   title: string;
   body: string;
+  doc: Doc | null;
+  updated_at: string | null;
   cover_path: string | null;
   status: string;
   publish_at: string | null;
 };
 const field = "w-full rounded-xl border border-line bg-bg px-3";
-const TOOLS = [
-  { id: "bold", label: "Bold", Icon: Bold },
-  { id: "italic", label: "Italic", Icon: Italic },
-  { id: "h2", label: "Heading", Icon: Heading2 },
-  { id: "list", label: "List", Icon: List },
-  { id: "quote", label: "Quote", Icon: Quote },
-  { id: "link", label: "Link", Icon: Link2 },
-  { id: "image", label: "Image", Icon: ImagePlus },
-] as const;
-
 /** Shrinks a photo on the phone (max 1600 px, WebP) so uploads stay small. */
 async function shrink(file: File): Promise<Blob> {
   const bmp = await createImageBitmap(file);
@@ -73,51 +55,41 @@ export function Editor({
   initialMode: "draft" | "now" | "schedule";
 }) {
   const [state, action, pending] = useActionState(saveNews, null);
-  const [body, setBody] = useState(post?.body ?? "");
   const [cover, setCover] = useState(post?.cover_path ?? "");
-  const [preview, setPreview] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [mode, setMode] = useState<string>(initialMode);
   const [when, setWhen] = useState(localInput(post?.publish_at ?? null));
-  const area = useRef<HTMLTextAreaElement>(null);
+  const [initial] = useState<Doc | null>(() =>
+    post ? (post.doc ?? fromMarkdown(post.body)) : null,
+  );
 
-  const insert = (before: string, after = "", placeholder = "") => {
-    const el = area.current;
-    if (!el) return;
-    const { selectionStart: s, selectionEnd: e } = el;
-    const picked = body.slice(s, e) || placeholder;
-    setBody(body.slice(0, s) + before + picked + after + body.slice(e));
-    requestAnimationFrame(() => {
-      el.focus();
-      el.setSelectionRange(
-        s + before.length,
-        s + before.length + picked.length,
-      );
-    });
-  };
-  const line = (prefix: string) => {
-    const el = area.current;
-    const s = el?.selectionStart ?? body.length;
-    const start = body.lastIndexOf("\n", s - 1) + 1;
-    setBody(body.slice(0, start) + prefix + body.slice(start));
-  };
-
-  const upload = async (file: File, asCover: boolean) => {
-    setBusy(asCover ? "cover" : "image");
+  // A saved post no longer needs its local autosave.
+  useEffect(() => {
+    if (!state?.saved) return;
     try {
-      const blob = await shrink(file);
-      const res = await fetch(`/api/admin/news-image?post=${id}`, {
-        method: "POST",
-        headers: { "Content-Type": "image/webp" },
-        body: blob,
-      });
-      const out = await res.json();
-      if (!res.ok) throw new Error(out.error ?? "Upload failed");
+      localStorage.removeItem(`sswx-news-draft:${id}`);
+    } catch {
+      /* private mode */
+    }
+  }, [state, id]);
+
+  /** Shrinks and stores an image for this post; returns its public address. */
+  const send = async (file: File) => {
+    const blob = await shrink(file);
+    const res = await fetch(`/api/admin/news-image?post=${id}`, {
+      method: "POST",
+      headers: { "Content-Type": "image/webp" },
+      body: blob,
+    });
+    const out = await res.json();
+    if (!res.ok) throw new Error(out.error ?? "Upload failed");
+    return out as { path: string; url: string };
+  };
+  const upload = async (file: File, asCover: boolean) => {
+    setBusy("cover");
+    try {
+      const out = await send(file);
       if (asCover) setCover(out.path);
-      else
-        insert(
-          `\n![${file.name.replace(/\.[^.]+$/, "").slice(0, 60)}](${out.url})\n`,
-        );
     } catch (e) {
       alert((e as Error).message);
     } finally {
@@ -131,16 +103,6 @@ export function Editor({
     input.accept = "image/*";
     input.onchange = () => input.files?.[0] && upload(input.files[0], asCover);
     input.click();
-  };
-
-  const runTool = (tool: (typeof TOOLS)[number]["id"]) => {
-    if (tool === "bold") insert("**", "**", "bold");
-    else if (tool === "italic") insert("*", "*", "italic");
-    else if (tool === "h2") line("## ");
-    else if (tool === "list") line("- ");
-    else if (tool === "quote") line("> ");
-    else if (tool === "link") insert("[", "](https://)", "link text");
-    else pickFile(false);
   };
 
   return (
@@ -192,57 +154,18 @@ export function Editor({
         )}
       </div>
 
-      <div className="grid gap-2">
-        <div
-          className="flex flex-wrap items-center gap-1"
-          role="toolbar"
-          aria-label="Formatting"
-        >
-          {TOOLS.map(({ id: tool, label, Icon }) => (
-            <button
-              key={label}
-              type="button"
-              onClick={() => runTool(tool)}
-              disabled={preview || busy !== null}
-              aria-label={label}
-              className="grid size-10 place-items-center rounded-lg border border-line bg-surface text-accent disabled:opacity-40"
-            >
-              <Icon className="size-4" aria-hidden />
-            </button>
-          ))}
-          <button
-            type="button"
-            onClick={() => setPreview(!preview)}
-            className="ml-auto flex min-h-10 items-center gap-2 rounded-lg border border-line bg-surface px-3 text-sm font-bold"
-          >
-            {preview ? (
-              <Pencil className="size-4" aria-hidden />
-            ) : (
-              <Eye className="size-4" aria-hidden />
-            )}
-            {preview ? "Edit" : "Preview"}
-          </button>
-        </div>
-        {busy === "image" && (
-          <p className="text-sm text-muted">Uploading image…</p>
-        )}
-        <textarea
-          ref={area}
-          name="body"
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          maxLength={20000}
-          rows={14}
-          aria-label="Post"
-          placeholder="Write the post. Use the buttons for bold, headings, lists, links and images."
-          className={`${field} py-3 leading-relaxed ${preview ? "hidden" : ""}`}
-        />
-        {preview && (
-          <div className="min-h-40 rounded-xl border border-line bg-surface p-4">
-            <NewsBody source={body} />
-          </div>
-        )}
-      </div>
+      <RichEditor
+        postId={id}
+        initial={initial}
+        savedAt={post?.updated_at ?? null}
+        upload={async (f) => (await send(f)).url}
+        onBusy={(b) => setBusy(b ? "image" : null)}
+      />
+      {busy === "image" && (
+        <p className="text-sm text-muted" role="status">
+          Uploading image…
+        </p>
+      )}
 
       <fieldset className="grid gap-2 rounded-2xl border border-line bg-surface p-4">
         <legend className="px-1 text-sm text-muted">Publishing</legend>

@@ -131,3 +131,5 @@ Personal Warnings & Alerts, Affected Communities Outlook, FairWeather Tracking, 
 | 41 | Atmospheric Ingredients | The SWTI number in the ring showed tiny and grey (the label style caught the number) | Label has its own class |
 | 42 | Subtabs | Still no visible transition on the owner's phone: with Remove animations or Data Saver on, the morph is skipped and CSS animations are zeroed | Every switch slides the new panel in through the Web Animations API (a gentle fade under reduced motion); the morph still plays on top where allowed |
 | 43 | SPC Outlook | Seven type chips ran off the side of the screen; "Tomorrow" ran into "Thu" in the 8-day strip | Overview over a 3 × 2 hazard grid that fits in one view; the strip says "Tmrw" and clips labels |
+| 44 | SSWX News | An uploaded team logo stretched past the screen | Post images always fit the column and at most 75% of the screen height (reader, preview and editor) |
+| 45 | Admin · SSWX News | Writing meant Markdown symbols (bold showed `**stars**`) | Rich what-you-see editor saved as a validated document (see D-entry); older Markdown posts open converted |

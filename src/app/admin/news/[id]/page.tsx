@@ -20,7 +20,7 @@ export default async function EditNews({
   const { supabase } = await requireAdmin("news");
   const { data: post } = await supabase
     .from("news_posts")
-    .select("title, body, cover_path, status, publish_at")
+    .select("title, body, doc, cover_path, status, publish_at, updated_at")
     .eq("id", id)
     .maybeSingle();
   const base = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/news/`;

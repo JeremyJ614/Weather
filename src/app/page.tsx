@@ -18,7 +18,7 @@ export default async function Home() {
     title: p.title,
     cover: coverUrl(p.cover_path),
     publish_at: p.publish_at,
-    excerpt: excerpt(p.body),
+    excerpt: excerpt(p.body, 140, Boolean(p.rich)),
   }));
   return (
     <main className="mx-auto grid max-w-5xl gap-5 px-4 pt-2 pb-28">

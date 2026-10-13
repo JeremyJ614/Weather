@@ -1,0 +1,232 @@
+/* Shared by the news reader and the rich editor, so the editor shows exactly what readers see. */
+.rich {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  min-width: 0;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+.rich > * {
+  min-width: 0;
+  margin: 0;
+}
+.rich h1,
+.rich h2,
+.rich h3,
+.rich h4 {
+  font-family: var(--font-display);
+  line-height: 1.2;
+  color: var(--accent);
+}
+.rich [data-l="h1"],
+.rich h1 {
+  font-size: 1.7em;
+  font-weight: 800;
+}
+.rich [data-l="h2"],
+.rich h2 {
+  font-size: 1.35em;
+  font-weight: 800;
+}
+.rich [data-l="h3"],
+.rich h3 {
+  font-size: 1.12em;
+  font-weight: 700;
+  color: var(--text);
+}
+.rich blockquote {
+  padding: 2px 0 2px 14px;
+  border-left: 3px solid var(--accent);
+  color: var(--muted);
+  font-style: italic;
+}
+.rich aside {
+  --tone: var(--accent);
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--tone) 45%, transparent);
+  border-left-width: 4px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--tone) 9%, var(--surface));
+}
+.rich aside[data-tone="tip"] {
+  --tone: #34d399;
+}
+.rich aside[data-tone="warn"] {
+  --tone: #fbbf24;
+}
+.rich aside[data-tone="alert"] {
+  --tone: #f87171;
+}
+.rich ul,
+.rich ol {
+  display: grid;
+  gap: 4px;
+  padding-left: 1.4em;
+}
+.rich ul {
+  list-style: disc;
+}
+.rich ol {
+  list-style: decimal;
+}
+.rich li[data-lvl="1"] {
+  margin-left: 1.4em;
+  list-style-type: circle;
+}
+.rich li[data-lvl="2"] {
+  margin-left: 2.8em;
+  list-style-type: square;
+}
+.rich li[data-lvl="3"],
+.rich li[data-lvl="4"],
+.rich li[data-lvl="5"] {
+  margin-left: 4.2em;
+}
+.rich ol li[data-lvl] {
+  list-style-type: lower-alpha;
+}
+.rich ul[data-check] {
+  list-style: none;
+  padding-left: 0;
+}
+.rich ul[data-check] li {
+  position: relative;
+  padding-left: 30px;
+}
+.rich ul[data-check] li::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 0.32em;
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid var(--lit-line);
+  border-radius: 5px;
+  background: var(--bg);
+}
+.rich ul[data-check] li[data-done]::before {
+  border-color: var(--accent);
+  background: var(--lit);
+}
+.rich ul[data-check] li[data-done]::after {
+  content: "";
+  position: absolute;
+  left: 9px;
+  top: calc(0.32em + 3px);
+  width: 5px;
+  height: 10px;
+  border: solid var(--accent);
+  border-width: 0 2.5px 2.5px 0;
+  transform: rotate(45deg);
+}
+.rich ul[data-check] li[data-done] {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+.rich a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.rich code {
+  padding: 1px 5px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+.rich [data-size="sm"] {
+  font-size: 0.85em;
+}
+.rich [data-size="lg"] {
+  font-size: 1.25em;
+}
+.rich [data-size="xl"] {
+  font-size: 1.6em;
+  line-height: 1.25;
+}
+.rich [data-font="display"] {
+  font-family: var(--font-display);
+  font-weight: 700;
+}
+.rich [data-font="mono"] {
+  font-family: var(--font-mono);
+}
+.rich hr {
+  height: 1px;
+  border: 0;
+  background: linear-gradient(90deg, transparent, var(--lit-line), transparent);
+}
+/* Images always fit the screen: never wider than the column, never taller than most of the view. */
+.rich figure {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  max-width: 100%;
+}
+.rich figure img {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  max-height: 75vh;
+  object-fit: contain;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.rich figure[data-size="small"] img {
+  max-width: 34%;
+}
+.rich figure[data-size="half"] img {
+  max-width: 55%;
+}
+.rich figure[data-size="wide"] img {
+  max-width: 80%;
+}
+.rich figcaption {
+  font-size: 0.82em;
+  color: var(--muted);
+  text-align: center;
+}
+.rich [data-video] {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #000;
+}
+.rich [data-video] iframe,
+.rich [data-video] img {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  object-fit: cover;
+}
+.rich [data-table] {
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.rich table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92em;
+}
+.rich td,
+.rich th {
+  min-width: 64px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  vertical-align: top;
+  text-align: left;
+}
+.rich th,
+.rich table[data-head] tr:first-child td {
+  background: var(--surface);
+  color: var(--accent);
+  font-weight: 700;
+}

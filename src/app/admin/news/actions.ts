@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { updateTag } from "next/cache";
 import { requireAdmin } from "@/lib/auth/admin-guard";
+import { cleanDoc, plainText, type Doc } from "@/lib/news/doc";
 import { publishFields, type Mode } from "@/lib/news/publish";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -12,15 +13,26 @@ export async function saveNews(_: NewsState, fd: FormData): Promise<NewsState> {
   const { supabase, viewer } = await requireAdmin("news");
   const id = String(fd.get("id") ?? "");
   const title = String(fd.get("title") ?? "").trim();
-  const body = String(fd.get("body") ?? "");
+  let doc: Doc | null = null;
+  try {
+    const raw = String(fd.get("doc") ?? "");
+    doc = raw
+      ? cleanDoc(JSON.parse(raw), (src) =>
+          src.startsWith(
+            `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/news/${id}/`,
+          ),
+        )
+      : null;
+  } catch {
+    return { error: "The post couldn't be read. Reload and try again." };
+  }
+  const body = doc ? plainText(doc).slice(0, 20000) : "";
   const cover = String(fd.get("cover") ?? "") || null;
   const mode = String(fd.get("mode") ?? "draft") as Mode;
   if (!UUID.test(id))
     return { error: "This post's ID is invalid. Reload the page." };
   if (!title || title.length > 140)
     return { error: "Add a title (up to 140 characters)." };
-  if (body.length > 20000)
-    return { error: "The post is too long (20,000 characters max)." };
   if (cover && !cover.startsWith(`${id}/`))
     return { error: "That cover image belongs to another post." };
   if (!["draft", "now", "schedule"].includes(mode))
@@ -38,6 +50,7 @@ export async function saveNews(_: NewsState, fd: FormData): Promise<NewsState> {
     id,
     title,
     body,
+    doc,
     cover_path: cover,
     ...when,
     updated_at: new Date().toISOString(),

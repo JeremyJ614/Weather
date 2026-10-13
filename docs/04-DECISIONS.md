@@ -40,3 +40,10 @@ The outline asked for states colored over time. There is no public peak-foliage 
 - **SSWXCon v2 (phase 31, owner approved 2026-10-13):** VIP's buckets, caps, 0–250 scale and band names kept. Fixed: SPC Day 1 risk and active watches add a capped Setup bucket (30) so the score rises before warnings; Tornado Emergency/PDS/observed and considerable/destructive/catastrophic damage tags weigh more; marine hurricane-force and coastal/lakeshore floods no longer count; only warnings count for winter; every active alert is read (no 500 cap); the viewer's local instability is shown beside the national score, not inside it.
 - **SPC & Probability (phase 33, owner 2026-10-13):** VIP's map colors and wording kept exactly (including the probability scale's "Near Guaranteed" / "Destructive Storms Guaranteed"). The Forecast Game's SPC map now uses VIP's categorical palette too.
 - **Map & data colors (owner 2026-10-13):** an admin page (/admin/colors, permission "colors") changes any map or data color by hex code: SPC palettes, probability scale, EF tornado paths, WPC/CPC/drought, warnings, storm reports, SSWXCon. Overrides live in app_config "color_overrides"; a color reset to its default stops being an override. New colored features register their keys in `src/lib/colors/registry.ts`.
+
+## Fix-It List #4 (2026-10-13)
+- Admin panel: no step-up verification; admin rights are tied to the account.
+- SSWX News editor: rich WYSIWYG (styles, sizes, fonts, colors, highlights, alignment, bullet/numbered/check lists, indents, callouts, tables, captioned images in four sizes, YouTube, links, date, undo/redo, Markdown-style shortcuts, clean paste from Google Docs, word count, local autosave). Posts are stored as a JSON document in `news_posts.doc`, rebuilt by `cleanDoc` on the server and rendered as React; never stored or rendered as HTML.
+- Every national map can zoom and pan; city names appear when zoomed in and get denser further in.
+- Subtab switches always animate (slide; fade under reduced motion), independent of the WebGL morph.
+- Weather News has an hourly heal job besides the 7 AM run.
