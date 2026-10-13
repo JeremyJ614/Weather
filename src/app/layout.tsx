@@ -8,6 +8,8 @@ import { introBootScript } from "@/features/intro/schedule";
 import { themeBootScript, themeCss } from "@/lib/theme/css";
 import { fontClassNames } from "@/lib/theme/fonts";
 import { getSiteDefaults } from "@/lib/settings";
+import { ErrorReporter } from "@/components/ops/ErrorReporter";
+import { SiteBanner } from "@/components/ops/SiteBanner";
 
 export const metadata: Metadata = {
   title: "StormSync Media",
@@ -47,9 +49,14 @@ export default async function RootLayout({
       </head>
       <body>
         <DeviceSetup />
+        <ErrorReporter />
         <LaunchIntro />
         <AppHeader />
         <div id="app-content" className="pt-16">
+          <SiteBanner
+            text={defaults.banner.text}
+            until={defaults.banner.until}
+          />
           {children}
         </div>
         <MenuHost defaults={defaults.menus} />

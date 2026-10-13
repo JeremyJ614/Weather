@@ -3,14 +3,21 @@ import { DEFAULT_THEME, FONT_SETS, PALETTES } from "@/lib/theme/registry";
 
 export const SITE_DEFAULTS_TAG = "site-defaults";
 
+export type Banner = { text: string; until: string | null };
+
 export type SiteDefaults = {
   menus: { main: string; second: string };
   theme: { palette: string; font: string };
+  /** Kill switches: modules showing a maintenance notice instead of their content. */
+  disabled: string[];
+  banner: Banner;
 };
 
 export const FALLBACK: SiteDefaults = {
   menus: DEFAULT_MENUS,
   theme: DEFAULT_THEME,
+  disabled: [],
+  banner: { text: "", until: null },
 };
 
 /** Keeps only valid, offered values; anything else falls back to the built-in default. */
@@ -31,7 +38,19 @@ export function cleanDefaults(
   const font = FONT_SETS.some((f) => f.id === t.font)
     ? String(t.font)
     : DEFAULT_THEME.font;
-  return { menus, theme: { palette, font } };
+  const off = raw.find((r) => r.key === "disabled_modules")?.value;
+  const disabled = Array.isArray(off)
+    ? off.filter((x): x is string => typeof x === "string").slice(0, 50)
+    : [];
+  const b = get("banner");
+  const banner = {
+    text: typeof b.text === "string" ? b.text.slice(0, 200) : "",
+    until:
+      typeof b.until === "string" && !Number.isNaN(Date.parse(b.until))
+        ? b.until
+        : null,
+  };
+  return { menus, theme: { palette, font }, disabled, banner };
 }
 
 /**
@@ -44,7 +63,7 @@ export async function getSiteDefaults(): Promise<SiteDefaults> {
   if (!url || !key) return FALLBACK;
   try {
     const res = await fetch(
-      `${url}/rest/v1/app_config?select=key,value&key=in.(menu_defaults,theme_default)`,
+      `${url}/rest/v1/app_config?select=key,value&key=in.(menu_defaults,theme_default,disabled_modules,banner)`,
       {
         headers: { apikey: key },
         next: { revalidate: 3600, tags: [SITE_DEFAULTS_TAG] },

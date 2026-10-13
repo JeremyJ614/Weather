@@ -37,3 +37,24 @@ describe("site defaults", () => {
     ).toEqual(FALLBACK);
   });
 });
+
+describe("kill switches and banner", () => {
+  it("reads valid values and drops junk", () => {
+    const d = cleanDefaults([
+      { key: "disabled_modules", value: ["weather", 5, "maps"] },
+      {
+        key: "banner",
+        value: { text: "Back at 5", until: "2026-10-14T00:00:00Z" },
+      },
+    ]);
+    expect(d.disabled).toEqual(["weather", "maps"]);
+    expect(d.banner).toEqual({
+      text: "Back at 5",
+      until: "2026-10-14T00:00:00Z",
+    });
+    expect(
+      cleanDefaults([{ key: "banner", value: { text: 1, until: "nope" } }])
+        .banner,
+    ).toEqual({ text: "", until: null });
+  });
+});

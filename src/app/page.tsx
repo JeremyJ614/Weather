@@ -1,7 +1,10 @@
 /* eslint-disable @next/next/no-img-element -- a single small local logo */
 import { TodayCard } from "@/features/weather/TodayCard";
+import { ModuleOff } from "@/components/ops/ModuleOff";
+import { getSiteDefaults } from "@/lib/settings";
 
-export default function Home() {
+export default async function Home() {
+  const { disabled } = await getSiteDefaults();
   return (
     <main className="mx-auto flex min-h-[80dvh] max-w-xl flex-col justify-center gap-5 px-4 py-12">
       <img
@@ -15,7 +18,11 @@ export default function Home() {
         The app is under construction, one tested phase at a time. The Homepage
         news tabs come in their own phase; your local forecast works now.
       </p>
-      <TodayCard />
+      {disabled.includes("weather") ? (
+        <ModuleOff label="The local forecast" />
+      ) : (
+        <TodayCard />
+      )}
     </main>
   );
 }

@@ -4,6 +4,7 @@ import { revalidatePath, updateTag } from "next/cache";
 import { SITE_DEFAULTS_TAG, cleanDefaults } from "@/lib/settings";
 import { requireAdmin } from "@/lib/auth/admin-guard";
 import { sectionIds } from "@/lib/admin/sections";
+import { moduleIds } from "@/lib/ops/modules";
 
 const UUID = /^[0-9a-f-]{36}$/;
 
@@ -110,4 +111,63 @@ export async function saveDefaults(
   });
   updateTag(SITE_DEFAULTS_TAG);
   return { saved: true };
+}
+
+/** Kill switches and the maintenance banner. */
+export async function saveOps(_: SaveState, fd: FormData): Promise<SaveState> {
+  const { supabase } = await requireAdmin("ops");
+  const disabled = fd
+    .getAll("off")
+    .map(String)
+    .filter((m) => moduleIds.has(m));
+  const text = String(fd.get("bannerText") ?? "")
+    .trim()
+    .slice(0, 200);
+  const untilRaw = String(fd.get("bannerUntil") ?? "");
+  const until =
+    untilRaw && !Number.isNaN(Date.parse(untilRaw))
+      ? new Date(untilRaw).toISOString()
+      : null;
+  const now = new Date().toISOString();
+  const results = await Promise.all([
+    supabase
+      .from("app_config")
+      .update({ value: disabled, updated_at: now })
+      .eq("key", "disabled_modules"),
+    supabase
+      .from("app_config")
+      .update({ value: { text, until }, updated_at: now })
+      .eq("key", "banner"),
+  ]);
+  if (results.some((r) => r.error))
+    return { error: "Couldn't save. Try again." };
+  await supabase.rpc("log_admin", {
+    p_action: "set_ops",
+    p_target: "switches & banner",
+    p_detail: { disabled, text, until },
+  });
+  updateTag(SITE_DEFAULTS_TAG);
+  return { saved: true };
+}
+
+/** Grant or take away SSWX Member. */
+export async function setMember(fd: FormData) {
+  const { supabase } = await requireAdmin("members");
+  const id = String(fd.get("userId") ?? "");
+  const name = String(fd.get("name") ?? "");
+  const on = fd.get("on") === "1";
+  if (!UUID.test(id)) return;
+  const { error } = on
+    ? await supabase.from("user_roles").insert({ user_id: id, role: "member" })
+    : await supabase
+        .from("user_roles")
+        .delete()
+        .eq("user_id", id)
+        .eq("role", "member");
+  if (!error)
+    await supabase.rpc("log_admin", {
+      p_action: on ? "grant_member" : "remove_member",
+      p_target: name,
+    });
+  revalidatePath(`/admin/members/${id}`);
 }

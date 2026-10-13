@@ -2,7 +2,7 @@
 
 **Objective:** StormSync Weather (Weather.SSWX.Space): one mobile-first PWA + Android .apk merging the team's weather apps. Free to run until revenue.
 
-**Stage:** Building. Done: 01–12, 10b, 10c, dark house style, /privacy. Next: 13 admin part 1 (members & referrals, signup form editor, error log).
+**Stage:** Building. Done: 01–13, 10b, 10c. Next: 14 admin part 2 (signup-form editor, data export CSV).
 
 **Decisions so far**
 - Repo `JeremyJ614/Weather`, working branch `ccr-f5e0b71a-4vr2wk`, PR #1 merged to `main`; PR #2 open.
@@ -35,7 +35,7 @@
 - Owner's logo for the intro ending.
 
 **Next actions**
-1. Phase 13: members & referrals list (admins read profiles), signup-form editor (app_config), error log table + client/server reporting. News posts: `news_posts`, bucket `news`, editor `/admin/news`; cache tag `news` for phase 16.
+1. Phase 14: signup-form editor (app_config `signup_form`, read by /welcome), CSV export (members, later polls/games). Kill switches: `src/lib/ops/modules.ts` + `getSiteDefaults().disabled`.
 2. Saved places sync to the account: phase 62b. Signup form editing from admin: phase 13.
 3. Watchdog: `/api/cron/storage-watchdog` daily via `vercel.json`; `CRON_SECRET` set in Vercel (production). Returns 500 until the ops migration is applied.
 
