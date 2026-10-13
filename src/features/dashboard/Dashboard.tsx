@@ -24,6 +24,8 @@ import { moonPhase, sunTimes } from "@/lib/weather/astro";
 import { SPC_NAMES, uvLabel } from "@/lib/weather/conditions-math";
 import type { Conditions } from "@/lib/weather/conditions";
 import type { WeatherBundle } from "@/lib/weather/types";
+import type { AirReport } from "@/lib/air/air";
+import { aqiBand } from "@/lib/air/scales";
 import { HourlyChart } from "./HourlyChart";
 import {
   DEFAULT_LAYOUT,
@@ -40,6 +42,7 @@ type Data = {
   key: string;
   weather?: WeatherBundle;
   cond?: Conditions;
+  air?: AirReport;
   error?: string;
 };
 const COMPASS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
@@ -77,8 +80,12 @@ export function Dashboard() {
         if (!r.ok) throw new Error(b.error ?? "Weather data is unavailable");
         return b;
       });
-    Promise.all([json(`/api/weather?${q}`), json(`/api/conditions?${q}`)])
-      .then(([weather, cond]) => setData({ key, weather, cond }))
+    Promise.all([
+      json(`/api/weather?${q}`),
+      json(`/api/conditions?${q}`),
+      json(`/api/air?${q}`).catch(() => undefined),
+    ])
+      .then(([weather, cond, air]) => setData({ key, weather, cond, air }))
       .catch(
         (e: Error) =>
           e.name !== "AbortError" && setData({ key, error: e.message }),
@@ -243,6 +250,44 @@ export function Dashboard() {
     dew: cur && (
       <Big value={`${c?.dewF ?? dash}°`} sub={`Humidity ${c?.rh ?? dash}%`} />
     ),
+    aqi:
+      cur &&
+      (cur.air?.aqi?.now != null ? (
+        <Big
+          value={
+            <span style={{ color: aqiBand(cur.air.aqi.now).color }}>
+              {cur.air.aqi.now}
+            </span>
+          }
+          sub={aqiBand(cur.air.aqi.now).label}
+        />
+      ) : (
+        <p className="text-sm text-muted">No air-quality reading here.</p>
+      )),
+    pollen:
+      cur &&
+      (cur.air?.pollen?.kind === "dispersal" && cur.air.pollen.peak ? (
+        <Big
+          value={<span className="text-3xl">{cur.air.pollen.peak.band}</span>}
+          sub="Worst pollen dispersal in the next 24 h (not a count)"
+        />
+      ) : cur.air?.pollen?.kind === "counts" ? (
+        <Big
+          value={
+            <span className="text-3xl">
+              {
+                cur.air.pollen.days[0]?.types.reduce(
+                  (a, b) => (b.index > a.index ? b : a),
+                  { label: "None", index: 0, category: "None" },
+                ).category
+              }
+            </span>
+          }
+          sub="Highest pollen type today"
+        />
+      ) : (
+        <p className="text-sm text-muted">Pollen isn&apos;t available here.</p>
+      )),
   };
 
   const visible = layout.order.filter((id) => !layout.hidden.includes(id));

@@ -11,6 +11,7 @@ const BUILT = new Set([
   "dashboard",
   "daily-brief",
   "forecast-discussion",
+  "aqi-pollen",
 ]);
 
 export function generateStaticParams() {

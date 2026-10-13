@@ -1,5 +1,6 @@
 import "server-only";
 import { getConditions } from "@/lib/weather/conditions";
+import { getAir } from "@/lib/air/air";
 import { snap } from "@/lib/weather/geo";
 import { getWeather } from "@/lib/weather/nws";
 import { dayParts, rainTiming, type Brief } from "./compose";
@@ -17,9 +18,10 @@ type AlertJson = {
 
 export async function buildBrief(lat: number, lon: number): Promise<Brief> {
   const [sLat, sLon] = snap(lat, lon);
-  const [w, c, alerts] = await Promise.all([
+  const [w, c, air, alerts] = await Promise.all([
     getWeather(sLat, sLon),
     getConditions(sLat, sLon),
+    getAir(sLat, sLon).catch(() => null),
     fetch(`https://api.weather.gov/alerts/active?point=${sLat},${sLon}`, {
       headers: {
         "User-Agent": "StormSync Weather (https://weather.sswx.space)",
@@ -43,6 +45,7 @@ export async function buildBrief(lat: number, lon: number): Promise<Brief> {
     tomorrow,
     rain: rainTiming(w.hourly),
     spc: c.spc,
+    aqi: air?.aqi?.now ?? null,
     alerts: alerts.features.slice(0, 5).map((f) => ({
       event: f.properties.event,
       headline: f.properties.headline,

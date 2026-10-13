@@ -80,6 +80,7 @@ describe("daily brief", () => {
       tomorrow: null,
       rain: { startsAt: null, peakPop: 0 },
       spc: "SLGT",
+      aqi: 30,
       alerts: [{ event: "Heat Advisory", headline: "", ends: null }],
     };
     const t = briefText(b);

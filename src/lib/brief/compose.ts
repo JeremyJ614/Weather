@@ -1,4 +1,5 @@
 import type { Hour, Period } from "@/lib/weather/types";
+import { aqiBand } from "@/lib/air/scales";
 
 /** The Daily Brief's content. Built from the shared data layer; pure parts are tested. */
 export type Brief = {
@@ -15,6 +16,7 @@ export type Brief = {
   tomorrow: { short: string; high: number | null; low: number | null } | null;
   rain: { startsAt: string | null; peakPop: number };
   spc: string | null;
+  aqi: number | null;
   alerts: { event: string; headline: string; ends: string | null }[];
 };
 
@@ -106,6 +108,8 @@ export function briefText(b: Brief): {
       ? `SPC: ${SPC_WORDS[b.spc] ?? b.spc} today.`
       : "No severe weather risk from SPC today.",
   );
+  if (b.aqi != null)
+    lines.push(`Air quality: ${b.aqi} (${aqiBand(b.aqi).label}).`);
   if (b.tomorrow)
     lines.push(
       `Tomorrow: ${b.tomorrow.short}, ${b.tomorrow.high ?? "–"}° / ${b.tomorrow.low ?? "–"}°.`,

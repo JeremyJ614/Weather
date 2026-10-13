@@ -131,9 +131,6 @@ export function BriefView({
               </p>
             </Card>
           )}
-          <p className="text-xs text-muted">
-            AQI and pollen join the brief with their page (phase 23).
-          </p>
         </>
       )}
       {sheetEl}

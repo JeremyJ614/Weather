@@ -4,6 +4,7 @@ export const MODULES = [
   { id: "dashboard", label: "Dashboard" },
   { id: "brief", label: "Daily Brief" },
   { id: "discussion", label: "Forecast Discussion" },
+  { id: "air", label: "AQI & Pollen" },
   { id: "maps", label: "Maps" },
   { id: "weather-news", label: "Weather News" },
   { id: "news", label: "SSWX News" },

@@ -11,6 +11,8 @@ export const WIDGETS = [
   { id: "pressure", title: "Pressure trend" },
   { id: "feels", title: "Feels like" },
   { id: "dew", title: "Dew point & humidity" },
+  { id: "aqi", title: "Air quality" },
+  { id: "pollen", title: "Pollen" },
 ] as const;
 
 export type WidgetId = (typeof WIDGETS)[number]["id"];

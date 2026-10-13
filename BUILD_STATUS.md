@@ -2,7 +2,7 @@
 
 **Objective:** StormSync Weather (Weather.SSWX.Space): one mobile-first PWA + Android .apk merging the team's weather apps. Free to run until revenue.
 
-**Stage:** Building. Done: 01–22, 10b, 10c. Next: 23 AQI & Pollen (port from VIP).
+**Stage:** Building. Done: 01–23, 10b, 10c. Next: 24 Mosquito Index (port).
 
 **Decisions so far**
 - Repo `JeremyJ614/Weather`, working branch `ccr-f5e0b71a-4vr2wk`, PR #1 merged to `main`; PR #2 open.
@@ -28,6 +28,7 @@
 **Fixed:** lab saved data came back read-only, silently blocking later edits (now cloned on load).
 
 **Blockers / waiting on owner:**
+- Before paid plans: free EPA AirNow key (docs.airnowapi.org → Request an API key) → Vercel `AIRNOW_API_KEY`. Optional: Google Pollen API key → `GOOGLE_POLLEN_KEY` for real pollen counts.
 - Run once in Supabase SQL editor (prunes scheduler history; the agent tool can't run deletes): `select cron.schedule('cron-history-prune', '23 6 * * *', $$delete from cron.job_run_details where end_time < now() - interval '7 days'$$);`
 - Delete test user `rls-test@example.com` in Supabase → Authentication → Users (left by an RLS test; deleting via the tool needs a confirmation that never reaches the owner). Future DB tests run inside a rolled-back transaction.
 - PIN sign-in/signup need SUPABASE_SERVICE_ROLE_KEY + PIN_PEPPER, set for production only, so they work on weather.sswx.space, not on preview URLs.
@@ -36,7 +37,7 @@
 - Owner's logo for the intro ending.
 
 **Next actions**
-1. Phase 23 AQI & Pollen: port VIP AQI Outlook + Pollen Index (check VIP sources/keys), add AQI and pollen widgets to the dashboard and the Daily Brief. Gemini: `GEMINI_API_KEY` (production only), model alias `gemini-flash-lite-latest` (pinned 2.5 models are closed to new keys).
+1. Phase 24 Mosquito Index: port VIP module (check its model/sources), restyle. AQI: Open-Meteo now (non-commercial OK pre-revenue); set `AIRNOW_API_KEY` (free EPA key) before paid plans. Pollen counts need `GOOGLE_POLLEN_KEY` (Google Cloud, billing); without it a labeled dispersal reading shows.
 2. Saved places sync to the account: phase 62b. Signup form editing from admin: phase 13.
 3. Watchdog: `/api/cron/storage-watchdog` daily via `vercel.json`; `CRON_SECRET` set in Vercel (production). Returns 500 until the ops migration is applied.
 
