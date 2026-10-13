@@ -68,6 +68,44 @@ html[data-bottom-bar] body {
   padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px));
 }
 
+/* Drawer menus tilt the page back while they are open. */
+html[data-push] #app-header {
+  opacity: 0;
+}
+#app-header {
+  transition: opacity var(--t-base);
+}
+#app-content {
+  transition: transform var(--t-slow) var(--ease);
+  transform-origin: center;
+}
+html[data-push] #app-content {
+  pointer-events: none;
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
+}
+html[data-push="depth"][data-push-side="left"] #app-content {
+  transform: perspective(900px) translateX(68%) scale(0.84) rotateY(-14deg);
+}
+html[data-push="depth"][data-push-side="right"] #app-content {
+  transform: perspective(900px) translateX(-68%) scale(0.84) rotateY(14deg);
+}
+html[data-push="curtain"][data-push-side="left"] #app-content {
+  transform-origin: right center;
+  transform: perspective(1000px) translateX(64%) rotateY(-38deg) scale(0.9);
+}
+html[data-push="curtain"][data-push-side="right"] #app-content {
+  transform-origin: left center;
+  transform: perspective(1000px) translateX(-64%) rotateY(38deg) scale(0.9);
+}
+html[data-tier="low"][data-push][data-push-side="left"] #app-content {
+  transform: translateX(70%) scale(0.9);
+}
+html[data-tier="low"][data-push][data-push-side="right"] #app-content {
+  transform: translateX(-70%) scale(0.9);
+}
+
 .display {
   font-family: var(--font-display);
   font-weight: var(--display-weight);

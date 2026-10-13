@@ -28,6 +28,10 @@ describe("menu choice", () => {
     );
     expect(r.stacked).toBe(false);
   });
+  it("has every offered style built", () => {
+    expect(OFFERED.main).toHaveLength(12);
+    expect(OFFERED.second).toHaveLength(8);
+  });
   it("only allows offered styles in each menu", () => {
     expect(pickMenus({ main: "morph" }).main).toBe(DEFAULT_MENUS.main);
     expect(pickMenus({ second: "notch" }).second).toBe(DEFAULT_MENUS.second);

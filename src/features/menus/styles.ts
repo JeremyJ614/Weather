@@ -109,6 +109,24 @@ export const MENU_STYLES: Record<string, MenuStyle> = {
     BAR,
     lazy(() => import("./NotchBar").then((m) => m.NotchBar)),
   ),
+  depth: S(
+    "depth",
+    "Depth Drawer",
+    TOP_LEFT_FIRST,
+    lazy(() => import("./DepthDrawer").then((m) => m.DepthDrawer)),
+  ),
+  dial: S(
+    "dial",
+    "Speed Dial",
+    FLOAT_RIGHT,
+    lazy(() => import("./SpeedDial").then((m) => m.SpeedDial)),
+  ),
+  curtain: S(
+    "curtain",
+    "Curtain Reveal",
+    TOP_LEFT_FIRST,
+    lazy(() => import("./CurtainReveal").then((m) => m.CurtainReveal)),
+  ),
 };
 
 /** The owner's offered lists (docs/04-DECISIONS.md), limited to styles already built. */

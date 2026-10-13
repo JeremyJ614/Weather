@@ -48,7 +48,9 @@ export default function RootLayout({
         <DeviceSetup />
         <LaunchIntro />
         <AppHeader />
-        <div className="pt-16">{children}</div>
+        <div id="app-content" className="pt-16">
+          {children}
+        </div>
         <MenuHost />
       </body>
     </html>
