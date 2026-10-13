@@ -2,7 +2,7 @@
 
 **Objective:** StormSync Weather (Weather.SSWX.Space): one mobile-first PWA + Android .apk merging the team's weather apps. Free to run until revenue.
 
-**Stage:** Building. Done: 01–06c, 10, 10b (code), 10c, dark house style, /privacy. Home shows a live Today card (NWS) with saved places. Next: 08 accounts.
+**Stage:** Building. Done: 01–06c, 08, 10, 10b, 10c, dark house style, /privacy. Next: 09 roles (owner gets SSWX Founder), then 11 admin shell, then 07.
 
 **Decisions so far**
 - Repo `JeremyJ614/Weather`, working branch `ccr-f5e0b71a-4vr2wk`, PR #1 merged to `main`; PR #2 open.
@@ -28,13 +28,15 @@
 **Fixed:** lab saved data came back read-only, silently blocking later edits (now cloned on load).
 
 **Blockers / waiting on owner:**
+- Delete test user `rls-test@example.com` in Supabase → Authentication → Users (left by an RLS test; deleting via the tool needs a confirmation that never reaches the owner). Future DB tests run inside a rolled-back transaction.
+- PIN sign-in/signup need SUPABASE_SERVICE_ROLE_KEY + PIN_PEPPER, set for production only, so they work on weather.sswx.space, not on preview URLs.
 - Ops migration applied via execute_sql (apply_migration and any SQL containing delete/revoke get cancelled: their confirmation never reaches the owner). Keep DB writes free of those keywords; do deletes from server code.
 - Google sign-in: owner finishing the Google Cloud side; needs the privacy policy URL. Apple sign-in dropped. SMS dropped (not free). Resend done (Vercel + Supabase SMTP).
 - Owner's logo for the intro ending.
 
 **Next actions**
-1. `/privacy` built (contact email in `src/app/privacy/page.tsx`); live on production once PR #2 merges.
-2. Phase 08 accounts: PIN sign-in with lockout, email link (Resend SMTP done), Google (owner finishing), signup form, referral codes, owner account, RLS; sync saved places. Needs the ops migration approach settled (migrations were cancelled twice).
+1. Phase 09 roles. Owner signs up at /login with Google (jaywx@yahoo.com) and sets his own PIN; 09 grants Founder.
+2. Saved places sync to the account: phase 62b. Signup form editing from admin: phase 13.
 3. Watchdog: `/api/cron/storage-watchdog` daily via `vercel.json`; `CRON_SECRET` set in Vercel (production). Returns 500 until the ops migration is applied.
 
 **Sandbox note:** Turbopack's Google-font fetch fails behind this sandbox's proxy (CI is fine). Local check: `npx next build --webpack` then the other verify steps.

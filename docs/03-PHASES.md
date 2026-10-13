@@ -21,7 +21,7 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 - [x] 06b. Remaining main-menu styles (Radial Plates, Glass Ledger, Split Sidebar, Mega Spotlight, Bento Board, Live Bento, Tab Bar + Sheet, Swipe Tabs, Bottom Rail Pop, StormSync Vortex, Notch Bar)
 - [x] 06c. Remaining second-menu styles (Depth Drawer, Speed Dial, Curtain Reveal) and menu preferences stored per user
 - [ ] 07. Second-menu lists, defaults set from the admin panel, and the four menu fixes (Radial Plates, Speed Dial, Color Morph Bar, Flip Tiles)
-- [ ] 08. Accounts: 4-digit PIN sign-in with lockout, email link, Google, Apple; signup form (editable), referral codes; owner account; RLS on every table
+- [x] 08. Accounts: 4-digit PIN sign-in with lockout, email link, Google (Apple dropped); signup form (editable), referral codes; owner account; RLS on every table
 - [ ] 09. Roles: user, SSWX Member, Admin as a second role, subscription tiers mapped to roles
 - [x] 10. Saved location, permission flow and a shared weather-data layer with caching
 - [x] 10b. Storage safety: retention rule on every growing table (test-enforced), daily size watchdog (Vercel cron, emails at 60%/80%), cron history pruning. Database side waits on the ops migration being applied.

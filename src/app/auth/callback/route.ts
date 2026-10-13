@@ -10,7 +10,14 @@ export async function GET(request: Request) {
   if (code) {
     const supabase = await supabaseServer();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (!error) return NextResponse.redirect(new URL(next, url.origin));
+    if (!error) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("id")
+        .maybeSingle();
+      const to = profile ? next : `/welcome?next=${encodeURIComponent(next)}`;
+      return NextResponse.redirect(new URL(to, url.origin));
+    }
   }
   return NextResponse.redirect(new URL("/login?error=link", url.origin));
 }

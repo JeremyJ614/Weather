@@ -1,18 +1,22 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useActionState, useRef, useState } from "react";
 import { Mail } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import { signInWithPin } from "./actions";
 
+const input = "min-h-11 w-full rounded-xl border border-line bg-bg px-3";
 const callback = (next: string) =>
   `${location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
 
 export function LoginForm({ next }: { next: string }) {
+  const [state, pinAction, pinPending] = useActionState(signInWithPin, null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ text: string; error?: boolean } | null>(
     null,
   );
+  const emailRef = useRef<HTMLInputElement>(null);
 
   const google = async () => {
     setBusy(true);
@@ -26,11 +30,10 @@ export function LoginForm({ next }: { next: string }) {
     }
   };
 
-  const emailLink = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const email = String(
-      new FormData(e.currentTarget).get("email") ?? "",
-    ).trim();
+  const emailLink = async () => {
+    const el = emailRef.current;
+    if (!el?.reportValidity()) return;
+    const email = el.value.trim();
     setBusy(true);
     setMsg(null);
     const { error } = await supabaseBrowser().auth.signInWithOtp({
@@ -63,20 +66,47 @@ export function LoginForm({ next }: { next: string }) {
         or
         <span className="h-px flex-1 bg-line" />
       </div>
-      <form className="grid gap-2" onSubmit={emailLink}>
-        <label htmlFor="email" className="text-sm font-bold">
-          Email me a sign-in link
+      <form action={pinAction} className="grid gap-3">
+        <input type="hidden" name="next" value={next} />
+        <label className="grid gap-1 text-sm font-bold">
+          Email
+          <input
+            ref={emailRef}
+            name="email"
+            type="email"
+            required
+            autoComplete="email"
+            className={input}
+          />
         </label>
-        <input
-          id="email"
-          name="email"
-          type="email"
-          required
-          autoComplete="email"
-          className="min-h-11 rounded-xl border border-line bg-bg px-3"
-        />
-        <Button type="submit" disabled={busy}>
-          <Mail className="size-4" aria-hidden /> Send link
+        <label className="grid gap-1 text-sm font-bold">
+          PIN
+          <input
+            name="pin"
+            type="password"
+            inputMode="numeric"
+            pattern="[0-9]{4}"
+            maxLength={4}
+            autoComplete="current-password"
+            className={input}
+          />
+        </label>
+        {state?.error && (
+          <p role="alert" className="text-sm text-accent">
+            {state.error}
+          </p>
+        )}
+        <Button type="submit" disabled={pinPending || busy}>
+          {pinPending ? "Signing in…" : "Sign in with PIN"}
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={emailLink}
+          disabled={busy}
+        >
+          <Mail className="size-4" aria-hidden /> New here or forgot your PIN?
+          Email me a link
         </Button>
       </form>
       {msg && (
