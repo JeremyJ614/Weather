@@ -1,6 +1,7 @@
 -- Ops foundation: app settings, the Mapbox map-load counter, and the storage watchdog.
 -- Every table here has RLS on and no policies: only the security-definer functions below touch them.
 
+-- Retention: a fixed set of setting keys; does not grow.
 create table if not exists public.app_config (
   key text primary key,
   value jsonb not null,
@@ -60,7 +61,8 @@ revoke all on function public.count_map_load() from public;
 grant execute on function public.map_provider() to anon, authenticated;
 grant execute on function public.count_map_load() to anon, authenticated;
 
--- Storage watchdog: one size reading a day. Retention: 400 days.
+-- Storage watchdog: one size reading a day, taken by the Vercel cron
+-- (/api/cron/storage-watchdog). Retention: 400 days.
 create table if not exists public.storage_snapshots (
   day date primary key,
   db_bytes bigint not null,
@@ -93,7 +95,6 @@ $$;
 revoke all on function public.take_storage_snapshot() from public, anon, authenticated;
 
 create extension if not exists pg_cron;
-select cron.schedule('storage-watchdog-daily', '17 6 * * *', $$select public.take_storage_snapshot()$$);
 -- pg_cron keeps a row per run forever unless pruned (part of the VIP leak); keep 7 days.
 select cron.schedule('cron-history-prune', '23 6 * * *',
   $$delete from cron.job_run_details where end_time < now() - interval '7 days'$$);
