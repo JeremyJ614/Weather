@@ -37,7 +37,13 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     icon: "PanelsTopLeft",
     phase: "07",
   },
-  { id: "news", label: "News & announcements", icon: "Newspaper", phase: "12" },
+  {
+    id: "news",
+    label: "News & announcements",
+    icon: "Newspaper",
+    phase: "12",
+    href: "/admin/news",
+  },
   { id: "members", label: "Members & referrals", icon: "Users", phase: "13" },
   {
     id: "signup-form",
