@@ -2,7 +2,7 @@
 
 **Objective:** StormSync Weather (Weather.SSWX.Space): one mobile-first PWA + Android .apk merging the team's weather apps. Free to run until revenue.
 
-**Stage:** Planning done (Sections A/B, questionnaire, BuildPlan). Waiting on owner's Google DeepMind picks, then phase 01.
+**Stage:** Planning done (Sections A/B, questionnaire, BuildPlan). Building. Current phase: 01 (project skeleton).
 
 **Decisions so far**
 - Repo `JeremyJ614/Weather`, working branch `ccr-f5e0b71a-4vr2wk`. No `main` branch yet (repo was empty).
@@ -30,9 +30,8 @@
 **Blockers:** CodePen for A2 blocked by Cloudflare; owner may paste its code.
 
 **Next actions**
-1. Get owner's DeepMind picks; add them to the BuildPlan.
-2. Create `main` from this branch (owner approved), open PR.
-3. Phase 01: project skeleton.
+1. Create `main` from this branch (owner approved), open PR.
+2. Phase 01: project skeleton.
 
 **Lab answers:** questionnaire https://claude.ai/artifact/1S89fRJDQe5QzLj9xEKuQc (db `answers/owner`).
 

@@ -9,7 +9,7 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 - [x] S-B. Section B answers (`docs/02-SECTION-B.md`) and this phase list
 - [x] S-Q. Questionnaire (interactive) answered by the owner
 - [x] S-P. Full BuildPlan with bug & glitch log (`docs/05-BUILDPLAN.md`)
-- [ ] S-D. Owner picks Google DeepMind items
+- [x] S-D. Owner picks Google DeepMind items
 
 ## Foundation
 - [ ] 01. Project skeleton: Next.js, TypeScript, lint, tests, `npm run verify`, CI, performance budget
@@ -59,7 +59,8 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 - [ ] 35. Atmospheric Ingredients (port)
 - [ ] 36. Storm Timing Index (port)
 - [ ] 37. Tropical Outlook (port) with smoother playback
-- [ ] 38. Tropical Model Battle Royale
+- [ ] 38. Tropical Model Battle Royale (includes Google Weather Lab AI tracks)
+- [ ] 38b. Tropical: Google AI Cyclone Model subtab beside the ported hurricane tracker
 - [ ] 39. Hazards & Droughts (port) plus the interactive hazards map subtab
 - [ ] 40. Flooding Outlook (port)
 - [ ] 41. Fire Weather with active wildfires, perimeters and details

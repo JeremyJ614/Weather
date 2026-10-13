@@ -53,13 +53,13 @@ Secrets are server-only env vars (names: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `S
 
 **Severe Weather.** SSWXCon: review the VIP formula; keep it if sound, otherwise propose changes for approval. Push warnings: paid tiers and SSWX Members. Tropical: all five basins plus the Battle Royale, with the best one or two tropical models added. Hazards map layers: warnings, watches, advisories, radar, lightning, wildfires, road conditions, earthquakes. Severe Weather History: VIP ranges, plus last 7 days / month / 6 months / year for warnings and tornado paths. Storm Chasing Outlook: VIP stats carried over, redesigned. All other severe pages port from VIP with the redesign.
 
-**Tools & Other Data.** Radar and Model Runs: VIP ported and redesigned, plus the best one or two tropical models. River & Flood Gauges with the top 5. 3D Soundings from balloons, HRRR, RAP, NAM 3 km and GFS. StormNet: add when their API is approved. Google DeepMind: owner picks from the list in chat. Traffic cameras: built, visible only to the owner until approved; aim for wider coverage and add weather/hazard cams.
+**Tools & Other Data.** Radar and Model Runs: VIP ported and redesigned, plus the best one or two tropical models. River & Flood Gauges with the top 5. 3D Soundings from balloons, HRRR, RAP, NAM 3 km and GFS. StormNet: add when their API is approved. Google DeepMind: Weather Lab AI cyclone tracks (WeatherNext Cyclones, owner checked the terms) join the Battle Royale and get their own subtab in the Tropical section next to the ported VIP hurricane tracker. WeatherNext live forecasts, AI probability maps and the Flood Hub API all need an access request with a wait, so they are left out; WeatherNext's historical archive (CC BY 4.0, no request) may be used for an "AI forecast scorecard" on past events. Traffic cameras: built, visible only to the owner until approved; aim for wider coverage and add weather/hazard cams.
 
 **Specialty Monitoring.** Star Gazing: map plus a location score, plus everything star-related from VIP's Star Gazing & Aurora module. Aurora: two tabs (image and interactive) plus everything aurora-related from that module. Lightning: NOAA satellite lightning (GLM); look for other good free sources (no Blitzortung without permission). FairWeather: post-launch.
 
 **Educational.** Climatology: tornado, lightning, and hurricanes. Glossary ported as is. Free Content Library copied from the Academy.
 
-**Everything Else.** Extras: access set engine by engine. Disaster Response: owner gives starting organizations when we reach it; form fields as chosen, with areas served, logo and social links optional.
+**Everything Else.** Weather Patterns: ported from VIP, which uses Gemini for its analysis; keep that, server-side and cached. Extras: access set engine by engine. Disaster Response: owner gives starting organizations when we reach it; form fields as chosen, with areas served, logo and social links optional.
 
 **Account.** Profile: game stats, badges, leaderboard history, saved places, chase logs, member since, tier, plus more worth showing (streaks, referral count, contributions). Notifications toggles: warnings, watches, SPC upgrades, Daily Brief, SSWX News, game results, new trivia, new polls, tropical updates, aurora alerts, engine alerts.
 
@@ -71,11 +71,10 @@ Secrets are server-only env vars (names: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `S
 At launch: ProbTor, ProbHail, Nocturnal LLJ, Wildfire/PyroCb, Radar Blind Spot, Landspout/Waterspout, Rotation Track Persistence, Snow Squall, Landfalling Hurricane Tornado Risk. Post-launch engines are built in the private Engine Preview first. Access per engine is set in the admin panel.
 
 ## 8. Post-launch (on the plan, not on menus)
-Personal Warnings & Alerts, Affected Communities Outlook, FairWeather Tracking, Raffles, Virtual Store, Services, Partnerships, Non-Profit Campaigns, Donations, Members Suite (Forum, Active Roster, 2026 Storm Chases, New Members Onboarding), App Store and Google Play listings, post-launch engines.
+Personal Warnings & Alerts, Affected Communities Outlook, FairWeather Tracking, Raffles, Virtual Store, Services, Partnerships, Non-Profit Campaigns, Donations, Members Suite (Forum, Active Roster, 2026 Storm Chases, New Members Onboarding), App Store and Google Play listings, post-launch engines. Notes for later: Google AlphaEarth satellite embeddings and Earth Engine datasets (damage, burn scars, drought, flooded land; commercial use needs an Earth Engine license); WeatherNext live data and Flood Hub API if the owner later requests access.
 
 ## 9. Waiting on the owner
 - Logo for the end of the intro.
-- Google DeepMind picks.
 - Pricing setup (before the signup phase).
 - Disaster Response starting organizations (at that phase).
 - Approval of any SSWXCon formula changes.
