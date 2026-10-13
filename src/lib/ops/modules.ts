@@ -5,6 +5,7 @@ export const MODULES = [
   { id: "brief", label: "Daily Brief" },
   { id: "discussion", label: "Forecast Discussion" },
   { id: "air", label: "AQI & Pollen" },
+  { id: "mosquito", label: "Mosquito Index" },
   { id: "maps", label: "Maps" },
   { id: "weather-news", label: "Weather News" },
   { id: "news", label: "SSWX News" },
