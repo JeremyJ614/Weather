@@ -1,199 +1,268 @@
-/* Every family a font set can use. Only the default set (Editorial Crown +
- mono) preloads; the rest download the first time a user picks them.
- next/font needs each loader as a module-level const with literal options. */
-import {
-  Alfa_Slab_One,
-  Barlow_Condensed,
-  Chakra_Petch,
-  Cinzel,
-  DM_Sans,
-  Exo_2,
-  Figtree,
-  IBM_Plex_Mono,
-  IBM_Plex_Sans,
-  JetBrains_Mono,
-  Lexend,
-  Mulish,
-  Nunito_Sans,
-  Orbitron,
-  Oswald,
-  Outfit,
-  Playfair_Display,
-  Rajdhani,
-  Raleway,
-  Russo_One,
-  Saira,
-  Saira_Condensed,
-  Share_Tech_Mono,
-  Source_Sans_3,
-} from "next/font/google";
+/* Every family a font set can use, bundled with the app (latin subset) so builds never
+ fetch from Google. Only the default set preloads. Regenerate with the vendor-fonts tool. */
+import localFont from "next/font/local";
 
-const f_playfair_display = Playfair_Display({
-  subsets: ["latin"],
+const f_playfair_display = localFont({
+  src: [
+    {
+      path: "./fonts/playfair_display-700.woff2",
+      weight: "700",
+      style: "normal",
+    },
+    {
+      path: "./fonts/playfair_display-800.woff2",
+      weight: "800",
+      style: "normal",
+    },
+  ],
   display: "swap",
   preload: true,
-  weight: ["700", "800"],
   variable: "--ff-playfair",
 });
-const f_mulish = Mulish({
-  subsets: ["latin"],
+const f_mulish = localFont({
+  src: [
+    { path: "./fonts/mulish-400.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/mulish-600.woff2", weight: "600", style: "normal" },
+    { path: "./fonts/mulish-700.woff2", weight: "700", style: "normal" },
+    { path: "./fonts/mulish-800.woff2", weight: "800", style: "normal" },
+  ],
   display: "swap",
   preload: true,
-  weight: ["400", "600", "700", "800"],
   variable: "--ff-mulish",
 });
-const f_jetbrains_mono = JetBrains_Mono({
-  subsets: ["latin"],
+const f_jetbrains_mono = localFont({
+  src: [
+    {
+      path: "./fonts/jetbrains_mono-400.woff2",
+      weight: "400",
+      style: "normal",
+    },
+    {
+      path: "./fonts/jetbrains_mono-600.woff2",
+      weight: "600",
+      style: "normal",
+    },
+  ],
   display: "swap",
   preload: true,
-  weight: ["400", "600"],
   variable: "--ff-jetbrains",
 });
-const f_barlow_condensed = Barlow_Condensed({
-  subsets: ["latin"],
+const f_barlow_condensed = localFont({
+  src: [
+    {
+      path: "./fonts/barlow_condensed-600.woff2",
+      weight: "600",
+      style: "normal",
+    },
+    {
+      path: "./fonts/barlow_condensed-700.woff2",
+      weight: "700",
+      style: "normal",
+    },
+    {
+      path: "./fonts/barlow_condensed-800.woff2",
+      weight: "800",
+      style: "normal",
+    },
+  ],
   display: "swap",
   preload: false,
-  weight: ["600", "700", "800"],
   variable: "--ff-barlowc",
 });
-const f_figtree = Figtree({
-  subsets: ["latin"],
+const f_figtree = localFont({
+  src: [
+    { path: "./fonts/figtree-400.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/figtree-600.woff2", weight: "600", style: "normal" },
+    { path: "./fonts/figtree-700.woff2", weight: "700", style: "normal" },
+  ],
   display: "swap",
   preload: false,
-  weight: ["400", "600", "700"],
   variable: "--ff-figtree",
 });
-const f_raleway = Raleway({
-  subsets: ["latin"],
+const f_raleway = localFont({
+  src: [
+    { path: "./fonts/raleway-500.woff2", weight: "500", style: "normal" },
+    { path: "./fonts/raleway-700.woff2", weight: "700", style: "normal" },
+    { path: "./fonts/raleway-800.woff2", weight: "800", style: "normal" },
+  ],
   display: "swap",
   preload: false,
-  weight: ["500", "700", "800"],
   variable: "--ff-raleway",
 });
-const f_dm_sans = DM_Sans({
-  subsets: ["latin"],
+const f_dm_sans = localFont({
+  src: [
+    { path: "./fonts/dm_sans-400.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/dm_sans-600.woff2", weight: "600", style: "normal" },
+    { path: "./fonts/dm_sans-700.woff2", weight: "700", style: "normal" },
+  ],
   display: "swap",
   preload: false,
-  weight: ["400", "600", "700"],
   variable: "--ff-dmsans",
 });
-const f_cinzel = Cinzel({
-  subsets: ["latin"],
+const f_cinzel = localFont({
+  src: [
+    { path: "./fonts/cinzel-600.woff2", weight: "600", style: "normal" },
+    { path: "./fonts/cinzel-700.woff2", weight: "700", style: "normal" },
+  ],
   display: "swap",
   preload: false,
-  weight: ["600", "700"],
   variable: "--ff-cinzel",
 });
-const f_rajdhani = Rajdhani({
-  subsets: ["latin"],
+const f_rajdhani = localFont({
+  src: [
+    { path: "./fonts/rajdhani-500.woff2", weight: "500", style: "normal" },
+    { path: "./fonts/rajdhani-700.woff2", weight: "700", style: "normal" },
+  ],
   display: "swap",
   preload: false,
-  weight: ["500", "700"],
   variable: "--ff-rajdhani",
 });
-const f_exo_2 = Exo_2({
-  subsets: ["latin"],
+const f_exo_2 = localFont({
+  src: [
+    { path: "./fonts/exo_2-400.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/exo_2-600.woff2", weight: "600", style: "normal" },
+    { path: "./fonts/exo_2-700.woff2", weight: "700", style: "normal" },
+  ],
   display: "swap",
   preload: false,
-  weight: ["400", "600", "700"],
   variable: "--ff-exo2",
 });
-const f_orbitron = Orbitron({
-  subsets: ["latin"],
+const f_orbitron = localFont({
+  src: [
+    { path: "./fonts/orbitron-600.woff2", weight: "600", style: "normal" },
+    { path: "./fonts/orbitron-800.woff2", weight: "800", style: "normal" },
+  ],
   display: "swap",
   preload: false,
-  weight: ["600", "800"],
   variable: "--ff-orbitron",
 });
-const f_share_tech_mono = Share_Tech_Mono({
-  subsets: ["latin"],
+const f_share_tech_mono = localFont({
+  src: [
+    {
+      path: "./fonts/share_tech_mono-400.woff2",
+      weight: "400",
+      style: "normal",
+    },
+  ],
   display: "swap",
   preload: false,
-  weight: ["400"],
   variable: "--ff-sharetech",
 });
-const f_chakra_petch = Chakra_Petch({
-  subsets: ["latin"],
+const f_chakra_petch = localFont({
+  src: [
+    { path: "./fonts/chakra_petch-500.woff2", weight: "500", style: "normal" },
+    { path: "./fonts/chakra_petch-700.woff2", weight: "700", style: "normal" },
+  ],
   display: "swap",
   preload: false,
-  weight: ["500", "700"],
   variable: "--ff-chakra",
 });
-const f_ibm_plex_sans = IBM_Plex_Sans({
-  subsets: ["latin"],
+const f_ibm_plex_sans = localFont({
+  src: [
+    { path: "./fonts/ibm_plex_sans-400.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/ibm_plex_sans-600.woff2", weight: "600", style: "normal" },
+  ],
   display: "swap",
   preload: false,
-  weight: ["400", "600"],
   variable: "--ff-plexsans",
 });
-const f_ibm_plex_mono = IBM_Plex_Mono({
-  subsets: ["latin"],
+const f_ibm_plex_mono = localFont({
+  src: [
+    { path: "./fonts/ibm_plex_mono-400.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/ibm_plex_mono-600.woff2", weight: "600", style: "normal" },
+  ],
   display: "swap",
   preload: false,
-  weight: ["400", "600"],
   variable: "--ff-plexmono",
 });
-const f_oswald = Oswald({
-  subsets: ["latin"],
+const f_oswald = localFont({
+  src: [
+    { path: "./fonts/oswald-500.woff2", weight: "500", style: "normal" },
+    { path: "./fonts/oswald-700.woff2", weight: "700", style: "normal" },
+  ],
   display: "swap",
   preload: false,
-  weight: ["500", "700"],
   variable: "--ff-oswald",
 });
-const f_source_sans_3 = Source_Sans_3({
-  subsets: ["latin"],
+const f_source_sans_3 = localFont({
+  src: [
+    { path: "./fonts/source_sans_3-400.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/source_sans_3-600.woff2", weight: "600", style: "normal" },
+    { path: "./fonts/source_sans_3-700.woff2", weight: "700", style: "normal" },
+  ],
   display: "swap",
   preload: false,
-  weight: ["400", "600", "700"],
   variable: "--ff-sourcesans",
 });
-const f_saira_condensed = Saira_Condensed({
-  subsets: ["latin"],
+const f_saira_condensed = localFont({
+  src: [
+    {
+      path: "./fonts/saira_condensed-600.woff2",
+      weight: "600",
+      style: "normal",
+    },
+    {
+      path: "./fonts/saira_condensed-800.woff2",
+      weight: "800",
+      style: "normal",
+    },
+  ],
   display: "swap",
   preload: false,
-  weight: ["600", "800"],
   variable: "--ff-sairac",
 });
-const f_saira = Saira({
-  subsets: ["latin"],
+const f_saira = localFont({
+  src: [
+    { path: "./fonts/saira-400.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/saira-600.woff2", weight: "600", style: "normal" },
+  ],
   display: "swap",
   preload: false,
-  weight: ["400", "600"],
   variable: "--ff-saira",
 });
-const f_russo_one = Russo_One({
-  subsets: ["latin"],
+const f_russo_one = localFont({
+  src: [
+    { path: "./fonts/russo_one-400.woff2", weight: "400", style: "normal" },
+  ],
   display: "swap",
   preload: false,
-  weight: ["400"],
   variable: "--ff-russo",
 });
-const f_nunito_sans = Nunito_Sans({
-  subsets: ["latin"],
+const f_nunito_sans = localFont({
+  src: [
+    { path: "./fonts/nunito_sans-400.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/nunito_sans-600.woff2", weight: "600", style: "normal" },
+    { path: "./fonts/nunito_sans-700.woff2", weight: "700", style: "normal" },
+  ],
   display: "swap",
   preload: false,
-  weight: ["400", "600", "700"],
   variable: "--ff-nunitosans",
 });
-const f_outfit = Outfit({
-  subsets: ["latin"],
+const f_outfit = localFont({
+  src: [
+    { path: "./fonts/outfit-400.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/outfit-600.woff2", weight: "600", style: "normal" },
+    { path: "./fonts/outfit-800.woff2", weight: "800", style: "normal" },
+  ],
   display: "swap",
   preload: false,
-  weight: ["400", "600", "800"],
   variable: "--ff-outfit",
 });
-const f_alfa_slab_one = Alfa_Slab_One({
-  subsets: ["latin"],
+const f_alfa_slab_one = localFont({
+  src: [
+    { path: "./fonts/alfa_slab_one-400.woff2", weight: "400", style: "normal" },
+  ],
   display: "swap",
   preload: false,
-  weight: ["400"],
   variable: "--ff-alfaslab",
 });
-const f_lexend = Lexend({
-  subsets: ["latin"],
+const f_lexend = localFont({
+  src: [
+    { path: "./fonts/lexend-400.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/lexend-600.woff2", weight: "600", style: "normal" },
+  ],
   display: "swap",
   preload: false,
-  weight: ["400", "600"],
   variable: "--ff-lexend",
 });
 

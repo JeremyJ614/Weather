@@ -105,3 +105,5 @@ Personal Warnings & Alerts, Affected Communities Outlook, FairWeather Tracking, 
 | 15 | CI | From phase 08 on, CI (which has no Supabase settings) failed while prerendering admin pages: the server client validated settings before reading cookies | Cookies are read first, so those pages are per-request; verified by building without the env file |
 | 16 | Fall map | Every fall-color dot drew black: the map libraries reject space-separated `hsl()` colors | Colors use the comma form |
 | 17 | Daily Brief | At 2 AM the brief called today's daytime "Tomorrow", because NWS's first period is "Overnight" | Days matched by each period's local date |
+| 18 | CI | Builds failed at random fetching 24 Google font families at build time | Fonts bundled with the app (`src/lib/theme/fonts/`, latin subset); builds never fetch fonts |
+| 19 | Sign-in | The owner's email and PIN were refused: no account existed for that email yet | Account is created through the email link + welcome form; founder role is granted automatically on profile creation |
