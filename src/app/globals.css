@@ -54,6 +54,11 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* The launch intro exists in the HTML; the head script decides if it shows. */
+html:not([data-intro="play"]) #launch-intro {
+  display: none;
+}
+
 .display {
   font-family: var(--font-display);
   font-weight: var(--display-weight);

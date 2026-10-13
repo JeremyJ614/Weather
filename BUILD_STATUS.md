@@ -2,7 +2,7 @@
 
 **Objective:** StormSync Weather (Weather.SSWX.Space): one mobile-first PWA + Android .apk merging the team's weather apps. Free to run until revenue.
 
-**Stage:** Planning done (Sections A/B, questionnaire, BuildPlan). Building. Phases 01–02 done (02 waits on owner DNS record + service key). Phases 01–04 done. Current phase: 05 (3D intro as launch screen).
+**Stage:** Planning done (Sections A/B, questionnaire, BuildPlan). Building. Phases 01–02 done (02 waits on owner DNS record + service key). Phases 01–05 done (intro lockup swaps to the owner's logo when it arrives; its settings control comes with phase 62b). Current phase: 06 (menu system).
 
 **Decisions so far**
 - Repo `JeremyJ614/Weather`, working branch `ccr-f5e0b71a-4vr2wk`. No `main` branch yet (repo was empty).
@@ -33,7 +33,7 @@
 
 **Next actions**
 1. Create `main` from this branch (owner approved), open PR.
-2. Phase 05: 3D intro (classic, ~5 s, once a day, credit, skip, settings hook). Waits on owner logo only for the final lockup.
+2. Phase 06: menu system: offered menu components with declared control spots, collision avoidance, routing for every launch page with PhaseNotice.
 
 **Lab answers:** questionnaire https://claude.ai/artifact/1S89fRJDQe5QzLj9xEKuQc (db `answers/owner`).
 
