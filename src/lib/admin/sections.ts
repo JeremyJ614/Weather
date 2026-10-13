@@ -34,6 +34,14 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     href: "/admin/storage",
   },
   {
+    id: "releases",
+    label: "Release notes",
+    icon: "Rocket",
+    phase: "17",
+    href: "/admin/releases",
+    perm: "news",
+  },
+  {
     id: "menus",
     label: "Menu & theme defaults",
     icon: "PanelsTopLeft",

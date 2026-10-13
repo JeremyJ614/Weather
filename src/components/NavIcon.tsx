@@ -66,6 +66,7 @@ import {
   MessageSquare,
   CircleHelp,
   Cpu,
+  Rocket,
 } from "lucide-react";
 
 /** Only the icons the navigation uses, so the bundle carries nothing else. */
@@ -136,6 +137,7 @@ const MAP: Record<string, LucideIcon> = {
   MessageSquare,
   CircleHelp,
   Cpu,
+  Rocket,
 };
 
 export function NavIcon({

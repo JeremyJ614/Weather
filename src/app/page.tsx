@@ -5,6 +5,7 @@ import { getSiteDefaults } from "@/lib/settings";
 import { WeatherNews } from "@/features/news/WeatherNews";
 import { HomeTabs } from "@/features/news/HomeTabs";
 import { SswxNews } from "@/features/news/SswxNews";
+import { AppUpdates } from "@/features/news/AppUpdates";
 import { coverUrl, excerpt, getPublishedPosts } from "@/lib/news/posts";
 
 export default async function Home() {
@@ -30,7 +31,7 @@ export default async function Home() {
       <h1 className="display text-4xl">StormSync Weather is being built</h1>
       <p className="text-muted">
         The app is under construction, one tested phase at a time. Your local
-        forecast, Weather News and SSWX News work now; App Updates comes next.
+        forecast and the three news tabs work now.
       </p>
       {disabled.includes("weather") ? (
         <ModuleOff label="The local forecast" />
@@ -56,6 +57,11 @@ export default async function Home() {
             ) : (
               <SswxNews posts={cards} />
             ),
+          },
+          {
+            id: "app-updates",
+            label: "App Updates",
+            panel: <AppUpdates />,
           },
         ]}
       />

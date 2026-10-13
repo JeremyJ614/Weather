@@ -2,7 +2,7 @@
 
 **Objective:** StormSync Weather (Weather.SSWX.Space): one mobile-first PWA + Android .apk merging the team's weather apps. Free to run until revenue.
 
-**Stage:** Building. Done: 01–16, 10b, 10c. Next: 17 App Updates tab. Pricing spec saved in `docs/07-PRICING.md` (phases 62c and 64).
+**Stage:** Building. Done: 01–17, 10b, 10c. Next: 18 Dashboard (movable widgets). Pricing spec in `docs/07-PRICING.md` (phases 62c, 64).
 
 **Decisions so far**
 - Repo `JeremyJ614/Weather`, working branch `ccr-f5e0b71a-4vr2wk`, PR #1 merged to `main`; PR #2 open.
@@ -35,7 +35,7 @@
 - Owner's logo for the intro ending.
 
 **Next actions**
-1. Phase 17 App Updates tab: new members (initials), game winners (once games exist), releases (admin-written). Then 18 Dashboard.
+1. Phase 18 Dashboard `/dashboard`: movable widgets (Today, 7-day, hourly graph, SPC level, UV, sunrise/sunset, moon, wind, pressure trend, feels like, dew point, AQI, pollen, nearest river gauge) on the NWS data layer; order saved per device. Game winners join App Updates in phase 26.
 2. Saved places sync to the account: phase 62b. Signup form editing from admin: phase 13.
 3. Watchdog: `/api/cron/storage-watchdog` daily via `vercel.json`; `CRON_SECRET` set in Vercel (production). Returns 500 until the ops migration is applied.
 
