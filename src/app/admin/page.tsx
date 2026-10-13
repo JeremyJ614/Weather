@@ -14,7 +14,7 @@ export default async function Admin() {
   const allowed = new Set((perms ?? []).map((p) => p.section));
   allowed.add("audit");
   const visible = ADMIN_SECTIONS.filter((s) =>
-    isFounder ? true : !s.founderOnly && allowed.has(s.id),
+    isFounder ? true : !s.founderOnly && allowed.has(s.perm ?? s.id),
   );
 
   return (

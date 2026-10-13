@@ -6,6 +6,8 @@ export type AdminSection = {
   phase: string;
   href?: string;
   founderOnly?: boolean;
+  /** Permission that opens it, when it differs from `id`. */
+  perm?: string;
 };
 
 export const ADMIN_SECTIONS: AdminSection[] = [
@@ -78,4 +80,6 @@ export const ADMIN_SECTIONS: AdminSection[] = [
   },
 ];
 
-export const sectionIds = new Set(ADMIN_SECTIONS.map((s) => s.id));
+export const sectionIds = new Set(
+  ADMIN_SECTIONS.filter((s) => !s.perm).map((s) => s.id),
+);

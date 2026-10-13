@@ -34,7 +34,7 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 - [x] 14. Chosen admin extras, part 2 (signup-form editor, members CSV export; the rest ship with their features, see BuildPlan §6)
 
 ## Homepage
-- [ ] 15. Weather News tab: top 15 auto-collected stories, refreshed 1–2 times a day
+- [x] 15. Weather News tab: top 15 auto-collected stories, refreshed 1–2 times a day
 - [ ] 16. SSWX News tab with the glowing unread section and "unread shows first" rule
 - [ ] 17. App Updates tab (new members, game winners, releases)
 

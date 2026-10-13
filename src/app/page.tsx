@@ -2,6 +2,7 @@
 import { TodayCard } from "@/features/weather/TodayCard";
 import { ModuleOff } from "@/components/ops/ModuleOff";
 import { getSiteDefaults } from "@/lib/settings";
+import { WeatherNews } from "@/features/news/WeatherNews";
 
 export default async function Home() {
   const { disabled } = await getSiteDefaults();
@@ -15,8 +16,8 @@ export default async function Home() {
       />
       <h1 className="display text-4xl">StormSync Weather is being built</h1>
       <p className="text-muted">
-        The app is under construction, one tested phase at a time. The Homepage
-        news tabs come in their own phase; your local forecast works now.
+        The app is under construction, one tested phase at a time. Your local
+        forecast and Weather News work now; SSWX News and App Updates come next.
       </p>
       {disabled.includes("weather") ? (
         <ModuleOff label="The local forecast" />

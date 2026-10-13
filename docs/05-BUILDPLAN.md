@@ -51,7 +51,7 @@ Secrets are server-only env vars (names: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `S
 - Saved places: up to 5 on the device (`sswx-places`), synced to the account in phase 08.
 
 ## 6. Sections
-**Homepage.** Weather News: top 15 from NWS, SPC, NHC, NOAA news, NASA Earth, AP weather and Reuters climate, refreshed once at 7 AM Eastern, most severe first, no AI summaries. SSWX News: owner's posts with the editor; unread glow ends when opened or after 7 days. App Updates: new members by initials, game winners, releases.
+**Homepage.** Weather News (built, phase 15): top 15 from NWS (Extreme alerts), SPC, NHC, NOAA, NASA Earth Observatory, Climate.gov and NPR Climate, refreshed once at 7 AM Eastern, most severe first, no AI summaries. AP and Reuters publish no public feeds, so Climate.gov and NPR Climate stand in. Admins pin, hide and reorder stories at /admin/stories and can collect on demand. SSWX News: owner's posts with the editor; unread glow ends when opened or after 7 days. App Updates: new members by initials, game winners, releases.
 
 **Localized Data.** Location by GPS or ZIP; up to 5 saved places with manual switching. Dashboard widgets: Today, 7-day, Hourly graph, SPC level, UV, Sunrise/sunset, Moon phase, Wind, Pressure trend, Feels like, Dew point, AQI, Pollen, Nearest river gauge. WPC, CPC and Fall Forecast subtabs per the outline. Daily Brief by in-app, push and email (SMS requests surface in the admin panel for the owner): today's forecast, SPC risk, active alerts, hourly rain timing, AQI and pollen, tomorrow at a glance. Forecast Discussion from the user's local office: Simplified (everyday language, AI) and Standard. AQI & Pollen, Mosquito Index ported; Daylight Tracker rebuilt.
 

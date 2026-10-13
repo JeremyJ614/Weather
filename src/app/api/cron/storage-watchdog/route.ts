@@ -29,7 +29,8 @@ export async function GET(request: Request) {
     return Response.json({ error: snap.error.message }, { status: 500 });
   }
   // Retention (storage safety rule 2): snapshots 400 days, map-load months 24 months,
-  // idle PIN lockout rows 30 days, audit log 1 year, error groups 30 days.
+  // idle PIN lockout rows 30 days, audit log 1 year, error groups 30 days,
+  // story pins/hides 30 days.
   const day = (n: number) =>
     new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
   const pruned = await Promise.all([
@@ -38,6 +39,7 @@ export async function GET(request: Request) {
     db.from("pin_attempts").delete().lt("updated_at", day(30)),
     db.from("audit_log").delete().lt("at", day(365)),
     db.from("client_errors").delete().lt("last_seen", day(30)),
+    db.from("news_curation").delete().lt("created_at", day(30)),
   ]);
   const pruneError = pruned.find((r) => r.error)?.error;
   if (pruneError) {

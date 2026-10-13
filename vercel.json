@@ -1,4 +1,17 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "crons": [{ "path": "/api/cron/storage-watchdog", "schedule": "20 6 * * *" }]
+  "crons": [
+    {
+      "path": "/api/cron/storage-watchdog",
+      "schedule": "20 6 * * *"
+    },
+    {
+      "path": "/api/cron/weather-news",
+      "schedule": "0 11 * * *"
+    },
+    {
+      "path": "/api/cron/weather-news",
+      "schedule": "0 12 * * *"
+    }
+  ]
 }
