@@ -1,0 +1,27 @@
+# Owner decisions
+
+Newest wins. Source of each: the Section A/B lab (`picks/selection`), the Theme Lab (`themes/selection`), or chat.
+
+## Look and feel
+- **Menus.** Users choose from offered lists. Main offers: Corner Sweep (default), Radial Plates, Glass Ledger, Split Sidebar, Mega Spotlight, Bento Board, Live Bento, Tab Bar + Sheet, Swipe Tabs, Bottom Rail Pop, StormSync Vortex, Notch Bar. Second offers: Morph FAB (default), Radial Plates, Depth Drawer, Split Sidebar, Swipe Tabs, Speed Dial, Curtain Reveal, StormSync Vortex. A user cannot pick the same menu for both. When two chosen menus put controls in the same place, the second one moves to its next free spot (each menu declares its preferred spots). Defaults are set in the admin panel; users change theirs in account settings.
+- **Menu fixes.** Radial Plates: dark with bright outlines, better icons. Speed Dial: better icons. Color Morph Bar: dark colors, never opens search or the keyboard on its own. Flip Tiles: show that the board scrolls.
+- **Themes.** Default palette VIP Gold, default fonts Editorial Crown. Offered palettes: Twilight Silver, Storm Cell, Pastel Frost, Pastel Nebula, Sapphire Court, Amethyst Crown, StormSync Royal, VIP Gold. Offered fonts: Editorial Crown. Saved combos (ready-made looks): Silver+Storm Desk, Frost+Mission Control, Royal+Radar Room, VIP+VIP Classic, Titanium+Arcade Storm, Steel Rose+Clean Pro, Slate Storm+Logo Match, Thunderhead+Broadcast, Carbon+Royal Seal, Midnight Ink+Radar Room, Ash & Ember+Field Report, Nightshade+Velocity, Eclipse+VIP Classic. Theme changer lives in account settings only, never in the intro guide, and shows only what the owner offers.
+- **Intro screen.** The 3D StormSync Media intro (pending final approval). Short. Ends with tiny "Created By:" / "Jay Myers" in a corner. Every user can turn it off completely in account settings.
+- **Intro guide.** New users get a guided tour of everything and how to do it, ending with picking their main and second menus (or keeping defaults).
+
+## Platform
+- **Hosting.** Vercel Hobby until revenue covers Pro.
+- **Install.** iPhone: Home Screen now, App Store later. Android: .apk now, Google Play later.
+- **SMS.** Offer it; the owner sees requests in the admin panel and sends texts outside the app.
+- **Engines.** Repo goes public at launch so scheduled engine runs are free; hourly while private only if within limits.
+- **Pricing.** The owner supplies his own pricing before the signup phase.
+- **Maps.** Every map, including ported ones, uses one shared map component: Mapbox GL JS (newest v3) with ONE key, switching automatically to MapLibre GL JS v6 when our own monthly map-load counter nears the free limit, and back when the month resets. Not rotating several accounts' keys: that breaks Mapbox's terms and risks all accounts being closed.
+- **Storage safety.** No rendered images stored in Supabase; every growing table has a retention rule; a daily watchdog reports database and storage size to the admin panel with alerts at 60% and 80% of quota. See `docs/06-STORAGE-SAFETY.md`.
+
+## Admin panel
+Outline's requests + VIP AdminPanel (what fits) + the owner's 19 chosen extras + more of our own. Goal: see and control anything.
+
+## Engines
+- **At launch:** ProbTor, ProbHail, Nocturnal LLJ, Wildfire/PyroCb, Radar Blind Spot, Landspout/Waterspout, Rotation Track Persistence, Snow Squall, Landfalling Hurricane Tornado Risk.
+- **Post-launch, built first in a private admin-only preview for approval:** Convective Initiation, Supercell Merger, Derecho Corridor, Dryline/Triple Point, Photogenic Supercell, Streamwise Vorticity, Cap Bust Meter, Downburst Potential, Lightning Jump, Airmass Recovery, Tropical RI Watch, Training Storms.
+- **Skipped:** Burn Scar, Dense Fog, Hail Footprint, Heat Burst, Freezing Rain, Intercept Planner.

@@ -21,6 +21,8 @@
 - Post-launch engines (B2/B3 marked "Post-launch") are built in a private, admin-only preview area for owner approval before going public.
 - A2 intro: owner is sending the CodePen zip; rebuild it in the Theme Lab with logo, style and colors.
 
+- See `docs/04-DECISIONS.md` for all owner decisions (supersedes the list above).
+
 **Done:** Section A lab (31 menus, intro, 25 admin extras, 15 themes, 10 pricing), Section B answers (`docs/02-SECTION-B.md`), phase list (`docs/03-PHASES.md`), Section B tabs in the lab.
 
 **Fixed:** lab saved data came back read-only, silently blocking later edits (now cloned on load).

@@ -15,9 +15,9 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 - [ ] 02. Vercel project linked to GitHub, Supabase connected, server-only secrets, Weather.SSWX.Space DNS
 - [ ] 03. Installable app: PWA manifest, icons, offline screen, splash, safe areas, device-tier detection
 - [ ] 04. Design system: chosen theme tokens, type scale, motion rules (transform/opacity only), base components
-- [ ] 05. StormSync Media intro animation as the launch screen
-- [ ] 06. Main menu (chosen style) with every launch page routed; unbuilt pages show an honest phase notice
-- [ ] 07. Second menu (chosen style) for the Tornado Archive and Chasing Log
+- [ ] 05. StormSync Media 3D intro as the launch screen: short, tiny "Created By: Jay Myers" at the end, tap to skip, off switch in account settings
+- [ ] 06. Menu system: every offered style as a component, each declaring its control spots; collision avoidance when two are combined; same menu can't be both; every launch page routed; unbuilt pages show an honest phase notice
+- [ ] 07. Second-menu lists, defaults set from the admin panel, and the four menu fixes (Radial Plates, Speed Dial, Color Morph Bar, Flip Tiles)
 - [ ] 08. Accounts: signup, login, sessions, password reset, Row Level Security on every table
 - [ ] 09. Roles: user, SSWX Member, Admin as a second role, subscription tiers mapped to roles
 - [ ] 10. Saved location, permission flow and a shared weather-data layer with caching
@@ -94,6 +94,8 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 
 ## Account
 - [ ] 62. My Profile
+- [ ] 62b. Account settings: menus, offered themes, intro on/off
+- [ ] 62c. New-user intro guide covering every section, ending with menu choice
 - [ ] 63. Notifications center with every toggle
 - [ ] 64. Signup with the live price tracker, editable form and Stripe
 
