@@ -90,9 +90,9 @@ addMenu({ id: "morph", cat: "FAB", name: "Morph FAB", desc: "The button swells i
 /* ---------- OFF-CANVAS ---------- */
 addMenu({ id: "curtain", cat: "Off-canvas", name: "Curtain Reveal", desc: "The page swings open like a door to reveal a big typographic menu behind it.",
   css: `
-.m-curtain .back{position:absolute;inset:0;padding:70px 18px 20px;overflow:auto;background:linear-gradient(160deg,var(--surface2),var(--bg));pointer-events:none}
-.m-curtain.on .back{pointer-events:auto}
-.m-curtain .g{display:block;width:100%;text-align:left;font-family:var(--f-display);font-weight:800;font-size:30px;line-height:1.05;text-transform:uppercase;color:var(--muted);padding:3px 0;opacity:0;transform:translateX(-30px);transition:opacity .35s,transform .5s var(--ease),color .2s}
+.m-curtain .back{position:absolute;top:0;bottom:0;left:0;width:64%;padding:70px 10px 20px 18px;overflow:auto;opacity:0;pointer-events:none;transition:opacity .3s}
+.m-curtain.on .back{opacity:1;pointer-events:auto}
+.m-curtain .g{display:block;width:100%;text-align:left;font-family:var(--f-display);font-weight:800;font-size:27px;line-height:1.05;text-transform:uppercase;color:var(--muted);padding:3px 0;opacity:0;transform:translateX(-30px);transition:opacity .35s,transform .5s var(--ease),color .2s}
 .m-curtain.on .g{opacity:1;transform:none;transition-delay:calc(var(--i)*35ms + .2s)}
 .m-curtain .g:hover,.m-curtain .g.sel{color:var(--text)}
 .m-curtain .g.sel{color:var(--accent)}
@@ -104,14 +104,14 @@ addMenu({ id: "curtain", cat: "Off-canvas", name: "Curtain Reveal", desc: "The p
 .scr-curtain{transform:perspective(1000px) translateX(64%) rotateY(-38deg) scale(.9)!important;transform-origin:right center!important;box-shadow:-40px 0 80px rgba(0,0,0,.6);border-radius:24px;pointer-events:none}`,
   build(ctx) {
     const root = el(`<div class="mx m-curtain"><nav class="back">${ctx.data.map((g, s) => `<button class="g" style="--i:${s}" data-g="${s}">${esc(g.label)}</button><div class="subs">${itemsHTML(g)}</div>`).join("")}</nav>${burger("left")}</div>`);
-    ctx.layer.prepend(root);
-    ctx.layer.classList.add("behind");
+    ctx.layer.appendChild(root);
+    ctx.stage.style.background = "linear-gradient(160deg,var(--surface2),var(--bg))";
     const trig = root.querySelector(".trig");
     const set = v => { root.classList.toggle("on", v); trig.classList.toggle("open", v); ctx.screen.classList.toggle("scr-curtain", v); };
     trig.onclick = () => set(!root.classList.contains("on"));
     root.querySelectorAll(".g").forEach(b => b.onclick = () => { const g = ctx.data[b.dataset.g]; const solo = soloLabel(g); if (solo) { ctx.nav(solo); set(false); return; } const on = b.classList.contains("sel"); root.querySelectorAll(".g").forEach(x => { x.classList.remove("sel"); x.nextElementSibling.classList.remove("on"); }); if (!on) { b.classList.add("sel"); b.nextElementSibling.classList.add("on"); } });
     onItem(root, ctx, () => set(false));
-    return { open() { set(true); }, close() { set(false); }, destroy() { ctx.layer.classList.remove("behind"); } };
+    return { open() { set(true); }, close() { set(false); } };
   } });
 
 /* ---------- STACKED ---------- */
@@ -130,7 +130,7 @@ addMenu({ id: "deck", cat: "Stacked", name: "Card Deck", desc: "Sections stacked
 .m-deck .mi{display:flex;gap:6px;align-items:center;padding:9px 8px;border-radius:10px;background:rgba(255,255,255,.14);font-size:12px;font-weight:700;color:#fff;text-align:left;line-height:1.15}
 .m-deck .mi .ic{width:14px;height:14px}`,
   build(ctx) {
-    const root = el(`<div class="mx m-deck">${burger()}<div class="wrap2"><div class="pile" style="--n:${ctx.data.length}">${ctx.data.map((g, s) => `<div class="c" style="--i:${s};--h:${235 + s * 14};z-index:${s}" data-g="${s}" role="button" tabindex="0"><header>${ic(g.icon)}${esc(g.label)}<em>${g.items.length}</em></header><div class="its">${itemsHTML(g)}</div></div>`).join("")}</div></div></div>`);
+    const root = el(`<div class="mx m-deck">${burger()}<div class="wrap2"><div class="pile" style="--n:${ctx.data.length}">${ctx.data.map((g, s) => `<div class="c" style="--i:${s};--h:${222 + s * 9};z-index:${s}" data-g="${s}" role="button" tabindex="0"><header>${ic(g.icon)}${esc(g.label)}<em>${g.items.length}</em></header><div class="its">${itemsHTML(g)}</div></div>`).join("")}</div></div></div>`);
     ctx.layer.appendChild(root);
     const trig = root.querySelector(".trig"), pile = root.querySelector(".pile");
     const set = v => { root.classList.toggle("on", v); trig.classList.toggle("open", v); if (!v) { pile.classList.remove("lift"); pile.querySelectorAll(".up").forEach(x => x.classList.remove("up")); } };
@@ -396,7 +396,7 @@ addMenu({ id: "vortex", cat: "Signature", name: "StormSync Vortex", desc: "Our s
   } });
 
 /* ---------- PORTS OF THE SUPPLIED PENS ---------- */
-addMenu({ id: "notch", cat: "From your files", name: "Notch Bar", desc: "Port of “Navigation bar with circle flexible highlight”. The bar carves a round notch that glides under the active icon, which lifts into a glowing bubble. Rebuilt with transforms only so it stays smooth.",
+addMenu({ id: "notch", cat: "From your files", name: "Notch Bar", desc: "Port of \u201cNavigation bar with circle flexible highlight\u201d. The bar carves a round notch that glides under the active icon, which lifts into a glowing bubble. Rebuilt with transforms only so it stays smooth.",
   css: `
 .m-notch .bar{position:absolute;left:10px;right:10px;bottom:14px;height:66px;pointer-events:auto}
 .m-notch svg.bg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;filter:drop-shadow(0 8px 18px rgba(0,0,0,.45))}
@@ -425,7 +425,7 @@ addMenu({ id: "notch", cat: "From your files", name: "Notch Bar", desc: "Port of
     return { open() { sel(Math.min(2, tabs.length - 1)); }, close() { sheet.classList.remove("on"); } };
   } });
 
-addMenu({ id: "sweep", cat: "From your files", name: "Corner Sweep", desc: "Port of “Overlay menu”. Two curved layers sweep in from the corner, then huge headings slide in. The three-line icon morphs as it opens.",
+addMenu({ id: "sweep", cat: "From your files", name: "Corner Sweep", desc: "Port of \u201cOverlay menu\u201d. Two curved layers sweep in from the corner, then huge headings slide in. The three-line icon morphs as it opens.",
   css: `
 .m-sweep .mt{position:absolute;top:28px;right:14px;width:44px;height:44px;display:grid;align-content:center;gap:6px;padding:0 9px;pointer-events:auto;z-index:4}
 .m-sweep .mt i{display:block;height:2px;background:var(--text);border-radius:2px;transition:transform .3s var(--ease),width .3s}
@@ -435,7 +435,7 @@ addMenu({ id: "sweep", cat: "From your files", name: "Corner Sweep", desc: "Port
 .m-sweep.on .mt i:nth-child(1){width:100%;transform:translateY(8px) rotate(45deg)}
 .m-sweep.on .mt i:nth-child(2){transform:scaleX(0)}
 .m-sweep.on .mt i:nth-child(3){width:100%;transform:translateY(-8px) rotate(-45deg)}
-.m-sweep .lay{position:absolute;right:-70%;top:-70%;width:240%;aspect-ratio:1;border-radius:50%;transform:scale(0);transform-origin:center;transition:transform .7s cubic-bezier(.77,0,.175,1);pointer-events:none}
+.m-sweep .lay{position:absolute;right:-850px;top:-850px;width:1700px;height:1700px;border-radius:50%;transform:scale(0);transform-origin:center;transition:transform .7s cubic-bezier(.77,0,.175,1);pointer-events:none}
 .m-sweep .l1{background:color-mix(in srgb,var(--accent) 35%,var(--bg));transition-delay:.12s}
 .m-sweep .l2{background:color-mix(in srgb,var(--bg) 96%,#000)}
 .m-sweep.on .l1{transform:scale(1);transition-delay:0s}
@@ -462,7 +462,7 @@ addMenu({ id: "sweep", cat: "From your files", name: "Corner Sweep", desc: "Port
     return { open() { set(true); }, close() { set(false); } };
   } });
 
-addMenu({ id: "colorbar", cat: "From your files", name: "Color Morph Bar", desc: "Port of “Colorful Mobile Navigation Bar”. Each tab tints the whole screen its own color, and the search button stretches into a live search across every page.",
+addMenu({ id: "colorbar", cat: "From your files", name: "Color Morph Bar", desc: "Port of \u201cColorful Mobile Navigation Bar\u201d. Each tab tints the whole screen its own color, and the search button stretches into a live search across every page.",
   css: `
 .m-colorbar .tint{position:absolute;inset:0;background:var(--tint,transparent);opacity:.22;transition:background .5s;pointer-events:none}
 .m-colorbar .wrap2{position:absolute;left:10px;right:10px;bottom:14px;border-radius:20px;overflow:hidden;background:var(--tint);transition:background .5s;pointer-events:auto;box-shadow:0 14px 34px -10px rgba(0,0,0,.6)}
@@ -501,7 +501,7 @@ addMenu({ id: "colorbar", cat: "From your files", name: "Color Morph Bar", desc:
     return { open() { root.querySelector(".srch button").click(); }, close() { root.classList.remove("searching"); } };
   } });
 
-addMenu({ id: "plates", cat: "From your files", name: "Radial Plates", desc: "Port of “Radial Menu, Pure CSS”. Round plates burst out from the center button with a staggered delay; pick one and its pages fan out beneath.",
+addMenu({ id: "plates", cat: "From your files", name: "Radial Plates", desc: "Port of \u201cRadial Menu, Pure CSS\u201d. Round plates burst out from the center button with a staggered delay; pick one and its pages fan out beneath.",
   css: `
 .m-plates .bg{position:absolute;inset:0;background:color-mix(in srgb,var(--bg) 86%,transparent);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);opacity:0;pointer-events:none;transition:opacity .4s}
 .m-plates.on .bg{opacity:1;pointer-events:auto}

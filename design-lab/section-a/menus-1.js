@@ -243,7 +243,7 @@ addMenu({ id: "command", cat: "Mega", name: "Command Mega", desc: "Search first.
     ctx.layer.appendChild(root);
     const input = root.querySelector("input"), res = root.querySelector(".res");
     const set = v => { root.classList.toggle("on", v); if (v) setTimeout(() => input.focus({ preventScroll: true }), 300); };
-    const render = q => { q = q.trim().toLowerCase(); let html = ""; ctx.data.forEach(g => { const hits = g.items.filter(i => !q || i.label.toLowerCase().includes(q) || g.label.toLowerCase().includes(q)); if (!hits.length) return; html += `<div class="grp">${esc(g.label)}</div>` + hits.map(it => { let lab = esc(it.label); if (q) { const k = it.label.toLowerCase().indexOf(q); if (k >= 0) lab = esc(it.label.slice(0, k)) + "<mark>" + esc(it.label.slice(k, k + q.length)) + "</mark>" + esc(it.label.slice(k + q.length)); } return `<button class="mi" data-label="${esc(it.label)}">${ic(it.icon)}<span>${lab}</span></button>`; }).join(""); }); res.innerHTML = html || `<div class="none">No page matches “${esc(q)}”.</div>`; };
+    const render = q => { q = q.trim().toLowerCase(); let html = ""; ctx.data.forEach(g => { const hits = g.items.filter(i => !q || i.label.toLowerCase().includes(q) || g.label.toLowerCase().includes(q)); if (!hits.length) return; html += `<div class="grp">${esc(g.label)}</div>` + hits.map(it => { let lab = esc(it.label); if (q) { const k = it.label.toLowerCase().indexOf(q); if (k >= 0) lab = esc(it.label.slice(0, k)) + "<mark>" + esc(it.label.slice(k, k + q.length)) + "</mark>" + esc(it.label.slice(k + q.length)); } return `<button class="mi" data-label="${esc(it.label)}">${ic(it.icon)}<span>${lab}</span></button>`; }).join(""); }); res.innerHTML = html || `<div class="none">No page matches \u201c${esc(q)}\u201d.</div>`; };
     input.oninput = () => render(input.value);
     root.querySelector(".sbtn").onclick = () => set(true);
     root.querySelector(".close").onclick = root.querySelector(".scrim").onclick = () => set(false);
@@ -299,7 +299,7 @@ addMenu({ id: "bentolive", cat: "Bento", name: "Live Bento", desc: "Each tile is
 .m-bentolive .spin .ic{animation:lv-spin 9s linear infinite}
 .m-bentolive .pulse .ic{animation:lv-pulse 1.8s var(--ease) infinite}
 .m-bentolive .float .ic{animation:lv-float 3s ease-in-out infinite}
-.m-bentolive .twinkle::before,.m-bentolive .twinkle::after{content:"✦";position:absolute;color:var(--accent2);font-size:12px;top:20%;left:22%;animation:lv-tw 1.6s infinite}
+.m-bentolive .twinkle::before,.m-bentolive .twinkle::after{content:"\u2726";position:absolute;color:var(--accent2);font-size:12px;top:20%;left:22%;animation:lv-tw 1.6s infinite}
 .m-bentolive .twinkle::after{top:30%;left:70%;font-size:9px;animation-delay:.7s}
 .m-bentolive .zoom{position:absolute;z-index:3;border-radius:20px;background:var(--surface2);overflow:hidden;transform-origin:0 0;pointer-events:auto;display:flex;flex-direction:column}
 .m-bentolive .zoom .zin{position:absolute;inset:0;padding:64px 14px 14px;overflow:auto;opacity:0;transition:opacity .25s}
