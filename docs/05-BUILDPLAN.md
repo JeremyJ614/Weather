@@ -71,7 +71,7 @@ Secrets are server-only env vars (names: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `S
 
 **Second menu.** Official Tornado Archive: EF2+ since 2000 plus every EF4–EF5 since 1950; new NWS surveys publish automatically. Storm Chasing Log: paid tiers and SSWX Members; logs private until shared.
 
-**Admin panel.** Phone-first. Outline requests + VIP AdminPanel (what fits) + the owner's 19 extras + our own. Includes engine preview/approval, owner-only previews (traffic cams), member and referral management, signup form editor, menu and theme defaults, storage watchdog, error log, SMS requests.
+**Admin panel.** Phone-first. Built (phase 11): `/admin` dashboard of sections (unbuilt ones show their phase), Admins & access (Founder makes admins and picks their sections), Audit log (append-only), Storage watchdog. Admin pages return 404 to non-admins and need a Google or email-link session, not a PIN-only one. Outline requests + VIP AdminPanel (what fits) + the owner's 19 extras + our own. Includes engine preview/approval, owner-only previews (traffic cams), member and referral management, signup form editor, menu and theme defaults, storage watchdog, error log, SMS requests.
 
 ## 7. Engines
 At launch: ProbTor, ProbHail, Nocturnal LLJ, Wildfire/PyroCb, Radar Blind Spot, Landspout/Waterspout, Rotation Track Persistence, Snow Squall, Landfalling Hurricane Tornado Risk. Post-launch engines are built in the private Engine Preview first. Access per engine is set in the admin panel.

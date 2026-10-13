@@ -29,13 +29,14 @@ export async function GET(request: Request) {
     return Response.json({ error: snap.error.message }, { status: 500 });
   }
   // Retention (storage safety rule 2): snapshots 400 days, map-load months 24 months,
-  // idle PIN lockout rows 30 days.
+  // idle PIN lockout rows 30 days, audit log 1 year.
   const day = (n: number) =>
     new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
   const pruned = await Promise.all([
     db.from("storage_snapshots").delete().lt("day", day(400)),
     db.from("map_load_months").delete().lt("month", day(731)),
     db.from("pin_attempts").delete().lt("updated_at", day(30)),
+    db.from("audit_log").delete().lt("at", day(365)),
   ]);
   const pruneError = pruned.find((r) => r.error)?.error;
   if (pruneError) {

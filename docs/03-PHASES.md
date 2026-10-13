@@ -28,7 +28,7 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 - [x] 10c. Shared map component: Mapbox GL v3 with automatic MapLibre v6 fallback at the monthly free limit
 
 ## Admin Panel (built early so later pages plug into it)
-- [ ] 11. Admin shell, owner-only access, add admins with per-section permissions, audit log
+- [x] 11. Admin shell, owner-only access, add admins with per-section permissions, audit log
 - [ ] 12. News & Announcements editor (mobile-first, rich, image upload, schedule)
 - [ ] 13. Admin: outline requests + VIP AdminPanel port + chosen extras, part 1
 - [ ] 14. Chosen admin extras, part 2
