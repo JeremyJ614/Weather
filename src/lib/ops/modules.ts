@@ -13,6 +13,7 @@ export const MODULES = [
   { id: "sswxcon", label: "SSWXCon Score" },
   { id: "warnings", label: "Warnings & Reports" },
   { id: "spc", label: "SPC & Probability" },
+  { id: "md", label: "Mesoscale Discussions" },
   { id: "maps", label: "Maps" },
   { id: "weather-news", label: "Weather News" },
   { id: "news", label: "SSWX News" },

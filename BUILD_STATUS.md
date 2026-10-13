@@ -2,7 +2,7 @@
 
 **Objective:** StormSync Weather (Weather.SSWX.Space): one mobile-first PWA + Android .apk merging the team's weather apps. Free to run until revenue.
 
-**Stage:** Building. Done: 01–29, 31–33, 10b, 10c, the 18-point redesign (PR #3) and the 14-item fix list (PR #4). Next: 33 (see docs/03-PHASES.md).
+**Stage:** Building. Done: 01–29, 31–34, 10b, 10c, the 18-point redesign (PR #3) and the 14-item fix list (PR #4). Next: 35 Atmospheric Ingredients (port).
 
 **Decisions so far**
 - Repo `JeremyJ614/Weather`, working branch `ccr-f5e0b71a-4vr2wk`, PR #1 merged to `main`; PR #2 open.

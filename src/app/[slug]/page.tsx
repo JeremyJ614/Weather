@@ -20,6 +20,7 @@ const BUILT = new Set([
   "sswxcon",
   "warnings-reports",
   "spc-probability",
+  "mesoscale-discussions",
 ]);
 
 export function generateStaticParams() {
