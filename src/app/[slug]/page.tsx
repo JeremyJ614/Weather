@@ -18,6 +18,7 @@ const BUILT = new Set([
   "leaderboard",
   "weekly-polls",
   "sswxcon",
+  "warnings-reports",
 ]);
 
 export function generateStaticParams() {

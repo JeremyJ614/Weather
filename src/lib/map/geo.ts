@@ -1,7 +1,7 @@
 import { lobeOf, projectIn } from "./usAlbers";
 
 type Ring = number[][];
-type Geometry =
+export type Geometry =
   | { type: "Polygon"; coordinates: Ring[] }
   | { type: "MultiPolygon"; coordinates: Ring[][] }
   | { type: string; coordinates?: unknown };

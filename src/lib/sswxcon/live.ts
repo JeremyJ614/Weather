@@ -1,5 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { activeAlerts } from "@/lib/nws/active";
 import {
   bandFor,
   computeScore,
@@ -11,27 +12,9 @@ import {
 const UA = { "User-Agent": "StormSync Weather (https://weather.sswx.space)" };
 const ORDER = ["TSTM", "MRGL", "SLGT", "ENH", "MDT", "HIGH"];
 
-type Feature = {
-  properties: {
-    event: string;
-    description?: string | null;
-    parameters?: Record<string, string[] | undefined>;
-  };
-};
-
-/** Every active, actual NWS alert (no page cap), reduced to what the score reads. */
+/** Every active alert, reduced to what the score reads. */
 async function alerts(): Promise<Alert[]> {
-  const r = await fetch(
-    "https://api.weather.gov/alerts/active?status=actual&message_type=alert,update",
-    {
-      headers: { ...UA, Accept: "application/geo+json" },
-      cache: "no-store",
-      signal: AbortSignal.timeout(20000),
-    },
-  );
-  if (!r.ok) throw new Error(`NWS alerts ${r.status}`);
-  const { features } = (await r.json()) as { features: Feature[] };
-  return features.map(({ properties: p }) => {
+  return (await activeAlerts()).map(({ properties: p }) => {
     const one = (k: string) => p.parameters?.[k]?.[0];
     return {
       event: p.event,
