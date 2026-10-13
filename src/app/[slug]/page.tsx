@@ -21,6 +21,7 @@ const BUILT = new Set([
   "warnings-reports",
   "spc-probability",
   "mesoscale-discussions",
+  "atmospheric-ingredients",
 ]);
 
 export function generateStaticParams() {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Check, Download, Hand, Minus, Plus, Scan, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { useZoom } from "./useZoom";
@@ -122,6 +122,8 @@ export function UsMap({
   overlay?: ReactNode;
 }) {
   const [base, setBase] = useState<Base | null>(null);
+  // Unique per map: a shared id resolves to the first map, which may sit in a hidden tab and stop clipping.
+  const uid = useId().replace(/:/g, "");
   const [busy, setBusy] = useState(false);
   const svg = useRef<SVGSVGElement>(null);
   const [live, setLive] = useState(false);
@@ -187,21 +189,25 @@ export function UsMap({
           aria-label={`${title} map of the United States`}
         >
           <defs>
-            <radialGradient id="usm-sea" cx="50%" cy="40%" r="75%">
+            <radialGradient id={`${uid}-sea`} cx="50%" cy="40%" r="75%">
               <stop offset="0" stopColor="var(--surface)" />
               <stop offset="1" stopColor="var(--bg)" />
             </radialGradient>
             {base && (
-              <clipPath id="usm-nation">
+              <clipPath id={`${uid}-nation`}>
                 <path d={base.nation} />
               </clipPath>
             )}
           </defs>
-          <rect width={W} height={H} fill="url(#usm-sea)" />
+          <rect width={W} height={H} fill={`url(#${uid}-sea)`} />
           {base && (
             <>
               <path d={base.nation} className={s.land} />
-              <g clipPath="url(#usm-nation)" className={s.data} key={title}>
+              <g
+                clipPath={`url(#${uid}-nation)`}
+                className={s.data}
+                key={title}
+              >
                 {children}
               </g>
               <g className={s.states}>

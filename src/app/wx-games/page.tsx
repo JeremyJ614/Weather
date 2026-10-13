@@ -32,11 +32,13 @@ export default async function WxGames() {
       sb
         .from("game_guesses")
         .select(SELECT)
+        .eq("user_id", viewer.id!)
         .eq("guess_date", today)
         .maybeSingle(),
       sb
         .from("game_guesses")
         .select(SELECT)
+        .eq("user_id", viewer.id!)
         .not("points", "is", null)
         .order("guess_date", { ascending: false })
         .limit(1)

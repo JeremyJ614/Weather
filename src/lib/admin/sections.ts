@@ -46,6 +46,7 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     label: "Menu & theme defaults",
     icon: "PanelsTopLeft",
     phase: "07",
+    href: "/admin/menus",
   },
   {
     id: "news",
@@ -66,6 +67,7 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     label: "Signup form",
     icon: "ClipboardList",
     phase: "13",
+    href: "/admin/signup-form",
   },
   {
     id: "errors",

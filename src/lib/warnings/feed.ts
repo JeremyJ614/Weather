@@ -57,17 +57,14 @@ export type Warning = Awaited<ReturnType<typeof warningsList>>["items"][number];
 
 /** The full text of one alert, loaded when a card is opened. */
 export async function warningText(id: string) {
-  const r = await fetch(
-    `https://api.weather.gov/alerts/${encodeURIComponent(id)}`,
-    {
-      headers: {
-        "User-Agent": "StormSync Weather (https://weather.sswx.space)",
-        Accept: "application/geo+json",
-      },
-      next: { revalidate: 300 },
-      signal: AbortSignal.timeout(12000),
+  const r = await fetch(`https://api.weather.gov/alerts/${id}`, {
+    headers: {
+      "User-Agent": "StormSync Weather (https://weather.sswx.space)",
+      Accept: "application/geo+json",
     },
-  );
+    next: { revalidate: 300 },
+    signal: AbortSignal.timeout(12000),
+  });
   if (!r.ok) throw new Error(`NWS alert ${r.status}`);
   const p = (await r.json()).properties as {
     description?: string;

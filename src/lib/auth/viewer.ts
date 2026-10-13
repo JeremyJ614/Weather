@@ -4,6 +4,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 
 export type Role = "member" | "admin" | "founder";
 export type Viewer = {
+  id: string | null;
   signedIn: boolean;
   name: string | null;
   tier: string | null;
@@ -12,6 +13,7 @@ export type Viewer = {
 };
 
 const SIGNED_OUT: Viewer = {
+  id: null,
   signedIn: false,
   name: null,
   tier: null,
@@ -30,6 +32,7 @@ export const getViewer = cache(async (): Promise<Viewer> => {
     supabase
       .from("profiles")
       .select("first_name, last_name, nickname, use_nickname, tier")
+      .eq("id", user.id)
       .maybeSingle(),
     supabase.from("user_roles").select("role").eq("user_id", user.id),
   ]);
@@ -40,6 +43,7 @@ export const getViewer = cache(async (): Promise<Viewer> => {
       : `${profile.first_name} ${profile.last_name.slice(0, 1)}.`
     : null;
   return {
+    id: user.id,
     signedIn: true,
     name,
     tier: profile?.tier ?? null,

@@ -139,3 +139,6 @@ export function tags(params: Record<string, string | undefined>) {
 /** Two-letter states named in a UGC list (e.g. "OKC109" → "OK"). */
 export const statesOf = (ugc: string[] = []) =>
   [...new Set(ugc.map((u) => u.slice(0, 2)))].sort();
+
+/** NWS alert ids are CAP OIDs with a hex hash, e.g. urn:oid:2.49.0.1.840.0.9fa2….001.1 */
+export const isAlertId = (id: string) => /^urn:oid:[0-9a-f.]+$/i.test(id);

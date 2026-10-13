@@ -122,3 +122,10 @@ Personal Warnings & Alerts, Affected Communities Outlook, FairWeather Tracking, 
 | 32 | Forecast Game | The month's champion could be crowned before the month's last day was scored (both ran at once) | The scorer runs first, then the crowning |
 | 33 | Forecast Game | Pins locked at noon ET and couldn't be moved | Pins move freely until the midnight ET reset (database-enforced, today only, scores untouchable) |
 | 34 | Daily Trivia | (VIP) points were minted from the browser and silently rejected | Answers are graded and paid only by `trivia_answer()` in the database; the key is never readable before answering |
+| 35 | Homepage · Weather News | Still empty after #30: the daily run was missed and the page's background refresh never fired on the cached homepage | Hourly database job collects whenever stories are missing or over a day old; read cache shortened to 15 min |
+| 36 | Account | Admins tapping Account were sent to "create an account": the "my profile" lookup read every profile admins can see and failed | Every own-row lookup filters by the signed-in user's id (account, welcome, sign-in links, brief, games) |
+| 37 | Warnings & Reports | Every warning said "The full text couldn't be loaded": NWS alert ids contain hex letters, the check allowed digits only | Id check accepts the real CAP format (tested); on an NWS outage the card shows the basic alert facts |
+| 38 | Dashboard · WPC Drought | The rapid-drought map bled everywhere: the service layer drew a white footprint and outline over the map, and a shared clip id could resolve to a hidden map | Image-only layer; each map has its own clip ids |
+| 39 | Admin · Daily Trivia | The Points box ran under the Bonus/Hidden buttons | The box stays its own width; the buttons sit beside it |
+| 40 | Admin | Menu & theme defaults and Signup form were built but locked as "coming" tiles | Both open from the panel |
+| 41 | Atmospheric Ingredients | The SWTI number in the ring showed tiny and grey (the label style caught the number) | Label has its own class |

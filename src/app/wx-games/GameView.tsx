@@ -342,9 +342,6 @@ export function GameView({
           </div>
         </section>
       )}
-      <Link href="/leaderboard" className={s.boardLink}>
-        <Trophy aria-hidden /> Standings &amp; Champions Hall
-      </Link>
     </div>
   );
 

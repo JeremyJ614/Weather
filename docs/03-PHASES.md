@@ -60,7 +60,7 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 - [x] 32. Warnings & Reports (port)
 - [x] 33. SPC & Probability (two subtabs, port)
 - [x] 34. Mesoscale Discussions (port)
-- [ ] 35. Atmospheric Ingredients (port)
+- [x] 35. Atmospheric Ingredients (port: SWTI ring, 72-hour scrubber, ingredient cards with sparklines, SWTI parts, model agreement)
 - [ ] 36. Storm Timing Index (port)
 - [ ] 37. Tropical Outlook (port) with smoother playback
 - [ ] 38. Tropical Model Battle Royale (includes Google Weather Lab AI tracks)

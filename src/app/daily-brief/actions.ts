@@ -41,6 +41,7 @@ export async function saveBrief(
     const { data: p } = await supabase
       .from("profiles")
       .select("phone")
+      .eq("id", user.id)
       .maybeSingle();
     if (!p?.phone)
       return { error: "Add a phone number to your profile to get texts." };

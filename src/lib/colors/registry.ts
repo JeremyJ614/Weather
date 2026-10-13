@@ -5,6 +5,7 @@
  * swap); these are the meanings painted on maps and charts.
  */
 import { DROUGHT, ERO_COLORS, QPF_SCALE, RAMP } from "@/lib/map/products";
+import { PASTEL } from "@/lib/ingredients/calc";
 import { KIND } from "@/lib/warnings/reports";
 import type { Colors } from "./pick";
 import { BANDS } from "@/lib/sswxcon/score";
@@ -127,6 +128,16 @@ export const GROUPS: Group[] = [
       key: `report:${k}`,
       label: v.label,
       def: v.color,
+    })),
+  },
+  {
+    id: "ingredients",
+    label: "Storm ingredients & timing",
+    note: "VIP's pastel ramp, benign to violent, plus wind and rotation",
+    entries: Object.entries(PASTEL).map(([k, v]) => ({
+      key: `ing:${k}`,
+      label: k[0].toUpperCase() + k.slice(1),
+      def: v,
     })),
   },
   {

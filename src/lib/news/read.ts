@@ -7,7 +7,7 @@ export async function getWeatherNews(top = 15) {
   if (!url || !key) return { stories: [], fetchedAt: null };
   const opts = {
     headers: { apikey: key },
-    next: { revalidate: 3600, tags: ["weather-news"] },
+    next: { revalidate: 900, tags: ["weather-news"] },
   };
   try {
     const [items, cur] = await Promise.all([
