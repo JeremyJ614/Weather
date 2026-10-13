@@ -101,9 +101,9 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 ## Account
 - [ ] 62. My Profile
 - [ ] 62b. Account settings: menus, offered themes, intro on/off
-- [ ] 62c. New-user intro guide covering every section, ending with menu choice
+- [ ] 62c. New-user intro guide covering every section, ending with menu choice; guest showcase guide (first visit, skippable, replay button in the second menu, replays after 7 days) — see `docs/07-PRICING.md`
 - [ ] 63. Notifications center with every toggle
-- [ ] 64. Signup with the live price tracker, editable form and Stripe
+- [ ] 64. Signup page `/join` (wow-factor design, tiers + build-your-own + add-ons, live pricing tracker, promotions, coupons, guest-guide button) with Stripe; admin pricing/add-on/promotion/coupon editors; tier access enforcement — see `docs/07-PRICING.md`
 
 ## Second menu
 - [ ] 65. Official Tornado Archive: data pipeline (significant events, 2000 onward, NWS DAT updates)

@@ -2,7 +2,7 @@
 
 **Objective:** StormSync Weather (Weather.SSWX.Space): one mobile-first PWA + Android .apk merging the team's weather apps. Free to run until revenue.
 
-**Stage:** Building. Done: 01–15, 10b, 10c. Next: 16 SSWX News tab (glowing unread, unread first).
+**Stage:** Building. Done: 01–16, 10b, 10c. Next: 17 App Updates tab. Pricing spec saved in `docs/07-PRICING.md` (phases 62c and 64).
 
 **Decisions so far**
 - Repo `JeremyJ614/Weather`, working branch `ccr-f5e0b71a-4vr2wk`, PR #1 merged to `main`; PR #2 open.
@@ -35,7 +35,7 @@
 - Owner's logo for the intro ending.
 
 **Next actions**
-1. Phase 16: SSWX News tab from `news_posts` (published), unread glow until opened or 7 days, unread first; tabs on the homepage (Weather News | SSWX News). Read state: device-local for guests, `news_reads` table for members.
+1. Phase 17 App Updates tab: new members (initials), game winners (once games exist), releases (admin-written). Then 18 Dashboard.
 2. Saved places sync to the account: phase 62b. Signup form editing from admin: phase 13.
 3. Watchdog: `/api/cron/storage-watchdog` daily via `vercel.json`; `CRON_SECRET` set in Vercel (production). Returns 500 until the ops migration is applied.
 

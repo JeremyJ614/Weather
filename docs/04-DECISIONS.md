@@ -28,3 +28,6 @@ Outline's requests + VIP AdminPanel (what fits) + the owner's 19 chosen extras +
 
 ## House style (owner, after Phase 06)
 - **Dark everywhere; the primary color is text, outline and glow, never a fill.** Selected and primary controls use `--lit` (a dark tint of the primary) with primary text and a primary outline. Applied to every menu, Button and Chip.
+
+## Pricing (owner, 2026-10-13)
+See `docs/07-PRICING.md`: tiers Free / Basic $1.49 / Storm Chasers $2.99 / Advanced $3.99 / VIP $4.99 (monthly; yearly $0 / $13.99 / $19.99 / $25.99 / $29.99), build-your-own plans, add-ons on any plan ($0.50; Storm Chasing Outlook and Extras $0.75; Storm Chasing Log $1.00; admin-editable), launch promotions for the first 15 and next 10 signups, five ready-made promotions off by default, admin coupons. Guests see Homepage, News and Disaster Response plus a showcase intro that replays every 7 days.
