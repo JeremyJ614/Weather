@@ -53,5 +53,18 @@ The outline asked for states colored over time. There is no public peak-foliage 
 - Map & data colors: each group with a live map shows today's real map recolored as you type; a test fails when a color pick isn't in the editor (AGENTS rule 11).
 - View as member (VIP port): a lens, not a sign-in. The owner's session never changes; an httpOnly cookie names the member, `getViewer()` returns the member's view for the owner only (re-checked by `lens_target_ok`), admin checks use `getRealViewer()`. The Forecast Game and Trivia read and write through owner-only `lens_*` functions that pay the member and write the audit log under the owner. Daily Brief and poll changes are refused while viewing as. Admins and the owner can't be viewed as.
 - Create member (VIP port): admin → Members → New member makes a confirmed account with an optional PIN, an optional sign-in link email and the SSWX Member role; logged.
-- Pricing (docs/07-PRICING.md) is live as data: `src/lib/billing/plans.ts` defaults + app_config `billing` edits; plan choices are priced on the server and saved by the service-only `save_plan()`; promo codes in `coupons` (never listed publicly; `coupon_check`). A yearly custom plan costs 10 months by default (editable). Checkout and page locks wait for Stripe.
+- Pricing (docs/07-PRICING.md) is live as data: `src/lib/billing/plans.ts` defaults + app_config `billing` edits; plan choices are priced on the server and saved by the service-only `save_plan()`; promo codes in `coupons` (never listed publicly; `coupon_check`). Checkout and page locks wait for Stripe.
 - Storm Timing: VIP's hazard chances and threat are multiplied by an instability gate (0 at no CAPE, full from 500 J/kg); VIP showed 20% tornado chances on stable nights from shear alone. The Ingredients page keeps VIP's exact SWTI.
+- Signup (Fix-It #5): guests see Homepage, Disaster Response, Plans & Pricing, Log In and Sign Up; any other page sends them to the gate (Sign Up, Log In, Skip to the Homepage), which also opens once after the intro on a first visit. Sign up = email link or Google, then one question per screen (admin → Signup form: reorder, ask/skip, required/optional, own questions saved to `profiles.custom_answers`; name, location, birthday and PIN are always asked), then Plans & Pricing. "Build your own" plans are retired; extra pages are add-ons to a tier. An old custom plan still prices as before until changed.
+- VIP admin imports (Fix-It #5):
+  - Members: a comped plan sets `subscriptions.comped` (status active, $0, never counted as income).
+  - Pages per member: `member_pages` either gives a page (takes effect with page locks at checkout) or closes it (enforced now: the proxy calls `page_closed()` and sends the member to /closed).
+  - Referral corrections: `referral_adjust`, ±1 at a time, logged.
+  - Revenue: counts only active, billed, non-comped plans.
+  - Invoice email: template in app_config; members get it once checkout exists; admins can send themselves a test now.
+  - Badges: library plus per-member awards; rarity colors are in the color registry.
+  - Notifications: in-app toasts to everyone or one member, read receipts, kept 90 days.
+  - Contact inbox: every form posts through `contact_send()` (5 per hour per sender, honeypot); /contact is the first form.
+  - System health: `admin_health()`.
+  - Page usage: `track_view()` stores one row per page, member and day; kept 180 days.
+  - Pruning of the new tables runs in the storage watchdog cron.

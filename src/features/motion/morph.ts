@@ -23,20 +23,21 @@ void main(){
  if(f.x<u_rect.x||f.y<u_rect.y||f.x>u_rect.x+u_rect.z||f.y>u_rect.y+u_rect.w)discard;
  vec2 uv=(f-u_rect.xy)/u_rect.zw;
  float ar=u_rect.z/u_rect.w;
- float n=fbm(vec2(uv.x*ar,uv.y)*2.6+vec2(u_seed,u_p*.6*u_dir))*.5+.5;
+ // As in the gallery: pure fbm noise drifting vertically, a wide soft edge (0.15),
+ // with only a light directional lean so the dissolve still follows the tab order.
+ float n=fbm(vec2(uv.x*ar,uv.y)*1.8+vec2(u_seed,u_p*u_dir))*.5+.5;
  float b=u_dir>0.?uv.x:1.-uv.x;
- float v=mix(n,b,.5);
- float e=.14;
+ float v=mix(n,b,.18);
+ float e=.15;
  float t=u_p*(1.+2.*e)-e;
- float cov=1.-smoothstep(t-e*.3,t+e*.3,v);
+ float cov=1.-smoothstep(t-e,t+e,v);
  float d=v-t;
- float k=1.-abs(u_p*2.-1.)*.35;
- float edge=exp(-abs(d)*24.)*k;
- float fringe=exp(-abs(d+.035)*55.)*k;
+ float k=1.-abs(u_p*2.-1.)*.4;
+ float edge=exp(-abs(d)*16.)*k*(1.-cov*.6);
  vec3 glow=mix(u_glow,u_glow2,clamp(uv.y+n*.4-.2,0.,1.));
- vec3 ink=u_bg*(.75+.6*n)+glow*.09*n*n;
- vec3 c=ink*cov+glow*edge*1.9+u_glow2*fringe*.7;
- gl_FragColor=vec4(c,clamp(cov+edge*.9,0.,1.));
+ vec3 ink=u_bg*(.92+.22*n)+glow*.05*n;
+ vec3 c=ink*cov+glow*edge*1.1;
+ gl_FragColor=vec4(c,clamp(cov+edge*.7,0.,1.));
 }`;
 
 type GL = WebGLRenderingContext;
@@ -47,12 +48,14 @@ const U: Record<string, WebGLUniformLocation | null> = {};
 let raf = 0;
 let failed = false;
 
+/**
+ * Every phone gets the morph unless it asks for reduced motion. Slow phones render it at
+ * a lower resolution instead of skipping it: a speed check taken while the page was busy
+ * used to mark capable phones "low" and the morph never showed (Fix-It #5).
+ */
 export function morphEnabled(): boolean {
   if (typeof window === "undefined" || failed) return false;
-  const tier = document.documentElement.dataset.tier;
-  return (
-    tier !== "low" && !matchMedia("(prefers-reduced-motion: reduce)").matches
-  );
+  return !matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
 function rgb(v: string): [number, number, number] {
@@ -119,7 +122,8 @@ function setup(): boolean {
   return true;
 }
 
-const ease = (t: number) => (t < 0.5 ? 16 * t ** 5 : 1 - (-2 * t + 2) ** 5 / 2);
+// Gallery-like cubic in-out: slower start and finish than the old quintic.
+const ease = (t: number) => (t < 0.5 ? 4 * t ** 3 : 1 - (-2 * t + 2) ** 3 / 2);
 
 let seed = Math.random() * 50;
 let lastRect: DOMRect | null = null;
@@ -137,7 +141,8 @@ function colors(): Colors {
 
 function frame(rect: DOMRect, p: number, dir: number, c: Colors) {
   if (!gl || !canvas) return;
-  const scale = Math.min(devicePixelRatio || 1, 1.5) * 0.75;
+  const low = document.documentElement.dataset.tier === "low";
+  const scale = Math.min(devicePixelRatio || 1, 1.5) * (low ? 0.4 : 0.75);
   const w = Math.round(innerWidth * scale);
   const h = Math.round(innerHeight * scale);
   if (canvas.width !== w || canvas.height !== h) {
@@ -198,11 +203,11 @@ export function visible(el: Element): DOMRect {
   return new DOMRect(r.left, top, r.width, Math.max(0, bottom - top));
 }
 
-export const morphCover = (rect: DOMRect, dir = 1, ms = 340) => {
+export const morphCover = (rect: DOMRect, dir = 1, ms = 560) => {
   seed = Math.random() * 50;
   return run(rect, 0, 1, dir, ms);
 };
-export const morphReveal = (rect: DOMRect | null, dir = 1, ms = 600) =>
+export const morphReveal = (rect: DOMRect | null, dir = 1, ms = 900) =>
   run(
     rect ?? lastRect ?? new DOMRect(0, 0, innerWidth, innerHeight),
     1,

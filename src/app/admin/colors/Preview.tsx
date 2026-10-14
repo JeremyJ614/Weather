@@ -52,6 +52,11 @@ export function previewSource(
       };
     case "warnings":
       return { url: "/api/warnings/map", title: "Active warnings now" };
+    case "tropical":
+      return {
+        url: "/api/tropical/preview",
+        title: "Active storms and outlook areas",
+      };
     case "reports":
       return {
         url: "/api/reports?hours=48",
@@ -96,7 +101,12 @@ export function Preview({
                 key: `report:${r.kind}`,
               })),
             }
-          : { polys: (j.polys ?? []) as Poly[], dots: [] };
+          : {
+              polys: (j.polys ?? []) as Poly[],
+              dots: (
+                (j.dots ?? []) as { lat: number; lon: number; key: string }[]
+              ).map((r) => ({ ...project(r.lon, r.lat), key: r.key })),
+            };
         if (live) setData({ url: src.url, d });
       })
       .catch(() => live && setData({ url: src.url, d: "error" }));

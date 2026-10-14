@@ -181,30 +181,26 @@ export async function setMember(fd: FormData) {
   revalidatePath(`/admin/members/${id}`);
 }
 
-export async function saveSignupForm(
-  _: SaveState,
-  fd: FormData,
-): Promise<SaveState> {
+/** Saves the signup questions (order, on/off, required, the owner's own questions). */
+export async function saveSignupForm(json: string): Promise<SaveState> {
   const { supabase } = await requireAdmin("signup-form");
-  const form = cleanForm({
-    show: {
-      nickname: fd.get("nickname") === "on",
-      phone: fd.get("phone") === "on",
-      foundUs: fd.get("foundUs") === "on",
-      referral: fd.get("referral") === "on",
-    },
-    foundUsOptions: String(fd.get("options") ?? "").split("\n"),
-    intro: String(fd.get("intro") ?? "").trim(),
-  });
-  const { error } = await supabase
+  let raw: unknown;
+  try {
+    raw = JSON.parse(json);
+  } catch {
+    return { error: "The form couldn't be read. Reload and try again." };
+  }
+  const form = cleanForm(raw);
+  const { data, error } = await supabase
     .from("app_config")
     .update({ value: form, updated_at: new Date().toISOString() })
-    .eq("key", "signup_form");
-  if (error) return { error: "Couldn't save. Try again." };
+    .eq("key", "signup_form")
+    .select("key");
+  if (error || !data?.length) return { error: "Couldn't save. Try again." };
   await supabase.rpc("log_admin", {
     p_action: "edit_signup_form",
     p_target: "signup form",
-    p_detail: form,
+    p_detail: { questions: form.questions.length },
   });
   updateTag("signup-form");
   return { saved: true };

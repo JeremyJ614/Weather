@@ -375,6 +375,7 @@ export function Dashboard() {
           <ChevronDown className="size-3.5 text-muted" aria-hidden />
         </button>
         <Button
+          live
           variant={editing ? "primary" : "secondary"}
           onClick={() => setEditing(!editing)}
         >

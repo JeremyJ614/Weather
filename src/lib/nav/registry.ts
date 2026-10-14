@@ -168,17 +168,36 @@ export const ALL_PAGES: NavPage[] = [...MAIN_NAV, ...SECOND_NAV].flatMap(
 
 export const href = (page: NavPage) => `/${page.slug}`;
 
-/** Groups as a given viewer may see them; signed-in members see "My Account" instead of sign-in. */
+/** Pages anyone can open without an account (everything else asks them to sign up). */
+export const GUEST_PAGES = ["", "disaster-response", "join", "login"];
+/** Paths a guest may request; the proxy sends everything else to the signup gate. */
+export const GUEST_PATHS =
+  /^\/(?:$|disaster-response|join|login|signup|welcome|auth|privacy|news|offline|sswxcon|contact|closed|api)(?:\/|$)/;
+
+/**
+ * Groups as a given viewer may see them. Signed-in members see "My Account" instead of
+ * sign-in; guests see only the pages open to them plus a Sign Up entry.
+ */
 export function visibleNav(
   groups: NavGroup[],
   isAdmin: boolean,
   signedIn = false,
+  guest = false,
 ): NavGroup[] {
   return groups
     .map((g) => ({
       ...g,
       pages: g.pages
         .filter((pg) => isAdmin || !pg.adminOnly)
+        .filter((pg) => !guest || GUEST_PAGES.includes(pg.slug))
+        .flatMap((pg) =>
+          guest && pg.slug === "login"
+            ? [
+                { ...pg, label: "Log In" },
+                { ...pg, slug: "signup", label: "Sign Up", icon: "UserPlus" },
+              ]
+            : [pg],
+        )
         .map((pg) =>
           pg.slug === "login" && signedIn
             ? { ...pg, label: "My Account", icon: "UserRound" }

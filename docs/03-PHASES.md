@@ -62,13 +62,13 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 - [x] 34. Mesoscale Discussions (port)
 - [x] 35. Atmospheric Ingredients (port: SWTI ring, 72-hour scrubber, ingredient cards with sparklines, SWTI parts, model agreement)
 - [x] 36. Storm Timing Index (port of VIP Severe Timing: worst window with after-dark warning, tappable 72-hour ribbon with night shading, three day cards, hazard cards, chances chart, hourly table; chances held back by available instability)
-- [ ] 37. Tropical Outlook (port) with smoother playback
-- [ ] 38. Tropical Model Battle Royale (includes Google Weather Lab AI tracks)
-- [ ] 38b. Tropical: Google AI Cyclone Model subtab beside the ported hurricane tracker
-- [ ] 39. Hazards & Droughts (port) plus the interactive hazards map subtab
-- [ ] 40. Flooding Outlook (port)
-- [ ] 41. Fire Weather with active wildfires, perimeters and details
-- [ ] 42. Winter Center (port)
+- [x] 37. Tropical Outlook (port: basin map with outlook areas, cones, tracks, forecast points, past tracks and coastal watches; storm cards with forecast table and NHC products; parsed 7-day text outlooks with chance bars; GOES GeoColor basin and storm-floater loops that decode every frame first and dissolve between frames)
+- [x] 38. Tropical Model Battle Royale (14-model roster from NHC ATCF a-decks incl. Google DeepMind (GDMN); newest tracks on the map with toggles and the best track; leaderboard scored against the NHC best track at 24/48/72 h with podium, wins and the CLIPER baseline)
+- [x] 38b. Tropical: Google AI Cyclone Model subtab beside the ported hurricane tracker (Google DeepMind GDMN from NHC ATCF: last 4 runs vs the NHC track and best track, rank among the roster, average miss vs NHC, distance apart, winds chart; the 50-member Weather Lab spread needs a Google sign-in, so it is linked, not embedded)
+- [x] 39. Hazards & Droughts (port, beyond VIP's static images: your-area card with Drought Monitor category, hazards over you and your state's drought trend; interactive CPC 3–7 / 8–14 day hazards map with tap details and merged list; interactive Drought Monitor map, national category bars and 13-week trend; CPC drought outlooks)
+- [x] 40. Flooding Outlook (port: your answer first with worst day, WPC rain totals and active NWS flood alerts at your location; five-day strip with national top level and yours; interactive Excessive Rainfall map with tap details; level guide; WPC rainfall totals maps)
+- [x] 41. Fire Weather with active wildfires, perimeters and details (NIFC WFIGS fires of 10+ acres colored by containment and sized by acres, burn perimeters, tap-for-details cards with acres, containment, start, personnel, cause and behavior; fires nearest you and Red Flag/Fire Weather alerts at your location; sortable fire list; SPC day 1–2 fire outlooks as a map overlay and their own map)
+- [x] 42. Winter Center (port of VIP's five subtabs: storm map with WSSI impact and NOHRSC snow depth/SWE overlays on the live map; WPC day 1–3 odds of 4/8/12" snow and ¼" ice as vector maps with per-amount chips; national winter alerts grouped by type and state; your 72-hour snowfall/temperature timeline with the freezing line; snow-belt city snowfall board; your week with first flakes and alerts on top)
 - [ ] 43. Storm Chasing Outlook with stats that persist across days
 - [ ] 44. Severe Weather History rebuilt for speed (Ryan Hall's history page as the bar)
 

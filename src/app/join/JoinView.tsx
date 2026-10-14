@@ -84,7 +84,8 @@ export function JoinView({
   const sellable = pages.map((p) => p.slug);
   const label = new Map(pages.map((p) => [p.slug, p]));
   const [choice, setChoice] = useState<Choice>(() =>
-    current
+    // Custom page-by-page plans were retired; an old one starts over on Basic.
+    current && current.tier !== "custom"
       ? {
           tier: current.tier as Choice["tier"],
           cycle: current.cycle as Choice["cycle"],
@@ -127,10 +128,14 @@ export function JoinView({
   const q = quote(billing, choice, sellable, fit);
   const first = couponOff(q.first[0], coupon);
   const per = choice.cycle === "year" ? "yr" : "mo";
+  const tier = billing.tiers.find((t) => t.id === choice.tier);
   const covered =
     choice.tier === "custom"
       ? new Set<string>()
       : tierPages(billing, choice.tier, sellable);
+  const extras = choice.addons.filter((p) => label.has(p) && !covered.has(p));
+  const promoOff = q.regular - q.first[0];
+  const couponCut = q.first[0] - first;
   const bestYear = Math.max(
     ...billing.tiers
       .filter((t) => t.month > 0)
@@ -158,7 +163,7 @@ export function JoinView({
       /* private mode */
     }
     if (!signedIn) {
-      router.push(`/login?next=${encodeURIComponent("/join?resume=1")}`);
+      router.push(`/signup?next=${encodeURIComponent("/join?resume=1")}`);
       return;
     }
     if (!hasProfile) {
@@ -282,8 +287,8 @@ export function JoinView({
           Every storm, <span>your way.</span>
         </h1>
         <p className={s.sub}>
-          Start free, pick a plan, or build your own from exactly the pages you
-          want. Change it any time.
+          Start free or pick a plan, then add any extra pages you want. Change
+          it any time.
         </p>
       </section>
 
@@ -319,48 +324,9 @@ export function JoinView({
         ))}
       </div>
 
-      <ol className={s.cards}>
-        {billing.tiers.map(tierCard)}
-        <li style={{ ["--i" as string]: billing.tiers.length }}>
-          <button
-            type="button"
-            aria-pressed={choice.tier === "custom"}
-            onClick={() => set({ tier: "custom", addons: [] })}
-            className={`${s.card} ${s.custom}`}
-          >
-            <span className={s.cardTop}>
-              <span className={s.cardName}>Build your own</span>
-              <span className={s.price}>
-                {money(billing.addons.each)}
-                <small>/page/mo</small>
-              </span>
-            </span>
-            <span className={s.tag}>
-              Only the pages you want; the free pages always come with it
-            </span>
-            <span className={s.check} aria-hidden>
-              <Check />
-            </span>
-          </button>
-        </li>
-      </ol>
+      <ol className={s.cards}>{billing.tiers.map(tierCard)}</ol>
 
-      {choice.tier === "custom" ? (
-        <section className={s.pick}>
-          <h2>Your pages</h2>
-          <div className={s.chips}>
-            {sellable
-              .filter((p) => !billing.tiers[0].pages.includes(p))
-              .map((p) => chip(p, "pages"))}
-          </div>
-          {choice.cycle === "year" && (
-            <p className={s.note}>
-              Yearly custom plans cost {billing.customYearMonths} months; the
-              rest are on us.
-            </p>
-          )}
-        </section>
-      ) : choice.tier !== "vip" ? (
+      {choice.tier !== "vip" ? (
         <section className={s.pick}>
           <h2>Add-ons</h2>
           <p className={s.note}>Add any page to your plan, billed monthly.</p>
@@ -424,38 +390,69 @@ export function JoinView({
       )}
 
       <div className={s.tracker}>
-        <div className={s.total}>
-          {q.promo || first !== q.regular ? (
-            <>
-              <span className={s.now}>
-                <Ticker cents={first} />
-              </span>
-              <span className={s.then}>
-                first {per === "mo" ? "month" : "year"} · then{" "}
-                {money(q.regular)}/{per}
-              </span>
-            </>
-          ) : (
+        <ul className={s.receipt} aria-label="Your receipt">
+          <li>
+            <span>
+              {tier?.name ?? "Plan"} ·{" "}
+              {choice.cycle === "year" ? "yearly" : "monthly"}
+            </span>
+            <b>{q.base ? money(q.base) : "Free"}</b>
+          </li>
+          {extras.map((p) => (
+            <li key={p}>
+              <span>+ {label.get(p)!.label}</span>
+              <b>
+                {money(
+                  addonPrice(billing, p) * (choice.cycle === "year" ? 12 : 1),
+                )}
+              </b>
+            </li>
+          ))}
+          {promoOff > 0 && q.promo && (
+            <li className={s.off}>
+              <span>{q.promo.name}</span>
+              <b>−{money(promoOff)}</b>
+            </li>
+          )}
+          {coupon && couponCut > 0 && (
+            <li className={s.off}>
+              <span>Code {coupon.code}</span>
+              <b>−{money(couponCut)}</b>
+            </li>
+          )}
+        </ul>
+        <div className={s.totalRow}>
+          <div className={s.total}>
+            <span className={s.label}>
+              Total{" "}
+              {first !== q.regular
+                ? `first ${per === "mo" ? "month" : "year"}`
+                : `per ${per === "mo" ? "month" : "year"}`}
+            </span>
             <span className={s.now}>
-              <Ticker cents={q.regular} />
-              <small>/{per}</small>
+              <Ticker cents={first} />
             </span>
-          )}
-          {q.addons > 0 && (
-            <span className={s.then}>
-              includes {money(q.addons)} in add-ons
-            </span>
-          )}
+            {first !== q.regular && (
+              <span className={s.then}>
+                then {money(q.regular)}/{per}
+              </span>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={go}
+            disabled={pending}
+            className={s.cta}
+          >
+            {pending
+              ? "Saving…"
+              : !signedIn
+                ? q.regular
+                  ? "Continue"
+                  : "Start free"
+                : "Choose plan"}
+          </button>
         </div>
-        <button type="button" onClick={go} disabled={pending} className={s.cta}>
-          {pending
-            ? "Saving…"
-            : !signedIn
-              ? q.regular
-                ? "Continue"
-                : "Start free"
-              : "Choose plan"}
-        </button>
       </div>
     </main>
   );

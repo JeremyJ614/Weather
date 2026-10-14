@@ -170,19 +170,6 @@ export function PricingEditor({
               }
             />
           </label>
-          <label className="grid gap-1 text-xs text-muted">
-            A yearly custom plan costs this many months
-            <input
-              className={`${field} mono`}
-              type="number"
-              min={1}
-              max={12}
-              value={b.customYearMonths}
-              onChange={(e) =>
-                edit({ ...b, customYearMonths: Number(e.target.value) })
-              }
-            />
-          </label>
           <p className="text-sm font-bold">Pages with their own price</p>
           <ul className="grid gap-1.5">
             {pages.map((p) => {

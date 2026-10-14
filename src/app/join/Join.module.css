@@ -214,9 +214,6 @@
     ),
     var(--surface);
 }
-.custom {
-  border-style: dashed;
-}
 .cardTop {
   display: flex;
   align-items: baseline;
@@ -408,17 +405,57 @@
   position: sticky;
   bottom: calc(14px + env(safe-area-inset-bottom, 0px));
   z-index: 20;
-  display: flex;
-  align-items: center;
-  gap: 12px;
+  display: grid;
+  gap: 10px;
   margin-right: 74px;
-  padding: 12px 12px 12px 18px;
+  padding: 14px 14px 14px 18px;
   border: 1px solid var(--lit-line);
   border-radius: 22px;
   background: var(--bg);
   box-shadow:
     0 0 30px color-mix(in srgb, var(--accent) 18%, transparent),
     0 14px 40px rgb(0 0 0 / 0.6);
+}
+.receipt {
+  display: grid;
+  gap: 5px;
+  max-height: 30dvh;
+  overflow-y: auto;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed var(--line);
+  font-size: 13.5px;
+}
+.receipt li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.receipt span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+}
+.receipt b {
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+.receipt .off b,
+.receipt .off span {
+  color: var(--accent);
+}
+.totalRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 .total {
   display: grid;
@@ -427,7 +464,7 @@
 }
 .now {
   font-family: var(--font-mono);
-  font-size: 24px;
+  font-size: 28px;
   font-weight: 700;
   color: var(--accent);
 }

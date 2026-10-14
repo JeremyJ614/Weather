@@ -7,6 +7,8 @@ export type ClientViewer = {
   name: string | null;
   isAdmin: boolean;
   adminShortcuts?: boolean;
+  /** True until the first /api/me answer arrives. */
+  pending?: boolean;
 };
 const SIGNED_OUT: ClientViewer = {
   signedIn: false,
@@ -37,7 +39,7 @@ const load = () => {
 
 /** Display only: what to show in menus. Access is enforced on the server and in the database. */
 export function useViewer(): ClientViewer {
-  const [v, setV] = useState(SIGNED_OUT);
+  const [v, setV] = useState<ClientViewer>({ ...SIGNED_OUT, pending: true });
   useEffect(() => {
     let live = true;
     const refresh = () => load().then((x) => live && setV(x));

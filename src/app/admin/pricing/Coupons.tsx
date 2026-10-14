@@ -24,7 +24,6 @@ const TIERS = [
   ["chasers", "Storm Chasers"],
   ["advanced", "Advanced"],
   ["vip", "VIP"],
-  ["custom", "Custom"],
 ];
 
 /** Discount codes: create or update by code, switch on and off. */

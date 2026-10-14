@@ -193,17 +193,40 @@
   width: 18px;
   height: 18px;
 }
+/* Floats in as soon as something changes; clear of the menu button's corner. */
 .bar {
-  position: sticky;
-  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
-  z-index: 5;
+  position: fixed;
+  right: 84px;
+  bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  left: 12px;
+  z-index: 60;
   display: grid;
   gap: 8px;
+  max-width: 34rem;
   padding: 10px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--lit-line);
   border-radius: 18px;
   background: var(--bg);
-  box-shadow: 0 -8px 30px rgb(0 0 0 / 0.5);
+  box-shadow: 0 -8px 30px rgb(0 0 0 / 0.55);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(130%);
+  transition:
+    transform 320ms var(--ease),
+    opacity 200ms ease;
+}
+.show {
+  opacity: 1;
+  pointer-events: auto;
+  transform: none;
+}
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--muted);
 }
 .status {
   font-size: 13px;

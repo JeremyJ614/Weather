@@ -19,7 +19,7 @@ export function Chip({
     />
   );
   return pressed ? (
-    <Beam className="inline-flex rounded-full" strength={0.85}>
+    <Beam className="inline-flex rounded-full" still="under">
       {chip}
     </Beam>
   ) : (

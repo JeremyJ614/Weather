@@ -33,8 +33,16 @@ export function MorphFab({ groups, placement, role }: MenuProps) {
               {g.label}
             </h2>
             <div className={s.row}>
-              {g.pages.map((pg) => (
-                <Beam key={pg.slug} className={s.beam}>
+              {g.pages.map((pg, k) => (
+                <Beam
+                  key={pg.slug}
+                  className={s.beam}
+                  still={
+                    path === href(pg)
+                      ? undefined
+                      : (["edge", "fade", "under"] as const)[k % 3]
+                  }
+                >
                   <Link
                     href={href(pg)}
                     className={s.mi}

@@ -11,12 +11,16 @@ export async function vote(
 ): Promise<Poll | { error: string }> {
   if (!/^[0-9a-f-]{36}$/.test(id) || !Number.isInteger(choice))
     return { error: "That vote couldn't be read." };
-  if ((await getViewer()).lens)
-    return {
-      error: "You're viewing as a member. Tap Back to me to change this.",
-    };
+  const viewer = await getViewer();
   const sb = await supabaseServer();
-  const { error } = await sb.rpc("poll_vote", { p_poll: id, p_choice: choice });
+  // Viewing as a member: the vote is theirs, cast through an audited owner-only call.
+  const { error } = viewer.lens
+    ? await sb.rpc("lens_poll_vote", {
+        p_user: viewer.id!,
+        p_poll: id,
+        p_choice: choice,
+      })
+    : await sb.rpc("poll_vote", { p_poll: id, p_choice: choice });
   if (error)
     return {
       error:
@@ -26,7 +30,9 @@ export async function vote(
             ? "Sign in to vote."
             : "Your vote couldn't be sent. Try again.",
     };
-  const { data } = await sb.rpc("poll_list");
+  const { data } = viewer.lens
+    ? await sb.rpc("lens_poll_list", { p_user: viewer.id! })
+    : await sb.rpc("poll_list");
   const poll = ((data ?? []) as Poll[]).find((p) => p.id === id);
   return poll ?? { error: "Your vote counted; refresh to see the results." };
 }

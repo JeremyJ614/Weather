@@ -10,6 +10,7 @@ import { safeNext } from "@/lib/safe-next";
 import { afterFailure, lockedUntil, type Attempts } from "@/lib/auth/lockout";
 import { emailHash, normEmail, pinPassword, validPin } from "@/lib/auth/pin";
 import { checkSignup, type SignupInput } from "@/lib/auth/signup";
+import { checkCustom, getSignupForm } from "@/lib/auth/signup-form";
 
 export type FormState = { error?: string } | null;
 
@@ -93,8 +94,36 @@ async function saveProfile(_: FormState, fd: FormData): Promise<FormState> {
   if (!user?.email) return { error: "Your sign-in expired. Sign in again." };
 
   const f = readSignup(fd);
+  const form = await getSignupForm();
+  // Questions the owner switched off are ignored; required ones must be answered.
+  const keys = {
+    nickname: "nickname",
+    phone: "phone",
+    foundUs: "foundUs",
+    referral: "referral",
+  } as const;
+  for (const q of form.questions) {
+    const k =
+      q.builtin && q.builtin in keys
+        ? keys[q.builtin as keyof typeof keys]
+        : null;
+    if (!k) continue;
+    if (!q.on) {
+      f[k] = "";
+      if (k === "nickname") f.useNickname = false;
+    } else if (q.required && !f[k]) return { error: `Answer “${q.label}”.` };
+    else if (
+      k === "foundUs" &&
+      q.kind === "choice" &&
+      f.foundUs &&
+      !q.options.includes(f.foundUs)
+    )
+      return { error: `Pick an answer for “${q.label}”.` };
+  }
   const problem = checkSignup(f);
   if (problem) return { error: problem };
+  const custom = checkCustom(form, (id) => fd.getAll(`c_${id}`).map(String));
+  if ("error" in custom) return custom;
 
   const admin = supabaseAdmin();
   let referredBy: string | null = null;
@@ -126,11 +155,12 @@ async function saveProfile(_: FormState, fd: FormData): Promise<FormState> {
       state: f.state,
       birthday: f.birthday,
       found_us: f.foundUs || null,
+      custom_answers: custom.answers,
       referral_code: code,
       referred_by: referredBy,
       pin_set: true,
     });
-    if (!error) redirect(safeNext(String(fd.get("next") ?? "")));
+    if (!error) redirect(safeNext(String(fd.get("next") || "/join")));
     if (error.code !== "23505" || error.message.includes("pkey")) {
       return { error: "Your profile couldn't be saved. Try again." };
     }

@@ -49,7 +49,15 @@ export function CornerSweep({ groups, placement, role }: MenuProps) {
               {expanded === g.id && (
                 <div className={s.subs}>
                   {g.pages.map((pg, k) => (
-                    <Beam key={pg.slug} className={s.beam}>
+                    <Beam
+                      key={pg.slug}
+                      className={s.beam}
+                      still={
+                        path === href(pg)
+                          ? undefined
+                          : (["edge", "fade", "under"] as const)[k % 3]
+                      }
+                    >
                       <Link
                         href={href(pg)}
                         className={s.mi}

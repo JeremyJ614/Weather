@@ -33,7 +33,7 @@ export async function saveBilling(json: string): Promise<PriceState> {
   return { ok: "Saved. The signup page shows these prices now." };
 }
 
-const TIERS = ["free", "basic", "chasers", "advanced", "vip", "custom"];
+const TIERS = ["free", "basic", "chasers", "advanced", "vip"];
 
 export async function saveCoupon(
   _: PriceState,

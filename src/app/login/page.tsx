@@ -9,6 +9,8 @@ import { getViewer } from "@/lib/auth/viewer";
 import { ShieldCheck } from "lucide-react";
 import { LoginForm } from "./LoginForm";
 import { ChangePin } from "./ChangePin";
+import { BadgeIcon } from "@/components/BadgeIcon";
+import { getColors } from "@/lib/colors/server";
 
 export const metadata: Metadata = { title: "Sign in · StormSync Media" };
 
@@ -31,6 +33,20 @@ export default async function Login({
       .maybeSingle();
     if (!profile) redirect("/welcome");
   }
+  const [{ data: earned }, colors] = user
+    ? await Promise.all([
+        supabase
+          .from("member_badges")
+          .select("badges(name, icon, rarity)")
+          .eq("user_id", user.id),
+        getColors(),
+      ])
+    : [{ data: null }, {}];
+  const badges = (earned ?? []).flatMap((e) =>
+    e.badges
+      ? [e.badges as unknown as { name: string; icon: string; rarity: string }]
+      : [],
+  );
 
   return (
     <main className="mx-auto flex min-h-[75dvh] max-w-md flex-col justify-center px-4 py-10">
@@ -44,6 +60,22 @@ export default async function Login({
               </h1>
             </div>
             <p className="text-muted">{user.email}</p>
+            {badges.length > 0 && (
+              <div className="grid gap-2">
+                <b className="text-sm">Your badges</b>
+                <ul className="flex flex-wrap gap-3">
+                  {badges.map((b) => (
+                    <li
+                      key={b.name}
+                      className="grid w-16 justify-items-center gap-1 text-center text-[11px]"
+                    >
+                      <BadgeIcon badge={b} colors={colors} size={40} />
+                      {b.name}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             {viewer.isAdmin && (
               <Link href="/admin">
                 <Button variant="primary" className="w-full">
@@ -83,6 +115,12 @@ export default async function Login({
           </>
         )}
       </Card>
+      <p className="mt-4 text-center text-sm text-muted">
+        Need help?{" "}
+        <Link href="/contact" className="text-accent underline">
+          Contact us
+        </Link>
+      </p>
     </main>
   );
 }

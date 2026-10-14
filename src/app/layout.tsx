@@ -2,6 +2,9 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { DeviceSetup } from "@/components/DeviceSetup";
 import { LaunchIntro } from "@/features/intro/LaunchIntro";
+import { GuestGate } from "@/features/account/GuestGate";
+import { Notices } from "@/features/notify/Notices";
+import { Suspense } from "react";
 import { MenuHost } from "@/features/menus/MenuHost";
 import { AppHeader } from "@/components/AppHeader";
 import { introBootScript } from "@/features/intro/schedule";
@@ -63,6 +66,10 @@ export default async function RootLayout({
           {children}
         </div>
         <ViewAsBar />
+        <Suspense>
+          <GuestGate />
+        </Suspense>
+        <Notices />
         <MenuHost
           defaults={defaults.menus}
           main={applyLayout(MAIN_NAV, SECOND_NAV, defaults.layout, "main")}

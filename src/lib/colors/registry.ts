@@ -11,6 +11,17 @@ import { KIND } from "@/lib/warnings/reports";
 import type { Colors } from "./pick";
 import { BANDS } from "@/lib/sswxcon/score";
 import { COLOR as WARN } from "@/lib/warnings/style";
+import { RARITY } from "@/lib/badges";
+import { PROB as WINTER_PROB } from "@/lib/winter/style";
+import { CONTAIN, FIRE_RISK } from "@/lib/fire/style";
+import { HAZ_KINDS, USDM } from "@/lib/hazards/style";
+import { ROSTER } from "@/lib/tropical/atcf";
+import {
+  CONE,
+  INTENSITY,
+  RISK as TROP_RISK,
+  WATCH,
+} from "@/lib/tropical/style";
 import { KIND_TITLE, PROB_STEPS, SPC_PALETTES, type Kind } from "./spc";
 
 export type Entry = { key: string; label: string; def: string };
@@ -173,6 +184,95 @@ export const GROUPS: Group[] = [
         def: v,
       })),
     ],
+  },
+  {
+    id: "tropical",
+    label: "Tropical Outlook",
+    note: "Storm strength, the forecast cone, outlook chances and coastal watches.",
+    entries: [
+      ...INTENSITY.map((t) => ({
+        key: `trop:${t.key}`,
+        label: t.label,
+        def: t.color,
+      })),
+      { key: "trop:cone", label: "Forecast cone", def: CONE },
+      ...Object.entries(TROP_RISK).map(([k, v]) => ({
+        key: `trop:risk:${k}`,
+        label: `Outlook chance · ${k[0].toUpperCase()}${k.slice(1)}`,
+        def: v,
+      })),
+      ...Object.entries(WATCH).map(([k, v]) => ({
+        key: `trop:ww:${k}`,
+        label: v.label,
+        def: v.color,
+      })),
+    ],
+  },
+  {
+    id: "models",
+    label: "Tropical models",
+    note: "Each model's track in the Model Battle Royale.",
+    entries: ROSTER.map((m) => ({
+      key: `model:${m.tech}`,
+      label: m.name,
+      def: m.color,
+    })),
+  },
+  {
+    id: "usdm",
+    label: "US Drought Monitor",
+    note: "The weekly drought categories on Hazards & Droughts.",
+    entries: USDM.map((d, i) => ({
+      key: `usdm:${i}`,
+      label: `${d.code} · ${d.label}`,
+      def: d.color,
+    })),
+  },
+  {
+    id: "hazards",
+    label: "Hazards outlook",
+    note: "CPC's 3–7 and 8–14 day hazards on Hazards & Droughts.",
+    entries: Object.entries(HAZ_KINDS).map(([k, v]) => ({
+      key: `haz:${k}`,
+      label: v.label,
+      def: v.color,
+    })),
+  },
+  {
+    id: "fire",
+    label: "Fire Weather",
+    note: "SPC fire outlook areas and wildfire dots by containment.",
+    entries: [
+      ...Object.entries(FIRE_RISK).map(([k, v]) => ({
+        key: `fire:${k}`,
+        label: v.label,
+        def: v.color,
+      })),
+      ...CONTAIN.map((c) => ({
+        key: `fire:contain:${c.key}`,
+        label: c.label,
+        def: c.color,
+      })),
+    ],
+  },
+  {
+    id: "winter",
+    label: "Winter odds",
+    note: "WPC's odds of heavy snow or ice on the Winter Center.",
+    entries: WINTER_PROB.map((p, i) => ({
+      key: `winter:prob:${i + 1}`,
+      label: p.label,
+      def: p.color,
+    })),
+  },
+  {
+    id: "badges",
+    label: "Badge rarity",
+    entries: Object.entries(RARITY).map(([k, v]) => ({
+      key: `badge:${k}`,
+      label: `${k[0].toUpperCase()}${k.slice(1)}`,
+      def: v,
+    })),
   },
 ];
 
