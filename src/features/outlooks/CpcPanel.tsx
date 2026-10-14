@@ -26,7 +26,7 @@ const short = (l: string) =>
         ? "Next month"
         : "Next season";
 
-function Outlook({ ids }: { ids: string[] }) {
+export function Outlook({ ids }: { ids: string[] }) {
   const list = CPC.filter((x) => ids.includes(x.id));
   const [pick, setPick] = useState(list[0].id);
   const { layer, status } = useLayer(pick);

@@ -12,6 +12,7 @@ import type { Colors } from "./pick";
 import { BANDS } from "@/lib/sswxcon/score";
 import { COLOR as WARN } from "@/lib/warnings/style";
 import { RARITY } from "@/lib/badges";
+import { HAZ_KINDS, USDM } from "@/lib/hazards/style";
 import { ROSTER } from "@/lib/tropical/atcf";
 import {
   CONE,
@@ -213,6 +214,26 @@ export const GROUPS: Group[] = [
       key: `model:${m.tech}`,
       label: m.name,
       def: m.color,
+    })),
+  },
+  {
+    id: "usdm",
+    label: "US Drought Monitor",
+    note: "The weekly drought categories on Hazards & Droughts.",
+    entries: USDM.map((d, i) => ({
+      key: `usdm:${i}`,
+      label: `${d.code} · ${d.label}`,
+      def: d.color,
+    })),
+  },
+  {
+    id: "hazards",
+    label: "Hazards outlook",
+    note: "CPC's 3–7 and 8–14 day hazards on Hazards & Droughts.",
+    entries: Object.entries(HAZ_KINDS).map(([k, v]) => ({
+      key: `haz:${k}`,
+      label: v.label,
+      def: v.color,
     })),
   },
   {
