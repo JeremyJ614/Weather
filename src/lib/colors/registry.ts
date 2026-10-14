@@ -12,6 +12,12 @@ import type { Colors } from "./pick";
 import { BANDS } from "@/lib/sswxcon/score";
 import { COLOR as WARN } from "@/lib/warnings/style";
 import { RARITY } from "@/lib/badges";
+import {
+  CONE,
+  INTENSITY,
+  RISK as TROP_RISK,
+  WATCH,
+} from "@/lib/tropical/style";
 import { KIND_TITLE, PROB_STEPS, SPC_PALETTES, type Kind } from "./spc";
 
 export type Entry = { key: string; label: string; def: string };
@@ -172,6 +178,29 @@ export const GROUPS: Group[] = [
         key: `sswx:part:${k}`,
         label: `Part · ${k[0].toUpperCase()}${k.slice(1)}`,
         def: v,
+      })),
+    ],
+  },
+  {
+    id: "tropical",
+    label: "Tropical Outlook",
+    note: "Storm strength, the forecast cone, outlook chances and coastal watches.",
+    entries: [
+      ...INTENSITY.map((t) => ({
+        key: `trop:${t.key}`,
+        label: t.label,
+        def: t.color,
+      })),
+      { key: "trop:cone", label: "Forecast cone", def: CONE },
+      ...Object.entries(TROP_RISK).map(([k, v]) => ({
+        key: `trop:risk:${k}`,
+        label: `Outlook chance · ${k[0].toUpperCase()}${k.slice(1)}`,
+        def: v,
+      })),
+      ...Object.entries(WATCH).map(([k, v]) => ({
+        key: `trop:ww:${k}`,
+        label: v.label,
+        def: v.color,
       })),
     ],
   },
