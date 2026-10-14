@@ -18,6 +18,7 @@ export const MODULES = [
   { id: "timing", label: "Storm Timing Index" },
   { id: "tropical", label: "Tropical Outlook" },
   { id: "hazards", label: "Hazards & Droughts" },
+  { id: "flooding", label: "Flooding Outlook" },
   { id: "maps", label: "Maps" },
   { id: "weather-news", label: "Weather News" },
   { id: "news", label: "SSWX News" },

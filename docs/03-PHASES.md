@@ -66,7 +66,7 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 - [x] 38. Tropical Model Battle Royale (14-model roster from NHC ATCF a-decks incl. Google DeepMind (GDMN); newest tracks on the map with toggles and the best track; leaderboard scored against the NHC best track at 24/48/72 h with podium, wins and the CLIPER baseline)
 - [x] 38b. Tropical: Google AI Cyclone Model subtab beside the ported hurricane tracker (Google DeepMind GDMN from NHC ATCF: last 4 runs vs the NHC track and best track, rank among the roster, average miss vs NHC, distance apart, winds chart; the 50-member Weather Lab spread needs a Google sign-in, so it is linked, not embedded)
 - [x] 39. Hazards & Droughts (port, beyond VIP's static images: your-area card with Drought Monitor category, hazards over you and your state's drought trend; interactive CPC 3–7 / 8–14 day hazards map with tap details and merged list; interactive Drought Monitor map, national category bars and 13-week trend; CPC drought outlooks)
-- [ ] 40. Flooding Outlook (port)
+- [x] 40. Flooding Outlook (port: your answer first with worst day, WPC rain totals and active NWS flood alerts at your location; five-day strip with national top level and yours; interactive Excessive Rainfall map with tap details; level guide; WPC rainfall totals maps)
 - [ ] 41. Fire Weather with active wildfires, perimeters and details
 - [ ] 42. Winter Center (port)
 - [ ] 43. Storm Chasing Outlook with stats that persist across days
