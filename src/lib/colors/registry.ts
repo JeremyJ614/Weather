@@ -12,6 +12,7 @@ import type { Colors } from "./pick";
 import { BANDS } from "@/lib/sswxcon/score";
 import { COLOR as WARN } from "@/lib/warnings/style";
 import { RARITY } from "@/lib/badges";
+import { PROB as WINTER_PROB } from "@/lib/winter/style";
 import { CONTAIN, FIRE_RISK } from "@/lib/fire/style";
 import { HAZ_KINDS, USDM } from "@/lib/hazards/style";
 import { ROSTER } from "@/lib/tropical/atcf";
@@ -253,6 +254,16 @@ export const GROUPS: Group[] = [
         def: c.color,
       })),
     ],
+  },
+  {
+    id: "winter",
+    label: "Winter odds",
+    note: "WPC's odds of heavy snow or ice on the Winter Center.",
+    entries: WINTER_PROB.map((p, i) => ({
+      key: `winter:prob:${i + 1}`,
+      label: p.label,
+      def: p.color,
+    })),
   },
   {
     id: "badges",

@@ -20,6 +20,7 @@ export const MODULES = [
   { id: "hazards", label: "Hazards & Droughts" },
   { id: "flooding", label: "Flooding Outlook" },
   { id: "fire", label: "Fire Weather" },
+  { id: "winter", label: "Winter Center" },
   { id: "maps", label: "Maps" },
   { id: "weather-news", label: "Weather News" },
   { id: "news", label: "SSWX News" },

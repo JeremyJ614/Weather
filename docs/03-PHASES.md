@@ -68,7 +68,7 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 - [x] 39. Hazards & Droughts (port, beyond VIP's static images: your-area card with Drought Monitor category, hazards over you and your state's drought trend; interactive CPC 3–7 / 8–14 day hazards map with tap details and merged list; interactive Drought Monitor map, national category bars and 13-week trend; CPC drought outlooks)
 - [x] 40. Flooding Outlook (port: your answer first with worst day, WPC rain totals and active NWS flood alerts at your location; five-day strip with national top level and yours; interactive Excessive Rainfall map with tap details; level guide; WPC rainfall totals maps)
 - [x] 41. Fire Weather with active wildfires, perimeters and details (NIFC WFIGS fires of 10+ acres colored by containment and sized by acres, burn perimeters, tap-for-details cards with acres, containment, start, personnel, cause and behavior; fires nearest you and Red Flag/Fire Weather alerts at your location; sortable fire list; SPC day 1–2 fire outlooks as a map overlay and their own map)
-- [ ] 42. Winter Center (port)
+- [x] 42. Winter Center (port of VIP's five subtabs: storm map with WSSI impact and NOHRSC snow depth/SWE overlays on the live map; WPC day 1–3 odds of 4/8/12" snow and ¼" ice as vector maps with per-amount chips; national winter alerts grouped by type and state; your 72-hour snowfall/temperature timeline with the freezing line; snow-belt city snowfall board; your week with first flakes and alerts on top)
 - [ ] 43. Storm Chasing Outlook with stats that persist across days
 - [ ] 44. Severe Weather History rebuilt for speed (Ryan Hall's history page as the bar)
 
