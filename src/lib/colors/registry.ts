@@ -12,6 +12,7 @@ import type { Colors } from "./pick";
 import { BANDS } from "@/lib/sswxcon/score";
 import { COLOR as WARN } from "@/lib/warnings/style";
 import { RARITY } from "@/lib/badges";
+import { ROSTER } from "@/lib/tropical/atcf";
 import {
   CONE,
   INTENSITY,
@@ -203,6 +204,16 @@ export const GROUPS: Group[] = [
         def: v.color,
       })),
     ],
+  },
+  {
+    id: "models",
+    label: "Tropical models",
+    note: "Each model's track in the Model Battle Royale.",
+    entries: ROSTER.map((m) => ({
+      key: `model:${m.tech}`,
+      label: m.name,
+      def: m.color,
+    })),
   },
   {
     id: "badges",

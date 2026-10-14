@@ -63,7 +63,7 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 - [x] 35. Atmospheric Ingredients (port: SWTI ring, 72-hour scrubber, ingredient cards with sparklines, SWTI parts, model agreement)
 - [x] 36. Storm Timing Index (port of VIP Severe Timing: worst window with after-dark warning, tappable 72-hour ribbon with night shading, three day cards, hazard cards, chances chart, hourly table; chances held back by available instability)
 - [x] 37. Tropical Outlook (port: basin map with outlook areas, cones, tracks, forecast points, past tracks and coastal watches; storm cards with forecast table and NHC products; parsed 7-day text outlooks with chance bars; GOES GeoColor basin and storm-floater loops that decode every frame first and dissolve between frames)
-- [ ] 38. Tropical Model Battle Royale (includes Google Weather Lab AI tracks)
+- [x] 38. Tropical Model Battle Royale (14-model roster from NHC ATCF a-decks incl. Google DeepMind (GDMN); newest tracks on the map with toggles and the best track; leaderboard scored against the NHC best track at 24/48/72 h with podium, wins and the CLIPER baseline)
 - [ ] 38b. Tropical: Google AI Cyclone Model subtab beside the ported hurricane tracker
 - [ ] 39. Hazards & Droughts (port) plus the interactive hazards map subtab
 - [ ] 40. Flooding Outlook (port)

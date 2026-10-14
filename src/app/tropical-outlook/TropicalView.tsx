@@ -7,10 +7,12 @@ import {
   Satellite,
   ScrollText,
   Tornado,
+  Swords,
 } from "lucide-react";
 import { HomeTabs } from "@/features/news/HomeTabs";
 import { TropicalMap } from "@/features/tropical/TropicalMap";
 import { SatLoop } from "@/features/tropical/SatLoop";
+import { ModelBattle } from "@/features/tropical/ModelBattle";
 import { pick, type Colors } from "@/lib/colors/pick";
 import type { Outlook, Storm, TwoText } from "@/lib/tropical/nhc";
 import {
@@ -82,6 +84,22 @@ export function TropicalView({
                 No active storms in the Atlantic, East Pacific or Central
                 Pacific right now.
               </p>
+            ),
+          },
+          {
+            id: "trop-models",
+            label: "Model Battle",
+            icon: <Swords aria-hidden />,
+            panel: (
+              <ModelBattle
+                colors={colors}
+                storms={data.storms.map((x) => ({
+                  id: x.id,
+                  title: x.title,
+                  lat: x.lat,
+                  lon: x.lon,
+                }))}
+              />
             ),
           },
           {
