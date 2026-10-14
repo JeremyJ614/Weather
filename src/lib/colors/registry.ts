@@ -12,6 +12,7 @@ import type { Colors } from "./pick";
 import { BANDS } from "@/lib/sswxcon/score";
 import { COLOR as WARN } from "@/lib/warnings/style";
 import { RARITY } from "@/lib/badges";
+import { CONTAIN, FIRE_RISK } from "@/lib/fire/style";
 import { HAZ_KINDS, USDM } from "@/lib/hazards/style";
 import { ROSTER } from "@/lib/tropical/atcf";
 import {
@@ -235,6 +236,23 @@ export const GROUPS: Group[] = [
       label: v.label,
       def: v.color,
     })),
+  },
+  {
+    id: "fire",
+    label: "Fire Weather",
+    note: "SPC fire outlook areas and wildfire dots by containment.",
+    entries: [
+      ...Object.entries(FIRE_RISK).map(([k, v]) => ({
+        key: `fire:${k}`,
+        label: v.label,
+        def: v.color,
+      })),
+      ...CONTAIN.map((c) => ({
+        key: `fire:contain:${c.key}`,
+        label: c.label,
+        def: c.color,
+      })),
+    ],
   },
   {
     id: "badges",
