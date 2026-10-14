@@ -1,7 +1,9 @@
 import { REMEMBER_COOKIE, sessionOptions } from "@/lib/supabase/remember";
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
-import { GUEST_PATHS } from "@/lib/nav/registry";
+import { ALL_PAGES, GUEST_PATHS } from "@/lib/nav/registry";
+
+const SLUGS = new Set(ALL_PAGES.map((p) => p.slug).filter(Boolean));
 
 /**
  * Refreshes the Supabase session cookie on each page request so sign-ins stay alive, and
@@ -34,6 +36,19 @@ export async function proxy(request: NextRequest) {
     to.pathname = "/";
     to.search = `?join=${encodeURIComponent(path)}`;
     return NextResponse.redirect(to);
+  }
+  // A page an admin closed to this member (admin → Members → Pages).
+  const slug = path.split("/")[1];
+  if (user && SLUGS.has(slug) && slug !== "admin") {
+    const { data: closed } = await supabase.rpc("page_closed", {
+      p_slug: slug,
+    });
+    if (closed) {
+      const to = request.nextUrl.clone();
+      to.pathname = "/closed";
+      to.search = `?page=${slug}`;
+      return NextResponse.redirect(to);
+    }
   }
   return response;
 }

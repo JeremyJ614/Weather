@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { supabaseAdmin } from "@/lib/supabase/admin";
+import { getBilling, SELLABLE } from "@/lib/billing/server";
+import { tierPages, type TierId } from "@/lib/billing/plans";
 import { Button } from "@/components/ui/Button";
 import { requireAdmin } from "@/lib/auth/admin-guard";
 
@@ -31,12 +34,45 @@ export default async function Members({
       : query.or(
           `first_name.ilike.%${q}%,last_name.ilike.%${q}%,city.ilike.%${q}%`,
         );
-  const [{ data: people, count }, { data: refs }, { data: roles }] =
-    await Promise.all([
-      query,
-      supabase.rpc("referral_counts"),
-      supabase.from("user_roles").select("user_id, role"),
-    ]);
+  const [
+    { data: people, count },
+    { data: refs },
+    { data: roles },
+    { data: subs },
+    { data: overrides },
+    { data: adjust },
+    billing,
+  ] = await Promise.all([
+    query,
+    supabase.rpc("referral_counts"),
+    supabase.from("user_roles").select("user_id, role"),
+    supabaseAdmin()
+      .from("subscriptions")
+      .select("user_id, tier, addons, comped"),
+    supabase.from("member_pages").select("user_id, slug, allowed"),
+    supabase.from("referral_adjust").select("user_id, bonus"),
+    getBilling(),
+  ]);
+  // Pages each member can open: their plan's pages and add-ons, then admin changes.
+  const sellable = SELLABLE.map((x) => x.slug);
+  const sub = new Map((subs ?? []).map((x) => [x.user_id, x]));
+  const access = (id: string) => {
+    const x = sub.get(id);
+    const tier = (x?.tier && x.tier !== "custom" ? x.tier : "free") as TierId;
+    const open = tierPages(billing, tier, sellable);
+    for (const a of x?.addons ?? []) open.add(a);
+    for (const o of overrides ?? [])
+      if (o.user_id === id) {
+        if (o.allowed) open.add(o.slug);
+        else open.delete(o.slug);
+      }
+    return {
+      tier: billing.tiers.find((t) => t.id === tier)?.name ?? "Free",
+      comped: Boolean(x?.comped),
+      pages: [...open].filter((p) => sellable.includes(p)).length,
+    };
+  };
+  const bonus = new Map((adjust ?? []).map((a) => [a.user_id, a.bonus]));
   const refCount = new Map<string, number>(
     ((refs ?? []) as { referrer: string; referrals: number }[]).map((r) => [
       r.referrer,
@@ -110,7 +146,12 @@ export default async function Members({
                   </span>
                 ))}
                 <span className="block">
-                  {refCount.get(p.id) ?? 0} referred
+                  {access(p.id).tier}
+                  {access(p.id).comped ? " (comped)" : ""} ·{" "}
+                  {access(p.id).pages}/{sellable.length} pages
+                </span>
+                <span className="block">
+                  {(refCount.get(p.id) ?? 0) + (bonus.get(p.id) ?? 0)} referred
                 </span>
               </span>
             </Link>

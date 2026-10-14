@@ -6,6 +6,12 @@ import { requireAdmin } from "@/lib/auth/admin-guard";
 import { age } from "@/lib/auth/signup";
 import { setMember, startLens } from "../../actions";
 import { Tools } from "./Tools";
+import { Access } from "./Access";
+import { supabaseAdmin } from "@/lib/supabase/admin";
+import { getBilling, SELLABLE } from "@/lib/billing/server";
+import { tierPages, type TierId } from "@/lib/billing/plans";
+import { getColors } from "@/lib/colors/server";
+import type { Badge } from "@/lib/badges";
 
 export const metadata: Metadata = { title: "Member · Admin · StormSync Media" };
 
@@ -52,6 +58,45 @@ export default async function Member({
         .eq("id", p.referred_by)
         .maybeSingle()
     : { data: null };
+  const admin = supabaseAdmin();
+  const [
+    { data: sub },
+    { data: overrides },
+    { data: adj },
+    { data: badges },
+    { data: owned },
+    billing,
+    colors,
+  ] = await Promise.all([
+    admin
+      .from("subscriptions")
+      .select("tier, cycle, status, comped, addons")
+      .eq("user_id", id)
+      .maybeSingle(),
+    supabase.from("member_pages").select("slug, allowed").eq("user_id", id),
+    supabase
+      .from("referral_adjust")
+      .select("bonus")
+      .eq("user_id", id)
+      .maybeSingle(),
+    supabase
+      .from("badges")
+      .select("id, name, description, icon, rarity, grp")
+      .order("grp")
+      .order("name"),
+    supabase.from("member_badges").select("badge_id").eq("user_id", id),
+    getBilling(),
+    getColors(),
+  ]);
+  const tier = (
+    sub?.tier === "custom" ? "free" : (sub?.tier ?? "free")
+  ) as TierId;
+  const inPlan = tierPages(
+    billing,
+    tier,
+    SELLABLE.map((x) => x.slug),
+  );
+  for (const a of sub?.addons ?? []) inPlan.add(a);
   const r = (roles ?? []).map((x) => x.role);
   const isMember = r.includes("member");
   const name = `${p.first_name} ${p.last_name}`;
@@ -66,7 +111,6 @@ export default async function Member({
     ["Location", `${p.city}, ${p.state}`],
     ["Phone", p.phone ?? "–"],
     ["Age", String(age(p.birthday))],
-    ["Plan", p.tier],
     ["Roles", r.length ? r.join(", ") : "none"],
     ["Referral code", `#${p.referral_code}`],
     [
@@ -152,6 +196,28 @@ export default async function Member({
           {isMember ? "Remove SSWX Member" : "Make SSWX Member"}
         </Button>
       </form>
+      <Access
+        id={id}
+        first={p.first_name}
+        tier={tier}
+        cycle={sub?.cycle ?? "month"}
+        status={sub?.comped ? "comped" : (sub?.status ?? "free")}
+        tiers={billing.tiers.map((t) => ({ id: t.id, name: t.name }))}
+        pages={SELLABLE.map((x) => ({
+          slug: x.slug,
+          label: x.label,
+          icon: x.icon,
+          inPlan: inPlan.has(x.slug),
+        }))}
+        overrides={Object.fromEntries(
+          (overrides ?? []).map((o) => [o.slug, o.allowed]),
+        )}
+        referrals={referred?.length ?? 0}
+        bonus={adj?.bonus ?? 0}
+        badges={(badges ?? []) as Badge[]}
+        owned={(owned ?? []).map((o) => o.badge_id)}
+        colors={colors}
+      />
       {!r.includes("admin") && !r.includes("founder") && (
         <Tools id={id} name={name} />
       )}

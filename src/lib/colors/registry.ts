@@ -11,6 +11,7 @@ import { KIND } from "@/lib/warnings/reports";
 import type { Colors } from "./pick";
 import { BANDS } from "@/lib/sswxcon/score";
 import { COLOR as WARN } from "@/lib/warnings/style";
+import { RARITY } from "@/lib/badges";
 import { KIND_TITLE, PROB_STEPS, SPC_PALETTES, type Kind } from "./spc";
 
 export type Entry = { key: string; label: string; def: string };
@@ -173,6 +174,15 @@ export const GROUPS: Group[] = [
         def: v,
       })),
     ],
+  },
+  {
+    id: "badges",
+    label: "Badge rarity",
+    entries: Object.entries(RARITY).map(([k, v]) => ({
+      key: `badge:${k}`,
+      label: `${k[0].toUpperCase()}${k.slice(1)}`,
+      def: v,
+    })),
   },
 ];
 

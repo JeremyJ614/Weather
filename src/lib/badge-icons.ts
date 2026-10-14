@@ -1,0 +1,23 @@
+/** Icon names a badge may use (drawn by src/components/BadgeIcon.tsx). */
+export const BADGE_ICON_NAMES = [
+  "Award",
+  "Trophy",
+  "Medal",
+  "Star",
+  "Crown",
+  "Gem",
+  "Sparkles",
+  "Zap",
+  "Flame",
+  "Tornado",
+  "CloudLightning",
+  "Snowflake",
+  "Sun",
+  "Moon",
+  "Wind",
+  "Droplets",
+  "Target",
+  "Shield",
+  "Heart",
+  "Rocket",
+];

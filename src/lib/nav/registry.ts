@@ -172,7 +172,7 @@ export const href = (page: NavPage) => `/${page.slug}`;
 export const GUEST_PAGES = ["", "disaster-response", "join", "login"];
 /** Paths a guest may request; the proxy sends everything else to the signup gate. */
 export const GUEST_PATHS =
-  /^\/(?:$|disaster-response|join|login|signup|welcome|auth|privacy|news|offline|sswxcon|api)(?:\/|$)/;
+  /^\/(?:$|disaster-response|join|login|signup|welcome|auth|privacy|news|offline|sswxcon|contact|closed|api)(?:\/|$)/;
 
 /**
  * Groups as a given viewer may see them. Signed-in members see "My Account" instead of

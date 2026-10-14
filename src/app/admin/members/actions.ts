@@ -3,6 +3,8 @@
 import { randomBytes } from "node:crypto";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
+import { ALL_PAGES } from "@/lib/nav/registry";
 import { requireAdmin } from "@/lib/auth/admin-guard";
 import { normEmail, pinPassword } from "@/lib/auth/pin";
 import { checkSignup } from "@/lib/auth/signup";
@@ -181,4 +183,100 @@ export async function removeMember(
     p_target: t.name,
   });
   redirect("/admin/members");
+}
+
+const uuid = (v: unknown) => {
+  const s = String(v ?? "");
+  return /^[0-9a-f-]{36}$/.test(s) ? s : null;
+};
+
+/** Puts a member on a tier with nothing to bill (comped), or back on Free. */
+export async function setPlan(_: ToolState, fd: FormData): Promise<ToolState> {
+  const { supabase } = await requireAdmin("members");
+  const id = uuid(fd.get("userId"));
+  if (!id) return { error: "That member couldn't be found." };
+  const { error } = await supabase.rpc("admin_set_plan", {
+    p_user: id,
+    p_tier: String(fd.get("tier") ?? ""),
+    p_cycle: fd.get("cycle") === "year" ? "year" : "month",
+  });
+  if (error) return { error: "Their plan couldn't be changed. Try again." };
+  revalidatePath(`/admin/members/${id}`);
+  return { ok: "Plan changed. It's comped: nothing is billed." };
+}
+
+/** One page for one member: as their plan says, given to them, or closed to them. */
+export async function setMemberPage(
+  id: string,
+  slug: string,
+  state: "plan" | "on" | "off",
+): Promise<ToolState> {
+  const { supabase } = await requireAdmin("members");
+  if (!uuid(id) || !ALL_PAGES.some((p) => p.slug === slug))
+    return { error: "That page couldn't be changed." };
+  const { error } =
+    state === "plan"
+      ? await supabase
+          .from("member_pages")
+          .delete()
+          .eq("user_id", id)
+          .eq("slug", slug)
+      : await supabase.from("member_pages").upsert({
+          user_id: id,
+          slug,
+          allowed: state === "on",
+          set_at: new Date().toISOString(),
+        });
+  if (error) return { error: "That page couldn't be changed. Try again." };
+  await supabase.rpc("log_admin", {
+    p_action: "member_page",
+    p_target: slug,
+    p_detail: { member: id, state },
+  });
+  revalidatePath(`/admin/members/${id}`);
+  return { ok: "Saved." };
+}
+
+/** Corrects a member's referral count by one. */
+export async function adjustReferrals(
+  id: string,
+  delta: 1 | -1,
+): Promise<ToolState> {
+  const { supabase } = await requireAdmin("members");
+  if (!uuid(id)) return { error: "That member couldn't be found." };
+  const { error } = await supabase.rpc("admin_referrals", {
+    p_user: id,
+    p_delta: delta,
+  });
+  if (error) return { error: "The count couldn't be changed. Try again." };
+  revalidatePath(`/admin/members/${id}`);
+  return { ok: "Saved." };
+}
+
+/** Gives a member a badge or takes it back. */
+export async function setBadge(
+  id: string,
+  badge: string,
+  on: boolean,
+): Promise<ToolState> {
+  const { supabase } = await requireAdmin("members");
+  if (!uuid(id) || !uuid(badge))
+    return { error: "That badge couldn't be found." };
+  const { error } = on
+    ? await supabase
+        .from("member_badges")
+        .upsert({ user_id: id, badge_id: badge })
+    : await supabase
+        .from("member_badges")
+        .delete()
+        .eq("user_id", id)
+        .eq("badge_id", badge);
+  if (error) return { error: "That badge couldn't be changed. Try again." };
+  await supabase.rpc("log_admin", {
+    p_action: on ? "award_badge" : "remove_badge",
+    p_target: badge,
+    p_detail: { member: id },
+  });
+  revalidatePath(`/admin/members/${id}`);
+  return { ok: "Saved." };
 }
