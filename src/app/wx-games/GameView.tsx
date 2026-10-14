@@ -297,6 +297,7 @@ export function GameView({
           )}
           {quiet && <input type="hidden" name="quiet" value="on" />}
           <Button
+            live
             type="submit"
             variant="primary"
             disabled={pending || saved || !severe || (!tornado && !quiet)}

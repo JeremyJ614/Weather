@@ -1,5 +1,5 @@
 import type { ButtonHTMLAttributes } from "react";
-import { Beam } from "./Beam";
+import { Beam, type Still } from "./Beam";
 
 type Variant = "primary" | "secondary" | "ghost";
 
@@ -16,8 +16,16 @@ const LAYOUT =
 export function Button({
   variant = "secondary",
   className = "",
+  live = false,
+  still,
   ...rest
-}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant }) {
+}: ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant?: Variant;
+  /** The moving multicolor beam: only for the few buttons that matter most on a screen. */
+  live?: boolean;
+  /** Which static outline to use otherwise (primary: full ring; others: fading half ring). */
+  still?: Still;
+}) {
   const cls = className.split(/\s+/).filter(Boolean);
   const outer = cls.filter((c) => LAYOUT.test(c)).join(" ");
   const inner = cls.filter((c) => !LAYOUT.test(c)).join(" ");
@@ -37,6 +45,9 @@ export function Button({
     <Beam
       className={`inline-flex rounded-xl ${outer}`}
       strength={variant === "primary" ? 1 : 0.7}
+      still={
+        live ? undefined : (still ?? (variant === "primary" ? "ring" : "fade"))
+      }
     >
       {button}
     </Beam>

@@ -47,12 +47,14 @@ const U: Record<string, WebGLUniformLocation | null> = {};
 let raf = 0;
 let failed = false;
 
+/**
+ * Every phone gets the morph unless it asks for reduced motion. Slow phones render it at
+ * a lower resolution instead of skipping it: a speed check taken while the page was busy
+ * used to mark capable phones "low" and the morph never showed (Fix-It #5).
+ */
 export function morphEnabled(): boolean {
   if (typeof window === "undefined" || failed) return false;
-  const tier = document.documentElement.dataset.tier;
-  return (
-    tier !== "low" && !matchMedia("(prefers-reduced-motion: reduce)").matches
-  );
+  return !matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
 function rgb(v: string): [number, number, number] {
@@ -137,7 +139,8 @@ function colors(): Colors {
 
 function frame(rect: DOMRect, p: number, dir: number, c: Colors) {
   if (!gl || !canvas) return;
-  const scale = Math.min(devicePixelRatio || 1, 1.5) * 0.75;
+  const low = document.documentElement.dataset.tier === "low";
+  const scale = Math.min(devicePixelRatio || 1, 1.5) * (low ? 0.4 : 0.75);
   const w = Math.round(innerWidth * scale);
   const h = Math.round(innerHeight * scale);
   if (canvas.width !== w || canvas.height !== h) {

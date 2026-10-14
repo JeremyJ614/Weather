@@ -128,6 +128,7 @@ export function HomeTabs({
         {variant === "pills" || variant === "arcade" ? null : variant ===
           "segment" ? (
           <Beam
+            still="fade"
             className={s.pill}
             style={{
               position: "absolute",
@@ -167,7 +168,7 @@ export function HomeTabs({
               </span>
             </button>
           ) : variant === "pills" && t.id === active ? (
-            <Beam key={t.id} className={s.pillBeam}>
+            <Beam key={t.id} className={s.pillBeam} still="ring">
               <button
                 role="tab"
                 id={`tab-${t.id}`}

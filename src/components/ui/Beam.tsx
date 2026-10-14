@@ -3,6 +3,9 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import type { BorderBeamProps, BorderBeamSize } from "./border-beam-search";
 import { useTier } from "@/features/motion/useTier";
+import s from "./Beam.module.css";
+
+export type Still = "ring" | "fade" | "under" | "edge";
 
 type BeamComponent = (p: BorderBeamProps) => ReactNode;
 let loaded: BeamComponent | null = null;
@@ -24,7 +27,10 @@ export function Beam({
   duration,
   strength = 0.9,
   style,
+  still,
 }: {
+  /** A static multicolor outline instead of the moving beam (no animation, no effect library). */
+  still?: Still;
   children: ReactNode;
   size?: BorderBeamSize;
   className?: string;
@@ -33,15 +39,25 @@ export function Beam({
   style?: CSSProperties;
 }) {
   const tier = useTier();
+  const animate = !still;
   const [Comp, setComp] = useState<BeamComponent | null>(() => loaded);
   useEffect(() => {
-    if (Comp || tier === "low") return;
+    if (!animate || Comp || tier === "low") return;
     let live = true;
     load().then((c) => live && setComp(() => c));
     return () => {
       live = false;
     };
-  }, [Comp, tier]);
+  }, [animate, Comp, tier]);
+  if (still)
+    return (
+      <div
+        className={`${s.still} ${s[still]} ${className ?? ""}`}
+        style={{ position: "relative", ...style }}
+      >
+        {children}
+      </div>
+    );
   if (!Comp || tier === "low")
     return (
       <div className={className} style={{ position: "relative", ...style }}>

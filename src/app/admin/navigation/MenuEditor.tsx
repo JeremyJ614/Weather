@@ -275,6 +275,23 @@ export function MenuEditor({
 
   return (
     <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4">
+      <div className={s.top}>
+        <span>
+          {dirty
+            ? "Unsaved changes"
+            : isCustom
+              ? "Your arrangement is live"
+              : "Built-in menus"}
+        </span>
+        <Button
+          type="button"
+          variant="primary"
+          disabled={pending || !dirty}
+          onClick={() => save(layout)}
+        >
+          {pending ? "Saving…" : "Save menus"}
+        </Button>
+      </div>
       <div className={s.tabs} role="tablist" aria-label="Menu">
         {(["main", "second"] as Menu[]).map((m) => (
           <button
@@ -381,7 +398,7 @@ export function MenuEditor({
         </section>
       )}
 
-      <div className={s.bar}>
+      <div className={`${s.bar} ${dirty || status || pending ? s.show : ""}`}>
         {status && (
           <p role="status" className={s.status}>
             {status}
@@ -395,7 +412,7 @@ export function MenuEditor({
             disabled={pending || !dirty}
             onClick={() => save(layout)}
           >
-            {pending ? "Saving…" : dirty ? "Save menus" : "Saved"}
+            {pending ? "Saving…" : dirty ? "Save menus" : "Saved ✓"}
           </Button>
           {(isCustom || dirty) && (
             <Button
