@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { Card } from "@/components/ui/Card";
 import { supabaseServer } from "@/lib/supabase/server";
 import { safeNext } from "@/lib/safe-next";
-import { SignupForm } from "./SignupForm";
+import { InteractiveForm } from "./InteractiveForm";
 import { getSignupForm } from "@/lib/auth/signup-form";
 
 export const metadata: Metadata = { title: "Welcome · StormSync Media" };
@@ -14,7 +13,9 @@ export default async function Welcome({
 }: {
   searchParams: Promise<{ next?: string }>;
 }) {
-  const next = safeNext((await searchParams).next);
+  const raw = (await searchParams).next;
+  // A new account always lands on Plans & Pricing next (keeping a plan picked there).
+  const next = raw?.startsWith("/join") ? safeNext(raw) : "/join";
   const supabase = await supabaseServer();
   const {
     data: { user },
@@ -25,20 +26,13 @@ export default async function Welcome({
     .select("id")
     .eq("id", user.id)
     .maybeSingle();
-  if (profile) redirect(next);
+  if (profile) redirect(safeNext(raw));
 
   return (
-    <main className="mx-auto max-w-md px-4 pt-6 pb-24">
-      <Card className="grid gap-5">
-        <div>
-          <p className="eyebrow">Create your account</p>
-          <h1 className="font-[family-name:var(--font-display)] text-2xl font-extrabold">
-            Welcome to StormSync
-          </h1>
-          <p className="mt-1 text-sm text-muted">{user.email}</p>
-        </div>
-        <SignupForm next={next} form={await getSignupForm()} />
-      </Card>
-    </main>
+    <InteractiveForm
+      form={await getSignupForm()}
+      next={next}
+      email={user.email ?? ""}
+    />
   );
 }

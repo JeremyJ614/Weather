@@ -26,14 +26,7 @@ export type PlanResult =
       promo: string | null;
     };
 
-const TIERS = new Set([
-  "free",
-  "basic",
-  "chasers",
-  "advanced",
-  "vip",
-  "custom",
-]);
+const TIERS = new Set(["free", "basic", "chasers", "advanced", "vip"]);
 
 /** Checks a code for the plan being built (never reveals other codes). */
 export async function checkCoupon(code: string, tier: string) {
@@ -77,11 +70,9 @@ export async function savePlan(
   const choice: Choice = {
     tier: raw.tier,
     cycle: raw.cycle,
-    pages: raw.tier === "custom" ? pick(raw.pages) : [],
-    addons: raw.tier === "custom" ? [] : pick(raw.addons),
+    pages: [],
+    addons: pick(raw.addons),
   };
-  if (choice.tier === "custom" && !choice.pages.length)
-    return { error: "Pick at least one page for your own plan." };
   const [billing, claims] = await Promise.all([getBilling(), getClaims()]);
   const q = quote(
     billing,

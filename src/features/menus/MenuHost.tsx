@@ -74,14 +74,15 @@ export function MenuHost({
     else delete root.dataset.logoSide;
   }, [bar, topLeft]);
   // Admin-only pages are listed only for admins; the pages themselves check on the server.
-  const { isAdmin, signedIn, adminShortcuts } = useViewer();
-  const seconds = visibleNav(secondGroups, isAdmin, signedIn);
+  const { isAdmin, signedIn, adminShortcuts, pending } = useViewer();
+  const guest = !signedIn && !pending;
+  const seconds = visibleNav(secondGroups, isAdmin, signedIn, guest);
   // The owner's switchable Admin shortcuts group (admin → Overview).
   if (adminShortcuts) seconds.push(ADMIN_GROUP);
   return (
     <>
       <M.Component
-        groups={visibleNav(mainGroups, isAdmin, signedIn)}
+        groups={visibleNav(mainGroups, isAdmin, signedIn, guest)}
         placement={mp}
         role="main"
       />

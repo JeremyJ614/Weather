@@ -1,8 +1,12 @@
 import { REMEMBER_COOKIE, sessionOptions } from "@/lib/supabase/remember";
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { GUEST_PATHS } from "@/lib/nav/registry";
 
-/** Refreshes the Supabase session cookie on each page request so sign-ins stay alive. */
+/**
+ * Refreshes the Supabase session cookie on each page request so sign-ins stay alive, and
+ * sends guests asking for a members' page to the signup gate on the Homepage.
+ */
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -21,7 +25,16 @@ export async function proxy(request: NextRequest) {
       },
     },
   });
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const path = request.nextUrl.pathname;
+  if (!user && !GUEST_PATHS.test(path) && request.method === "GET") {
+    const to = request.nextUrl.clone();
+    to.pathname = "/";
+    to.search = `?join=${encodeURIComponent(path)}`;
+    return NextResponse.redirect(to);
+  }
   return response;
 }
 

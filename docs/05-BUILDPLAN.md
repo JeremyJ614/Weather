@@ -140,3 +140,5 @@ Personal Warnings & Alerts, Affected Communities Outlook, FairWeather Tracking, 
 | 50 | Subtabs | The morph never ran on the owner's phone: the speed check, taken while those borders lagged the page, rated it "low" and low phones skipped the morph | The morph runs on every phone (lower resolution on slow ones); only Reduce Motion swaps it for a fade |
 | 51 | Admin · Menu & theme defaults | "The defaults couldn't be saved": the read and edit rules for those settings were never applied in production | Rules applied (checked: every rule in the migrations now exists in production) |
 | 52 | Admin · Menu editor | The save bar sat out of view behind the menu button | Floating save bar slides in on any change, plus a Save button at the top |
+| 53 | Guests | Signed-out visitors could open every page and saw the full menus | Proxy sends guests on members' pages to the signup gate; guest menus list only guest pages plus Sign Up |
+| 54 | View as member · Polls | Polls refused votes while viewing as a member and showed the owner's own votes | Owner-only audited `lens_poll_list` / `lens_poll_vote` |

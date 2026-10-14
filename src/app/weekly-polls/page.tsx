@@ -39,7 +39,9 @@ export default async function WeeklyPolls() {
     );
   else {
     const sb = await supabaseServer();
-    const { data } = await sb.rpc("poll_list");
+    const { data } = viewer.lens
+      ? await sb.rpc("lens_poll_list", { p_user: viewer.id! })
+      : await sb.rpc("poll_list");
     const polls = (data ?? []) as Poll[];
     body = (
       <HomeTabs
