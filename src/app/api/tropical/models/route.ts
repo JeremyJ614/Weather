@@ -1,13 +1,5 @@
-import { gunzipSync } from "node:zlib";
-import {
-  battle,
-  latestTracks,
-  parseA,
-  parseB,
-  rank,
-} from "@/lib/tropical/atcf";
-
-const ATCF = "https://ftp.nhc.noaa.gov/atcf";
+import { battle, latestTracks, rank } from "@/lib/tropical/atcf";
+import { loadDecks } from "@/lib/tropical/decks";
 
 /**
  * GET /api/tropical/models?storm=ep202026 → each roster model's newest track, the best
@@ -21,15 +13,7 @@ export async function GET(req: Request) {
   if (!/^(al|ep|cp)\d{6}$/.test(id))
     return Response.json({ error: "Pick a storm." }, { status: 400 });
   try {
-    const [a, b] = await Promise.all([
-      fetch(`${ATCF}/aid_public/a${id}.dat.gz`, { cache: "no-store" }),
-      fetch(`${ATCF}/btk/b${id}.dat`, { cache: "no-store" }),
-    ]);
-    if (!a.ok) throw new Error("a-deck");
-    const rows = parseA(
-      gunzipSync(Buffer.from(await a.arrayBuffer())).toString("utf8"),
-    );
-    const best = parseB(b.ok ? await b.text() : "");
+    const { rows, best } = await loadDecks(id);
     const sorted = [...best.values()].sort((x, y) =>
       x.dtg.localeCompare(y.dtg),
     );

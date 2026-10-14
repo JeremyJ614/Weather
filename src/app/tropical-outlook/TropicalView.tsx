@@ -7,12 +7,14 @@ import {
   Satellite,
   ScrollText,
   Tornado,
+  Sparkles,
   Swords,
 } from "lucide-react";
 import { HomeTabs } from "@/features/news/HomeTabs";
 import { TropicalMap } from "@/features/tropical/TropicalMap";
 import { SatLoop } from "@/features/tropical/SatLoop";
 import { ModelBattle } from "@/features/tropical/ModelBattle";
+import { GoogleAi } from "@/features/tropical/GoogleAi";
 import { pick, type Colors } from "@/lib/colors/pick";
 import type { Outlook, Storm, TwoText } from "@/lib/tropical/nhc";
 import {
@@ -57,6 +59,7 @@ export function TropicalView({
       <Summary data={data} />
       <HomeTabs
         label="Tropical"
+        variant="pills"
         tabs={[
           {
             id: "trop-map",
@@ -84,6 +87,22 @@ export function TropicalView({
                 No active storms in the Atlantic, East Pacific or Central
                 Pacific right now.
               </p>
+            ),
+          },
+          {
+            id: "trop-ai",
+            label: "Google AI",
+            icon: <Sparkles aria-hidden />,
+            panel: (
+              <GoogleAi
+                colors={colors}
+                storms={data.storms.map((x) => ({
+                  id: x.id,
+                  title: x.title,
+                  lat: x.lat,
+                  lon: x.lon,
+                }))}
+              />
             ),
           },
           {

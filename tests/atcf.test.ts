@@ -53,3 +53,23 @@ describe("ATCF battle", () => {
     );
   });
 });
+
+import { aiView } from "@/lib/tropical/atcf";
+describe("Google AI view", () => {
+  it("lines DeepMind up with NHC at the same valid time", () => {
+    const rows = parseA(
+      [
+        "EP, 20, 2026101000, 03, GDMN,   0, 150N, 1000W,  50, 1000, XX,  34",
+        "EP, 20, 2026101000, 03, GDMN,  12, 152N, 1004W,  55, 1000, XX,  34",
+        "EP, 20, 2026101000, 03, GDMN,  24, 154N, 1008W,  60, 1000, XX,  34",
+        "EP, 20, 2026101012, 03, OFCL,   0, 152N, 1004W,  50, 1000, XX,  34",
+        "EP, 20, 2026101012, 03, OFCL,  12, 155N, 1008W,  65, 1000, XX,  34",
+      ].join("\n"),
+    );
+    const v = aiView(rows, new Map());
+    expect(v.runs).toHaveLength(1);
+    expect(v.gap.map((g) => g.tau)).toEqual([12, 24]);
+    expect(v.gap[0].nm).toBe(0);
+    expect(v.gap[1]).toMatchObject({ ai: 60, nhc: 65 });
+  });
+});

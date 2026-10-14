@@ -265,3 +265,51 @@ export function latestTracks(rows: Row[]): {
       : [];
   });
 }
+
+export type Run = {
+  dtg: string;
+  points: { tau: number; lat: number; lon: number; kt: number }[];
+};
+
+/** Google DeepMind next to NHC: its last runs, both newest forecasts and how far apart they are. */
+export function aiView(rows: Row[], best: Map<string, Best>, ai = "GDMN") {
+  const runsOf = (tech: string) => {
+    const by = new Map<string, Run["points"]>();
+    for (const r of rows.filter((x) => x.tech === tech))
+      by.set(r.dtg, [
+        ...(by.get(r.dtg) ?? []),
+        { tau: r.tau, lat: r.lat, lon: r.lon, kt: r.kt },
+      ]);
+    return [...by]
+      .map(([dtg, points]) => ({
+        dtg,
+        points: points.sort((a, b) => a.tau - b.tau),
+      }))
+      .filter((r) => r.points.length > 1)
+      .sort((a, b) => a.dtg.localeCompare(b.dtg));
+  };
+  const runs = runsOf(ai).slice(-4);
+  const ofcl = runsOf("OFCL").at(-1) ?? null;
+  const latest = runs.at(-1) ?? null;
+  const gap =
+    latest && ofcl
+      ? latest.points.flatMap((p) => {
+          // Compare at the same valid time (runs may start at different cycles).
+          const valid = addHours(latest.dtg, p.tau);
+          const o = ofcl.points.find(
+            (q) => addHours(ofcl.dtg, q.tau) === valid,
+          );
+          return o ? [{ tau: p.tau, nm: nm(p, o), ai: p.kt, nhc: o.kt }] : [];
+        })
+      : [];
+  const ranked = rank(battle(rows, best));
+  return {
+    runs,
+    ofcl,
+    gap,
+    place: ranked.findIndex((s) => s.tech === ai) + 1,
+    of: ranked.filter((s) => s.track[24] || s.track[48]).length,
+    ai: ranked.find((s) => s.tech === ai) ?? null,
+    nhc: ranked.find((s) => s.tech === "OFCL") ?? null,
+  };
+}
