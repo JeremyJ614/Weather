@@ -21,6 +21,7 @@ export const MODULES = [
   { id: "flooding", label: "Flooding Outlook" },
   { id: "fire", label: "Fire Weather" },
   { id: "winter", label: "Winter Center" },
+  { id: "chase", label: "Storm Chasing Outlook" },
   { id: "maps", label: "Maps" },
   { id: "weather-news", label: "Weather News" },
   { id: "news", label: "SSWX News" },
