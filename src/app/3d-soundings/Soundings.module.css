@@ -1,0 +1,143 @@
+.pills {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.pills button {
+  flex: none;
+  padding: 7px 13px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.pills button[aria-pressed="true"] {
+  border-color: var(--lit-line);
+  background: var(--lit);
+  color: var(--accent);
+}
+.hint {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  padding: 5px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg) 85%, transparent);
+  font-size: 12px;
+  color: var(--muted);
+  transform: translateX(-50%);
+  pointer-events: none;
+  white-space: nowrap;
+}
+.card {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--surface);
+}
+.card h2 {
+  font-size: 18px;
+  font-weight: 800;
+}
+.card h3 {
+  font-size: 14px;
+  font-weight: 800;
+}
+.muted {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.read {
+  font-size: 14px;
+  line-height: 1.55;
+}
+.scrub {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.scrub button {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--lit-line);
+  border-radius: 50%;
+  background: var(--lit);
+  color: var(--accent);
+}
+.scrub input {
+  flex: 1;
+  accent-color: var(--accent);
+}
+.scrub b {
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+.keys {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+.keys div {
+  display: grid;
+  gap: 2px;
+  padding: 8px 4px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  text-align: center;
+}
+.keys b {
+  font-family: var(--font-mono);
+  font-size: 18px;
+}
+.keys span {
+  font-size: 10.5px;
+  color: var(--muted);
+}
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.legend i {
+  width: 16px;
+  height: 3px;
+  border-radius: 2px;
+}
+.nums {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+}
+.nums div {
+  display: grid;
+}
+.nums dt {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.nums dd {
+  font-family: var(--font-mono);
+  font-size: 15px;
+}
+.foot {
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--muted);
+}

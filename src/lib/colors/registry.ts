@@ -13,6 +13,7 @@ import { BANDS } from "@/lib/sswxcon/score";
 import { COLOR as WARN } from "@/lib/warnings/style";
 import { RARITY } from "@/lib/badges";
 import { GAUGE_LEVELS } from "@/lib/rivers/style";
+import { SND_BANDS, SND_LINES } from "@/lib/soundings/style";
 import { COMPARE } from "@/lib/radar/products";
 import { BANDS as CHASE_BANDS } from "@/lib/chase/score";
 import { PROB as WINTER_PROB } from "@/lib/winter/style";
@@ -278,6 +279,16 @@ export const GROUPS: Group[] = [
       key: `runs:${m.key}`,
       label: m.label,
       def: m.color,
+    })),
+  },
+  {
+    id: "soundings",
+    label: "Soundings",
+    note: "Skew-T lines, hodograph and 3D wind bands on 3D Soundings.",
+    entries: [...SND_LINES, ...SND_BANDS].map((g) => ({
+      key: `snd:${g.key}`,
+      label: g.label,
+      def: g.color,
     })),
   },
   {

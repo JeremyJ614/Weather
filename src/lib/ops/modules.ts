@@ -25,6 +25,7 @@ export const MODULES = [
   { id: "history", label: "Severe Weather History" },
   { id: "radar", label: "Radar & Model Runs" },
   { id: "rivers", label: "River & Flood Gauges" },
+  { id: "soundings", label: "3D Soundings" },
   { id: "maps", label: "Maps" },
   { id: "weather-news", label: "Weather News" },
   { id: "news", label: "SSWX News" },
