@@ -143,3 +143,4 @@ Personal Warnings & Alerts, Affected Communities Outlook, FairWeather Tracking, 
 | 53 | Guests | Signed-out visitors could open every page and saw the full menus | Proxy sends guests on members' pages to the signup gate; guest menus list only guest pages plus Sign Up |
 | 54 | View as member · Polls | Polls refused votes while viewing as a member and showed the owner's own votes | Owner-only audited `lens_poll_list` / `lens_poll_vote` |
 | 55 | Flooding Outlook · CI | The flood test failed on CI (merged red): the server ICU writes "Sat 7 AM" where the local one writes "Sat, 7 AM" | ERO times are built from date parts, so every machine prints the same |
+| 56 | River & Flood Gauges | Lake gauges (Devils Lake) report elevation stages against 0.1 ft flood thresholds, so they read "50 ft over flood stage", topped the worst-5 and flattened the hydrograph | Thresholds dropped when a stage runs 5x past major; tested |

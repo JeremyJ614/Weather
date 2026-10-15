@@ -57,6 +57,11 @@ export function previewSource(
         url: "/api/tropical/preview",
         title: "Active storms and outlook areas",
       };
+    case "gauges":
+      return {
+        url: "/api/rivers/preview",
+        title: "River gauges at action stage or higher",
+      };
     case "reports":
       return {
         url: "/api/reports?hours=48",

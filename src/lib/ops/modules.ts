@@ -24,6 +24,7 @@ export const MODULES = [
   { id: "chase", label: "Storm Chasing Outlook" },
   { id: "history", label: "Severe Weather History" },
   { id: "radar", label: "Radar & Model Runs" },
+  { id: "rivers", label: "River & Flood Gauges" },
   { id: "maps", label: "Maps" },
   { id: "weather-news", label: "Weather News" },
   { id: "news", label: "SSWX News" },

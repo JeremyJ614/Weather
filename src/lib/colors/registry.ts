@@ -12,6 +12,7 @@ import type { Colors } from "./pick";
 import { BANDS } from "@/lib/sswxcon/score";
 import { COLOR as WARN } from "@/lib/warnings/style";
 import { RARITY } from "@/lib/badges";
+import { GAUGE_LEVELS } from "@/lib/rivers/style";
 import { COMPARE } from "@/lib/radar/products";
 import { BANDS as CHASE_BANDS } from "@/lib/chase/score";
 import { PROB as WINTER_PROB } from "@/lib/winter/style";
@@ -277,6 +278,16 @@ export const GROUPS: Group[] = [
       key: `runs:${m.key}`,
       label: m.label,
       def: m.color,
+    })),
+  },
+  {
+    id: "gauges",
+    label: "River gauges",
+    note: "Flood categories on River & Flood Gauges.",
+    entries: GAUGE_LEVELS.map((g) => ({
+      key: `gauge:${g.key}`,
+      label: g.label,
+      def: g.color,
     })),
   },
   {
