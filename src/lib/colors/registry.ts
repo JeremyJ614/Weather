@@ -12,6 +12,7 @@ import type { Colors } from "./pick";
 import { BANDS } from "@/lib/sswxcon/score";
 import { COLOR as WARN } from "@/lib/warnings/style";
 import { RARITY } from "@/lib/badges";
+import { COMPARE } from "@/lib/radar/products";
 import { BANDS as CHASE_BANDS } from "@/lib/chase/score";
 import { PROB as WINTER_PROB } from "@/lib/winter/style";
 import { CONTAIN, FIRE_RISK } from "@/lib/fire/style";
@@ -266,6 +267,16 @@ export const GROUPS: Group[] = [
       key: `chase:band:${i}`,
       label: `${b.min}+ · ${b.label}`,
       def: b.color,
+    })),
+  },
+  {
+    id: "runs",
+    label: "Model comparison",
+    note: "Each model's line on Radar & Model Runs.",
+    entries: COMPARE.map((m) => ({
+      key: `runs:${m.key}`,
+      label: m.label,
+      def: m.color,
     })),
   },
   {

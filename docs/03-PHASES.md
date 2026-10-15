@@ -73,7 +73,7 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 - [x] 44. Severe Weather History rebuilt for speed (Ryan Hall's history page as the bar; server-projected paths with week-long caching for finished years: a full year of DAT tornado tracks is 163 KB and opens in ~40 ms cached; 30-day IEM warning archive with impact tiers; stat bands, composition bars, EF filters, by-month chart, longest tracks, downloadable maps)
 
 ## Tools & Other Data
-- [ ] 45. Radar & Model Runs on one page with subtabs (port)
+- [x] 45. Radar & Model Runs on one page with subtabs (port: Radar tab with NEXRAD base reflectivity looping its last 50 minutes as preloaded fading layers plus hybrid-scan, echo tops, hydrometeor class, MRMS composite/VIL/1-hour rain/precip type and GOES IR/true color/water vapor, 4-minute refresh, centered on you; Model Runs tab playing the newest complete GFS and NAM runs from NOAA NCEP MAG maps with decode-first smooth playback; Model Compare tab with HRRR, NAM, GFS, ECMWF, ICON and GEM temperature and rain for your spot plus an agreement line)
 - [ ] 46. River & Flood Gauges with the top 5 worst gauges
 - [ ] 47. 3D Soundings map with clickable soundings and hodographs
 - [ ] 48. StormNet (when API approved), chosen Google DeepMind items, Traffic Cameras (owner-only until approved)

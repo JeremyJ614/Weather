@@ -68,3 +68,4 @@ The outline asked for states colored over time. There is no public peak-foliage 
   - System health: `admin_health()`.
   - Page usage: `track_view()` stores one row per page, member and day; kept 180 days.
   - Pruning of the new tables runs in the storage watchdog cron.
+- Radar & Model Runs: VIP rendered its own model map frames from GRIB (a Python pipeline we do not run). We play NOAA NCEP Model Analyses & Guidance maps instead (GFS nested folders, NAM flat files, newest run whose last frame exists). HRRR maps are not at a public stable path there, so HRRR appears in Model Compare (Open-Meteo) until one is found.

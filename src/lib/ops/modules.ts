@@ -23,6 +23,7 @@ export const MODULES = [
   { id: "winter", label: "Winter Center" },
   { id: "chase", label: "Storm Chasing Outlook" },
   { id: "history", label: "Severe Weather History" },
+  { id: "radar", label: "Radar & Model Runs" },
   { id: "maps", label: "Maps" },
   { id: "weather-news", label: "Weather News" },
   { id: "news", label: "SSWX News" },
