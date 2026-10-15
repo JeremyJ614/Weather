@@ -42,12 +42,18 @@ export function eroSpan(start: unknown, end: unknown): string | null {
   const a = t(start);
   const b = t(end);
   if (!a || !b || Number.isNaN(+a) || Number.isNaN(+b)) return null;
-  const f = (d: Date) =>
-    d.toLocaleString("en-US", {
-      timeZone: "America/Chicago",
-      weekday: "short",
-      hour: "numeric",
-    });
+  // Built from parts: ICU versions disagree on the comma in "Sat, 7 AM" (CI vs. local).
+  const fmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Chicago",
+    weekday: "short",
+    hour: "numeric",
+  });
+  const f = (d: Date) => {
+    const p = Object.fromEntries(
+      fmt.formatToParts(d).map((x) => [x.type, x.value]),
+    );
+    return `${p.weekday} ${p.hour} ${p.dayPeriod}`;
+  };
   return `${f(a)} – ${f(b)} CT`;
 }
 
