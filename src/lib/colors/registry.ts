@@ -14,6 +14,7 @@ import { COLOR as WARN } from "@/lib/warnings/style";
 import { RARITY } from "@/lib/badges";
 import { GAUGE_LEVELS } from "@/lib/rivers/style";
 import { SND_BANDS, SND_LINES } from "@/lib/soundings/style";
+import { CAM_KINDS } from "@/lib/cams/style";
 import { COMPARE } from "@/lib/radar/products";
 import { BANDS as CHASE_BANDS } from "@/lib/chase/score";
 import { PROB as WINTER_PROB } from "@/lib/winter/style";
@@ -289,6 +290,16 @@ export const GROUPS: Group[] = [
       key: `snd:${g.key}`,
       label: g.label,
       def: g.color,
+    })),
+  },
+  {
+    id: "cams",
+    label: "Cameras",
+    note: "Camera dots on Traffic Cameras.",
+    entries: CAM_KINDS.map((k) => ({
+      key: `cam:${k.key}`,
+      label: k.label,
+      def: k.color,
     })),
   },
   {

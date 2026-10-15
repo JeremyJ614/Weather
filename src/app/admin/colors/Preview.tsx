@@ -57,6 +57,8 @@ export function previewSource(
         url: "/api/tropical/preview",
         title: "Active storms and outlook areas",
       };
+    case "cams":
+      return { url: "/api/cams/preview", title: "Every camera feed" };
     case "gauges":
       return {
         url: "/api/rivers/preview",
