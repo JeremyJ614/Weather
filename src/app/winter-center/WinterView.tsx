@@ -21,6 +21,8 @@ import s from "./Winter.module.css";
 
 type Overlay = {
   id: string;
+  group: string;
+  hours: number[] | null;
   label: string;
   note: string;
   bounds: [number, number, number, number];
@@ -34,12 +36,14 @@ const inch = (x: number) => (x >= 0.1 ? `${x.toFixed(1)}″` : "0″");
 
 /** Winter Center: storm map, snow & ice odds, alerts, your timeline and city snowfall. */
 export function WinterView({
+  groups,
   overlays,
   odds,
   alerts,
   cities,
   colors,
 }: {
+  groups: { id: string; label: string; blurb: string }[];
   overlays: Overlay[];
   odds: Record<string, number>;
   alerts: WinterAlert[] | null;
@@ -57,7 +61,7 @@ export function WinterView({
             id: "w-map",
             label: "Storm Map",
             icon: <MapIcon aria-hidden />,
-            panel: <StormMap overlays={overlays} />,
+            panel: <StormMap groups={groups} overlays={overlays} />,
           },
           {
             id: "w-odds",
@@ -198,18 +202,45 @@ function YourWinter() {
   );
 }
 
-function StormMap({ overlays }: { overlays: Overlay[] }) {
+function StormMap({
+  groups,
+  overlays,
+}: {
+  groups: { id: string; label: string; blurb: string }[];
+  overlays: Overlay[];
+}) {
+  const [group, setGroup] = useState(groups[0].id);
   const [id, setId] = useState(overlays[0].id);
-  const o = overlays.find((x) => x.id === id)!;
+  const [h, setH] = useState(0);
+  const [opacity, setOpacity] = useState(0.8);
+  const inGroup = overlays.filter((x) => x.group === group);
+  const o = inGroup.find((x) => x.id === id) ?? inGroup[0];
   return (
     <div className="grid gap-3">
+      <div className={s.groups} role="group" aria-label="Product">
+        {groups.map((g) => (
+          <button
+            key={g.id}
+            type="button"
+            aria-pressed={g.id === group}
+            onClick={() => {
+              setGroup(g.id);
+              setId(overlays.find((x) => x.group === g.id)!.id);
+              setH(0);
+            }}
+          >
+            <b>{g.label}</b>
+            <small>{g.blurb}</small>
+          </button>
+        ))}
+      </div>
       <div className="flex flex-wrap gap-1.5" role="group" aria-label="Map">
-        {overlays.map((x) => (
+        {inGroup.map((x) => (
           <button
             key={x.id}
             type="button"
-            aria-pressed={x.id === id}
-            onClick={() => setId(x.id)}
+            aria-pressed={x.id === o.id}
+            onClick={() => (setId(x.id), setH(0))}
             className={s.pill}
           >
             {x.label}
@@ -217,14 +248,47 @@ function StormMap({ overlays }: { overlays: Overlay[] }) {
         ))}
       </div>
       <OverlayMap
-        url={`/api/winter/img?id=${id}`}
+        url={`/api/winter/img?id=${o.id}${h ? `&h=${h}` : ""}`}
         bounds={o.bounds}
         label={o.label}
+        opacity={opacity}
       />
+      <div className={s.controls}>
+        {o.hours && (
+          <div
+            className="flex flex-wrap gap-1.5"
+            role="group"
+            aria-label="Window"
+          >
+            {[0, ...o.hours].map((x) => (
+              <button
+                key={x}
+                type="button"
+                aria-pressed={x === h}
+                onClick={() => setH(x)}
+                className={s.pill}
+              >
+                {x ? `First ${x}h` : "Storm total"}
+              </button>
+            ))}
+          </div>
+        )}
+        <label className={s.opacity}>
+          Opacity
+          <input
+            type="range"
+            min={0.25}
+            max={1}
+            step={0.05}
+            value={opacity}
+            onChange={(e) => setOpacity(+e.target.value)}
+          />
+        </label>
+      </div>
       <p className={s.muted}>
-        {o.note}{" "}
-        {id.startsWith("wssi") &&
-          "Out of season this map is empty: no winter impact expected anywhere."}
+        {o.note} A blank map is usually the right answer, not a broken one:
+        these products run all year and publish an empty field when there is no
+        winter weather to draw.
       </p>
     </div>
   );

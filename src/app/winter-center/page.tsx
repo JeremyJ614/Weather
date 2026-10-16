@@ -6,6 +6,7 @@ import { getColors } from "@/lib/colors/server";
 import { getSiteDefaults } from "@/lib/settings";
 import {
   OVERLAYS,
+  OVERLAY_GROUPS,
   citySnow,
   nationalWinterAlerts,
   probSummary,
@@ -38,8 +39,11 @@ export default async function WinterCenter() {
         <ModuleOff label="Winter Center" />
       ) : (
         <WinterView
+          groups={[...OVERLAY_GROUPS]}
           overlays={Object.entries(OVERLAYS).map(([id, o]) => ({
             id,
+            group: o.group,
+            hours: o.hours ?? null,
             label: o.label,
             note: o.note,
             bounds: o.bounds,

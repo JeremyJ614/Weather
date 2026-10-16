@@ -22,10 +22,12 @@ export function OverlayMap({
   url,
   bounds,
   label,
+  opacity = 0.78,
 }: {
   url: string;
   bounds: Bounds;
   label: string;
+  opacity?: number;
 }) {
   const map = useRef<MaplibreMap | null>(null);
   const [ready, setReady] = useState(false);
@@ -52,7 +54,7 @@ export function OverlayMap({
           id: "overlay",
           type: "raster",
           source: "overlay",
-          paint: { "raster-opacity": 0.78, "raster-fade-duration": 250 },
+          paint: { "raster-opacity": opacity, "raster-fade-duration": 250 },
         });
       }
       setState("ok");
@@ -62,7 +64,13 @@ export function OverlayMap({
     return () => {
       live = false;
     };
-  }, [url, bounds, ready]);
+  }, [url, bounds, ready]); // eslint-disable-line react-hooks/exhaustive-deps -- opacity has its own effect
+
+  useEffect(() => {
+    const m = map.current;
+    if (m && ready && m.getLayer("overlay"))
+      m.setPaintProperty("overlay", "raster-opacity", opacity);
+  }, [opacity, ready]);
 
   const onReady = ({ map: any }: ReadyMap) => {
     map.current = any as unknown as MaplibreMap;

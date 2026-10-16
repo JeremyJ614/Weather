@@ -1,11 +1,14 @@
 import { OVERLAYS } from "@/lib/winter/data";
 
-/** GET /api/winter/img?id=… → one winter overlay image (WPC sends no CORS headers for maps). */
+/** GET /api/winter/img?id=…[&h=24|48|72] → one winter overlay image (WPC sends no CORS headers for maps). */
 export async function GET(req: Request) {
-  const o = OVERLAYS[new URL(req.url).searchParams.get("id") ?? ""];
+  const q = new URL(req.url).searchParams;
+  const o = OVERLAYS[q.get("id") ?? ""];
   if (!o) return new Response("Unknown overlay", { status: 400 });
+  const h = Number(q.get("h"));
+  const url = h && o.at && o.hours?.includes(h) ? o.at(h) : o.url;
   try {
-    const r = await fetch(o.url, {
+    const r = await fetch(url, {
       headers: {
         "User-Agent": "StormSync Weather (https://weather.sswx.space)",
       },
