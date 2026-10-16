@@ -17,6 +17,7 @@ import type { Gauge, Hydro } from "@/lib/rivers/data";
 import { GAUGE_LEVELS } from "@/lib/rivers/style";
 import s from "./Rivers.module.css";
 
+const now = () => Date.now();
 type Ahead = Gauge & { when: string | null };
 const label = (lvl: string) =>
   GAUGE_LEVELS.find((l) => l.key === lvl)?.label ?? lvl;
@@ -62,24 +63,6 @@ export function RiversView({
         label="Rivers"
         tabs={[
           {
-            id: "rv-top",
-            label: "Worst 5",
-            icon: <Trophy aria-hidden />,
-            panel: now.length ? (
-              <ol className="grid gap-2">
-                {now.slice(0, 5).map((g, i) => (
-                  <li key={g.id}>
-                    <GaugeCard g={g} rank={i + 1} c={c} />
-                  </li>
-                ))}
-              </ol>
-            ) : (
-              <p className={s.card}>
-                No river in the country is at action stage or higher right now.
-              </p>
-            ),
-          },
-          {
             id: "rv-map",
             label: "Map",
             icon: <MapIcon aria-hidden />,
@@ -110,6 +93,24 @@ export function RiversView({
                   </g>
                 }
               />
+            ),
+          },
+          {
+            id: "rv-top",
+            label: "Worst 5",
+            icon: <Trophy aria-hidden />,
+            panel: now.length ? (
+              <ol className="grid gap-2">
+                {now.slice(0, 5).map((g, i) => (
+                  <li key={g.id}>
+                    <GaugeCard g={g} rank={i + 1} c={c} />
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p className={s.card}>
+                No river in the country is at action stage or higher right now.
+              </p>
             ),
           },
           {
@@ -232,12 +233,12 @@ function GaugeCard({
           </>
         )}
       </button>
-      {open && <Hydrograph g={g} />}
+      {open && <Hydrograph g={g} c={c} />}
     </div>
   );
 }
 
-function Hydrograph({ g }: { g: Gauge }) {
+function Hydrograph({ g, c }: { g: Gauge; c: (l: string) => string }) {
   const [d, setD] = useState<
     { observed: Hydro; forecast: Hydro; units: string } | "error" | null
   >(null);
@@ -258,58 +259,232 @@ function Hydrograph({ g }: { g: Gauge }) {
         This gauge&apos;s history isn&apos;t available right now.
       </p>
     );
+  return <HydroChart g={g} d={d} c={c} />;
+}
+
+/** VIP's hydrograph, redrawn: flood bands, observed trace with fill, forecast, crest and now. */
+function HydroChart({
+  g,
+  d,
+  c,
+}: {
+  g: Gauge;
+  d: { observed: Hydro; forecast: Hydro; units: string };
+  c: (l: string) => string;
+}) {
+  const W = 720;
+  const H = 280;
+  const P = { l: 44, r: 12, t: 16, b: 30 };
   const all = [...d.observed, ...d.forecast];
-  const t0 = Date.parse(all[0].t);
-  const t1 = Date.parse(all.at(-1)!.t);
-  const lines = [g.flood, g.moderate, g.major].filter(
-    (v): v is number => v != null,
-  );
-  const lo = Math.min(...all.map((p) => p.v), ...lines) - 0.5;
-  const hi = Math.max(...all.map((p) => p.v), ...lines) + 0.5;
-  const x = (t: string) =>
-    4 + ((Date.parse(t) - t0) / Math.max(1, t1 - t0)) * 352;
-  const y = (v: number) => 8 + ((hi - v) / (hi - lo)) * 104;
-  const pts = (h: Hydro) =>
-    h.map((p) => `${x(p.t).toFixed(1)},${y(p.v).toFixed(1)}`).join(" ");
+  const ts = all.map((p) => Date.parse(p.t));
+  const t0 = Math.min(...ts);
+  const t1 = Math.max(...ts);
+  const span = Math.max(1, t1 - t0);
+  const stages = all.map((p) => p.v);
+  const marks = (
+    [
+      ["action", g.action],
+      ["minor", g.flood],
+      ["moderate", g.moderate],
+      ["major", g.major],
+    ] as [string, number | null][]
+  ).filter((m): m is [string, number] => m[1] != null);
+  const peak = Math.max(...stages);
+  const low = Math.min(...stages);
+  const near = marks
+    .filter((m) => m[1] <= peak + (peak - low || 1) * 1.4)
+    .map((m) => m[1]);
+  const lo = Math.min(low, ...near);
+  const hi = Math.max(peak, ...near);
+  const pad = (hi - lo || 1) * 0.16;
+  const yLo = lo - pad;
+  const yHi = hi + pad;
+  const X = (t: string | number) =>
+    P.l +
+    (((typeof t === "string" ? Date.parse(t) : t) - t0) / span) *
+      (W - P.l - P.r);
+  const Y = (v: number) =>
+    P.t + (1 - (v - yLo) / (yHi - yLo || 1)) * (H - P.t - P.b);
+  const line = (h: Hydro) =>
+    h
+      .map(
+        (p, i) => `${i ? "L" : "M"}${X(p.t).toFixed(1)},${Y(p.v).toFixed(1)}`,
+      )
+      .join("");
+  const bands = marks.filter((m) => m[1] >= yLo && m[1] <= yHi);
+  const crest = d.forecast.length
+    ? d.forecast.reduce((m, p) => (p.v > m.v ? p : m))
+    : null;
+  const last = d.observed.at(-1);
+  const hours = span / 3600_000;
+  const step = hours > 120 ? 24 : hours > 48 ? 12 : 6;
+  const ticks: number[] = [];
+  const start = new Date(t0);
+  start.setMinutes(0, 0, 0);
+  for (let t = start.getTime(); t <= t1; t += step * 3600_000)
+    if (t >= t0) ticks.push(t);
+  const nowX = X(Math.min(Math.max(now(), t0), t1));
+  const accent = c(g.level === "normal" ? "normal" : g.level);
   return (
     <figure className={s.hydro}>
       <svg
-        viewBox="0 0 360 120"
+        viewBox={`0 0 ${W} ${H}`}
         className="w-full"
         role="img"
-        aria-label={`${g.name} stage, past 3 days and forecast`}
+        aria-label={`${g.name} hydrograph`}
       >
-        {lines.map((v, i) => (
-          <line
-            key={v}
-            x1="0"
-            x2="360"
-            y1={y(v)}
-            y2={y(v)}
-            stroke={["#f97316", "#ef4444", "#d946ef"][i]}
-            strokeDasharray="3 3"
-            strokeOpacity="0.7"
-          />
+        <defs>
+          <linearGradient id={`hg-${g.id}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={accent} stopOpacity="0.3" />
+            <stop offset="100%" stopColor={accent} stopOpacity="0.02" />
+          </linearGradient>
+        </defs>
+        {[...bands].reverse().map(([k, v]) => (
+          <g key={k}>
+            <rect
+              x={P.l}
+              y={P.t}
+              width={W - P.l - P.r}
+              height={Math.max(0, Y(v) - P.t)}
+              fill={c(k)}
+              opacity={0.07}
+            />
+            <line
+              x1={P.l}
+              x2={W - P.r}
+              y1={Y(v)}
+              y2={Y(v)}
+              stroke={c(k)}
+              strokeDasharray="5 4"
+              opacity={0.8}
+            />
+            <text
+              x={W - P.r - 2}
+              y={Y(v) - 4}
+              textAnchor="end"
+              fontSize={10}
+              fill={c(k)}
+              fontFamily="var(--font-mono)"
+            >
+              {k.toUpperCase()} {v}
+            </text>
+          </g>
         ))}
-        <polyline
-          fill="none"
+        {[0, 0.25, 0.5, 0.75, 1].map((f) => {
+          const v = yLo + (yHi - yLo) * f;
+          return (
+            <g key={f}>
+              <line
+                x1={P.l}
+                x2={W - P.r}
+                y1={Y(v)}
+                y2={Y(v)}
+                stroke="var(--line)"
+              />
+              <text
+                x={P.l - 6}
+                y={Y(v) + 3}
+                textAnchor="end"
+                fontSize={10}
+                fill="var(--muted)"
+                fontFamily="var(--font-mono)"
+              >
+                {v.toFixed(1)}
+              </text>
+            </g>
+          );
+        })}
+        {ticks.map((t) => (
+          <text
+            key={t}
+            x={X(t)}
+            y={H - 10}
+            textAnchor="middle"
+            fontSize={10}
+            fill="var(--muted)"
+            fontFamily="var(--font-mono)"
+          >
+            {step >= 24
+              ? new Date(t).toLocaleDateString("en-US", {
+                  month: "numeric",
+                  day: "numeric",
+                })
+              : new Date(t)
+                  .toLocaleTimeString("en-US", { hour: "numeric" })
+                  .replace(" ", "")}
+          </text>
+        ))}
+        <line
+          x1={nowX}
+          x2={nowX}
+          y1={P.t}
+          y2={H - P.b}
           stroke="var(--accent)"
-          strokeWidth="1.8"
-          points={pts(d.observed)}
+          strokeDasharray="2 3"
+          opacity={0.6}
+        />
+        {d.observed.length > 1 && (
+          <path
+            d={`${line(d.observed)}L${X(d.observed.at(-1)!.t).toFixed(1)},${H - P.b}L${X(d.observed[0].t).toFixed(1)},${H - P.b}Z`}
+            fill={`url(#hg-${g.id})`}
+          />
+        )}
+        <path
+          d={line(d.observed)}
+          fill="none"
+          stroke={accent}
+          strokeWidth={2.4}
+          strokeLinejoin="round"
         />
         {d.forecast.length > 0 && (
-          <polyline
+          <path
+            d={line(d.forecast)}
             fill="none"
             stroke="var(--accent)"
-            strokeWidth="1.8"
-            strokeDasharray="4 3"
-            points={pts(d.forecast)}
+            strokeWidth={2}
+            strokeDasharray="7 5"
           />
+        )}
+        {last && (
+          <circle
+            cx={X(last.t)}
+            cy={Y(last.v)}
+            r={4.5}
+            fill={accent}
+            stroke="#0b0c14"
+            strokeWidth={1.5}
+          />
+        )}
+        {crest && (
+          <g>
+            <circle
+              cx={X(crest.t)}
+              cy={Y(crest.v)}
+              r={4}
+              fill="none"
+              stroke="var(--accent)"
+              strokeWidth={1.6}
+            />
+            <text
+              x={X(crest.t)}
+              y={Y(crest.v) - 9}
+              textAnchor="middle"
+              fontSize={10.5}
+              fontWeight={700}
+              fill="var(--accent)"
+            >
+              Crest {crest.v} {d.units}
+            </text>
+          </g>
         )}
       </svg>
       <figcaption className={s.muted}>
-        Solid: observed. Dashed: NWS forecast. Lines: flood, moderate and major
-        stage.{" "}
+        Solid: observed{last ? ` (now ${last.v} ${d.units})` : ""}. Dashed: NWS
+        forecast
+        {crest
+          ? `, cresting ${new Date(crest.t).toLocaleString("en-US", { weekday: "short", hour: "numeric" })}`
+          : ""}
+        .{" "}
         <a
           href={`https://water.noaa.gov/gauges/${g.id.toLowerCase()}`}
           target="_blank"
