@@ -6,14 +6,14 @@
 
 const KT = 1.94384;
 
-function uv(speedMs: number, dirDeg: number): [number, number] {
+export function uv(speedMs: number, dirDeg: number): [number, number] {
   const k = speedMs * KT;
   const r = (dirDeg * Math.PI) / 180;
   return [-k * Math.sin(r), -k * Math.cos(r)];
 }
 
 /** Bunkers-style right mover from the mean wind, as VIP estimated it. */
-function stormMotion(levels: [number, number][]): [number, number] {
+export function stormMotion(levels: [number, number][]): [number, number] {
   const u = levels.reduce((a, l) => a + l[0], 0) / levels.length;
   const v = levels.reduce((a, l) => a + l[1], 0) / levels.length;
   const spd = Math.hypot(u, v);

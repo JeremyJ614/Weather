@@ -6,9 +6,11 @@ import type { Frame } from "@/lib/tropical/sat";
 
 type Data = { label: string; frames: Frame[] };
 const SPEEDS = [0.5, 1, 2];
-const hhmm = (iso: string) =>
-  new Date(iso).toLocaleTimeString("en-US", {
+// Loops longer than a day (model runs) need the weekday on each frame.
+const hhmm = (iso: string, long = false) =>
+  new Date(iso).toLocaleString("en-US", {
     timeZone: "America/Chicago",
+    ...(long ? { weekday: "short" } : {}),
     hour: "numeric",
     minute: "2-digit",
   });
@@ -20,9 +22,12 @@ const hhmm = (iso: string) =>
  */
 export function SatLoop({
   src,
+  url,
   ratio = "5 / 3",
 }: {
   src: string;
+  /** Any endpoint returning { label, frames }; frames then spanning days show the weekday. */
+  url?: string;
   ratio?: string;
 }) {
   const [data, setData] = useState<Data | "error" | null>(null);
@@ -41,7 +46,8 @@ export function SatLoop({
       devicePixelRatio > 1.5 &&
       innerWidth > 700;
     fetch(
-      `/api/tropical/sat?src=${encodeURIComponent(src)}${big ? "&big=1" : ""}`,
+      url ??
+        `/api/tropical/sat?src=${encodeURIComponent(src)}${big ? "&big=1" : ""}`,
     )
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then(async (d: Data) => {
@@ -65,7 +71,7 @@ export function SatLoop({
     return () => {
       live = false;
     };
-  }, [src]);
+  }, [src, url]);
 
   const frames = data && data !== "error" ? data.frames : [];
   const n = frames.length;
@@ -135,7 +141,7 @@ export function SatLoop({
             <img
               ref={base}
               src={cur.url}
-              alt={`${label} at ${hhmm(cur.at)}`}
+              alt={`${label} at ${hhmm(cur.at, !!url)}`}
               className="absolute inset-0 h-full w-full object-cover"
             />
             {/* eslint-disable-next-line @next/next/no-img-element -- the next frame, fading in */}
@@ -158,7 +164,7 @@ export function SatLoop({
         )}
         {cur && (
           <span className="mono absolute top-2 left-2 rounded-lg bg-black/60 px-2 py-0.5 text-xs text-white">
-            {hhmm(cur.at)} CT
+            {hhmm(cur.at, !!url)} CT
           </span>
         )}
       </div>
@@ -213,7 +219,7 @@ export function SatLoop({
       </div>
       <figcaption className="text-xs text-muted">
         {loaded
-          ? `${label} · ${n} frames, ${frames[0] ? hhmm(frames[0].at) : ""}–${cur ? hhmm(frames[n - 1].at) : ""} CT · NOAA/NESDIS STAR`
+          ? `${label} · ${n} frames, ${frames[0] ? hhmm(frames[0].at, !!url) : ""}–${cur ? hhmm(frames[n - 1].at, !!url) : ""} CT${url ? "" : " · NOAA/NESDIS STAR"}`
           : `Loading frames… ${ready}/${n || "–"}`}
       </figcaption>
     </figure>

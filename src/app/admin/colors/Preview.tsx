@@ -57,6 +57,24 @@ export function previewSource(
         url: "/api/tropical/preview",
         title: "Active storms and outlook areas",
       };
+    case "climo":
+      return {
+        url: "/api/climo/preview",
+        title: "Tornado touchdowns since 1950",
+      };
+    case "lightning":
+      return { url: "/api/lightning/preview", title: "Lightning hotspots now" };
+    case "aurora":
+      return { url: "/api/aurora/preview", title: "The aurora oval now" };
+    case "sky":
+      return { url: "/api/sky/preview", title: "Stargazing tonight" };
+    case "cams":
+      return { url: "/api/cams/preview", title: "Every camera feed" };
+    case "gauges":
+      return {
+        url: "/api/rivers/preview",
+        title: "River gauges at action stage or higher",
+      };
     case "reports":
       return {
         url: "/api/reports?hours=48",

@@ -1,0 +1,198 @@
+.tonight {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--surface);
+}
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.head h2 {
+  font-family: var(--font-mono);
+  font-size: 26px;
+  font-weight: 800;
+}
+.head h2 span {
+  font-family: var(--font-sans, inherit);
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.reset {
+  flex: none;
+  padding: 6px 12px;
+  border: 1px solid var(--lit-line);
+  border-radius: 999px;
+  background: var(--lit);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+}
+.read {
+  font-size: 14px;
+  line-height: 1.55;
+}
+.factors {
+  display: grid;
+  gap: 8px;
+}
+.factors div {
+  display: grid;
+  grid-template-columns: 74px 1fr;
+  align-items: center;
+  gap: 2px 10px;
+}
+.factors span {
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.factors i {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--bg);
+}
+.factors b {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transform-origin: left;
+}
+.factors small {
+  grid-column: 2;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.times {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+}
+.times dt {
+  font-size: 11px;
+  color: var(--muted);
+}
+.times dd {
+  font-family: var(--font-mono);
+  font-size: 14px;
+}
+.pills {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.pills button {
+  flex: none;
+  padding: 7px 13px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.pills button[aria-pressed="true"] {
+  border-color: var(--lit-line);
+  background: var(--lit);
+  color: var(--accent);
+}
+.scrub {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.scrub input {
+  flex: 1;
+  accent-color: var(--accent);
+}
+.scrub b {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+.card {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--surface);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.muted {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.list {
+  display: grid;
+  gap: 4px;
+}
+.list li {
+  display: grid;
+  grid-template-columns: 76px 44px 1fr;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12.5px;
+}
+.list span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-weight: 800;
+}
+.list i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+.list small {
+  color: var(--muted);
+}
+.target {
+  display: flex;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  color: var(--accent);
+}
+.target span {
+  display: grid;
+  gap: 2px;
+  color: var(--text, inherit);
+}
+.target b {
+  font-size: 14px;
+}
+.target b small,
+.target small {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.note {
+  font-style: italic;
+}
+.foot {
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--muted);
+}

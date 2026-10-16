@@ -69,24 +69,24 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 - [x] 40. Flooding Outlook (port: your answer first with worst day, WPC rain totals and active NWS flood alerts at your location; five-day strip with national top level and yours; interactive Excessive Rainfall map with tap details; level guide; WPC rainfall totals maps)
 - [x] 41. Fire Weather with active wildfires, perimeters and details (NIFC WFIGS fires of 10+ acres colored by containment and sized by acres, burn perimeters, tap-for-details cards with acres, containment, start, personnel, cause and behavior; fires nearest you and Red Flag/Fire Weather alerts at your location; sortable fire list; SPC day 1–2 fire outlooks as a map overlay and their own map)
 - [x] 42. Winter Center (port of VIP's five subtabs: storm map with WSSI impact and NOHRSC snow depth/SWE overlays on the live map; WPC day 1–3 odds of 4/8/12" snow and ¼" ice as vector maps with per-amount chips; national winter alerts grouped by type and state; your 72-hour snowfall/temperature timeline with the freezing line; snow-belt city snowfall board; your week with first flakes and alerts on top)
-- [ ] 43. Storm Chasing Outlook with stats that persist across days
-- [ ] 44. Severe Weather History rebuilt for speed (Ryan Hall's history page as the bar)
+- [x] 43. Storm Chasing Outlook with stats that persist across days (daily engine: SPC Day 1 risk areas scanned on a 1° grid with Open-Meteo instability, shear, helicity, STP, cap, cloud base and daylight; two best targets 250+ km apart saved to chase_days by cron, or by the first visit; score hero, target map, Overview, Parameters comparison, Storm Mode with motion and hail size, Bust odds with reasons, Yearly ledger: percentile, chase days, average, best day, streak, daily bars)
+- [x] 44. Severe Weather History rebuilt for speed (Ryan Hall's history page as the bar; server-projected paths with week-long caching for finished years: a full year of DAT tornado tracks is 163 KB and opens in ~40 ms cached; 30-day IEM warning archive with impact tiers; stat bands, composition bars, EF filters, by-month chart, longest tracks, downloadable maps)
 
 ## Tools & Other Data
-- [ ] 45. Radar & Model Runs on one page with subtabs (port)
-- [ ] 46. River & Flood Gauges with the top 5 worst gauges
-- [ ] 47. 3D Soundings map with clickable soundings and hodographs
-- [ ] 48. StormNet (when API approved), chosen Google DeepMind items, Traffic Cameras (owner-only until approved)
+- [x] 45. Radar & Model Runs on one page with subtabs (port: Radar tab with NEXRAD base reflectivity looping its last 50 minutes as preloaded fading layers plus hybrid-scan, echo tops, hydrometeor class, MRMS composite/VIL/1-hour rain/precip type and GOES IR/true color/water vapor, 4-minute refresh, centered on you; Model Runs tab playing the newest complete GFS and NAM runs from NOAA NCEP MAG maps with decode-first smooth playback; Model Compare tab with HRRR, NAM, GFS, ECMWF, ICON and GEM temperature and rain for your spot plus an agreement line)
+- [x] 46. River & Flood Gauges with the top 5 worst gauges (summary band, worst 5 with stage bars + tap-for-hydrograph, national dot map, forecast-to-flood list, gauges near you)
+- [x] 47. 3D Soundings map with clickable soundings and hodographs (balloons + HRRR, RAP, NAM 3 km, NAM, GFS via IEM BUFKIT; 3D wind profile, Skew-T, hodograph, parameters, run scrubber)
+- [x] 48. StormNet (when API approved), chosen Google DeepMind items, Traffic Cameras (owner-only until approved). Traffic Cameras built, owner-only (Caltrans, NYC DOT, Iowa DOT incl. road-weather cams, INDOT/KYTC, ALERTCalifornia wildfire cams; near you, inside active warnings, map). DeepMind Weather Lab cyclone tracks shipped in 38–39. StormNet waits on their API approval (its page says so).
 
 ## Specialty Monitoring
-- [ ] 49. Star Gazing Forecast map (blended night-sky outlook, our style)
-- [ ] 50. Astronomy (Moon & Astronomy port)
-- [ ] 51. Aurora Center with view-line map, image download and interactive mode
-- [ ] 52. Lightning Monitoring (rebuilt)
+- [x] 49. Star Gazing Forecast map (blended night-sky outlook, our style): smooth national score field (tonight, tomorrow night, by hour, tap any spot), your night with factor bars, dark and moon times, hour-by-hour, deep-sky targets (VIP astro, score and catalogue ported)
+- [x] 50. Astronomy (Moon & Astronomy port): true-phase moon, planets tonight (JPL elements), 24 h sun/moon arcs, sun times and day length, season track, lunar phases, meteor showers with moon interference
+- [x] 51. Aurora Center with view-line map, image download and interactive mode: your chance (oval, view line, Kp needed), interactive OVATION map with oval edge and view line, SWPC image with download (both hemispheres), Kp past day + 3-day forecast with G-scale, real-time solar wind (Bz, speed, density)
+- [x] 52. Lightning Monitoring (rebuilt): lightning around you (nearest distance and direction, 10/30/60 mi coverage, trend, 120-mile scope), live 2-hour NOAA loop, national hotspots by town, NWS safety
 - [ ] 53. (moved to post-launch: FairWeather Tracking)
 
 ## Educational
-- [ ] 54. Climatology: tornado, lightning and hurricane subtabs
+- [x] 54. Climatology: tornado, lightning and hurricane subtabs: near-you records (tracks within 25 mi, storms within 60 mi, LIS flash rate by month), national tornado density, hurricane passage density, yearly/monthly/hourly/EF/state charts, season curves, ACE seasons; data built by scripts/build-climo.py
 - [ ] 55. Weather Glossary (port)
 - [ ] 56. Free Content Library (port from Academy)
 

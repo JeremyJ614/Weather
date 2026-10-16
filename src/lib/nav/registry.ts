@@ -95,7 +95,12 @@ export const MAIN_NAV: NavGroup[] = [
       p("radar-model-runs", "Radar & Model Runs", "Radar", "45"),
       p("river-flood-gauges", "River & Flood Gauges", "Droplets", "46"),
       p("3d-soundings", "3D Soundings", "Box", "47"),
-      p("stormnet", "StormNet", "Network", "48"),
+      p(
+        "stormnet",
+        "StormNet",
+        "Network",
+        "48 · starts when StormNet approves API access",
+      ),
       p("traffic-cameras", "Traffic Cameras", "Cctv", "48", true),
     ],
   },

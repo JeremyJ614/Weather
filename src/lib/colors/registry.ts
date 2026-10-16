@@ -12,6 +12,16 @@ import type { Colors } from "./pick";
 import { BANDS } from "@/lib/sswxcon/score";
 import { COLOR as WARN } from "@/lib/warnings/style";
 import { RARITY } from "@/lib/badges";
+import { GAUGE_LEVELS } from "@/lib/rivers/style";
+import { SND_BANDS, SND_LINES } from "@/lib/soundings/style";
+import { CAM_KINDS } from "@/lib/cams/style";
+import { SKY_BANDS } from "@/lib/sky/score";
+import { ASTRO_LINES } from "@/lib/sky/style";
+import { AURORA_LINES, AURORA_RAMP, KP_SCALE } from "@/lib/aurora/style";
+import { LT_BANDS } from "@/lib/lightning/style";
+import { CLIMO_LINES, CLIMO_RAMP } from "@/lib/climo/style";
+import { COMPARE } from "@/lib/radar/products";
+import { BANDS as CHASE_BANDS } from "@/lib/chase/score";
 import { PROB as WINTER_PROB } from "@/lib/winter/style";
 import { CONTAIN, FIRE_RISK } from "@/lib/fire/style";
 import { HAZ_KINDS, USDM } from "@/lib/hazards/style";
@@ -32,16 +42,8 @@ export type Group = {
   entries: Entry[];
 };
 
-/** EF-scale tornado path colors (VIP's), used by Severe Weather History. */
-export const EF_COLORS: Record<string, string> = {
-  EFU: "#8fa3bf",
-  EF0: "#f6f8fc",
-  EF1: "#89cff0",
-  EF2: "#5fd9a8",
-  EF3: "#e8bb4d",
-  EF4: "#e2373c",
-  EF5: "#8b46d9",
-};
+export { EF_COLORS } from "./ef";
+import { EF_COLORS } from "./ef";
 
 export const SSWX_PARTS: Record<string, string> = {
   tornado: "#ef4444",
@@ -263,6 +265,116 @@ export const GROUPS: Group[] = [
       key: `winter:prob:${i + 1}`,
       label: p.label,
       def: p.color,
+    })),
+  },
+  {
+    id: "chase",
+    label: "Chase score",
+    note: "The Storm Chasing Outlook's score bands.",
+    entries: CHASE_BANDS.map((b, i) => ({
+      key: `chase:band:${i}`,
+      label: `${b.min}+ · ${b.label}`,
+      def: b.color,
+    })),
+  },
+  {
+    id: "runs",
+    label: "Model comparison",
+    note: "Each model's line on Radar & Model Runs.",
+    entries: COMPARE.map((m) => ({
+      key: `runs:${m.key}`,
+      label: m.label,
+      def: m.color,
+    })),
+  },
+  {
+    id: "soundings",
+    label: "Soundings",
+    note: "Skew-T lines, hodograph and 3D wind bands on 3D Soundings.",
+    entries: [...SND_LINES, ...SND_BANDS].map((g) => ({
+      key: `snd:${g.key}`,
+      label: g.label,
+      def: g.color,
+    })),
+  },
+  {
+    id: "climo",
+    label: "Climatology",
+    note: "Density ramp on the tornado and hurricane maps, season and EF2+ lines on Climatology.",
+    entries: [...CLIMO_RAMP, ...CLIMO_LINES].map((x, i) => ({
+      key: `climo:${x.key}`,
+      label: x.label || `Ramp step ${i + 1}`,
+      def: x.color,
+    })),
+  },
+  {
+    id: "lightning",
+    label: "Lightning",
+    note: "Strike-density bands in Lightning Monitoring's scope and hotspot list (the map tiles are NOAA's).",
+    entries: LT_BANDS.map((b) => ({
+      key: `lt:${b.key}`,
+      label: b.label,
+      def: b.color,
+    })),
+  },
+  {
+    id: "aurora",
+    label: "Aurora",
+    note: "Oval chance ramp, oval edge and view line on Aurora Center.",
+    entries: [...AURORA_RAMP, ...AURORA_LINES].map((x) => ({
+      key: `aurora:${x.key}`,
+      label: x.label,
+      def: x.color,
+    })),
+  },
+  {
+    id: "kp",
+    label: "Kp / G-scale",
+    note: "Kp bars and storm levels on Aurora Center.",
+    entries: KP_SCALE.map((x) => ({
+      key: `kp:${x.key}`,
+      label: `Kp ${x.min}+ ${x.label}`,
+      def: x.color,
+    })),
+  },
+  {
+    id: "astro",
+    label: "Astronomy",
+    note: "Sun and moon lines and planet colors on Astronomy.",
+    entries: ASTRO_LINES.map((l) => ({
+      key: `astro:${l.key}`,
+      label: l.label,
+      def: l.color,
+    })),
+  },
+  {
+    id: "sky",
+    label: "Stargazing",
+    note: "Score bands on Star Gazing Forecast (map, chart, numbers).",
+    entries: SKY_BANDS.map((b) => ({
+      key: `sky:${b.key}`,
+      label: b.label,
+      def: b.color,
+    })),
+  },
+  {
+    id: "cams",
+    label: "Cameras",
+    note: "Camera dots on Traffic Cameras.",
+    entries: CAM_KINDS.map((k) => ({
+      key: `cam:${k.key}`,
+      label: k.label,
+      def: k.color,
+    })),
+  },
+  {
+    id: "gauges",
+    label: "River gauges",
+    note: "Flood categories on River & Flood Gauges.",
+    entries: GAUGE_LEVELS.map((g) => ({
+      key: `gauge:${g.key}`,
+      label: g.label,
+      def: g.color,
     })),
   },
   {
