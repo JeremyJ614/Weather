@@ -15,7 +15,9 @@ export function pickCities(
 ): City[] {
   const k = full / v.w;
   if (k < 1.4) return [];
-  const want = Math.round(14 * k ** 1.7);
+  // A few anchor cities at moderate zoom; more only when zoomed far in (Fix-It #6.8).
+  const want = k < 2.5 ? 5 : k < 5 ? 8 : k < 10 ? 14 : 22;
+  const gap = fs * 1.6;
   const boxes: [number, number, number, number][] = [];
   const out: City[] = [];
   for (const c of cities) {
@@ -31,7 +33,11 @@ export function pickCities(
     ];
     if (
       boxes.some(
-        (o) => b[0] < o[2] && b[2] > o[0] && b[1] < o[3] && b[3] > o[1],
+        (o) =>
+          b[0] < o[2] + gap &&
+          b[2] + gap > o[0] &&
+          b[1] < o[3] + gap &&
+          b[3] + gap > o[1],
       )
     )
       continue;
