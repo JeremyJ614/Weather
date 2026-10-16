@@ -202,3 +202,50 @@
   line-height: 1.6;
   color: var(--muted);
 }
+.groups {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.groups button {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  text-align: left;
+}
+.groups button[aria-pressed="true"] {
+  border-color: var(--lit-line);
+  box-shadow: 0 0 18px var(--lit);
+}
+.groups b {
+  font-size: 13px;
+}
+.groups button[aria-pressed="true"] b {
+  color: var(--accent);
+}
+.groups small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.opacity {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.opacity input {
+  width: 110px;
+  accent-color: var(--accent);
+}

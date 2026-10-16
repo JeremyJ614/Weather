@@ -6,9 +6,18 @@ import { join } from "node:path";
 
 const pkg = join(import.meta.dirname, "..", "node_modules", "maplibre-gl");
 const { version } = JSON.parse(readFileSync(join(pkg, "package.json"), "utf8"));
-const out = join(import.meta.dirname, "..", "public", "vendor", "maplibre", version);
+const out = join(
+  import.meta.dirname,
+  "..",
+  "public",
+  "vendor",
+  "maplibre",
+  version,
+);
 mkdirSync(out, { recursive: true });
 for (const f of ["maplibre-gl-worker.mjs", "maplibre-gl-shared.mjs"]) {
   copyFileSync(join(pkg, "dist", f), join(out, f));
 }
-console.log(`MapLibre ${version} worker copied to public/vendor/maplibre/${version}`);
+console.log(
+  `MapLibre ${version} worker copied to public/vendor/maplibre/${version}`,
+);

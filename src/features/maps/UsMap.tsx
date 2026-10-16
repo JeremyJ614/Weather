@@ -22,6 +22,29 @@ export const W = 975;
 export const H = 610;
 
 /** Turns the live SVG into a 2× PNG with a title band and legend. */
+const PROPS = [
+  "fill",
+  "fill-opacity",
+  "stroke",
+  "stroke-width",
+  "stroke-opacity",
+  "stroke-dasharray",
+  "stroke-linejoin",
+  "stroke-linecap",
+  "opacity",
+  "display",
+  "visibility",
+  "font-family",
+  "font-size",
+  "font-weight",
+  "letter-spacing",
+  "text-anchor",
+  "paint-order",
+  "filter",
+  "mix-blend-mode",
+  "image-rendering",
+];
+
 async function toPng(
   svg: SVGSVGElement,
   title: string,
@@ -29,23 +52,45 @@ async function toPng(
   legend: Swatch[],
 ) {
   const css = getComputedStyle(document.documentElement);
-  let xml = new XMLSerializer().serializeToString(svg);
+  // CSS-module classes do not travel with a standalone SVG, so copy each
+  // element's computed presentation onto the clone (else land paints black
+  // and the data layer vanishes).
+  const clone = svg.cloneNode(true) as SVGSVGElement;
+  const live = [svg, ...svg.querySelectorAll("*")];
+  const copy = [clone, ...clone.querySelectorAll("*")];
+  live.forEach((el, i) => {
+    const cs = getComputedStyle(el);
+    const out = copy[i] as SVGElement;
+    out.removeAttribute("class");
+    out.setAttribute(
+      "style",
+      PROPS.map((p) => `${p}:${cs.getPropertyValue(p)}`).join(";"),
+    );
+  });
+  clone.setAttribute("width", String(W));
+  clone.setAttribute("height", String(H));
+  let xml = new XMLSerializer().serializeToString(clone);
   xml = xml.replace(
     /var\(--([a-z0-9-]+)\)/gi,
     (_, v) => css.getPropertyValue(`--${v}`).trim() || "#888",
   );
   // Inline any raster so the export carries it.
-  const hrefs = [...xml.matchAll(/href="(\/api\/maps\/raster[^"]+)"/g)].map(
-    (m) => m[1],
-  );
+  const hrefs = [
+    ...new Set(
+      [...xml.matchAll(/href="((?:\/|https?:)[^"]+)"/g)].map((m) => m[1]),
+    ),
+  ];
   for (const h of hrefs) {
-    const blob = await fetch(h.replace(/&amp;/g, "&")).then((r) => r.blob());
+    const blob = await fetch(h.replace(/&amp;/g, "&"))
+      .then((r) => (r.ok ? r.blob() : null))
+      .catch(() => null);
+    if (!blob) continue;
     const data = await new Promise<string>((ok) => {
       const fr = new FileReader();
       fr.onload = () => ok(String(fr.result));
       fr.readAsDataURL(blob);
     });
-    xml = xml.replace(h, data);
+    xml = xml.split(h).join(data);
   }
   const img = new Image();
   img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(xml)}`;

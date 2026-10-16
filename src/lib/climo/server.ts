@@ -1,6 +1,7 @@
 import "server-only";
 import TORNADO from "./tornado.json";
 import HURRICANE from "./hurricane.json";
+import { project } from "@/lib/map/usAlbers";
 
 /**
  * Climatology queries over the records built by scripts/build-climo.py (SPC tornado
@@ -47,9 +48,8 @@ type Twister = {
 };
 let twisters: Twister[] | null = null;
 
-/** Every tornado track passing within `miles` of a place since 1950. */
-export function tornadoNear(lat: number, lon: number, miles = 25) {
-  twisters ??= TORNADO.pts.split(";").map((p) => {
+function allTwisters() {
+  return (twisters ??= TORNADO.pts.split(";").map((p) => {
     const [a, b, c, d, ef, date, dead, hurt, st] = p.split(",");
     return {
       s: [+a / 100, +b / 100],
@@ -60,9 +60,29 @@ export function tornadoNear(lat: number, lon: number, miles = 25) {
       hurt: +hurt,
       st,
     };
-  });
+  }));
+}
+
+/**
+ * Every track rated `min` or stronger since `since`, projected onto the national map
+ * (x1,y1,x2,y2,ef), weakest first so violent tracks draw on top.
+ */
+export function tornadoTracks(min: number, since: number) {
+  return allTwisters()
+    .filter((t) => t.ef >= min && +t.date.slice(0, 4) >= since)
+    .sort((a, b) => a.ef - b.ef)
+    .map((t) => {
+      const a = project(t.s[1], t.s[0]);
+      const b = project(t.e[1], t.e[0]);
+      const r = (v: number) => Math.round(v * 10) / 10;
+      return [r(a.x), r(a.y), r(b.x), r(b.y), t.ef];
+    });
+}
+
+/** Every tornado track passing within `miles` of a place since 1950. */
+export function tornadoNear(lat: number, lon: number, miles = 25) {
   const box = miles / 60;
-  const hits = twisters.filter(
+  const hits = allTwisters().filter(
     (t) =>
       Math.abs(t.s[0] - lat) < box + 2 &&
       Math.abs(t.s[1] - lon) < box / Math.cos(lat * RAD) + 2 &&
@@ -112,9 +132,8 @@ type Storm = {
 };
 let storms: Storm[] | null = null;
 
-/** Every tropical storm or hurricane passing within `miles` of a place since 1950. */
-export function hurricaneNear(lat: number, lon: number, miles = 60) {
-  storms ??= HURRICANE.tracks.split("\n").map((line) => {
+function allStorms() {
+  return (storms ??= HURRICANE.tracks.split("\n").map((line) => {
     const [basin, name, year, pts] = line.split("|");
     return {
       basin,
@@ -125,7 +144,60 @@ export function hurricaneNear(lat: number, lon: number, miles = 60) {
         return { lat: +a / 10, lon: +b / 10, kt: +kt, land: land === "1", md };
       }),
     };
-  });
+  }));
+}
+
+/**
+ * Every major hurricane's track (peak Cat 3+) as GeoJSON lines, split into runs of one
+ * Saffir–Simpson tier so the map colors each stretch by its strength at the time.
+ */
+export function majorTracks() {
+  const features = [];
+  for (const st of allStorms()) {
+    if (Math.max(...st.pts.map((p) => p.kt)) < 96) continue;
+    const tier = (kt: number) =>
+      kt < 34
+        ? 0
+        : kt < 64
+          ? 1
+          : kt < 83
+            ? 2
+            : kt < 96
+              ? 3
+              : kt < 113
+                ? 4
+                : kt < 137
+                  ? 5
+                  : 6;
+    let run: [number, number][] = [];
+    let t = -1;
+    for (const p of st.pts) {
+      const k = tier(p.kt);
+      if (k !== t && run.length) {
+        run.push([p.lon > 0 ? p.lon - 360 : p.lon, p.lat]);
+        features.push(line(st, t, run));
+        run = [];
+      }
+      t = k;
+      // Keep the line continuous across 180° (Central Pacific storms) instead of wrapping.
+      run.push([p.lon > 0 ? p.lon - 360 : p.lon, p.lat]);
+    }
+    if (run.length > 1) features.push(line(st, t, run));
+  }
+  return { type: "FeatureCollection", features };
+}
+const TIERS = ["TD", "TS", "C1", "C2", "C3", "C4", "C5"];
+function line(st: Storm, t: number, coordinates: [number, number][]) {
+  return {
+    type: "Feature",
+    properties: { tier: TIERS[t], name: st.name, year: st.year, t },
+    geometry: { type: "LineString", coordinates },
+  };
+}
+
+/** Every tropical storm or hurricane passing within `miles` of a place since 1950. */
+export function hurricaneNear(lat: number, lon: number, miles = 60) {
+  const storms = allStorms();
   type Pass = {
     name: string;
     year: number;

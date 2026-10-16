@@ -160,11 +160,29 @@ export const LOOP = [
   "",
 ];
 
-export function tileUrl(p: Product, bust: number, suffix = ""): string {
-  return p.source === "iem"
-    ? `https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/${p.code}${suffix}/{z}/{x}/{y}.png?_=${bust}`
+/** Tile URL for one frame: an IEM loop suffix, or a RealEarth time ("YYYYMMDD.HHMMSS"). */
+export function tileUrl(p: Product, bust: number, frame = ""): string {
+  if (p.source === "iem")
+    return `https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/${p.code}${frame}/{z}/{x}/{y}.png?_=${bust}`;
+  return frame
+    ? `https://realearth.ssec.wisc.edu/tiles/${p.code}/${frame.replace(".", "/")}/{z}/{x}/{y}.png`
     : `https://realearth.ssec.wisc.edu/tiles/${p.code}/{z}/{x}/{y}.png?_=${bust}`;
 }
+
+/** Minutes between a RealEarth time ("YYYYMMDD.HHMMSS", UTC) and `now`. */
+export function reAge(t: string, now: number) {
+  const ms = Date.UTC(
+    +t.slice(0, 4),
+    +t.slice(4, 6) - 1,
+    +t.slice(6, 8),
+    +t.slice(9, 11),
+    +t.slice(11, 13),
+  );
+  return Math.max(0, Math.round((now - ms) / 60000));
+}
+
+/** How many frames each RealEarth loop holds. */
+export const RE_FRAMES = 10;
 
 /** NOAA model maps (NCEP MAG): which fields each model publishes and its frame hours. */
 export const MODEL_MAPS = {

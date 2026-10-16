@@ -1,0 +1,142 @@
+.search {
+  position: sticky;
+  top: 8px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--lit-line);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  color: var(--accent);
+  backdrop-filter: blur(8px);
+}
+.search input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  font-size: 15px;
+  color: var(--text, inherit);
+  outline: none;
+}
+.search button {
+  color: var(--muted);
+}
+.pills {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.pills button {
+  flex: none;
+  padding: 7px 13px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.pills button[aria-pressed="true"] {
+  border-color: var(--lit-line);
+  background: var(--lit);
+  color: var(--accent);
+}
+.az {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.az a {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+}
+.muted {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.card {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--surface);
+  font-size: 14px;
+  color: var(--muted);
+}
+.term {
+  position: relative;
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+  scroll-margin-top: 80px;
+}
+.term:target {
+  border-color: var(--lit-line);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.anchor {
+  position: absolute;
+  top: -80px;
+}
+.term header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.term header span {
+  display: grid;
+}
+.term b {
+  font-size: 16px;
+  font-weight: 800;
+}
+.term small {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.term header button {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+}
+.term em {
+  font-size: 11px;
+  font-style: normal;
+  color: var(--accent);
+}
+.term p {
+  font-size: 14px;
+  line-height: 1.6;
+}
+.term footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.term footer button {
+  padding: 3px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--accent);
+}

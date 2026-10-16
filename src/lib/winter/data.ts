@@ -23,53 +23,146 @@ export const WSSI_BOUNDS: [number, number, number, number] = [
 export const CONUS: [number, number, number, number] = [
   -125.5, 23.5, -66, 50.5,
 ];
-const nohrsc = (layer: number) =>
-  `${NOHRSC}?bbox=${CONUS.join(",")}&bboxSR=4326&imageSR=3857&size=1400,900&format=png32&transparent=true&layers=show:${layer}&f=image`;
+const exportOf = (base: string, layer: number) =>
+  `${base}?bbox=${CONUS.join(",")}&bboxSR=4326&imageSR=3857&size=1400,900&format=png32&transparent=true&layers=show:${layer}&f=image`;
+const nohrsc = (layer: number) => exportOf(NOHRSC, layer);
+const WWO =
+  "https://mapservices.weather.noaa.gov/raster/rest/services/outlooks/winter_weather_outlook/MapServer/export";
+const CPC =
+  "https://mapservices.weather.noaa.gov/vector/rest/services/hazards/cpc_weather_hazards/MapServer/export";
+/** WSSI's storm-total image by component, and the image for the first `h` hours. */
+const wssi = (name: string, key: string) => ({
+  url: `${WSSI}/web_CONUS_WSSI_Maximum_${name}.png`,
+  hours: [24, 48, 72],
+  at: (h: number) => `${WSSI}/web_CONUS_r24_${key}_f${h}.png`,
+});
+
+/** The Storm Map's families, in order (VIP's grouping). */
+export const OVERLAY_GROUPS = [
+  {
+    id: "wssi",
+    label: "Storm Impact",
+    blurb: "How much a storm will disrupt life, not just how much falls.",
+  },
+  {
+    id: "snow",
+    label: "On The Ground",
+    blurb: "What is lying there now, measured.",
+  },
+  {
+    id: "outlook",
+    label: "Days 4–7",
+    blurb: "Whether something is coming later in the week.",
+  },
+  {
+    id: "cpc",
+    label: "Weeks Out",
+    blurb: "The pattern, from the Climate Prediction Center.",
+  },
+] as const;
+type Group = (typeof OVERLAY_GROUPS)[number]["id"];
 
 /** Image overlays by id: where each comes from and its bounds (west, south, east, north). */
 export const OVERLAYS: Record<
   string,
   {
+    group: Group;
     label: string;
     note: string;
     url: string;
     bounds: [number, number, number, number];
+    hours?: number[];
+    at?: (h: number) => string;
   }
 > = {
   "wssi-overall": {
-    label: "Winter impact",
-    note: "WSSI storm-total impact: limited, minor, moderate, major, extreme.",
-    url: `${WSSI}/web_CONUS_WSSI_Maximum_Overall.png`,
+    group: "wssi",
+    label: "Overall impact",
+    note: "WSSI impact: limited, minor, moderate, major, extreme.",
+    ...wssi("Overall", "WSSI_Overall"),
     bounds: WSSI_BOUNDS,
   },
   "wssi-snow": {
-    label: "Snow amount impact",
+    group: "wssi",
+    label: "Snow amount",
     note: "Impact from snowfall alone.",
-    url: `${WSSI}/web_CONUS_WSSI_Maximum_Snow_Amount.png`,
+    ...wssi("Snow_Amount", "SnowAmount"),
     bounds: WSSI_BOUNDS,
   },
   "wssi-ice": {
-    label: "Ice impact",
+    group: "wssi",
+    label: "Ice accumulation",
     note: "Impact from freezing rain and ice loading.",
-    url: `${WSSI}/web_CONUS_WSSI_Maximum_Ice_Accumulation.png`,
+    ...wssi("Ice_Accumulation", "IceAccumulation"),
     bounds: WSSI_BOUNDS,
   },
   "wssi-blowing": {
+    group: "wssi",
     label: "Blowing snow",
     note: "Drifting snow and lost visibility.",
-    url: `${WSSI}/web_CONUS_WSSI_Maximum_Blowing_Snow.png`,
+    ...wssi("Blowing_Snow", "BlowingSnow"),
+    bounds: WSSI_BOUNDS,
+  },
+  "wssi-load": {
+    group: "wssi",
+    label: "Snow load",
+    note: "Weight of snow on roofs, trees and power lines.",
+    ...wssi("Snow_Load", "SnowLoad"),
     bounds: WSSI_BOUNDS,
   },
   "snow-depth": {
+    group: "snow",
     label: "Snow on the ground",
     note: "Modelled snow depth now (NOHRSC).",
     url: nohrsc(0),
     bounds: CONUS,
   },
   "snow-swe": {
+    group: "snow",
     label: "Water in the snowpack",
-    note: "Snow water equivalent now (NOHRSC).",
+    note: "Snow water equivalent now: how much water the snow holds (NOHRSC).",
     url: nohrsc(4),
+    bounds: CONUS,
+  },
+  // WPC's layer ids are not sequential: day 4 is 0, day 5 is 20, day 6 is 16, day 7 is 24.
+  ...Object.fromEntries(
+    (
+      [
+        [4, 0],
+        [5, 20],
+        [6, 16],
+        [7, 24],
+      ] as const
+    ).map(([d, layer]) => [
+      `wwo-${d}`,
+      {
+        group: "outlook" as const,
+        label: `Day ${d}`,
+        note: `WPC Winter Weather Outlook, day ${d}: the chance of disruptive winter weather this far out.`,
+        url: exportOf(WWO, layer),
+        bounds: CONUS,
+      },
+    ]),
+  ),
+  "cpc-p37": {
+    group: "cpc",
+    label: "3–7 day precipitation",
+    note: "CPC: where precipitation is favored above or below normal, days 3–7.",
+    url: exportOf(CPC, 4),
+    bounds: CONUS,
+  },
+  "cpc-t37": {
+    group: "cpc",
+    label: "3–7 day temperature",
+    note: "CPC: where temperatures are favored above or below normal, days 3–7.",
+    url: exportOf(CPC, 1),
+    bounds: CONUS,
+  },
+  "cpc-p814": {
+    group: "cpc",
+    label: "8–14 day precipitation",
+    note: "CPC: the same call a week further out.",
+    url: exportOf(CPC, 6),
     bounds: CONUS,
   },
 };

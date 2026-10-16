@@ -135,11 +135,16 @@ const WWA =
   "https://mapservices.weather.noaa.gov/eventdriven/rest/services/WWA/watch_warn_adv/MapServer/1";
 
 /** Every active land watch, warning and advisory area, projected; most dangerous drawn last. */
-export async function warningMap() {
-  const [feats, colors] = await Promise.all([
-    serviceLayer<{ prod_type?: string }>(WWA, 120),
+export async function warningMap(only?: "flood") {
+  const where = only === "flood" ? "prod_type LIKE '%Flood%'" : "1=1";
+  const [first, colors] = await Promise.all([
+    serviceLayer<{ prod_type?: string }>(WWA, 120, false, where),
     getColors(),
   ]);
+  // The service briefly answers with nothing while it rebuilds; never cache that.
+  const feats = first.length
+    ? first
+    : await serviceLayer<{ prod_type?: string }>(WWA, 120, true, where);
   const col = (ev: string) => pick(colors, `warn:${ev}`, colorOf(ev));
   const polys = feats
     .map((f) => {

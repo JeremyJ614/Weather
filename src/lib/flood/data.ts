@@ -6,12 +6,11 @@ import { ERO_LEVELS } from "./levels";
 
 /**
  * Flooding Outlook: WPC's five-day Excessive Rainfall Outlook (the flood counterpart of
- * SPC's severe outlook), WPC rainfall totals and NWS flood alerts, tested at one place.
+ * SPC's severe outlook), and NWS flood alerts, tested at one place.
  */
 const V = "https://mapservices.weather.noaa.gov/vector/rest/services";
 const ERO = (day: number) =>
   `${V}/hazards/wpc_precip_hazards/MapServer/${day - 1}`;
-const QPF = `${V}/precip/wpc_qpf/MapServer`;
 const UA = { "User-Agent": "StormSync Weather (https://weather.sswx.space)" };
 type FC = FeatureCollection<Geometry, Record<string, unknown>>;
 
@@ -114,8 +113,6 @@ export async function eroDays(): Promise<EroDay[]> {
 export type FloodHere = {
   /** ERO level at the place, days 1–5 (0 = none). */
   ero: number[];
-  /** WPC rainfall at least this many inches: day 1, 3 days, 5 days, 7 days. */
-  rain: { label: string; inches: number }[];
   alerts: {
     event: string;
     headline: string;
@@ -124,25 +121,13 @@ export type FloodHere = {
   }[];
 };
 
-const RAIN = [
-  { layer: 1, label: "Today" },
-  { layer: 9, label: "3 days" },
-  { layer: 10, label: "5 days" },
-  { layer: 11, label: "7 days" },
-];
-
 export async function floodHere(lat: number, lon: number): Promise<FloodHere> {
   const pt = `geometry=${lon},${lat}&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&returnGeometry=false&f=json`;
   type Attrs = { features?: { attributes: Record<string, unknown> }[] };
-  const [ero, rain, alerts] = await Promise.all([
+  const [ero, alerts] = await Promise.all([
     Promise.all(
       [1, 2, 3, 4, 5].map((d) =>
         get<Attrs>(`${ERO(d)}/query?${pt}&outFields=dn`, 1800),
-      ),
-    ),
-    Promise.all(
-      RAIN.map((r) =>
-        get<Attrs>(`${QPF}/${r.layer}/query?${pt}&outFields=qpf`, 1800),
       ),
     ),
     get<{ features?: { properties: Record<string, unknown> }[] }>(
@@ -157,13 +142,6 @@ export async function floodHere(lat: number, lon: number): Promise<FloodHere> {
         ...(j?.features ?? []).map((f) => Number(f.attributes.dn) || 0),
       ),
     ),
-    rain: RAIN.map((r, i) => ({
-      label: r.label,
-      inches: Math.max(
-        0,
-        ...(rain[i]?.features ?? []).map((f) => Number(f.attributes.qpf) || 0),
-      ),
-    })),
     alerts: (alerts?.features ?? [])
       .map((f) => f.properties)
       .filter((p) => /flood/i.test(String(p.event ?? "")))

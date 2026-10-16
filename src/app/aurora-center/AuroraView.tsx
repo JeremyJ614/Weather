@@ -340,7 +340,6 @@ function OvalMap({ o, a }: { o: Ovation | null; a: (k: string) => string }) {
         paint: {
           "line-color": ["get", "c"],
           "line-width": ["case", ["==", ["get", "k"], "view"], 2.5, 1.5],
-          "line-dasharray": ["literal", [3, 2]],
         },
       });
       m.addLayer({
@@ -410,7 +409,7 @@ function OvalMap({ o, a }: { o: Ovation | null; a: (k: string) => string }) {
         ))}
         {AURORA_LINES.map((l) => (
           <span key={l.key}>
-            <i className={s.dash} style={{ background: a(l.key) }} />
+            <i style={{ background: a(l.key) }} />
             {l.label}
           </span>
         ))}
