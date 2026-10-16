@@ -57,6 +57,8 @@ export function previewSource(
         url: "/api/tropical/preview",
         title: "Active storms and outlook areas",
       };
+    case "lightning":
+      return { url: "/api/lightning/preview", title: "Lightning hotspots now" };
     case "aurora":
       return { url: "/api/aurora/preview", title: "The aurora oval now" };
     case "sky":

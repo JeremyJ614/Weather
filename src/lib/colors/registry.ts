@@ -18,6 +18,7 @@ import { CAM_KINDS } from "@/lib/cams/style";
 import { SKY_BANDS } from "@/lib/sky/score";
 import { ASTRO_LINES } from "@/lib/sky/style";
 import { AURORA_LINES, AURORA_RAMP, KP_SCALE } from "@/lib/aurora/style";
+import { LT_BANDS } from "@/lib/lightning/style";
 import { COMPARE } from "@/lib/radar/products";
 import { BANDS as CHASE_BANDS } from "@/lib/chase/score";
 import { PROB as WINTER_PROB } from "@/lib/winter/style";
@@ -293,6 +294,16 @@ export const GROUPS: Group[] = [
       key: `snd:${g.key}`,
       label: g.label,
       def: g.color,
+    })),
+  },
+  {
+    id: "lightning",
+    label: "Lightning",
+    note: "Strike-density bands in Lightning Monitoring's scope and hotspot list (the map tiles are NOAA's).",
+    entries: LT_BANDS.map((b) => ({
+      key: `lt:${b.key}`,
+      label: b.label,
+      def: b.color,
     })),
   },
   {
