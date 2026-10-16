@@ -79,7 +79,7 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 - [x] 48. StormNet (when API approved), chosen Google DeepMind items, Traffic Cameras (owner-only until approved). Traffic Cameras built, owner-only (Caltrans, NYC DOT, Iowa DOT incl. road-weather cams, INDOT/KYTC, ALERTCalifornia wildfire cams; near you, inside active warnings, map). DeepMind Weather Lab cyclone tracks shipped in 38–39. StormNet waits on their API approval (its page says so).
 
 ## Specialty Monitoring
-- [ ] 49. Star Gazing Forecast map (blended night-sky outlook, our style)
+- [x] 49. Star Gazing Forecast map (blended night-sky outlook, our style): smooth national score field (tonight, tomorrow night, by hour, tap any spot), your night with factor bars, dark and moon times, hour-by-hour, deep-sky targets (VIP astro, score and catalogue ported)
 - [ ] 50. Astronomy (Moon & Astronomy port)
 - [ ] 51. Aurora Center with view-line map, image download and interactive mode
 - [ ] 52. Lightning Monitoring (rebuilt)
