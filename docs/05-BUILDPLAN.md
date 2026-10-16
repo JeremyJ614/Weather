@@ -153,3 +153,4 @@ Personal Warnings & Alerts, Affected Communities Outlook, FairWeather Tracking, 
 | 63 | Lightning | VIP-era plan named only GOES GLM, but no public live GLM feed exists in a form a web app can read | Built on NOAA's public NLDN/GLD360 density frames, decoded server-side; GLM logged for the engine pipeline |
 | 64 | Climatology | NASA GIBS monthly lightning tiles are resampled, so their colors never match the colormap exactly and every month read 0 | Nearest colormap entry within a small distance; exact hits first |
 | 65 | Menus | Tapping a page left the menu open over it until a slow page finished loading, so it looked like nothing happened | Every menu closes the moment a link inside it is tapped |
+| 66 | Map downloads | Saved PNGs showed black land and no data: CSS-module styles do not travel with a serialized SVG | Export clones the map and inlines every element's computed style, and embeds all same-site images |
