@@ -24,6 +24,25 @@ def latest(index, pattern):
     return sorted(set(names))[-1]
 
 
+REGIONS = {
+    "Great Plains": "ND SD NE KS OK TX CO WY MT NM",
+    "Midwest": "MN IA MO WI IL IN MI OH",
+    "South": "AR LA MS AL TN KY",
+    "Southeast": "GA FL SC NC VA WV",
+    "Northeast": "PA NY NJ DE MD CT RI MA VT NH ME DC",
+    "West": "",
+}
+LEN_EDGES = [0, 1, 2, 5, 10, 25, 50, 100]  # miles; last bin is 100+
+WID_EDGES = [0, 50, 100, 200, 400, 800, 1600]  # yards; last bin is 1600+
+
+
+def region(st):
+    for k, v in REGIONS.items():
+        if st in v.split():
+            return k
+    return "West"
+
+
 # ── Tornadoes ──────────────────────────────────────────────────────────────
 def tornadoes():
     url = None
@@ -45,6 +64,10 @@ def tornadoes():
     lat0, lon0, step, w, h = 24.0, -125.0, 0.5, 118, 52
     grid_all, grid_sig = [0] * (w * h), [0] * (w * h)
     pts = []
+    deaths = {y: 0 for y in years}
+    deadliest = []
+    region_month = {k: [0] * 12 for k in REGIONS}
+    len_bins, wid_bins = [0] * len(LEN_EDGES), [0] * len(WID_EDGES)
     for r in rows:
         sg, ns = int(r["sg"]), int(r["ns"])
         mag = int(r["mag"])
@@ -62,6 +85,15 @@ def tornadoes():
         months[m - 1] += 1
         months_sig[m - 1] += 1 if mag >= 2 else 0
         hours[int(r["time"][:2]) % 24] += 1  # CST
+        deaths[y] += int(r["fat"])
+        if int(r["fat"]) >= 20:
+            deadliest.append([r["date"], r["st"], int(r["fat"]), mag])
+        region_month[region(r["st"])][m - 1] += 1
+        ln, wd = float(r["len"]), float(r["wid"])
+        if ln > 0:
+            len_bins[sum(1 for e in LEN_EDGES[1:] if ln >= e)] += 1
+        if wd > 0:
+            wid_bins[sum(1 for e in WID_EDGES[1:] if wd >= e)] += 1
         ef[0 if mag < 0 else mag + 1] += 1
         lat, lon = float(r["slat"]), float(r["slon"])
         if lat <= 0 or lon >= 0:
@@ -85,6 +117,11 @@ def tornadoes():
         "monthsSig": months_sig,
         "hours": hours,
         "ef": ef,
+        "deaths": [deaths[y] for y in years],
+        "deadliest": sorted(deadliest, key=lambda d: -d[2])[:12],
+        "regionMonth": region_month,
+        "lenBins": len_bins,
+        "widBins": wid_bins,
         "states": {k: v for k, v in sorted(states.items())},
         "grid": {"lat0": lat0, "lon0": lon0, "step": step, "w": w, "h": h, "all": grid_all, "sig": grid_sig},
         "pts": ";".join(pts),

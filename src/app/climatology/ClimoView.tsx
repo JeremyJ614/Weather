@@ -8,10 +8,11 @@ import { UsMap } from "@/features/maps/UsMap";
 import { WeatherMap, type ReadyMap } from "@/features/map/WeatherMap";
 import { usePlaces } from "@/features/location/usePlaces";
 import { rasterize } from "@/features/sky/raster";
+import LIGHT from "@/lib/climo/lightning.json";
 import { pick, type Colors } from "@/lib/colors/pick";
 import { EF_COLORS } from "@/lib/colors/ef";
 import { INTENSITY, tierOf, mph } from "@/lib/tropical/style";
-import { CLIMO_LINES, CLIMO_RAMP } from "@/lib/climo/style";
+import { CLIMO_LIGHT, CLIMO_LINES, CLIMO_RAMP } from "@/lib/climo/style";
 import s from "./Climo.module.css";
 
 type Grid = { lat0: number; lon0: number; step: number; w: number; h: number };
@@ -25,6 +26,11 @@ type TSummary = {
   ef: number[];
   states: Record<string, [number, number, number]>;
   grid: Grid & { all: number[]; sig: number[] };
+  deaths: number[];
+  deadliest: [string, string, number, number][];
+  regionMonth: Record<string, number[]>;
+  lenBins: number[];
+  widBins: number[];
 };
 type Twister = {
   s: [number, number];
@@ -187,8 +193,8 @@ export function ClimoView({ colors }: { colors: Colors }) {
     pick(
       colors,
       `climo:${k}`,
-      [...CLIMO_RAMP, ...CLIMO_LINES].find((x) => x.key === k)?.color ??
-        "#ffffff",
+      [...CLIMO_RAMP, ...CLIMO_LIGHT, ...CLIMO_LINES].find((x) => x.key === k)
+        ?.color ?? "#ffffff",
     );
   return (
     <div className="grid gap-4">
@@ -218,8 +224,8 @@ export function ClimoView({ colors }: { colors: Colors }) {
       <p className={s.foot}>
         Sources: NOAA Storm Prediction Center tornado database (1950 on), NHC
         HURDAT2 best tracks for the Atlantic and Eastern Pacific (1950 on), and
-        NASA&apos;s Lightning Imaging Sensor climatology (TRMM, 1998–2013)
-        through NASA GIBS.
+        NASA&apos;s LIS/OTD lightning climatology (1995–2014, monthly detail
+        from TRMM LIS where it flew) through NASA GIBS.
       </p>
     </div>
   );
@@ -239,12 +245,55 @@ function Tornadoes({
       ? `/api/climo/tornado?lat=${active.lat.toFixed(2)}&lon=${active.lon.toFixed(2)}`
       : null,
   );
-  const [sig, setSig] = useState(false);
+  const [part, setPart] = useState<"when" | "where" | "record" | "anatomy">(
+    "when",
+  );
+  const [layer, setLayer] = useState<"all" | "sig" | "tracks">("all");
+  const sig = layer === "sig";
+  const [minEf, setMinEf] = useState(3);
+  const [since, setSince] = useState(1950);
+  const tracks = useJson<[number, number, number, number, number][]>(
+    part === "where" && layer === "tracks"
+      ? `/api/climo/tornado?tracks&min=${minEf}&since=${since}`
+      : null,
+  );
   const efc = (m: number) =>
     pick(colors, `ef:${efName(m)}`, EF_COLORS[efName(m)]);
   const t = sum && sum !== "error" ? sum : null;
   const stops = CLIMO_RAMP.map((r, i) => ({ at: i * 25, color: c(r.key) }));
   const stopKey = stops.map((x) => x.color).join();
+  const nYears = t ? t.last - t.first + 1 : 1;
+  const thisMonth = new Date().getMonth();
+  const avgYear = t
+    ? Math.round(t.months.reduce((a, b) => a + b, 0) / nYears)
+    : 0;
+  const ytd = t
+    ? Math.round(
+        t.months.slice(0, thisMonth + 1).reduce((a, b) => a + b, 0) / nYears,
+      )
+    : 0;
+  const busiest = t
+    ? t.byYear.reduce<[number, number]>(
+        (m, y, i) => (y[0] > m[1] ? [t.first + i, y[0]] : m),
+        [t.first, 0],
+      )
+    : [0, 0];
+  const totalDead = t ? t.deaths.reduce((a, b) => a + b, 0) : 0;
+  const seasonRows = t
+    ? [["United States", t.months] as const, ...Object.entries(t.regionMonth)]
+        .map(([name, v]) => {
+          const vals = v.map((x) => x / nYears);
+          const max = Math.max(...vals);
+          return { name, vals, max, peak: vals.indexOf(max) };
+        })
+        .sort((a, b) =>
+          a.name === "United States"
+            ? -1
+            : b.name === "United States"
+              ? 1
+              : a.peak - b.peak,
+        )
+    : [];
   const img = useMemo(() => {
     if (!t) return null;
     const g = t.grid;
@@ -341,60 +390,97 @@ function Tornadoes({
           Set your location on the Homepage for your own tornado history.
         </p>
       )}
-      <div className={s.pills} role="group" aria-label="Rating">
-        {[false, true].map((v) => (
+      {t && (
+        <div className={s.keys}>
+          <div>
+            <b>{avgYear.toLocaleString("en-US")}</b>
+            <span>tornadoes in an average year</span>
+          </div>
+          <div>
+            <b>{ytd.toLocaleString("en-US")}</b>
+            <span>by the end of {MONTH_NAMES[thisMonth]}, on average</span>
+          </div>
+          <div>
+            <b>{busiest[0]}</b>
+            <span>busiest year ({busiest[1].toLocaleString("en-US")})</span>
+          </div>
+          <div>
+            <b>{totalDead.toLocaleString("en-US")}</b>
+            <span>
+              deaths, {t.first}–{t.last}
+            </span>
+          </div>
+        </div>
+      )}
+      <div className={s.pills} role="group" aria-label="Section">
+        {(
+          [
+            ["when", "When"],
+            ["where", "Where"],
+            ["record", "The record"],
+            ["anatomy", "Anatomy"],
+          ] as const
+        ).map(([v, l]) => (
           <button
-            key={String(v)}
+            key={v}
             type="button"
-            aria-pressed={v === sig}
-            onClick={() => setSig(v)}
+            aria-pressed={v === part}
+            onClick={() => setPart(v)}
           >
-            {v ? "EF2 and stronger" : "All tornadoes"}
+            {l}
           </button>
         ))}
       </div>
-      <UsMap
-        title={`Where tornadoes touch down · ${t ? `${t.first}–${t.last}` : ""}`}
-        legend={CLIMO_RAMP.map((r, i) => ({
-          label:
-            i === 0
-              ? "Fewer"
-              : i === 4
-                ? `Most (${img?.max ?? "–"} per 1,000 sq mi per decade)`
-                : "",
-          color: c(r.key),
-        })).filter((x) => x.label)}
-        status={!t ? "loading" : "ready"}
-        file={`sswx-tornado-climatology${sig ? "-ef2" : ""}`}
-      >
-        {img?.url && (
-          <image
-            href={img.url}
-            x={0}
-            y={0}
-            width={975}
-            height={610}
-            preserveAspectRatio="none"
-          />
-        )}
-      </UsMap>
-      {t && (
+      {t && part === "when" && (
         <>
           <section className={s.card}>
-            <h3>Tornadoes per year</h3>
-            <Bars
-              values={t.byYear.map((y) => y[0])}
-              over={t.byYear.map((y) => y[1])}
-              labels={t.byYear.map((_, i) => String(t.first + i))}
-              every={15}
-              color={c("c2")}
-              overColor={c("sig")}
-            />
+            <h3>The season, region by region</h3>
             <p className={s.muted}>
-              Faded: all tornadoes. Bright: EF2+. Weak tornado counts rose with
-              Doppler radar and storm spotting in the 1990s; the EF2+ count is
-              the steadier measure.
+              Tornadoes per month in an average year. The regions are ordered by
+              the month each one peaks, so reading down is watching the season
+              travel north and east.
             </p>
+            {seasonRows.map((r) => (
+              <div key={r.name} className={s.ridge}>
+                <span>
+                  <b>{r.name}</b>
+                  <small>
+                    peak {MONTH_NAMES[r.peak]} · {r.max.toFixed(1)}/mo
+                  </small>
+                </span>
+                <Bars
+                  values={r.vals}
+                  color={r.name === "United States" ? c("c4") : c("c2")}
+                  h={34}
+                />
+              </div>
+            ))}
+            <div className={s.ridge}>
+              <span />
+              <Bars
+                values={new Array(12).fill(0)}
+                labels={MONTHS}
+                color={c("c2")}
+                h={0}
+              />
+            </div>
+          </section>
+          <section className={s.card}>
+            <h3>Where an average year stands today</h3>
+            <p className={s.read}>
+              By the end of {MONTH_NAMES[thisMonth]}, an average year has
+              produced {ytd.toLocaleString("en-US")} of its roughly{" "}
+              {avgYear.toLocaleString("en-US")} tornadoes:{" "}
+              {Math.round((ytd / avgYear) * 100)}% of the year&apos;s total.
+            </p>
+            <div className={s.progress}>
+              <i
+                style={{
+                  background: c("sig"),
+                  transform: `scaleX(${ytd / avgYear})`,
+                }}
+              />
+            </div>
           </section>
           <section className={s.card}>
             <h3>By month and hour</h3>
@@ -415,12 +501,256 @@ function Tornadoes({
               h={70}
             />
             <p className={s.muted}>
-              Hours are Central Standard Time. Late afternoon and evening
-              dominate.
+              Faded: all tornadoes. Bright: EF2+. Hours are Central Standard
+              Time; late afternoon and evening dominate.
+            </p>
+          </section>
+        </>
+      )}
+      {part === "where" && (
+        <>
+          <div className={s.pills} role="group" aria-label="Map">
+            {(
+              [
+                ["all", "All tornadoes"],
+                ["sig", "EF2 and stronger"],
+                ["tracks", "Tracks"],
+              ] as const
+            ).map(([v, l]) => (
+              <button
+                key={v}
+                type="button"
+                aria-pressed={v === layer}
+                onClick={() => setLayer(v)}
+              >
+                {l}
+              </button>
+            ))}
+          </div>
+          {layer === "tracks" && (
+            <div className={s.pills} role="group" aria-label="Track filter">
+              {[2, 3, 4, 5].map((ef) => (
+                <button
+                  key={ef}
+                  type="button"
+                  aria-pressed={ef === minEf}
+                  onClick={() => setMinEf(ef)}
+                >
+                  EF{ef}
+                  {ef < 5 ? "+" : ""}
+                </button>
+              ))}
+              <select
+                value={since}
+                onChange={(e) => setSince(+e.target.value)}
+                aria-label="Since"
+              >
+                {[1950, 1980, 2000, 2010, 2020].map((y) => (
+                  <option key={y} value={y}>
+                    since {y}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          <UsMap
+            title={
+              layer === "tracks"
+                ? `EF${minEf}${minEf < 5 ? "+" : ""} tornado tracks · ${since}–${t?.last ?? ""}`
+                : `Where tornadoes touch down · ${t ? `${t.first}–${t.last}` : ""}`
+            }
+            legend={
+              layer === "tracks"
+                ? [2, 3, 4, 5]
+                    .filter((ef) => ef >= minEf)
+                    .map((ef) => ({ label: efName(ef), color: efc(ef) }))
+                : CLIMO_RAMP.map((r, i) => ({
+                    label:
+                      i === 0
+                        ? "Fewer"
+                        : i === 4
+                          ? `Most (${img?.max ?? "–"} per 1,000 sq mi per decade)`
+                          : "",
+                    color: c(r.key),
+                  })).filter((x) => x.label)
+            }
+            status={
+              layer === "tracks"
+                ? !tracks
+                  ? "loading"
+                  : "ready"
+                : !t
+                  ? "loading"
+                  : "ready"
+            }
+            file={`sswx-tornado-${layer === "tracks" ? `tracks-ef${minEf}-${since}` : `climatology${sig ? "-ef2" : ""}`}`}
+          >
+            {layer !== "tracks" && img?.url && (
+              <image
+                href={img.url}
+                x={0}
+                y={0}
+                width={975}
+                height={610}
+                preserveAspectRatio="none"
+              />
+            )}
+            {layer === "tracks" &&
+              tracks &&
+              tracks !== "error" &&
+              tracks.map(([x1, y1, x2, y2, ef], i) =>
+                x1 === x2 && y1 === y2 ? (
+                  <circle key={i} cx={x1} cy={y1} r={1} fill={efc(ef)} />
+                ) : (
+                  <line
+                    key={i}
+                    x1={x1}
+                    y1={y1}
+                    x2={x2}
+                    y2={y2}
+                    stroke={efc(ef)}
+                    strokeWidth={ef >= 4 ? 1.6 : 1}
+                    strokeLinecap="round"
+                    opacity={0.85}
+                  />
+                ),
+              )}
+          </UsMap>
+          <p className={s.muted}>
+            {layer === "tracks"
+              ? "Every path in the database at this rating, start to end. Violent tornadoes draw last so they are not buried."
+              : layer === "sig"
+                ? "Strong and violent tornadoes only: where the ones that level buildings concentrate."
+                : "Touchdowns per 1,000 square miles per decade, smoothed into a continuous field. Tornado Alley and Dixie Alley separate cleanly."}
+          </p>
+          {t && (
+            <section className={s.card}>
+              <h3>By state</h3>
+              <ol className={s.list}>
+                {Object.entries(t.states)
+                  .sort((a, b) => b[1][0] - a[1][0])
+                  .slice(0, 20)
+                  .map(([st, v]) => (
+                    <li key={st}>
+                      <b>{st}</b>
+                      <span>
+                        {v[0].toLocaleString("en-US")} ·{" "}
+                        {v[1].toLocaleString("en-US")} EF2+ · {v[2]} deaths
+                      </span>
+                    </li>
+                  ))}
+              </ol>
+            </section>
+          )}
+        </>
+      )}
+      {t && part === "record" && (
+        <>
+          <section className={s.card}>
+            <h3>{t.last - t.first + 1} years, twice</h3>
+            <Bars
+              values={t.byYear.map((y) => y[0])}
+              over={t.byYear.map((y) => y[1])}
+              labels={t.byYear.map((_, i) => String(t.first + i))}
+              every={15}
+              color={c("c2")}
+              overColor={c("sig")}
+            />
+            <p className={s.muted}>Tornadoes reported (bright: EF2+)</p>
+            <Bars
+              values={t.deaths}
+              labels={t.byYear.map((_, i) => String(t.first + i))}
+              every={15}
+              color={c("c5")}
+              h={70}
+            />
+            <p className={s.muted}>Deaths</p>
+            <p className={s.read}>
+              Reports climb and deaths fall, and not because tornadoes got
+              gentler. Doppler radar, spotter networks and a national warning
+              system arrived over the same decades, and that is also when weak
+              tornadoes started being found at all. The EF2+ count, which was
+              always recorded because it always left evidence, is close to flat.
             </p>
           </section>
           <section className={s.card}>
-            <h3>By rating</h3>
+            <h3>Deadliest single tornadoes</h3>
+            <ol className={s.list}>
+              {t.deadliest.map(([date, st, dead, mag]) => (
+                <li key={date + st}>
+                  <b style={{ color: efc(mag) }}>
+                    {+date.slice(0, 4) < 2007 ? "F" : "EF"}
+                    {mag < 0 ? "?" : mag}
+                  </b>
+                  <span>
+                    {day(date.replace(/-/g, ""))}, {st} · {dead} deaths
+                  </span>
+                </li>
+              ))}
+            </ol>
+            <p className={s.muted}>
+              Ratings use the scale in force at the time: Fujita before February
+              2007, Enhanced Fujita after.
+            </p>
+          </section>
+          <section className={s.card}>
+            <h3>The days everybody remembers</h3>
+            <ol className={s.list}>
+              {NOTABLE.map((o) => (
+                <li key={o.date}>
+                  <b>{o.name}</b>
+                  <span>
+                    {o.date} · {o.tornadoes} tornadoes · {o.deaths} deaths.{" "}
+                    {o.note}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </section>
+        </>
+      )}
+      {t && part === "anatomy" && (
+        <>
+          <section className={s.card}>
+            <h3>How big is a tornado, actually</h3>
+            <Bars
+              values={t.lenBins}
+              labels={[
+                "<1",
+                "1–2",
+                "2–5",
+                "5–10",
+                "10–25",
+                "25–50",
+                "50–100",
+                "100+",
+              ]}
+              color={c("c4")}
+              h={80}
+            />
+            <p className={s.muted}>Path length, miles</p>
+            <Bars
+              values={t.widBins}
+              labels={[
+                "<50",
+                "50–100",
+                "100–200",
+                "200–400",
+                "400–800",
+                "800–1.6k",
+                "1.6k+",
+              ]}
+              color={c("c3")}
+              h={80}
+            />
+            <p className={s.muted}>Path width, yards</p>
+            <p className={s.read}>
+              Almost all of them are small, and almost all of the damage is done
+              by the ones that are not.
+            </p>
+          </section>
+          <section className={s.card}>
+            <h3>The Enhanced Fujita scale</h3>
             <div className={s.ef}>
               {t.ef.map((n, i) => (
                 <div key={i}>
@@ -435,22 +765,37 @@ function Tornadoes({
                 </div>
               ))}
             </div>
+            <ol className={s.list}>
+              {EF_SCALE.map((e, i) => (
+                <li key={e.winds}>
+                  <b style={{ color: efc(i) }}>EF{i}</b>
+                  <span>
+                    {e.winds} · {e.desc} ·{" "}
+                    {(
+                      (t.ef[i + 1] / t.ef.reduce((a, b) => a + b, 0)) *
+                      100
+                    ).toFixed(1)}
+                    % of all
+                  </span>
+                </li>
+              ))}
+            </ol>
+            <p className={s.muted}>
+              A damage scale, not a wind scale: the rating comes after the fact
+              from what was destroyed. In force since February 2007.
+            </p>
           </section>
           <section className={s.card}>
-            <h3>States with the most tornadoes</h3>
+            <h3>Go deeper</h3>
             <ol className={s.list}>
-              {Object.entries(t.states)
-                .sort((a, b) => b[1][0] - a[1][0])
-                .slice(0, 10)
-                .map(([st, v]) => (
-                  <li key={st}>
-                    <b>{st}</b>
-                    <span>
-                      {v[0].toLocaleString("en-US")} ·{" "}
-                      {v[1].toLocaleString("en-US")} EF2+ · {v[2]} deaths
-                    </span>
-                  </li>
-                ))}
+              {DEEPER.map((d) => (
+                <li key={d.url}>
+                  <a href={d.url} target="_blank" rel="noopener noreferrer">
+                    <b>{d.label}</b>
+                  </a>
+                  <span>{d.desc}</span>
+                </li>
+              ))}
             </ol>
           </section>
         </>
@@ -459,131 +804,205 @@ function Tornadoes({
   );
 }
 
-const GIBS = "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best";
-const LIS_FULL =
-  "LIS_Very_High_Resolution_Lightning_Full_Climatology_LIS_Mean_Flash_Rate";
-const LIS_MONTH =
-  "LIS_Very_High_Resolution_Lightning_Monthly_Climatology_LIS_Mean_Flash_Rate";
+const EF_SCALE = [
+  { winds: "65–85 mph", desc: "shingles, gutters, branches" },
+  { winds: "86–110 mph", desc: "roofs stripped, mobile homes overturned" },
+  { winds: "111–135 mph", desc: "roofs off houses, big trees snapped" },
+  { winds: "136–165 mph", desc: "storeys destroyed, trains overturned" },
+  { winds: "166–200 mph", desc: "well-built houses leveled" },
+  { winds: "over 200 mph", desc: "houses swept from foundations" },
+];
+const NOTABLE = [
+  {
+    date: "Apr 25–28, 2011",
+    name: "2011 Super Outbreak",
+    tornadoes: 360,
+    deaths: 324,
+    note: "The largest outbreak in U.S. history; Tuscaloosa and Hackleburg the same afternoon.",
+  },
+  {
+    date: "Apr 3–4, 1974",
+    name: "1974 Super Outbreak",
+    tornadoes: 148,
+    deaths: 335,
+    note: "Seven F5s in eighteen hours.",
+  },
+  {
+    date: "May 22, 2011",
+    name: "Joplin, Missouri",
+    tornadoes: 1,
+    deaths: 158,
+    note: "The deadliest single U.S. tornado since 1947.",
+  },
+  {
+    date: "May 3, 1999",
+    name: "Bridge Creek–Moore",
+    tornadoes: 74,
+    deaths: 50,
+    note: "About 300 mph measured by mobile Doppler, the highest wind ever recorded on Earth.",
+  },
+  {
+    date: "Dec 10–11, 2021",
+    name: "Quad-State Outbreak",
+    tornadoes: 71,
+    deaths: 89,
+    note: "In December; the Mayfield track ran 165 miles.",
+  },
+];
+const DEEPER = [
+  {
+    label: "SPC Data Viewer",
+    url: "https://www.spc.noaa.gov/climo/dataviewer/",
+    desc: "Every U.S. tornado, hail and wind report since 1950.",
+  },
+  {
+    label: "SPC Outbreaks",
+    url: "https://www.spc.noaa.gov/exper/outbreaks/",
+    desc: "Every tornado day ranked by severity.",
+  },
+  {
+    label: "SPC Environment Browser",
+    url: "https://www.spc.noaa.gov/exper/envbrowser/",
+    desc: "CAPE, shear and STP for historical tornadoes.",
+  },
+  {
+    label: "SPC climatology maps",
+    url: "https://www.spc.noaa.gov/wcm/",
+    desc: "SPC's own state averages and annual trend graphics.",
+  },
+];
+
+/** Annual flashes/km² at a point from the bundled LIS/OTD grid (null off the Lower 48). */
+function flashesAt(lat: number, lon: number) {
+  const i = Math.floor((lat - LIGHT.lat0) / LIGHT.step);
+  const j = Math.floor((lon - LIGHT.lon0) / LIGHT.step);
+  if (i < 0 || j < 0 || i >= LIGHT.h || j >= LIGHT.w) return null;
+  return LIGHT.x10[i * LIGHT.w + j] / 10;
+}
 
 function Lightning({ c }: { c: (k: string) => string }) {
   const { active } = usePlaces();
-  const north = active ? Math.abs(active.lat) > 37.5 : false;
+  // TRMM's LIS (monthly detail) only saw up to 38°; the annual figure covers everywhere.
+  const south = active ? Math.abs(active.lat) <= 37.5 : false;
   const d = useJson<{ annual: number; monthly: (number | null)[] }>(
-    active && !north
+    active && south
       ? `/api/climo/lightning?lat=${active.lat.toFixed(2)}&lon=${active.lon.toFixed(2)}`
       : null,
   );
-  const [month, setMonth] = useState(0);
-  const map = useRef<MaplibreMap | null>(null);
-  const [ready, setReady] = useState(false);
-  useEffect(() => {
-    const m = map.current;
-    if (!m || !ready) return;
-    if (m.getLayer("lis")) m.removeLayer("lis");
-    if (m.getSource("lis")) m.removeSource("lis");
-    const url = month
-      ? `${GIBS}/${LIS_MONTH}/default/2013-${String(month).padStart(2, "0")}-01/GoogleMapsCompatible_Level6/{z}/{y}/{x}.png`
-      : `${GIBS}/${LIS_FULL}/default/1998-01-01/GoogleMapsCompatible_Level6/{z}/{y}/{x}.png`;
-    m.addSource("lis", {
-      type: "raster",
-      tiles: [url],
-      tileSize: 256,
-      maxzoom: 6,
-    });
-    m.addLayer({
-      id: "lis",
-      type: "raster",
-      source: "lis",
-      paint: { "raster-opacity": 0.75 },
-    });
-  }, [ready, month]);
-  const onReady = ({ map: any }: ReadyMap) => {
-    map.current = any as unknown as MaplibreMap;
-    setReady(true);
-  };
+  const annual = active ? flashesAt(active.lat, active.lon) : null;
+  const stops = CLIMO_LIGHT.map((r, i) => ({ at: i * 25, color: c(r.key) }));
+  const stopKey = stops.map((x) => x.color).join();
+  const max = Math.max(...LIGHT.x10) / 10;
+  const url = useMemo(
+    () =>
+      rasterize(
+        Array.from(
+          { length: LIGHT.h },
+          (_, i) => LIGHT.lat0 + (i + 0.5) * LIGHT.step,
+        ),
+        Array.from(
+          { length: LIGHT.w },
+          (_, j) => LIGHT.lon0 + (j + 0.5) * LIGHT.step,
+        ),
+        (i, j) =>
+          Math.min(100, Math.sqrt(LIGHT.x10[i * LIGHT.w + j] / 10 / max) * 100),
+        stops,
+      ),
+    [stopKey], // eslint-disable-line react-hooks/exhaustive-deps -- stopKey is the colors
+  );
   const a = d && d !== "error" ? d : null;
-  const word = !a
-    ? ""
-    : a.annual < 1
-      ? "Rare"
-      : a.annual < 5
-        ? "Occasional"
-        : a.annual < 15
-          ? "Frequent"
-          : a.annual < 30
-            ? "Very frequent"
-            : "Among the most in the country";
+  const word =
+    annual == null
+      ? ""
+      : annual < 1
+        ? "Rare"
+        : annual < 5
+          ? "Occasional"
+          : annual < 15
+            ? "Frequent"
+            : annual < 30
+              ? "Very frequent"
+              : "Among the most in the country";
   return (
     <div className="grid gap-3">
       {active && (
         <section className={s.card}>
           <p className={s.eyebrow}>Lightning at {active.label}</p>
-          {north ? (
+          {annual == null ? (
             <p className={s.read}>
-              NASA&apos;s Lightning Imaging Sensor flew on TRMM, whose orbit
-              only reached 38° latitude, so it never saw your area. Use the live
+              The lightning record here covers the Lower 48. Use the live
               Lightning Monitoring page for lightning near you.
             </p>
-          ) : !d ? (
-            <p className={s.muted}>Reading NASA&apos;s climatology…</p>
-          ) : !a ? (
-            <p className={s.muted}>NASA GIBS isn&apos;t answering right now.</p>
           ) : (
             <>
               <p className={s.big}>
-                {a.annual} <small>flashes per km² per year · {word}</small>
+                {annual} <small>flashes per km² per year · {word}</small>
               </p>
-              <Bars
-                values={a.monthly.map(
-                  (v, i) => (v ?? 0) * new Date(2013, i + 1, 0).getDate(),
-                )}
-                labels={MONTHS}
-                color={c("c4")}
-                h={80}
-              />
-              <p className={s.muted}>
-                Flashes per km² in each month (cloud and ground lightning
-                together). Peak:{" "}
-                {
-                  MONTH_NAMES[
-                    a.monthly.reduce<number>(
-                      (b, v, i, arr) => ((v ?? 0) > (arr[b] ?? 0) ? i : b),
-                      0,
-                    )
-                  ]
-                }
-                .
-              </p>
+              {a ? (
+                <>
+                  <Bars
+                    values={a.monthly.map(
+                      (v, i) => (v ?? 0) * new Date(2013, i + 1, 0).getDate(),
+                    )}
+                    labels={MONTHS}
+                    color={c("l4")}
+                    h={80}
+                  />
+                  <p className={s.muted}>
+                    Flashes per km² in each month (TRMM LIS, 1998–2013). Peak:{" "}
+                    {
+                      MONTH_NAMES[
+                        a.monthly.reduce<number>(
+                          (b, v, i, arr) => ((v ?? 0) > (arr[b] ?? 0) ? i : b),
+                          0,
+                        )
+                      ]
+                    }
+                    .
+                  </p>
+                </>
+              ) : (
+                <p className={s.muted}>
+                  Cloud and ground lightning together, {LIGHT.first}–
+                  {LIGHT.last}.{" "}
+                  {annual >= 1
+                    ? `About ${Math.round(annual * 2.59)} flashes per square mile each year.`
+                    : ""}
+                </p>
+              )}
             </>
           )}
         </section>
       )}
-      <div className={s.pills} role="group" aria-label="Month">
-        {["Year", ...MONTH_NAMES].map((l, i) => (
-          <button
-            key={l}
-            type="button"
-            aria-pressed={i === month}
-            onClick={() => setMonth(i)}
-          >
-            {l}
-          </button>
-        ))}
-      </div>
-      <WeatherMap
-        center={[-90, 24]}
-        zoom={2.6}
-        label="Lightning climatology map"
-        className="h-[50dvh] min-h-72"
-        onReady={onReady}
-      />
+      <UsMap
+        title={`Where lightning strikes · ${LIGHT.first}–${LIGHT.last}`}
+        legend={CLIMO_LIGHT.map((r, i) => ({
+          label:
+            i === 0
+              ? "Rare"
+              : i === 4
+                ? `Most (${max} flashes per km² per year)`
+                : "",
+          color: c(r.key),
+        })).filter((x) => x.label)}
+        status="ready"
+        file="sswx-lightning-climatology"
+      >
+        {url && (
+          <image
+            href={url}
+            x={0}
+            y={0}
+            width={975}
+            height={610}
+            preserveAspectRatio="none"
+          />
+        )}
+      </UsMap>
       <p className={s.muted}>
-        NASA LIS mean flash rate, 1998–2013 (
-        {month
-          ? `${MONTH_NAMES[month - 1]}, flashes per km² per day`
-          : "flashes per km² per year"}
-        ), purple for little lightning through yellow for the most. Coverage
-        stops at 38° north and south.
+        NASA&apos;s combined LIS/OTD lightning climatology ({LIGHT.first}–
+        {LIGHT.last}): every flash, cloud and ground, per km² per year, from two
+        satellites that together saw the whole country.
       </p>
     </div>
   );
@@ -603,12 +1022,14 @@ function Hurricanes({
       ? `/api/climo/hurricane?lat=${active.lat.toFixed(2)}&lon=${active.lon.toFixed(2)}`
       : null,
   );
-  const [ts, setTs] = useState(false);
+  const [mode, setMode] = useState<"hu" | "ts" | "major">("hu");
+  const ts = mode === "ts";
   const h = sum && sum !== "error" ? sum : null;
   const cat = (kt: number) => {
     const tier = tierOf(kt);
     return { tier, color: pick(colors, `trop:${tier.key}`, tier.color) };
   };
+  const tierKey = INTENSITY.map((t) => cat(t.min).color).join();
   const map = useRef<MaplibreMap | null>(null);
   const [ready, setReady] = useState(false);
   const rampKey = CLIMO_RAMP.map((r) => c(r.key)).join();
@@ -694,6 +1115,48 @@ function Hurricanes({
       });
     }
   }, [ready, h, ts, rampKey]); // eslint-disable-line react-hooks/exhaustive-deps -- rampKey is the colors
+  useEffect(() => {
+    const m = map.current;
+    if (!m || !ready) return;
+    const major = mode === "major";
+    if (m.getLayer("hu"))
+      m.setLayoutProperty("hu", "visibility", major ? "none" : "visible");
+    if (!major) {
+      if (m.getLayer("tracks"))
+        m.setLayoutProperty("tracks", "visibility", "none");
+      return;
+    }
+    const color = [
+      "match",
+      ["get", "tier"],
+      ...INTENSITY.flatMap((t) => [t.key, cat(t.min).color]),
+      "#888",
+    ] as unknown as string;
+    if (m.getLayer("tracks")) {
+      m.setLayoutProperty("tracks", "visibility", "visible");
+      m.setPaintProperty("tracks", "line-color", color);
+      return;
+    }
+    m.addSource("tracks", {
+      type: "geojson",
+      data: "/api/climo/hurricane?tracks=major",
+    });
+    m.addLayer({
+      id: "tracks",
+      type: "line",
+      source: "tracks",
+      layout: {
+        "line-cap": "round",
+        "line-join": "round",
+        "line-sort-key": ["get", "t"],
+      },
+      paint: {
+        "line-color": color,
+        "line-width": ["interpolate", ["linear"], ["zoom"], 2, 0.6, 6, 2],
+        "line-opacity": 0.6,
+      },
+    });
+  }, [ready, mode, tierKey]); // eslint-disable-line react-hooks/exhaustive-deps -- tierKey is the colors
   const onReady = ({ map: any }: ReadyMap) => {
     map.current = any as unknown as MaplibreMap;
     setReady(true);
@@ -769,14 +1232,20 @@ function Hurricanes({
         </section>
       )}
       <div className={s.pills} role="group" aria-label="Strength">
-        {[false, true].map((v) => (
+        {(
+          [
+            ["hu", "Hurricanes"],
+            ["ts", "Tropical storms and stronger"],
+            ["major", "Major hurricane tracks"],
+          ] as const
+        ).map(([v, l]) => (
           <button
-            key={String(v)}
+            key={v}
             type="button"
-            aria-pressed={v === ts}
-            onClick={() => setTs(v)}
+            aria-pressed={v === mode}
+            onClick={() => setMode(v)}
           >
-            {v ? "Tropical storms and stronger" : "Hurricanes"}
+            {l}
           </button>
         ))}
       </div>
@@ -787,19 +1256,34 @@ function Hurricanes({
         className="h-[50dvh] min-h-72"
         onReady={onReady}
       />
-      <div className={s.legend}>
-        {CLIMO_RAMP.map((r, i) => (
-          <span key={r.key}>
-            <i style={{ background: c(r.key) }} />
-            {i === 0 ? "Few passages" : i === 4 ? "Most" : ""}
+      {mode === "major" ? (
+        <div className={s.legend}>
+          {INTENSITY.slice(1).map((t) => (
+            <span key={t.key}>
+              <i style={{ background: cat(t.min).color }} />
+              {t.short}
+            </span>
+          ))}
+          <span>
+            Every Cat 3+ hurricane since 1950, colored by its strength along the
+            way
           </span>
-        ))}
-        <span>
-          {h
-            ? `${h.first}–${h.last}, every storm counted once per 1° square`
-            : ""}
-        </span>
-      </div>
+        </div>
+      ) : (
+        <div className={s.legend}>
+          {CLIMO_RAMP.map((r, i) => (
+            <span key={r.key}>
+              <i style={{ background: c(r.key) }} />
+              {i === 0 ? "Few passages" : i === 4 ? "Most" : ""}
+            </span>
+          ))}
+          <span>
+            {h
+              ? `${h.first}–${h.last}, every storm counted once per 1° square`
+              : ""}
+          </span>
+        </div>
+      )}
       {h && (
         <>
           <section className={s.card}>

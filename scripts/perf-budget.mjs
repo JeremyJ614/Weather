@@ -61,7 +61,9 @@ async function gzippedSize(relativePath) {
   if (existsSync(absolute)) {
     const info = await stat(absolute);
     if (info.isFile()) {
-      const compressed = await gzipAsync(await readFile(absolute), { level: 9 });
+      const compressed = await gzipAsync(await readFile(absolute), {
+        level: 9,
+      });
       size = compressed.length;
     }
   }

@@ -144,3 +144,40 @@
   line-height: 1.6;
   color: var(--muted);
 }
+.pills select {
+  flex: none;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+.ridge {
+  display: grid;
+  grid-template-columns: 112px 1fr;
+  align-items: end;
+  gap: 8px;
+  border-bottom: 1px solid var(--line);
+}
+.ridge span {
+  display: grid;
+  padding-bottom: 4px;
+  font-size: 12px;
+}
+.ridge small {
+  color: var(--muted);
+  font-size: 10.5px;
+}
+.progress {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--line);
+}
+.progress i {
+  display: block;
+  height: 100%;
+  transform-origin: left;
+}

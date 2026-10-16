@@ -19,7 +19,7 @@ import { SKY_BANDS } from "@/lib/sky/score";
 import { ASTRO_LINES } from "@/lib/sky/style";
 import { AURORA_LINES, AURORA_RAMP, KP_SCALE } from "@/lib/aurora/style";
 import { LT_BANDS } from "@/lib/lightning/style";
-import { CLIMO_LINES, CLIMO_RAMP } from "@/lib/climo/style";
+import { CLIMO_LIGHT, CLIMO_LINES, CLIMO_RAMP } from "@/lib/climo/style";
 import { COMPARE } from "@/lib/radar/products";
 import { BANDS as CHASE_BANDS } from "@/lib/chase/score";
 import { PROB as WINTER_PROB } from "@/lib/winter/style";
@@ -300,8 +300,8 @@ export const GROUPS: Group[] = [
   {
     id: "climo",
     label: "Climatology",
-    note: "Density ramp on the tornado and hurricane maps, season and EF2+ lines on Climatology.",
-    entries: [...CLIMO_RAMP, ...CLIMO_LINES].map((x, i) => ({
+    note: "Density ramps on the tornado, hurricane and lightning maps, season and EF2+ lines on Climatology.",
+    entries: [...CLIMO_RAMP, ...CLIMO_LIGHT, ...CLIMO_LINES].map((x, i) => ({
       key: `climo:${x.key}`,
       label: x.label || `Ramp step ${i + 1}`,
       def: x.color,
