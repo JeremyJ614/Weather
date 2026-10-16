@@ -17,6 +17,7 @@ import { SND_BANDS, SND_LINES } from "@/lib/soundings/style";
 import { CAM_KINDS } from "@/lib/cams/style";
 import { SKY_BANDS } from "@/lib/sky/score";
 import { ASTRO_LINES } from "@/lib/sky/style";
+import { AURORA_LINES, AURORA_RAMP, KP_SCALE } from "@/lib/aurora/style";
 import { COMPARE } from "@/lib/radar/products";
 import { BANDS as CHASE_BANDS } from "@/lib/chase/score";
 import { PROB as WINTER_PROB } from "@/lib/winter/style";
@@ -292,6 +293,26 @@ export const GROUPS: Group[] = [
       key: `snd:${g.key}`,
       label: g.label,
       def: g.color,
+    })),
+  },
+  {
+    id: "aurora",
+    label: "Aurora",
+    note: "Oval chance ramp, oval edge and view line on Aurora Center.",
+    entries: [...AURORA_RAMP, ...AURORA_LINES].map((x) => ({
+      key: `aurora:${x.key}`,
+      label: x.label,
+      def: x.color,
+    })),
+  },
+  {
+    id: "kp",
+    label: "Kp / G-scale",
+    note: "Kp bars and storm levels on Aurora Center.",
+    entries: KP_SCALE.map((x) => ({
+      key: `kp:${x.key}`,
+      label: `Kp ${x.min}+ ${x.label}`,
+      def: x.color,
     })),
   },
   {

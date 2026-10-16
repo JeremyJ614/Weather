@@ -81,7 +81,7 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 ## Specialty Monitoring
 - [x] 49. Star Gazing Forecast map (blended night-sky outlook, our style): smooth national score field (tonight, tomorrow night, by hour, tap any spot), your night with factor bars, dark and moon times, hour-by-hour, deep-sky targets (VIP astro, score and catalogue ported)
 - [x] 50. Astronomy (Moon & Astronomy port): true-phase moon, planets tonight (JPL elements), 24 h sun/moon arcs, sun times and day length, season track, lunar phases, meteor showers with moon interference
-- [ ] 51. Aurora Center with view-line map, image download and interactive mode
+- [x] 51. Aurora Center with view-line map, image download and interactive mode: your chance (oval, view line, Kp needed), interactive OVATION map with oval edge and view line, SWPC image with download (both hemispheres), Kp past day + 3-day forecast with G-scale, real-time solar wind (Bz, speed, density)
 - [ ] 52. Lightning Monitoring (rebuilt)
 - [ ] 53. (moved to post-launch: FairWeather Tracking)
 
