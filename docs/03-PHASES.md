@@ -86,7 +86,7 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 - [ ] 53. (moved to post-launch: FairWeather Tracking)
 
 ## Educational
-- [ ] 54. Climatology: tornado, lightning and hurricane subtabs
+- [x] 54. Climatology: tornado, lightning and hurricane subtabs: near-you records (tracks within 25 mi, storms within 60 mi, LIS flash rate by month), national tornado density, hurricane passage density, yearly/monthly/hourly/EF/state charts, season curves, ACE seasons; data built by scripts/build-climo.py
 - [ ] 55. Weather Glossary (port)
 - [ ] 56. Free Content Library (port from Academy)
 

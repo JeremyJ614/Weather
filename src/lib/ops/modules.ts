@@ -31,6 +31,7 @@ export const MODULES = [
   { id: "astronomy", label: "Astronomy" },
   { id: "aurora", label: "Aurora Center" },
   { id: "lightning", label: "Lightning Monitoring" },
+  { id: "climo", label: "Climatology" },
   { id: "maps", label: "Maps" },
   { id: "weather-news", label: "Weather News" },
   { id: "news", label: "SSWX News" },
