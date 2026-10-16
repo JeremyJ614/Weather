@@ -2,10 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { GeoJSONSource, Map as MaplibreMap } from "maplibre-gl";
-import { Medal } from "lucide-react";
+import { Medal, Pause, Play, RotateCcw } from "lucide-react";
 import { WeatherMap, type ReadyMap } from "@/features/map/WeatherMap";
 import { pick, type Colors } from "@/lib/colors/pick";
 import { ROSTER, type Score } from "@/lib/tropical/atcf";
+import { mph, tierOf } from "@/lib/tropical/style";
 import s from "./ModelBattle.module.css";
 
 type Track = {
@@ -37,6 +38,35 @@ const cycleTime = (dtg: string) =>
     hour: "numeric",
   }) + " CT";
 const EMPTY = { type: "FeatureCollection" as const, features: [] };
+const dtgMs = (dtg: string) =>
+  Date.UTC(
+    +dtg.slice(0, 4),
+    +dtg.slice(4, 6) - 1,
+    +dtg.slice(6, 8),
+    +dtg.slice(8, 10),
+  );
+const SPEEDS = { Slow: 900, Normal: 550, Fast: 280 } as const;
+const STEP = 3;
+
+/** Where a track is `h` hours after the race starts (its own clock is offset by `off`). */
+function at(t: Track, h: number, off: number) {
+  const tau = h - off;
+  const p = t.points;
+  if (!p.length || tau < p[0].tau) return null;
+  if (tau >= p[p.length - 1].tau) return { ...p[p.length - 1], done: true };
+  let k = 0;
+  while (p[k + 1].tau < tau) k++;
+  const a = p[k];
+  const b = p[k + 1];
+  const f = (tau - a.tau) / (b.tau - a.tau || 1);
+  return {
+    tau,
+    lat: a.lat + (b.lat - a.lat) * f,
+    lon: a.lon + (b.lon - a.lon) * f,
+    kt: a.kt && b.kt ? a.kt + (b.kt - a.kt) * f : a.kt || b.kt,
+    done: false,
+  };
+}
 
 /** Model Battle Royale: every model's newest track, and who has been closest so far. */
 export function ModelBattle({
@@ -51,6 +81,9 @@ export function ModelBattle({
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const map = useRef<MaplibreMap | null>(null);
   const [ready, setReady] = useState(false);
+  const [h, setH] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  const [speed, setSpeed] = useState<keyof typeof SPEEDS>("Normal");
   const col = (tech: string) =>
     pick(colors, `model:${tech}`, name.get(tech)?.color ?? "#888888");
 
@@ -60,12 +93,43 @@ export function ModelBattle({
     queueMicrotask(() => live && setData(null));
     fetch(`/api/tropical/models?storm=${id}`)
       .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((d: Data) => live && setData(d))
+      .then((d: Data) => {
+        if (!live) return;
+        setData(d);
+        setH(0);
+        setPlaying(!matchMedia("(prefers-reduced-motion: reduce)").matches);
+      })
       .catch(() => live && setData("error"));
     return () => {
       live = false;
     };
   }, [id]);
+
+  // The race clock runs from the newest cycle; older cycles' tracks are offset to match.
+  const dd = data && data !== "error" ? data : null;
+  const start = dd?.tracks.length
+    ? Math.max(...dd.tracks.map((t) => dtgMs(t.dtg)))
+    : 0;
+  const offOf = (t: Track) => (dtgMs(t.dtg) - start) / 3600_000;
+  const end = dd
+    ? Math.max(
+        0,
+        ...dd.tracks.map((t) => (t.points.at(-1)?.tau ?? 0) + offOf(t)),
+      )
+    : 0;
+  useEffect(() => {
+    if (!playing) return;
+    const t = setInterval(() => {
+      setH((x) => {
+        if (x + STEP > end) {
+          setPlaying(false);
+          return end;
+        }
+        return x + STEP;
+      });
+    }, SPEEDS[speed]);
+    return () => clearInterval(t);
+  }, [playing, speed, end]);
 
   // Draw (or redraw) the tracks whenever the data, the hidden models or the map change.
   useEffect(() => {
@@ -75,19 +139,51 @@ export function ModelBattle({
     const lines = d
       ? d.tracks
           .filter((t) => !hidden.has(t.tech))
-          .map((t) => ({
-            type: "Feature" as const,
-            properties: {
-              tech: t.tech,
-              color: col(t.tech),
-              official: t.tech === "OFCL" ? 1 : 0,
-            },
-            geometry: {
-              type: "LineString" as const,
-              coordinates: t.points.map((p) => [p.lon, p.lat]),
-            },
-          }))
+          .map((t) => {
+            const off = offOf(t);
+            const head = at(t, h, off);
+            const pts = t.points
+              .filter((p) => p.tau + off <= h)
+              .map((p) => [p.lon, p.lat]);
+            if (head && !head.done) pts.push([head.lon, head.lat]);
+            return {
+              type: "Feature" as const,
+              properties: {
+                tech: t.tech,
+                color: col(t.tech),
+                official: t.tech === "OFCL" ? 1 : 0,
+              },
+              geometry: {
+                type: "LineString" as const,
+                coordinates: pts.length > 1 ? pts : [],
+              },
+            };
+          })
+          .filter((f) => f.geometry.coordinates.length)
       : [];
+    const heads = d
+      ? d.tracks
+          .filter((t) => !hidden.has(t.tech))
+          .flatMap((t) => {
+            const p = at(t, h, offOf(t));
+            return p
+              ? [
+                  {
+                    type: "Feature" as const,
+                    properties: { color: col(t.tech), done: p.done ? 1 : 0 },
+                    geometry: {
+                      type: "Point" as const,
+                      coordinates: [p.lon, p.lat],
+                    },
+                  },
+                ]
+              : [];
+          })
+      : [];
+    (m.getSource("heads") as GeoJSONSource | undefined)?.setData({
+      type: "FeatureCollection",
+      features: heads,
+    });
     const best = d?.best.length
       ? [
           {
@@ -108,7 +204,13 @@ export function ModelBattle({
       type: "FeatureCollection",
       features: best,
     });
-    const all = [...lines, ...best].flatMap((f) => f.geometry.coordinates);
+    const all = h
+      ? []
+      : [
+          ...(d?.tracks.flatMap((t) => t.points.map((p) => [p.lon, p.lat])) ??
+            []),
+          ...best.flatMap((f) => f.geometry.coordinates),
+        ];
     if (all.length) {
       const xs = all.map((c) => c[0]);
       const ys = all.map((c) => c[1]);
@@ -122,7 +224,7 @@ export function ModelBattle({
     }
     // col depends only on colors, which never change on this page.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, hidden, ready]);
+  }, [data, hidden, ready, h]);
 
   const onReady = ({ map: any }: ReadyMap) => {
     const m = any as unknown as MaplibreMap;
@@ -148,6 +250,22 @@ export function ModelBattle({
         "line-color": ["get", "color"],
         "line-width": ["case", ["==", ["get", "official"], 1], 4, 2],
         "line-opacity": 0.9,
+      },
+    });
+    m.addSource("heads", { type: "geojson", data: EMPTY });
+    m.addLayer({
+      id: "heads",
+      type: "circle",
+      source: "heads",
+      paint: {
+        "circle-radius": ["case", ["==", ["get", "done"], 1], 3, 5],
+        "circle-color": ["get", "color"],
+        "circle-stroke-color":
+          getComputedStyle(document.documentElement)
+            .getPropertyValue("--bg")
+            .trim() || "#0b0c14",
+        "circle-stroke-width": 1.5,
+        "circle-opacity": ["case", ["==", ["get", "done"], 1], 0.6, 1],
       },
     });
     map.current = m;
@@ -189,13 +307,86 @@ export function ModelBattle({
           ))}
         </div>
       )}
-      <WeatherMap
-        center={[s0.lon, s0.lat]}
-        zoom={4}
-        label="Model tracks"
-        className="h-[52dvh] min-h-72"
-        onReady={onReady}
-      />
+      <div className="relative">
+        <WeatherMap
+          center={[s0.lon, s0.lat]}
+          zoom={4}
+          label="Model tracks"
+          className="h-[52dvh] min-h-72"
+          onReady={onReady}
+        />
+        {d && start > 0 && (
+          <div className={s.clock} aria-live="off">
+            <b>
+              {new Date(start + h * 3600_000)
+                .toLocaleString("en-US", {
+                  weekday: "short",
+                  hour: "numeric",
+                  timeZoneName: "short",
+                })
+                .toUpperCase()}
+            </b>
+            <small>Forecast hour +{h}</small>
+          </div>
+        )}
+      </div>
+      {d && (
+        <div className={s.player}>
+          <button
+            type="button"
+            className={s.play}
+            aria-label={playing ? "Pause" : "Play"}
+            onClick={() => {
+              if (!playing && h >= end) setH(0);
+              setPlaying(!playing);
+            }}
+          >
+            {playing ? (
+              <Pause className="size-4" />
+            ) : (
+              <Play className="size-4" />
+            )}
+          </button>
+          <button
+            type="button"
+            aria-label="Restart"
+            onClick={() => (setH(0), setPlaying(true))}
+          >
+            <RotateCcw className="size-4" />
+          </button>
+          <input
+            type="range"
+            min={0}
+            max={end}
+            step={STEP}
+            value={h}
+            onChange={(e) => (setPlaying(false), setH(+e.target.value))}
+            aria-label="Forecast hour"
+          />
+          <div className={s.speed} role="group" aria-label="Speed">
+            {(Object.keys(SPEEDS) as (keyof typeof SPEEDS)[]).map((k) => (
+              <button
+                key={k}
+                type="button"
+                aria-pressed={k === speed}
+                onClick={() => setSpeed(k)}
+              >
+                {k}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {d && (
+        <Intensity
+          d={d}
+          h={h}
+          hidden={hidden}
+          col={col}
+          colors={colors}
+          offOf={offOf}
+        />
+      )}
       <div className={s.chips} role="group" aria-label="Show models">
         {(d?.tracks ?? []).map((t) => (
           <button
@@ -329,5 +520,71 @@ export function ModelBattle({
         </section>
       )}
     </div>
+  );
+}
+
+/** Live intensity leaderboard: every model's sustained wind at the race clock. */
+function Intensity({
+  d,
+  h,
+  hidden,
+  col,
+  colors,
+  offOf,
+}: {
+  d: Data;
+  h: number;
+  hidden: Set<string>;
+  col: (tech: string) => string;
+  colors: Colors;
+  offOf: (t: Track) => number;
+}) {
+  const rows = d.tracks
+    .filter((t) => !hidden.has(t.tech))
+    .map((t) => ({ t, p: at(t, h, offOf(t)) }))
+    .filter((r) => r.p && r.p.kt > 0)
+    .map((r) => ({ tech: r.t.tech, kt: r.p!.kt, done: r.p!.done }))
+    .sort((a, b) => b.kt - a.kt);
+  if (!rows.length) return null;
+  const top = Math.max(...rows.map((r) => r.kt));
+  return (
+    <section className={s.intensity}>
+      <header>
+        <h3>Intensity leaderboard</h3>
+        <small>Sustained wind by forecast model at hour +{h}</small>
+      </header>
+      <ol>
+        {rows.map((r, i) => {
+          const tier = tierOf(r.kt);
+          const tc = pick(colors, `trop:${tier.key}`, tier.color);
+          return (
+            <li key={r.tech} data-done={r.done || undefined}>
+              <span className={s.rank}>{i + 1}</span>
+              <span
+                className={s.model}
+                style={{ ["--c" as string]: col(r.tech) }}
+              >
+                <i />
+                {name.get(r.tech)?.name ?? r.tech}
+              </span>
+              <span className={s.windBar}>
+                <u
+                  style={{
+                    background: tc,
+                    transform: `scaleX(${r.kt / top})`,
+                  }}
+                />
+              </span>
+              <b>{mph(r.kt)}</b>
+              <em style={{ color: tc, borderColor: tc }}>{tier.short}</em>
+            </li>
+          );
+        })}
+      </ol>
+      <p className={s.note}>
+        Wind in mph. A dimmed row is a model whose forecast has ended. Guidance
+        only, not an official NHC forecast.
+      </p>
+    </section>
   );
 }
