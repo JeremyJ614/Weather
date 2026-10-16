@@ -53,14 +53,16 @@ export function geoPath(g: Geometry | null | undefined, tol = 1.4): string {
 export async function serviceLayer<P>(
   url: string,
   revalidate: number,
+  fresh = false,
+  where = "1=1",
 ): Promise<{ properties: P; geometry: Geometry }[]> {
   // Plain GeoJSON files (SPC) are fetched as they are; map services are queried.
   const q = url.endsWith(".geojson")
     ? url
-    : `${url}/query?where=1%3D1&outFields=*&returnGeometry=true&maxAllowableOffset=0.04&geometryPrecision=3&outSR=4326&f=geojson`;
+    : `${url}/query?where=${encodeURIComponent(where)}&outFields=*&returnGeometry=true&maxAllowableOffset=0.04&geometryPrecision=3&outSR=4326&f=geojson`;
   const r = await fetch(q, {
     headers: { "User-Agent": "StormSync Weather (https://weather.sswx.space)" },
-    next: { revalidate },
+    ...(fresh ? { cache: "no-store" as const } : { next: { revalidate } }),
     signal: AbortSignal.timeout(20000),
   });
   if (!r.ok) throw new Error(`map service ${r.status}`);

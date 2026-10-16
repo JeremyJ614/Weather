@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CloudRain, MapPin, Siren, Waves } from "lucide-react";
+import { MapPin, Siren, Waves } from "lucide-react";
 import { HomeTabs } from "@/features/news/HomeTabs";
 import { GeoMap } from "@/features/hazards/GeoMap";
 import { UsMap } from "@/features/maps/UsMap";
-import { Polys, useLayer } from "@/features/maps/useLayer";
+import { Polys } from "@/features/maps/useLayer";
 import { usePlaces } from "@/features/location/usePlaces";
 import { pick, type Colors } from "@/lib/colors/pick";
-import { ERO_COLORS, QPF } from "@/lib/map/products";
+import { ERO_COLORS } from "@/lib/map/products";
 import type { EroDay, FloodHere } from "@/lib/flood/data";
 import { ERO_LEVELS as LEVELS } from "@/lib/flood/levels";
 import s from "./Flood.module.css";
@@ -31,7 +31,7 @@ const ends = (iso: string | null) =>
       }) + " CT"
     : "";
 
-/** Flooding Outlook: your answer, the five-day strip, the risk map, rainfall totals. */
+/** Flooding Outlook: your answer, the five-day risk map, and every active flood alert. */
 export function FloodView({
   days,
   colors,
@@ -98,14 +98,6 @@ export function FloodView({
                 ? `${dayName(worstDay)} is your worst day: a ${LEVELS[worst - 1].label.toLowerCase()} risk (${LEVELS[worst - 1].odds} chance of flash flooding nearby). ${LEVELS[worst - 1].meaning}`
                 : "WPC doesn't expect rain heavy enough to cause flash flooding at your location in the next five days."}
             </p>
-            <div className={s.rain}>
-              {here.rain.map((r) => (
-                <div key={r.label}>
-                  <b>{r.inches ? `${r.inches}″+` : "0″"}</b>
-                  <span>{r.label}</span>
-                </div>
-              ))}
-            </div>
             {here.alerts.map((a) => (
               <p key={a.headline} className={s.alert}>
                 <Siren aria-hidden />
@@ -198,49 +190,121 @@ export function FloodView({
             ),
           },
           {
-            id: "fl-rain",
-            label: "Rainfall Totals",
-            icon: <CloudRain aria-hidden />,
-            panel: <Rainfall />,
+            id: "fl-alerts",
+            label: "Flood Alerts",
+            icon: <Siren aria-hidden />,
+            panel: <FloodAlerts />,
           },
         ]}
       />
       <p className={s.foot}>
-        Source: NOAA Weather Prediction Center Excessive Rainfall Outlook and
-        rainfall forecasts; flood alerts from the National Weather Service.
+        Source: NOAA Weather Prediction Center Excessive Rainfall Outlook; flood
+        watches, warnings and advisories from the National Weather Service.
         Percentages are the chance of flash flooding within 25 miles of a point.
       </p>
     </div>
   );
 }
 
-function Rainfall() {
-  const [id, setId] = useState("t3");
-  const { layer, status } = useLayer(id);
+type Layer = {
+  polys: { c: string; d: string }[];
+  legend: { label: string; color: string }[];
+};
+type Alert = {
+  id: string;
+  event: string;
+  area: string;
+  expires: string;
+  color: string;
+  sender: string;
+  tags: { label: string }[];
+};
+
+/** Every active flood watch, warning and advisory: the national map, then the list. */
+function FloodAlerts() {
+  const [map, setMap] = useState<Layer | "error" | null>(null);
+  const [list, setList] = useState<Alert[] | "error" | null>(null);
+  useEffect(() => {
+    let live = true;
+    fetch("/api/warnings/map?only=flood")
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((d: Layer) => live && setMap(d))
+      .catch(() => live && setMap("error"));
+    fetch("/api/warnings")
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then(
+        (d: { items: Alert[] }) =>
+          live && setList(d.items.filter((a) => /Flood/.test(a.event))),
+      )
+      .catch(() => live && setList("error"));
+    return () => {
+      live = false;
+    };
+  }, []);
+  const m = map && map !== "error" ? map : null;
+  const items = list && list !== "error" ? list : [];
+  const counts = items.reduce<Record<string, number>>(
+    (o, a) => ((o[a.event] = (o[a.event] ?? 0) + 1), o),
+    {},
+  );
   return (
     <div className="grid gap-3">
-      <div className="flex flex-wrap gap-1.5" role="group" aria-label="Period">
-        {QPF.map((q) => (
-          <button
-            key={q.id}
-            type="button"
-            aria-pressed={q.id === id}
-            onClick={() => setId(q.id)}
-            className="min-h-9 rounded-full border border-line px-3 text-xs font-semibold aria-pressed:border-[var(--lit-line)] aria-pressed:bg-[var(--lit)] aria-pressed:text-accent"
-          >
-            {q.label}
-          </button>
-        ))}
-      </div>
       <UsMap
-        title={layer?.title ?? "Rainfall forecast"}
-        sub={layer?.valid}
-        legend={layer?.legend ?? []}
-        status={status}
-        file={`sswx-qpf-${id}`}
+        title="Flood alerts right now"
+        legend={m?.legend ?? []}
+        status={!map ? "loading" : map === "error" ? "error" : "ready"}
+        file="sswx-flood-alerts"
       >
-        {layer && <Polys polys={layer.polys} />}
+        {m && <Polys polys={m.polys} />}
       </UsMap>
+      {list === "error" ? (
+        <p className={s.muted}>
+          The National Weather Service alert feed isn&apos;t answering right
+          now.
+        </p>
+      ) : !list ? (
+        <p className={s.muted}>Loading flood alerts…</p>
+      ) : !items.length ? (
+        <p className={s.muted}>
+          No flood watches, warnings or advisories are in effect anywhere in the
+          country right now.
+        </p>
+      ) : (
+        <>
+          <div className={s.rain}>
+            {Object.entries(counts).map(([ev, n]) => (
+              <div key={ev}>
+                <b>{n}</b>
+                <span>{ev}</span>
+              </div>
+            ))}
+          </div>
+          <ul className={s.alerts}>
+            {items.slice(0, 40).map((a) => (
+              <li key={a.id} style={{ ["--c" as string]: a.color }}>
+                <i />
+                <span>
+                  <b>{a.event}</b>
+                  <small>{a.area}</small>
+                  <small>
+                    {a.sender}
+                    {a.expires ? ` · until ${ends(a.expires)}` : ""}
+                    {a.tags.length
+                      ? ` · ${a.tags.map((t) => t.label).join(" · ")}`
+                      : ""}
+                  </small>
+                </span>
+              </li>
+            ))}
+          </ul>
+          {items.length > 40 && (
+            <p className={s.muted}>
+              And {items.length - 40} more; the Warnings &amp; Reports page has
+              them all.
+            </p>
+          )}
+        </>
+      )}
     </div>
   );
 }
