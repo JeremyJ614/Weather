@@ -121,7 +121,6 @@ export type FloodHere = {
   }[];
 };
 
-
 export async function floodHere(lat: number, lon: number): Promise<FloodHere> {
   const pt = `geometry=${lon},${lat}&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&returnGeometry=false&f=json`;
   type Attrs = { features?: { attributes: Record<string, unknown> }[] };
