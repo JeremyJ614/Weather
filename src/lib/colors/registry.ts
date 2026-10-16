@@ -15,7 +15,7 @@ import { RARITY } from "@/lib/badges";
 import { GAUGE_LEVELS } from "@/lib/rivers/style";
 import { SND_BANDS, SND_LINES } from "@/lib/soundings/style";
 import { CAM_KINDS } from "@/lib/cams/style";
-import { SKY_BANDS } from "@/lib/sky/score";
+import { SKY_BANDS, SKY_APERTURE } from "@/lib/sky/score";
 import { ASTRO_LINES } from "@/lib/sky/style";
 import { AURORA_LINES, AURORA_RAMP, KP_SCALE } from "@/lib/aurora/style";
 import { LT_BANDS } from "@/lib/lightning/style";
@@ -350,10 +350,13 @@ export const GROUPS: Group[] = [
   {
     id: "sky",
     label: "Stargazing",
-    note: "Score bands on Star Gazing Forecast (map, chart, numbers).",
-    entries: SKY_BANDS.map((b) => ({
+    note: "Score bands on Star Gazing Forecast (map, chart, numbers) and the target dots on its sky chart.",
+    entries: [...SKY_BANDS, ...SKY_APERTURE].map((b) => ({
       key: `sky:${b.key}`,
-      label: b.label,
+      label:
+        b.key in { eye: 1, binoculars: 1, telescope: 1 }
+          ? `Targets: ${b.label}`
+          : b.label,
       def: b.color,
     })),
   },

@@ -167,12 +167,19 @@ export function bestRun(hours: SkyHour[], min = 60): Run | null {
 
 /** One scale for every view; colors are editable in admin (`sky:<key>`). */
 export const SKY_BANDS = [
-  { key: "pristine", min: 80, label: "Pristine", color: "#fde047" },
-  { key: "excellent", min: 60, label: "Excellent", color: "#a3e635" },
-  { key: "good", min: 40, label: "Good", color: "#22d3ee" },
-  { key: "poor", min: 20, label: "Poor", color: "#6366f1" },
-  { key: "washed", min: 5, label: "Washed out", color: "#4338ca" },
-  { key: "none", min: 0, label: "No viewing", color: "#1e1b4b" },
+  { key: "pristine", min: 80, label: "Pristine", color: "#67e8f9" },
+  { key: "excellent", min: 60, label: "Excellent", color: "#3b82f6" },
+  { key: "good", min: 40, label: "Good", color: "#4f46b8" },
+  { key: "poor", min: 20, label: "Poor", color: "#30287a" },
+  { key: "washed", min: 5, label: "Washed out", color: "#1c1848" },
+  { key: "none", min: 0, label: "No viewing", color: "#0b0a1f" },
+] as const;
+
+/** Target dots on the Star Gazing sky chart, by what you need to see them (`sky:<key>`). */
+export const SKY_APERTURE = [
+  { key: "eye", label: "Naked eye", color: "#fde047" },
+  { key: "binoculars", label: "Binoculars", color: "#e879f9" },
+  { key: "telescope", label: "Telescope", color: "#818cf8" },
 ] as const;
 
 export const bandOf = (score: number) =>
