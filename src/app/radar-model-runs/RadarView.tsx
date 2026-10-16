@@ -4,10 +4,11 @@ import { useEffect, useState } from "react";
 import { BarChart3, Clapperboard, Radar } from "lucide-react";
 import { HomeTabs } from "@/features/news/HomeTabs";
 import { RadarMap } from "@/features/radar/RadarMap";
-import { SatLoop } from "@/features/tropical/SatLoop";
+import { ModelViewer } from "@/features/models/ModelViewer";
+import { Nowcast } from "@/features/models/Nowcast";
 import { usePlaces } from "@/features/location/usePlaces";
 import { pick, type Colors } from "@/lib/colors/pick";
-import { COMPARE, MODEL_MAPS, type ModelId } from "@/lib/radar/products";
+import { COMPARE } from "@/lib/radar/products";
 import s from "./RadarView.module.css";
 
 /** Radar & Model Runs: live radar, model map loops and the model comparison. */
@@ -39,55 +40,44 @@ export function RadarView({ colors }: { colors: Colors }) {
       />
       <p className={s.foot}>
         Sources: NEXRAD mosaic tiles (Iowa Environmental Mesonet), MRMS and GOES
-        (SSEC RealEarth), model maps from NOAA NCEP Model Analyses &amp;
-        Guidance, and model forecasts from Open-Meteo.
+        (SSEC RealEarth), model maps rendered from NOAA&apos;s HRRR, GFS and
+        HREF files (AWS Open Data and NOMADS), and model forecasts from
+        Open-Meteo.
       </p>
     </div>
   );
 }
 
 function ModelRuns() {
-  const [model, setModel] = useState<ModelId>("gfs");
-  const fields = Object.entries(MODEL_MAPS[model].fields);
-  const [field, setField] = useState(fields[0][0]);
-  const f = field in MODEL_MAPS[model].fields ? field : fields[0][0];
+  const [tab, setTab] = useState<"hrrr" | "gfs" | "href" | "now">("hrrr");
   return (
     <div className="grid gap-3">
-      <div className={s.pills} role="group" aria-label="Model">
-        {(Object.keys(MODEL_MAPS) as ModelId[]).map((m) => (
-          <button
-            key={m}
-            type="button"
-            aria-pressed={m === model}
-            onClick={() => setModel(m)}
-          >
-            {MODEL_MAPS[m].label}
-          </button>
-        ))}
-      </div>
-      <div className={s.pills} role="group" aria-label="Map">
-        {fields.map(([k, label]) => (
+      <div className={s.modelTabs} role="group" aria-label="Model">
+        {(
+          [
+            ["hrrr", "HRRR · 3 km"],
+            ["gfs", "GFS · 25 km"],
+            ["href", "Ensemble · HREF"],
+            ["now", "Nowcast · 15 min"],
+          ] as const
+        ).map(([k, l]) => (
           <button
             key={k}
             type="button"
-            aria-pressed={k === f}
-            onClick={() => setField(k)}
+            aria-pressed={k === tab}
+            onClick={() => setTab(k)}
           >
-            {label}
+            {l}
           </button>
         ))}
       </div>
-      <SatLoop
-        key={`${model}-${f}`}
-        src={`${model}-${f}`}
-        url={`/api/models/frames?model=${model}&field=${f}`}
-        ratio="4 / 3"
-      />
+      {tab === "now" ? <Nowcast /> : <ModelViewer key={tab} model={tab} />}
       <p className={s.muted}>
-        {model === "gfs"
-          ? "GFS: the global model, out 10 days every 6 hours."
-          : "NAM: the North American model, out 3½ days every 3 hours."}{" "}
-        Frames are NOAA&apos;s own maps for the newest complete run.
+        {tab === "href"
+          ? "HREF: NOAA's high-resolution ensemble. Each map is the chance, out of 100, that the threshold is met near a point."
+          : tab === "now"
+            ? ""
+            : "Rendered from NOAA's own model files, field by field, the moment you ask: smooth between grid points, never beyond a value the model produced."}
       </p>
     </div>
   );
