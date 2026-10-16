@@ -28,6 +28,7 @@ export const MODULES = [
   { id: "soundings", label: "3D Soundings" },
   { id: "cams", label: "Traffic Cameras" },
   { id: "sky", label: "Star Gazing Forecast" },
+  { id: "astronomy", label: "Astronomy" },
   { id: "maps", label: "Maps" },
   { id: "weather-news", label: "Weather News" },
   { id: "news", label: "SSWX News" },
