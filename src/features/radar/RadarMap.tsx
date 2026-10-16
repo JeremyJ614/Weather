@@ -5,17 +5,32 @@ import type { Map as MaplibreMap } from "maplibre-gl";
 import { Pause, Play, RefreshCw } from "lucide-react";
 import { WeatherMap, type ReadyMap } from "@/features/map/WeatherMap";
 import { usePlaces } from "@/features/location/usePlaces";
-import { LOOP, PRODUCTS, tileUrl, type Product } from "@/lib/radar/products";
+import {
+  LOOP,
+  PRODUCTS,
+  RE_FRAMES,
+  reAge,
+  tileUrl,
+  type Product,
+} from "@/lib/radar/products";
 import s from "./Radar.module.css";
 
 const OPACITY = 0.85;
-const minutesAgo = (suffix: string) =>
-  suffix ? Number(suffix.slice(2, 4)) : 0;
+const now = () => Date.now();
+const ageOf = (p: Product, f: string) =>
+  p.source === "iem"
+    ? f
+      ? Number(f.slice(2, 4))
+      : 0
+    : f
+      ? reAge(f, now())
+      : 0;
 
 /**
- * Live radar, MRMS and satellite on the interactive map. Base reflectivity loops its last
- * 50 minutes: every frame is its own layer, loaded up front, and frames fade from one to
- * the next (raster opacity), so playback never waits on a tile. Refreshes every 4 minutes.
+ * Live radar, MRMS and satellite on the interactive map, every product looping: IEM
+ * reflectivity its last 50 minutes, RealEarth products their last ten published frames.
+ * Every frame is its own layer, loaded up front, and frames fade from one to the next
+ * (raster opacity), so playback never waits on a tile. Refreshes every 4 minutes.
  */
 export function RadarMap() {
   const { active } = usePlaces();
@@ -25,24 +40,52 @@ export function RadarMap() {
   const [bust, setBust] = useState(() => Math.floor(Date.now() / 240000));
   const [frame, setFrame] = useState(LOOP.length - 1);
   const [playing, setPlaying] = useState(true);
-  const loops = prod.source === "iem";
-  const ids = loops ? LOOP.map((_, i) => `radar-${i}`) : ["radar-0"];
+  const [times, setTimes] = useState<{ code: string; t: string[] } | null>(
+    null,
+  );
+  // RealEarth publishes its frame times; ask for them whenever the product or tick changes.
+  useEffect(() => {
+    if (prod.source !== "realearth") return;
+    let live = true;
+    fetch(`https://realearth.ssec.wisc.edu/api/times?products=${prod.code}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then(
+        (d: Record<string, string[]>) =>
+          live &&
+          setTimes({
+            code: prod.code,
+            t: (d[prod.code] ?? []).slice(-RE_FRAMES),
+          }),
+      )
+      .catch(() => live && setTimes({ code: prod.code, t: [] }));
+    return () => {
+      live = false;
+    };
+  }, [prod, bust]);
+  const frames =
+    prod.source === "iem"
+      ? LOOP
+      : times?.code === prod.code && times.t.length
+        ? times.t
+        : [""];
+  const loops = frames.length > 1;
+  const ids = frames.map((_, i) => `radar-${i}`);
+  const frameKey = frames.join();
 
   // Rebuild the product's layers whenever it (or the refresh tick) changes.
   useEffect(() => {
     const m = map.current;
     if (!m || !ready) return;
-    for (let i = 0; i < LOOP.length; i++) {
+    for (let i = 0; i < Math.max(LOOP.length, RE_FRAMES); i++) {
       if (m.getLayer(`radar-${i}`)) m.removeLayer(`radar-${i}`);
       if (m.getSource(`radar-${i}`)) m.removeSource(`radar-${i}`);
     }
-    const frames = loops ? LOOP : [""];
-    frames.forEach((suffix, i) => {
+    frames.forEach((f, i) => {
       m.addSource(`radar-${i}`, {
         type: "raster",
-        tiles: [tileUrl(prod, bust, suffix)],
+        tiles: [tileUrl(prod, bust, f)],
         tileSize: 256,
-        maxzoom: loops ? 10 : 8,
+        maxzoom: prod.source === "iem" ? 10 : 8,
       });
       m.addLayer({
         id: `radar-${i}`,
@@ -55,7 +98,8 @@ export function RadarMap() {
         },
       });
     });
-  }, [prod, bust, ready, loops]);
+    queueMicrotask(() => setFrame(frames.length - 1));
+  }, [prod, bust, ready, frameKey]); // eslint-disable-line react-hooks/exhaustive-deps -- frameKey is the frames
 
   // Play the loop: one frame visible at a time, the newest held a little longer.
   useEffect(() => {
@@ -68,9 +112,9 @@ export function RadarMap() {
       matchMedia("(prefers-reduced-motion: reduce)").matches
     )
       return;
-    let i = frame;
+    let i = Math.min(frame, frames.length - 1);
     const t = setInterval(() => {
-      const next = (i + 1) % LOOP.length;
+      const next = (i + 1) % frames.length;
       m.setPaintProperty(`radar-${i}`, "raster-opacity", 0);
       m.setPaintProperty(`radar-${next}`, "raster-opacity", OPACITY);
       i = next;
@@ -79,7 +123,7 @@ export function RadarMap() {
     return () => clearInterval(t);
     // The frame only seeds where playback resumes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, loops, playing, prod, bust]);
+  }, [ready, loops, playing, prod, bust, frameKey]);
 
   useEffect(() => {
     const t = setInterval(
@@ -128,7 +172,6 @@ export function RadarMap() {
               aria-pressed={p.id === prod.id}
               onClick={() => {
                 setProd(p);
-                setFrame(LOOP.length - 1);
                 setPlaying(true);
               }}
             >
@@ -145,10 +188,10 @@ export function RadarMap() {
           className="h-[60dvh] min-h-80"
           onReady={onReady}
         />
-        {loops && (
+        {loops && frames[frame] !== undefined && (
           <span className={s.stamp}>
-            {minutesAgo(LOOP[frame])
-              ? `${minutesAgo(LOOP[frame])} min ago`
+            {ageOf(prod, frames[frame])
+              ? `${ageOf(prod, frames[frame])} min ago`
               : "Now"}
           </span>
         )}
@@ -170,7 +213,7 @@ export function RadarMap() {
             <input
               type="range"
               min={0}
-              max={LOOP.length - 1}
+              max={frames.length - 1}
               value={frame}
               onChange={(e) => show(+e.target.value)}
               aria-label="Loop frame"
