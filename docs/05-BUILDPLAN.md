@@ -156,3 +156,4 @@ Personal Warnings & Alerts, Affected Communities Outlook, FairWeather Tracking, 
 | 66 | Map downloads | Saved PNGs showed black land and no data: CSS-module styles do not travel with a serialized SVG | Export clones the map and inlines every element's computed style, and embeds all same-site images |
 | 67 | Climatology | Lightning climatology stopped at 38°N (TRMM LIS orbit); major-hurricane tracks crossing 180° drew lines across the map | Bundled NASA LIS/OTD combined grid covering the Lower 48; track longitudes unwrapped |
 | 68 | Warnings maps | NOAA's alert map service briefly answers empty and that was cached for 2 minutes (blank national warnings map) | An empty answer is refetched uncached; the flood map asks NOAA for flood products only |
+| 69 | Climatology | Bundling the lightning grid pushed /climatology 1% over the performance budget, failing CI after #6.14 | The grid is served by the lightning API and fetched by the page |
