@@ -154,7 +154,7 @@ export function TropicalMap({
   useEffect(() => {
     src.current = { storms, recon, geo };
     relayout();
-  }, [storms, recon, geo]);  
+  }, [storms, recon, geo]);
 
   useEffect(() => {
     const m = map.current;
