@@ -43,8 +43,9 @@ export function useZoom(
   h: number,
   live: boolean,
   onTap?: (x: number, y: number) => void,
+  init?: View,
 ) {
-  const [view, setView] = useState<View>({ x: 0, y: 0, w });
+  const [view, setView] = useState<View>(init ?? { x: 0, y: 0, w });
   const ptrs = useRef(new Map<number, Pt>());
   const travel = useRef(0);
   const pinch = useRef(0);

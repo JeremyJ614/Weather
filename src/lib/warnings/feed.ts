@@ -134,8 +134,32 @@ export async function stormReports(hours: number): Promise<Report[]> {
 const WWA =
   "https://mapservices.weather.noaa.gov/eventdriven/rest/services/WWA/watch_warn_adv/MapServer/1";
 
+// The national layer is over Next's 2 MB fetch-cache limit, so keep the built map briefly here.
+const built = new Map<string, { at: number; v: Promise<WarnMap> }>();
+type WarnMap = {
+  polys: { c: string; d: string }[];
+  legend: { label: string; color: string }[];
+};
+
 /** Every active land watch, warning and advisory area, projected; most dangerous drawn last. */
-export async function warningMap(only?: "flood") {
+export function warningMap(only?: "flood"): Promise<WarnMap> {
+  const k = only ?? "all";
+  const hit = built.get(k);
+  if (hit && Date.now() - hit.at < 110_000) return hit.v;
+  const v = buildWarningMap(only).then((m) => {
+    // An empty map is the service mid-rebuild far more often than a quiet country.
+    if (!m.polys.length) {
+      built.delete(k);
+      if (!only) throw new Error("empty");
+    }
+    return m;
+  });
+  built.set(k, { at: Date.now(), v });
+  v.catch(() => built.delete(k));
+  return v;
+}
+
+async function buildWarningMap(only?: "flood"): Promise<WarnMap> {
   const where = only === "flood" ? "prod_type LIKE '%Flood%'" : "1=1";
   const [first, colors] = await Promise.all([
     serviceLayer<{ prod_type?: string }>(WWA, 120, false, where),
@@ -155,7 +179,6 @@ export async function warningMap(only?: "flood") {
     .sort((a, b) => b.r - a.r);
   const legend = [...new Set(polys.map((p) => p.ev))]
     .sort((a, b) => rankOf(a) - rankOf(b))
-    .slice(0, 10)
     .map((label) => ({ label, color: col(label) }));
   return { polys: polys.map(({ c, d }) => ({ c, d })), legend };
 }

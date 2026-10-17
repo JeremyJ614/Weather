@@ -4,12 +4,16 @@ import { useEffect, useMemo, useState } from "react";
 import {
   CalendarRange,
   Droplets,
+  Landmark,
   Map as MapIcon,
   MapPin,
   Sun,
 } from "lucide-react";
 import { HomeTabs } from "@/features/news/HomeTabs";
 import { GeoMap } from "@/features/hazards/GeoMap";
+import { UsMap } from "@/features/maps/UsMap";
+import { Polys } from "@/features/maps/useLayer";
+import { project } from "@/lib/map/usAlbers";
 import { Outlook } from "@/features/outlooks/CpcPanel";
 import { usePlaces } from "@/features/location/usePlaces";
 import { pick, type Colors } from "@/lib/colors/pick";
@@ -49,7 +53,7 @@ const week = (w: string | null) =>
       })
     : "";
 
-/** Hazards & Droughts: your area, the CPC hazards map, the Drought Monitor and its outlook. */
+/** Hazards & Droughts: your area, live alerts and CPC hazards, the Drought Monitor, its outlook and Ohio. */
 export function HazardsView({
   hazards,
   national,
@@ -87,6 +91,12 @@ export function HazardsView({
             label: "Drought Outlook",
             icon: <CalendarRange aria-hidden />,
             panel: <Outlook ids={["dm", "ds"]} />,
+          },
+          {
+            id: "haz-ohio",
+            label: "Ohio",
+            icon: <Landmark aria-hidden />,
+            panel: <Ohio dc={dc} />,
           },
         ]}
       />
@@ -223,7 +233,7 @@ function HazardMap({
   list: Hazard[] | null;
   hc: (k: string) => string;
 }) {
-  const [period, setPeriod] = useState<"3-7" | "8-14">("3-7");
+  const [period, setPeriod] = useState<"now" | "3-7" | "8-14">("now");
   const [picked, setPicked] = useState<Record<string, unknown> | null>(null);
   const filter = useMemo(
     () => ["==", ["get", "period"], period] as never,
@@ -249,7 +259,7 @@ function HazardMap({
   return (
     <div className="grid gap-3">
       <div className="flex gap-1.5" role="group" aria-label="Outlook period">
-        {(["3-7", "8-14"] as const).map((p) => (
+        {(["now", "3-7", "8-14"] as const).map((p) => (
           <button
             key={p}
             type="button"
@@ -257,57 +267,121 @@ function HazardMap({
             onClick={() => (setPeriod(p), setPicked(null))}
             className={s.pill}
           >
-            {p === "3-7" ? "Days 3–7" : "Days 8–14"}
+            {p === "now"
+              ? "Active alerts"
+              : p === "3-7"
+                ? "Days 3–7"
+                : "Days 8–14"}
           </button>
         ))}
       </div>
-      <div className="relative">
-        <GeoMap
-          url="/api/hazards/map?layer=cpc"
-          label="CPC hazards outlook map"
-          filter={filter}
-          onPick={setPicked}
-        />
-        {picked && (
-          <button
-            type="button"
-            onClick={() => setPicked(null)}
-            className={s.pop}
-          >
-            <b>{String(picked.label)}</b>
-            <span>
-              {span({
-                start: (picked.start as string) ?? null,
-                end: (picked.end as string) ?? null,
-              })}
-            </span>
-          </button>
-        )}
-      </div>
-      {list === null ? (
-        <p className={s.muted}>
-          CPC&apos;s hazards outlook isn&apos;t answering right now.
-        </p>
-      ) : shown.length ? (
-        <ul className={s.list}>
-          {shown.map((h) => (
-            <li key={h.id} style={{ ["--c" as string]: hc(h.kind) }}>
-              <i />
-              <span>
-                <b>{h.label}</b>
-                <small>
-                  {span(h)}
-                  {h.areas > 1 ? ` · ${h.areas} areas` : ""}
-                </small>
-              </span>
-            </li>
-          ))}
-        </ul>
+      {period === "now" ? (
+        <ActiveAlerts />
       ) : (
-        <p className={s.muted}>
-          No hazards outlooked for days {period === "3-7" ? "3–7" : "8–14"}.
-        </p>
+        <>
+          <div className="relative">
+            <GeoMap
+              url="/api/hazards/map?layer=cpc"
+              label="CPC hazards outlook map"
+              filter={filter}
+              onPick={setPicked}
+            />
+            {picked && (
+              <button
+                type="button"
+                onClick={() => setPicked(null)}
+                className={s.pop}
+              >
+                <b>{String(picked.label)}</b>
+                <span>
+                  {span({
+                    start: (picked.start as string) ?? null,
+                    end: (picked.end as string) ?? null,
+                  })}
+                </span>
+              </button>
+            )}
+          </div>
+          {list === null ? (
+            <p className={s.muted}>
+              CPC&apos;s hazards outlook isn&apos;t answering right now.
+            </p>
+          ) : shown.length ? (
+            <ul className={s.list}>
+              {shown.map((h) => (
+                <li key={h.id} style={{ ["--c" as string]: hc(h.kind) }}>
+                  <i />
+                  <span>
+                    <b>{h.label}</b>
+                    <small>
+                      {span(h)}
+                      {h.areas > 1 ? ` · ${h.areas} areas` : ""}
+                    </small>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className={s.muted}>
+              No hazards outlooked for days {period === "3-7" ? "3–7" : "8–14"}.
+            </p>
+          )}
+        </>
       )}
+    </div>
+  );
+}
+
+type Layer = {
+  polys: { c: string; d: string }[];
+  legend: { label: string; color: string }[];
+};
+function useLayerJson(url: string | null) {
+  const [d, setD] = useState<{ url: string; v: Layer | "error" } | null>(null);
+  useEffect(() => {
+    if (!url) return;
+    let live = true;
+    fetch(url)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((v: Layer) => live && setD({ url, v }))
+      .catch(() => live && setD({ url, v: "error" }));
+    return () => {
+      live = false;
+    };
+  }, [url]);
+  return url && d?.url === url ? d.v : null;
+}
+
+/** weather.gov's national map, drawn natively: every watch, warning and advisory by area. */
+function ActiveAlerts({
+  view,
+}: {
+  view?: { x: number; y: number; w: number };
+}) {
+  const m = useLayerJson("/api/warnings/map");
+  const ok = m && m !== "error" ? m : null;
+  return (
+    <div className="grid gap-3">
+      <UsMap
+        title="Watches, warnings & advisories"
+        sub={new Date().toLocaleString("en-US", {
+          month: "short",
+          day: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+        })}
+        legend={ok?.legend ?? []}
+        status={!m ? "loading" : m === "error" ? "error" : "ready"}
+        file="sswx-active-alerts"
+        view={view}
+      >
+        {ok && <Polys polys={ok.polys} />}
+      </UsMap>
+      <p className={s.muted}>
+        Every National Weather Service watch, warning and advisory in effect,
+        colored as weather.gov colors them. Tap Zoom &amp; pan to look closer;
+        the Warnings &amp; Reports page has each one&apos;s full text.
+      </p>
     </div>
   );
 }
@@ -326,18 +400,7 @@ function DroughtMonitor({
   const last = trend.at(-1);
   return (
     <div className="grid gap-3">
-      <GeoMap
-        url="/api/hazards/map?layer=usdm"
-        label="US Drought Monitor map"
-      />
-      <div className={s.legend}>
-        {USDM.map((d, i) => (
-          <span key={d.code}>
-            <i style={{ background: dc(i) }} />
-            {d.code} {d.label}
-          </span>
-        ))}
-      </div>
+      <DroughtMap dc={dc} />
       {national && (
         <section className={s.card}>
           <h3>
@@ -398,6 +461,157 @@ function DroughtMonitor({
           </p>
         </section>
       )}
+    </div>
+  );
+}
+
+type DLayer = {
+  week: string | null;
+  polys: { dm: number; c: string; d: string }[];
+};
+
+/** The Drought Monitor on the national map: clean category fills under the state lines. */
+function DroughtMap({
+  dc,
+  view,
+  title = "U.S. Drought Monitor",
+}: {
+  dc: (i: number) => string;
+  view?: { x: number; y: number; w: number };
+  title?: string;
+}) {
+  const [d, setD] = useState<DLayer | "error" | null>(null);
+  useEffect(() => {
+    let live = true;
+    fetch("/api/hazards/map?layer=usdm&shape=albers")
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((v: DLayer) => live && setD(v))
+      .catch(() => live && setD("error"));
+    return () => {
+      live = false;
+    };
+  }, []);
+  const ok = d && d !== "error" ? d : null;
+  return (
+    <UsMap
+      title={title}
+      sub={ok?.week ? week(ok.week) : null}
+      legend={USDM.map((x, i) => ({
+        label: `${x.code} ${x.label}`,
+        color: dc(i),
+      }))}
+      status={!d ? "loading" : d === "error" ? "error" : "ready"}
+      file="sswx-drought-monitor"
+      view={view}
+    >
+      {ok?.polys.map((p, i) => (
+        <path
+          key={i}
+          d={p.d}
+          fill={dc(p.dm)}
+          fillOpacity={0.88}
+          stroke={dc(p.dm)}
+          strokeWidth={0.6}
+          strokeLinejoin="round"
+        />
+      ))}
+    </UsMap>
+  );
+}
+
+/** Ohio's frame on the national canvas, with a little room around the state. */
+const OHIO = (() => {
+  const a = project(-85.1, 42.2);
+  const b = project(-80.3, 38.2);
+  const pad = 14;
+  const w = Math.max(b.x - a.x, ((b.y - a.y) * 975) / 610) + pad * 2;
+  return { x: a.x - pad, y: a.y - pad, w };
+})();
+
+type Weeks = { week: string; none: number; d: number[] }[];
+
+/** Ohio on its own: the Drought Monitor and alerts zoomed to the state, and its drought by week. */
+function Ohio({ dc }: { dc: (i: number) => string }) {
+  const [w, setW] = useState<Weeks | "error" | null>(null);
+  useEffect(() => {
+    let live = true;
+    fetch("/api/hazards/state?st=OH")
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((v: { weeks: Weeks }) => live && setW(v.weeks))
+      .catch(() => live && setW("error"));
+    return () => {
+      live = false;
+    };
+  }, []);
+  const weeks = w && w !== "error" ? w : [];
+  const now = weeks[0];
+  // Percent in each category or worse (the USDM convention).
+  const worse = (r: Weeks[number]) =>
+    r.d.map((_, i) => r.d.slice(i).reduce((a, b) => a + b, 0));
+  const series = [...weeks].reverse().map(worse);
+  const max = Math.max(1, ...series.map((x) => x[0]));
+  return (
+    <div className="grid gap-3">
+      <DroughtMap dc={dc} view={OHIO} title="Ohio drought" />
+      {w === "error" ? (
+        <p className={s.muted}>
+          The Drought Monitor&apos;s Ohio numbers aren&apos;t answering.
+        </p>
+      ) : !now ? (
+        <p className={s.muted}>Loading Ohio&apos;s drought numbers…</p>
+      ) : (
+        <section className={s.card}>
+          <h3>
+            <Droplets aria-hidden /> Ohio this week ·{" "}
+            {week(now.week.replace(/-/g, ""))}
+          </h3>
+          {USDM.map((d, i) => (
+            <div
+              key={d.code}
+              className={s.bar}
+              style={{ ["--c" as string]: dc(i) }}
+            >
+              <span>{i === 4 ? d.code : `${d.code}+`}</span>
+              <i>
+                <em style={{ transform: `scaleX(${worse(now)[i] / 100})` }} />
+              </i>
+              <b>{worse(now)[i].toFixed(1)}%</b>
+            </div>
+          ))}
+          {series.length > 2 && (
+            <>
+              <svg
+                viewBox="0 0 300 90"
+                className="w-full"
+                role="img"
+                aria-label="Ohio drought, 26 weeks"
+              >
+                {[0, 1, 2, 3, 4].map((k) => (
+                  <polygon
+                    key={k}
+                    fill={dc(k)}
+                    fillOpacity={0.85}
+                    points={[
+                      "0,90",
+                      ...series.map(
+                        (x, j) =>
+                          `${(j * 300) / (series.length - 1)},${90 - (x[k] / max) * 84}`,
+                      ),
+                      "300,90",
+                    ].join(" ")}
+                  />
+                ))}
+              </svg>
+              <p className={s.small}>
+                Share of Ohio in each category or worse over the last{" "}
+                {series.length} weeks. In drought (D1+) now:{" "}
+                {worse(now)[1].toFixed(1)}%.
+              </p>
+            </>
+          )}
+        </section>
+      )}
+      <ActiveAlerts view={OHIO} />
     </div>
   );
 }
