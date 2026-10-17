@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" role="img"
+     aria-label="A chase route across a county grid, with a drawn tornado path and two other chasers on it">
+  <title>Storm Chasing Archive Log</title>
+
+  <!--
+    The chase day as a map, which is what the Archive is.
+
+    Three things on one figure: the route actually driven, the tornado path
+    drawn over it, and the other people you were out with. Flat shapes only —
+    this is a card image on a phone.
+  -->
+
+  <defs>
+    <linearGradient id="arc-ground" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#101526"/>
+      <stop offset="100%" stop-color="#161b30"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="800" height="600" fill="url(#arc-ground)"/>
+
+  <!-- County lines. The grid a chase happens on. -->
+  <g stroke="#232a45" stroke-width="1.5">
+    <path d="M0 120 H800 M0 240 H800 M0 360 H800 M0 480 H800"/>
+    <path d="M130 0 V600 M290 0 V600 M450 0 V600 M610 0 V600"/>
+  </g>
+
+  <!-- A radar cell, sat over the middle of it. -->
+  <path d="M420 150 q54 -70 120 -44 q62 -74 122 -10 q46 -8 46 40 q0 46 -52 52
+           l-38 66 q-30 40 -72 10 q-40 40 -74 -6 q-50 8 -50 -46 q0 -46 -2 -62 Z"
+        fill="#8fe6dd" opacity="0.16"/>
+
+  <!-- The route actually driven. Not a straight line, because it never is. -->
+  <path d="M70 520 q80 -30 120 -84 q42 -58 118 -66 q70 -8 104 -60
+           q36 -56 118 -52 q66 4 108 -46"
+        fill="none" stroke="#f6b5da" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="70" cy="520" r="9" fill="#f6b5da"/>
+
+  <!-- The tornado path, drawn over the top of it. -->
+  <path d="M352 396 q66 -50 122 -96 q52 -44 118 -70"
+        fill="none" stroke="#8fe6dd" stroke-width="18"
+        stroke-linecap="round" opacity="0.32"/>
+  <path d="M352 396 q66 -50 122 -96 q52 -44 118 -70"
+        fill="none" stroke="#8fe6dd" stroke-width="4"
+        stroke-linecap="round" stroke-dasharray="2 12"/>
+
+  <!-- Two other chasers, live on the same map. -->
+  <g fill="none" stroke="#cdb4f6" stroke-width="4">
+    <circle cx="248" cy="336" r="15"/>
+    <circle cx="248" cy="336" r="28" opacity="0.4"/>
+    <circle cx="596" cy="214" r="15"/>
+    <circle cx="596" cy="214" r="28" opacity="0.4"/>
+  </g>
+  <g fill="#cdb4f6">
+    <circle cx="248" cy="336" r="6"/>
+    <circle cx="596" cy="214" r="6"/>
+  </g>
+
+  <!-- The totals, adding themselves up. -->
+  <g transform="translate(56 60)">
+    <rect width="230" height="104" rx="14" fill="#0f1425" stroke="#232a45" stroke-width="2"/>
+    <g fill="#8fe6dd">
+      <rect x="24" y="30" width="74" height="10" rx="5"/>
+      <rect x="24" y="56" width="120" height="10" rx="5" opacity="0.6"/>
+      <rect x="24" y="78" width="52" height="10" rx="5" opacity="0.4"/>
+    </g>
+    <g fill="#f6b5da">
+      <rect x="160" y="26" width="46" height="18" rx="6"/>
+      <rect x="172" y="54" width="34" height="14" rx="6" opacity="0.7"/>
+      <rect x="182" y="76" width="24" height="14" rx="6" opacity="0.5"/>
+    </g>
+  </g>
+</svg>

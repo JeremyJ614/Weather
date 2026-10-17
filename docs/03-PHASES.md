@@ -88,7 +88,7 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 ## Educational
 - [x] 54. Climatology: tornado, lightning and hurricane subtabs: near-you records (tracks within 25 mi, storms within 60 mi, LIS flash rate by month), national tornado density, hurricane passage density, yearly/monthly/hourly/EF/state charts, season curves, ACE seasons; data built by scripts/build-climo.py
 - [x] 55. Weather Glossary (port): all 168 VIP terms, search, topic chips, A–Z jump, linkable terms
-- [ ] 56. Free Content Library (port from Academy)
+- [x] 56. Free Content Library (port from Academy: 14 shelves, 118 NOAA JetStream articles, 418 figures, server search)
 
 ## Everything Else
 - [x] 57. Weather Patterns (port; Fix-It #6.7: AI recaps of the past week, month and year from SPC reports)
