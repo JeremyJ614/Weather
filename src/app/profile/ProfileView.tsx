@@ -13,7 +13,7 @@ import {
   Trophy,
   Vote,
 } from "lucide-react";
-import { BadgeIcon } from "@/components/BadgeIcon";
+import { BadgePlate } from "@/components/BadgeIcon";
 import { usePlaces } from "@/features/location/usePlaces";
 import { setActive, write } from "@/features/location/store";
 import type { Colors } from "@/lib/colors/pick";
@@ -168,10 +168,8 @@ export function ProfileView({
         {d.badges.length ? (
           <ul className={s.badges}>
             {d.badges.map((b) => (
-              <li key={b.id} title={b.description}>
-                <BadgeIcon badge={b} colors={colors} size={44} />
-                <b>{b.name}</b>
-                <small>{b.rarity}</small>
+              <li key={b.id}>
+                <BadgePlate badge={b} colors={colors} />
               </li>
             ))}
           </ul>

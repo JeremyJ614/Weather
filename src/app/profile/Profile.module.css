@@ -137,26 +137,9 @@
   font-size: 12px;
 }
 .badges {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
-}
-.badges li {
-  display: grid;
-  justify-items: center;
-  gap: 4px;
-  padding: 10px 6px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  text-align: center;
-}
-.badges b {
-  font-size: 12px;
-}
-.badges small {
-  color: var(--muted);
-  font-size: 10.5px;
-  text-transform: capitalize;
 }
 .titles,
 .places {

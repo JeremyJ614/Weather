@@ -9,7 +9,7 @@ import { getViewer } from "@/lib/auth/viewer";
 import { ShieldCheck } from "lucide-react";
 import { LoginForm } from "./LoginForm";
 import { ChangePin } from "./ChangePin";
-import { BadgeIcon } from "@/components/BadgeIcon";
+import { BadgePlate } from "@/components/BadgeIcon";
 import { getColors } from "@/lib/colors/server";
 
 export const metadata: Metadata = { title: "Sign in · StormSync Media" };
@@ -63,14 +63,10 @@ export default async function Login({
             {badges.length > 0 && (
               <div className="grid gap-2">
                 <b className="text-sm">Your badges</b>
-                <ul className="flex flex-wrap gap-3">
+                <ul className="flex flex-wrap gap-2">
                   {badges.map((b) => (
-                    <li
-                      key={b.name}
-                      className="grid w-16 justify-items-center gap-1 text-center text-[11px]"
-                    >
-                      <BadgeIcon badge={b} colors={colors} size={40} />
-                      {b.name}
+                    <li key={b.name}>
+                      <BadgePlate badge={b} colors={colors} />
                     </li>
                   ))}
                 </ul>
