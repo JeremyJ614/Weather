@@ -8,6 +8,7 @@ import {
   getClaims,
   today,
 } from "@/lib/billing/server";
+import { stripeOn } from "@/lib/billing/stripe";
 import { supabaseServer } from "@/lib/supabase/server";
 import { JoinView } from "./JoinView";
 
@@ -19,24 +20,31 @@ export const metadata: Metadata = {
 export default async function Join({
   searchParams,
 }: {
-  searchParams: Promise<{ locked?: string }>;
+  searchParams: Promise<{ locked?: string; paid?: string; canceled?: string }>;
 }) {
-  const lockedSlug = (await searchParams).locked;
+  const sp = await searchParams;
+  const lockedSlug = sp.locked;
   const [billing, claims, viewer] = await Promise.all([
     getBilling(),
     getClaims(),
     getRealViewer(),
   ]);
   let current = null;
+  let billingOpen = false;
   if (viewer.signedIn && viewer.id) {
     const { data } = await (
       await supabaseServer()
     )
       .from("subscriptions")
-      .select("tier, cycle, pages, addons, status")
+      .select("tier, cycle, pages, addons, status, stripe_customer")
       .eq("user_id", viewer.id)
       .maybeSingle();
-    current = data;
+    if (data) {
+      // Stripe's customer id stays on the server.
+      const { stripe_customer, ...plan } = data;
+      current = plan;
+      billingOpen = stripeOn() && plan.status === "active" && !!stripe_customer;
+    }
   }
   const lockedPage = SELLABLE.find((p) => p.slug === lockedSlug);
   return (
@@ -54,6 +62,8 @@ export default async function Join({
       signedIn={viewer.signedIn}
       hasProfile={Boolean(viewer.name)}
       current={current}
+      notice={sp.paid ? "paid" : sp.canceled ? "canceled" : null}
+      billingOpen={billingOpen}
       locked={
         lockedPage
           ? {
