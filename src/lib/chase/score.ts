@@ -21,6 +21,9 @@ export type Hour = {
   motionMph: number;
   motionTo: number;
   freezingFt: number;
+  /** 700 mb humidity (%) and vertical motion (m/s, positive is rising); older days lack them. */
+  rh700?: number;
+  w700?: number;
 };
 export type Spc = { cat: number; torn: number; hail: number; wind: number };
 
@@ -161,8 +164,85 @@ export const BANDS = [
   { min: 0, label: "Stay home", color: "#8f92a8" },
   { min: 30, label: "Long shot", color: "#facc15" },
   { min: 50, label: "Worth a look", color: "#fb923c" },
-  { min: 70, label: "Chase day", color: "#ef4444" },
+  { min: 70, label: "Worth going", color: "#ef4444" },
   { min: 85, label: "Big day", color: "#d946ef" },
 ];
 export const bandIndex = (score: number) =>
   BANDS.findLastIndex((b) => score >= b.min);
+
+/** NWS hail size names. */
+export function hailName(inches: number) {
+  const names: [number, string][] = [
+    [4, "softball"],
+    [3, "teacup"],
+    [2.75, "baseball"],
+    [2.5, "tennis ball"],
+    [2, "hen egg"],
+    [1.75, "golf ball"],
+    [1.5, "ping pong ball"],
+    [1.25, "half dollar"],
+    [1, "quarter"],
+    [0.75, "penny"],
+    [0.5, "marble"],
+  ];
+  return names.find(([s]) => inches >= s)?.[1] ?? "small";
+}
+
+/** What each storm mode and flavor looks like from the road. */
+export function modeBlurb(m: Mode) {
+  if (m.flavor === "Classic")
+    return "Classic supercell. The rain-free base and the wall cloud sit out in the open, which is the structure everybody drives for.";
+  if (m.flavor === "HP")
+    return "High-precipitation supercells: heavy rain and hail wrap around the circulation, so the business end is hard to see.";
+  if (m.flavor === "LP")
+    return "Low-precipitation supercells: sculpted, photogenic updrafts with little rain, and fewer tornadoes.";
+  if (m.mode.startsWith("Multicell"))
+    return "Clusters and lines rather than lone storms: hail and wind more than tornadoes, and harder to pick a storm.";
+  if (m.mode.startsWith("Pulse"))
+    return "Short-lived single storms that go up and rain out within an hour.";
+  return "Little organization: showers and the odd thunderstorm.";
+}
+
+export const BUST_STEPS = ["very low", "low", "real", "coin flip", "likely"];
+export const bustStep = (pct: number) =>
+  pct < 15 ? 0 : pct < 30 ? 1 : pct < 50 ? 2 : pct < 70 ? 3 : 4;
+
+export type DeskNote = {
+  desk: string;
+  tornado: string;
+  hail: string;
+  wind: string;
+  bust: string;
+};
+
+/** The numbers-only write-up, used when the forecast desk's AI notes aren't there. */
+export function plainNote(t: {
+  hour: Hour;
+  spc: Spc;
+  mode: Mode;
+  bust: Bust;
+  hoursToSunset: number;
+}): DeskNote {
+  const h = t.hour;
+  const lcl = lclFt(h.temp, h.dew);
+  const dir = "N NNE NE ENE E ESE SE SSE S SSW SW WSW W WNW NW NNW".split(" ")[
+    Math.round(h.motionTo / 22.5) % 16
+  ];
+  return {
+    desk: `Expected storm mode: ${t.mode.mode.toLowerCase()}, moving ${dir} at ${h.motionMph} mph. Peak heating brings ${h.cape.toLocaleString("en-US")} J/kg of instability under ${h.shear} kt of deep shear, with about ${Math.round(t.hoursToSunset * 10) / 10} hours of daylight left after the best hour.`,
+    tornado:
+      h.stp >= 1 || t.spc.torn >= 10
+        ? `STP near ${h.stp} with ${h.srh} m²/s² of helicity and cloud bases near ${Math.round(lcl / 100) * 100} ft support a tornado threat.`
+        : `Tornado potential is limited: ${h.srh} m²/s² of helicity and a ${t.spc.torn}% SPC tornado probability.`,
+    hail: t.mode.hailIn
+      ? `Hail to about ${t.mode.hailIn}" (${hailName(t.mode.hailIn)}) with ${h.cape.toLocaleString("en-US")} J/kg of CAPE and a freezing level near ${Math.round(h.freezingFt / 100) * 100} ft.`
+      : "Little hail risk with storms this weak.",
+    wind:
+      t.spc.wind >= 15
+        ? `A ${t.spc.wind}% SPC wind probability: damaging outflow gusts are possible.`
+        : `Severe wind risk is low (${t.spc.wind}% SPC wind probability).`,
+    bust: t.bust.reasons.length
+      ? t.bust.reasons.join(" ")
+      : "The ingredients line up; the main way this fails is storms not initiating where expected.",
+  };
+}
