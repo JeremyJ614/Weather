@@ -4,13 +4,23 @@ const CACHE = "sswx-shell-v1";
 const SHELL = ["/offline", "/icons/icon-192.png", "/brand/logo-primary.webp"];
 
 self.addEventListener("install", (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  e.waitUntil(
+    caches
+      .open(CACHE)
+      .then((c) => c.addAll(SHELL))
+      .then(() => self.skipWaiting()),
+  );
 });
 
 self.addEventListener("activate", (e) => {
   e.waitUntil(
-    caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+    caches
+      .keys()
+      .then((keys) =>
+        Promise.all(
+          keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)),
+        ),
+      )
       .then(() => self.clients.claim()),
   );
 });
@@ -23,13 +33,20 @@ self.addEventListener("fetch", (e) => {
     return;
   }
   const url = new URL(req.url);
-  if (url.origin === location.origin && url.pathname.startsWith("/_next/static/")) {
+  if (
+    url.origin === location.origin &&
+    url.pathname.startsWith("/_next/static/")
+  ) {
     e.respondWith(
-      caches.match(req).then((hit) => hit || fetch(req).then((res) => {
-        const copy = res.clone();
-        caches.open(CACHE).then((c) => c.put(req, copy));
-        return res;
-      })),
+      caches.match(req).then(
+        (hit) =>
+          hit ||
+          fetch(req).then((res) => {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put(req, copy));
+            return res;
+          }),
+      ),
     );
   }
 });
@@ -47,17 +64,21 @@ self.addEventListener("push", (e) => {
       icon: "/icons/icon-192.png",
       badge: "/icons/icon-192.png",
       data: { url: data.url || "/" },
+      ...(data.tag ? { tag: data.tag } : {}),
     }),
   );
 });
 
 self.addEventListener("notificationclick", (e) => {
   e.notification.close();
-  const url = new URL(e.notification.data?.url || "/", self.location.origin).href;
+  const url = new URL(e.notification.data?.url || "/", self.location.origin)
+    .href;
   e.waitUntil(
-    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
-      const open = list.find((c) => c.url === url);
-      return open ? open.focus() : self.clients.openWindow(url);
-    }),
+    self.clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((list) => {
+        const open = list.find((c) => c.url === url);
+        return open ? open.focus() : self.clients.openWindow(url);
+      }),
   );
 });

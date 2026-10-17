@@ -35,6 +35,7 @@ export const MODULES = [
   { id: "glossary", label: "Weather Glossary" },
   { id: "patterns", label: "Weather Patterns" },
   { id: "library", label: "Free Content Library" },
+  { id: "notify", label: "Notifications (alert delivery)" },
   { id: "maps", label: "Maps" },
   { id: "weather-news", label: "Weather News" },
   { id: "news", label: "SSWX News" },

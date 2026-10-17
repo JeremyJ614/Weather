@@ -58,6 +58,10 @@ export function NoticeForm({
         aria-label="Message"
         className="rounded-xl border border-line bg-bg px-3 py-2"
       />
+      <p className="text-xs text-muted">
+        Members who turned on SSWX News in Notifications also get it on their
+        phones within 10 minutes.
+      </p>
       {state && (
         <p role="status" className="text-sm text-accent">
           {state.error ?? state.ok}
