@@ -99,7 +99,7 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 - [ ] 61. Disaster Response directory, sign-up form and admin inbox
 
 ## Account
-- [ ] 62. My Profile
+- [x] 62. My Profile (identity and plan, points, streaks, guesses, trivia accuracy, poll votes, badges, leaderboard titles, saved places, referral code; edit name/nickname/city/phone)
 - [ ] 62b. Account settings: menus, offered themes, intro on/off
 - [ ] 62c. New-user intro guide covering every section, ending with menu choice; guest showcase guide (first visit, skippable, replay button in the second menu, replays after 7 days) — see `docs/07-PRICING.md`
 - [ ] 63. Notifications center with every toggle
