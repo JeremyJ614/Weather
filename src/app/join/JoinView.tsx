@@ -71,6 +71,7 @@ export function JoinView({
   signedIn,
   hasProfile,
   current,
+  locked,
 }: {
   billing: Billing;
   claims: Record<string, number>;
@@ -80,6 +81,8 @@ export function JoinView({
   signedIn: boolean;
   hasProfile: boolean;
   current: Current;
+  /** The page a plan lock sent this member here from. */
+  locked: { label: string; tier: string | null } | null;
 }) {
   const sellable = pages.map((p) => p.slug);
   const label = new Map(pages.map((p) => [p.slug, p]));
@@ -294,6 +297,20 @@ export function JoinView({
           <Sparkles aria-hidden /> See what you get
         </Link>
       </section>
+
+      {locked && (
+        <aside className={s.promo} role="status">
+          <Crown aria-hidden />
+          <span>
+            <b>{locked.label} isn&apos;t on your plan</b>
+            <small>
+              {locked.tier
+                ? `It comes with ${locked.tier} and up, or add it to any plan below.`
+                : "Add it to any plan below."}
+            </small>
+          </span>
+        </aside>
+      )}
 
       {promos.map((p) => (
         <aside key={p.id} className={s.promo}>

@@ -1,7 +1,13 @@
 import type { Metadata } from "next";
 import { getRealViewer } from "@/lib/auth/viewer";
-import { activePromos } from "@/lib/billing/plans";
-import { SELLABLE, getBilling, getClaims, today } from "@/lib/billing/server";
+import { activePromos, cheapestTier } from "@/lib/billing/plans";
+import {
+  SELLABLE,
+  SELLABLE_SLUGS,
+  getBilling,
+  getClaims,
+  today,
+} from "@/lib/billing/server";
 import { supabaseServer } from "@/lib/supabase/server";
 import { JoinView } from "./JoinView";
 
@@ -10,7 +16,12 @@ export const metadata: Metadata = {
   description: "Pick a plan, build your own, or start free.",
 };
 
-export default async function Join() {
+export default async function Join({
+  searchParams,
+}: {
+  searchParams: Promise<{ locked?: string }>;
+}) {
+  const lockedSlug = (await searchParams).locked;
   const [billing, claims, viewer] = await Promise.all([
     getBilling(),
     getClaims(),
@@ -27,6 +38,7 @@ export default async function Join() {
       .maybeSingle();
     current = data;
   }
+  const lockedPage = SELLABLE.find((p) => p.slug === lockedSlug);
   return (
     <JoinView
       billing={billing}
@@ -42,6 +54,16 @@ export default async function Join() {
       signedIn={viewer.signedIn}
       hasProfile={Boolean(viewer.name)}
       current={current}
+      locked={
+        lockedPage
+          ? {
+              label: lockedPage.label,
+              tier:
+                cheapestTier(billing, lockedPage.slug, SELLABLE_SLUGS)?.name ??
+                null,
+            }
+          : null
+      }
     />
   );
 }

@@ -456,3 +456,43 @@ export function couponOff(
 }
 
 export const money = (c: number) => `$${(c / 100).toFixed(2)}`;
+
+export type MemberPlan = {
+  tier: string;
+  status: string;
+  comped: boolean | null;
+  pages: string[];
+  addons: string[];
+} | null;
+
+/**
+ * Whether a member's plan opens a page (plan locks, admin → Pricing). Pages never sold are
+ * always open. Until a plan is paid (or comped) it counts as Free, so choosing a plan opens
+ * nothing by itself; a custom plan opens its own pages and add-ons open on top of a tier.
+ */
+export function planOpens(
+  b: Billing,
+  plan: MemberPlan,
+  slug: string,
+  sellable: string[],
+) {
+  if (!sellable.includes(slug)) return true;
+  const paid = Boolean(plan && (plan.status === "active" || plan.comped));
+  if (!paid || !plan) return tierPages(b, "free", sellable).has(slug);
+  if (plan.addons.includes(slug)) return true;
+  if (plan.tier === "custom")
+    return (
+      plan.pages.includes(slug) || tierPages(b, "free", sellable).has(slug)
+    );
+  const tier = b.tiers.some((t) => t.id === plan.tier)
+    ? (plan.tier as TierId)
+    : "free";
+  return tierPages(b, tier, sellable).has(slug);
+}
+
+/** The cheapest tier that opens a page, for the "this page is on…" note. */
+export function cheapestTier(b: Billing, slug: string, sellable: string[]) {
+  return [...b.tiers]
+    .sort((x, y) => x.month - y.month)
+    .find((t) => tierPages(b, t.id, sellable).has(slug));
+}

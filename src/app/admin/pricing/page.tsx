@@ -3,6 +3,7 @@ import { requireAdmin } from "@/lib/auth/admin-guard";
 import { SELLABLE, getBilling, getClaims } from "@/lib/billing/server";
 import { PricingEditor } from "./PricingEditor";
 import { Coupons } from "./Coupons";
+import { PlanLocks } from "./PlanLocks";
 
 export const metadata: Metadata = {
   title: "Pricing · Admin · StormSync Media",
@@ -10,7 +11,7 @@ export const metadata: Metadata = {
 
 export default async function Pricing() {
   const { supabase } = await requireAdmin("billing");
-  const [billing, claims, { data: coupons }, { data: plans }] =
+  const [billing, claims, { data: coupons }, { data: plans }, { data: locks }] =
     await Promise.all([
       getBilling(),
       getClaims(),
@@ -19,6 +20,11 @@ export default async function Pricing() {
         .select("*")
         .order("created_at", { ascending: false }),
       supabase.from("subscriptions").select("tier, status"),
+      supabase
+        .from("app_config")
+        .select("value")
+        .eq("key", "plan_locks")
+        .maybeSingle(),
     ]);
   const count = (f: (x: { tier: string; status: string }) => boolean) =>
     (plans ?? []).filter(f).length;
@@ -47,6 +53,10 @@ export default async function Pricing() {
           </div>
         ))}
       </div>
+      <PlanLocks
+        initial={Boolean((locks?.value as { on?: boolean } | null)?.on)}
+        payments={Boolean(process.env.STRIPE_SECRET_KEY)}
+      />
       <PricingEditor
         initial={billing}
         claims={claims}

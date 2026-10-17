@@ -96,3 +96,31 @@ export async function setCoupon(fd: FormData) {
   });
   revalidatePath("/admin/pricing");
 }
+
+/** The plan-locks switch. It only turns on once card payments work, so a lock can be bought. */
+export async function setPlanLocks(on: boolean): Promise<PriceState> {
+  const { supabase } = await requireAdmin("billing");
+  if (on && !process.env.STRIPE_SECRET_KEY)
+    return {
+      error:
+        "Connect card payments first (STRIPE_SECRET_KEY in Vercel), so members can buy what a lock asks for.",
+    };
+  const { data, error } = await supabase
+    .from("app_config")
+    .update({ value: { on }, updated_at: new Date().toISOString() })
+    .eq("key", "plan_locks")
+    .select("key");
+  if (error || !data?.length)
+    return { error: "The switch couldn't be saved. Try again." };
+  await supabase.rpc("log_admin", {
+    p_action: "set_plan_locks",
+    p_target: "pricing",
+    p_detail: { on },
+  });
+  revalidatePath("/admin/pricing");
+  return {
+    ok: on
+      ? "Plan locks are on. Members see the pages their plan opens."
+      : "Plan locks are off. Every page is open to every member.",
+  };
+}
