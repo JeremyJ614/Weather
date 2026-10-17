@@ -290,6 +290,9 @@ export function JoinView({
           Start free or pick a plan, then add any extra pages you want. Change
           it any time.
         </p>
+        <Link href="?showcase" scroll={false} className={s.see}>
+          <Sparkles aria-hidden /> See what you get
+        </Link>
       </section>
 
       {promos.map((p) => (

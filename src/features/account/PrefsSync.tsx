@@ -21,6 +21,7 @@ export function savePrefs(p: Prefs, signedIn: boolean) {
     if (p.menus) localStorage.setItem(KEYS.menus, JSON.stringify(p.menus));
     if (p.theme) localStorage.setItem(KEYS.theme, JSON.stringify(p.theme));
     if (p.intro) localStorage.setItem(KEYS.intro, p.intro);
+    if (p.toured) localStorage.setItem(KEYS.tour, "done");
   } catch {}
   // The menu host listens for storage events; same-tab writes don't fire one.
   if (p.menus) dispatchEvent(new StorageEvent("storage", { key: KEYS.menus }));
@@ -65,14 +66,24 @@ export function PrefsSync() {
         if (p.menus && !has(KEYS.menus)) fill.menus = p.menus;
         if (p.theme && !has(KEYS.theme)) fill.theme = p.theme;
         if (p.intro && !has(KEYS.intro)) fill.intro = p.intro;
+        if (p.toured) fill.toured = true;
         savePrefs(fill, false);
+        let toured = false;
+        try {
+          toured = localStorage.getItem(KEYS.tour) === "done";
+        } catch {}
+        if (toured && !p.toured) savePrefs({ toured }, true);
         if (p.places && !readPlaces().list.length) {
           writePlaces(p.places);
           last = JSON.stringify(p.places);
         } else if (!p.places && readPlaces().list.length)
           savePrefs({ places: readPlaces() }, true);
       })
-      .catch(() => {});
+      .catch(() => {})
+      // The member tour waits for this, so it never replays for someone who has seen it.
+      .finally(() => {
+        if (live) document.documentElement.dataset.prefs = "ready";
+      });
     const off = subscribe(() => {
       const now = JSON.stringify(readPlaces());
       if (now === last) return;

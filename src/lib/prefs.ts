@@ -38,6 +38,7 @@ export function cleanPrefs(raw: unknown): Prefs {
     out.theme = { palette: String(t.palette), font: String(t.font) };
   if (typeof r.intro === "string" && INTROS.includes(r.intro))
     out.intro = r.intro as IntroPref;
+  if (r.toured === true) out.toured = true;
   if (r.places && typeof r.places === "object") {
     const p = parsePlaces(JSON.stringify(r.places));
     if (p.list.length) out.places = p;

@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import Link from "next/link";
-import { ArrowLeft, CornerDownLeft } from "lucide-react";
+import { ArrowLeft, CornerDownLeft, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { sendEmailLink, signInWithGoogle } from "../login/actions";
 import s from "../welcome/Interactive.module.css";
@@ -24,7 +24,13 @@ export function SignupStart({ next }: { next: string }) {
         >
           <ArrowLeft className="size-4" aria-hidden /> Back
         </Link>
-        <span className={s.count}>SIGN UP</span>
+        <Link
+          href="?showcase"
+          scroll={false}
+          className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-line px-3 text-[12.5px] font-semibold text-accent"
+        >
+          <Sparkles className="size-4" aria-hidden /> See what you get
+        </Link>
       </div>
       <div className={s.stage}>
         <section className={`${s.step} ${s.on}`}>

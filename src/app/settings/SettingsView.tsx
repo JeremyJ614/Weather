@@ -2,7 +2,15 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Check, Clapperboard, Cloud, Menu, Palette, Play } from "lucide-react";
+import {
+  Check,
+  Clapperboard,
+  Cloud,
+  Compass,
+  Menu,
+  Palette,
+  Play,
+} from "lucide-react";
 import { MENU_NAMES, OFFERED, pickMenus } from "@/features/menus/catalog";
 import { savePrefs } from "@/features/account/PrefsSync";
 import { parsePref, type IntroPref } from "@/features/intro/schedule";
@@ -249,6 +257,22 @@ export function SettingsView({
         >
           <Play aria-hidden /> Play it now
         </button>
+      </section>
+
+      <section className={s.card} aria-labelledby="tour-h">
+        <header>
+          <Compass aria-hidden />
+          <h2 id="tour-h">Guided tour</h2>
+        </header>
+        <p className={s.muted}>
+          {signedIn
+            ? "Walk through every section again and how to use it."
+            : "See everything StormSync Weather does."}
+        </p>
+        <Link href={signedIn ? "/?tour" : "/?showcase"} className={s.play}>
+          <Compass aria-hidden />{" "}
+          {signedIn ? "Replay the tour" : "Play the showcase"}
+        </Link>
       </section>
     </div>
   );

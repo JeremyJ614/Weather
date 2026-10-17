@@ -7,10 +7,13 @@ export type Prefs = {
   theme?: { palette: string; font: string };
   intro?: IntroPref;
   places?: Places;
+  /** The member has seen the new-member tour. */
+  toured?: boolean;
 };
 
 export const KEYS = {
   menus: "sswx-menus",
   theme: "sswx-theme",
   intro: "sswx-intro",
+  tour: "sswx-tour",
 } as const;
