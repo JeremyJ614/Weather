@@ -17,6 +17,7 @@ import { SND_BANDS, SND_LINES } from "@/lib/soundings/style";
 import { CAM_KINDS } from "@/lib/cams/style";
 import { SKY_BANDS, SKY_APERTURE } from "@/lib/sky/score";
 import { SCALES } from "@/lib/models/params";
+import { PAT_COLORS } from "@/lib/patterns/style";
 import { ASTRO_LINES } from "@/lib/sky/style";
 import { AURORA_LINES, AURORA_RAMP, KP_SCALE } from "@/lib/aurora/style";
 import { LT_BANDS } from "@/lib/lightning/style";
@@ -401,6 +402,16 @@ export const GROUPS: Group[] = [
         def: c,
       })),
     ),
+  },
+  {
+    id: "patterns",
+    label: "Weather Patterns",
+    note: "Pattern index, the Day 4–7 probabilities and the report bars on Weather Patterns.",
+    entries: PAT_COLORS.map((x) => ({
+      key: `pat:${x.key}`,
+      label: x.label,
+      def: x.color,
+    })),
   },
 ];
 

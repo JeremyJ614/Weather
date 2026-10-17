@@ -91,7 +91,7 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 - [ ] 56. Free Content Library (port from Academy)
 
 ## Everything Else
-- [ ] 57. Weather Patterns (port)
+- [x] 57. Weather Patterns (port; Fix-It #6.7: AI recaps of the past week, month and year from SPC reports)
 - [ ] 58. Extras: engine pipeline (scheduled Python jobs writing map layers)
 - [ ] 59. Extras: first engines (Radar Blind Spot, ProbTor, ProbHail)
 - [ ] 60. Extras: next engines (chosen in the questionnaire)
