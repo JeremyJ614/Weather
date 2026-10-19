@@ -6,7 +6,7 @@
 
 **Fix-It List #7 (2026-10-19, branch reset to main after PR #9 merged)** — order of work:
 1. [x] Quick fixes: remove StormNet (#6); default menu closes on page pick (#4); Traffic Cameras in admin + account pages reachable (#10, #20); storage-limit audit (#5).
-2. [ ] Signup (#13): no email verification; self-hosted proof-of-work captcha first, then the signup form, then Plans; StormNet off the plans.
+2. [x] Signup (#13): no email verification; self-hosted proof-of-work captcha first, then the signup form, then Plans; StormNet off the plans.
 3. [ ] Tropical: map first, zoomed to US + ocean temps; Battle Royale zooms to the storm, clear subtabs (#7). Aurora view/oval lines cut off (#8). Weather Patterns: preloaded/auto-updated seasonal stats + all VIP stats, Past Month fix, friendly summaries (Ryan Hall style, our voice), labeled graphs (#9).
 4. [ ] Storm Chasing Outlook to VIP parity + redesign, carry this year's season log over (#3).
 5. [ ] Menus audit + 2 new secondary styles for few items ("Quick Menu", user-editable in Settings, chase pages pinned) (#11); intro guide rebuilt with live menu try-out (#12).
