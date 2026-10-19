@@ -161,3 +161,5 @@ Personal Warnings & Alerts, Affected Communities Outlook, FairWeather Tracking, 
 | 71 | Hazards & Droughts | Drought Monitor drew as bright, heavy-outlined blobs on the web map | Drawn on the national map with clean category fills under the state lines; Ohio gets its own zoomed tab |
 | 72 | Badges | The badge library (VIP admin imports) replaced the owner's chosen award-badge plates with round medallions | Every badge (profile, login, admin member, badge editor) is the gunmetal award plate again, with the badge's icon and rarity |
 | 73 | Award badge | Several plates on one page shared SVG filter/mask ids, and the stripe ignored reduced motion | Ids are per plate; the stripe holds still for reduced motion and low-tier devices |
+| 74 | Menus | Live Bento's zoomed section panel stayed on screen after a page was picked (the menu closed underneath it); seven other menus kept their open section the same way | The open section lives in `useMenuNav` with the open state, so closing a menu always folds it |
+| 75 | Climatology | A cached tornado record from before deaths were added crashed the page (`deaths.reduce`) | Missing deaths read as none |

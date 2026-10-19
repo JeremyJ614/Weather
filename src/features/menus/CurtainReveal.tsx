@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
 import { href } from "@/lib/nav/registry";
 import { Burger } from "./Burger";
 import s from "./CurtainReveal.module.css";
@@ -13,8 +12,7 @@ import { usePush } from "./usePush";
 
 /** Curtain Reveal: the page swings open like a door onto a big typographic menu. */
 export function CurtainReveal({ groups, placement, role }: MenuProps) {
-  const { open, setOpen, path } = useMenuNav(role);
-  const [exp, setExp] = useState<string | null>(null);
+  const { open, setOpen, path, sub: exp, setSub: setExp } = useMenuNav(role);
   const side = isLeft(placement.id) ? "left" : "right";
   usePush("curtain", open, side);
   return (

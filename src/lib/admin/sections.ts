@@ -24,6 +24,16 @@ export const ADMIN_GROUPS: { id: AdminGroup; label: string }[] = [
 
 export const ADMIN_SECTIONS: AdminSection[] = [
   {
+    id: "cams",
+    group: "content",
+    desc: "Live road and wildfire cameras: near you, inside warnings and on the map (owner-only until opened to members)",
+    label: "Traffic Cameras",
+    icon: "Cctv",
+    phase: "48",
+    href: "/traffic-cameras",
+    founderOnly: true,
+  },
+  {
     id: "revenue",
     group: "members",
     desc: "Monthly recurring revenue next to comped and unpaid plans, never mixed",

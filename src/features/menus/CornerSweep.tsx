@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
 import { NavIcon } from "@/components/NavIcon";
 import { Beam } from "@/components/ui/Beam";
 import { href } from "@/lib/nav/registry";
@@ -10,10 +9,13 @@ import type { MenuProps } from "./types";
 import { useMenuNav } from "./useMenuNav";
 
 export function CornerSweep({ groups, placement, role }: MenuProps) {
-  const { open, setOpen, path } = useMenuNav(role);
-  const [expanded, setExpanded] = useState<string | null>(null);
-  // Closing folds every group, so reopening never flashes old sub-pages ahead of the sweep.
-  if (!open && expanded) setExpanded(null);
+  const {
+    open,
+    setOpen,
+    path,
+    sub: expanded,
+    setSub: setExpanded,
+  } = useMenuNav(role);
   const side = placement.id.startsWith("top-left") ? "left" : "right";
   return (
     <div className={open ? s.on : undefined} data-menu-role={role}>

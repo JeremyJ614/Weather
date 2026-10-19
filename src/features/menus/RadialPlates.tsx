@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
 import { Menu } from "lucide-react";
 import { NavIcon } from "@/components/NavIcon";
 import { href } from "@/lib/nav/registry";
@@ -13,8 +12,7 @@ import { useMenuNav } from "./useMenuNav";
 
 /** Radial Plates: dark plates with bright outlines burst out around the button. */
 export function RadialPlates({ groups, placement, role }: MenuProps) {
-  const { open, setOpen, path } = useMenuNav(role);
-  const [sel, setSel] = useState<string | null>(null);
+  const { open, setOpen, path, sub: sel, setSub: setSel } = useMenuNav(role);
   const n = groups.length;
   const group = groups.find((g) => g.id === sel);
   const toggle = () => {
