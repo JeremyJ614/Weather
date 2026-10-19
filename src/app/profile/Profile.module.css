@@ -276,3 +276,30 @@
   background: var(--lit);
   color: var(--accent);
 }
+.links {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.links a,
+.links button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  font-size: 13.5px;
+  font-weight: 700;
+}
+.links a:hover,
+.links button:hover {
+  border-color: var(--lit-line);
+}
+.links svg {
+  width: 16px;
+  color: var(--accent);
+}

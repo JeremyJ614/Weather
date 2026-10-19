@@ -272,3 +272,11 @@ h1.display::after {
     transform: scaleX(0);
   }
 }
+
+/* Immersive replays (Tornado Archive, Chase Log) cover the app; the header steps aside. */
+html[data-immersive] #app-header {
+  display: none;
+}
+html[data-immersive] body {
+  overflow: hidden;
+}

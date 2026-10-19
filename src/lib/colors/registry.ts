@@ -24,7 +24,16 @@ import { LT_BANDS } from "@/lib/lightning/style";
 import { CLIMO_LIGHT, CLIMO_LINES, CLIMO_RAMP } from "@/lib/climo/style";
 import { COMPARE } from "@/lib/radar/products";
 import { BANDS as CHASE_BANDS, CHASE_ALT } from "@/lib/chase/score";
+import {
+  BLIND_BANDS,
+  FIELD_BANDS,
+  HAIL_BANDS,
+  PYRO_BINS,
+  ROT_BANDS,
+  TOR_BINS,
+} from "@/lib/engines/colors";
 import { PROB as WINTER_PROB } from "@/lib/winter/style";
+import { DEFAULTS as REPLAY, RADAR_STOPS } from "@/features/replay/palette";
 import { CONTAIN, FIRE_RISK } from "@/lib/fire/style";
 import { HAZ_KINDS, USDM } from "@/lib/hazards/style";
 import { ROSTER } from "@/lib/tropical/atcf";
@@ -281,6 +290,149 @@ export const GROUPS: Group[] = [
       })),
       { key: "chase:alt", label: "Second target", def: CHASE_ALT },
     ],
+  },
+  {
+    id: "engine-tor",
+    label: "ProbTor",
+    note: "Extras → Weather Engines: tornado chance cones by probability.",
+    entries: TOR_BINS.map((b, i) => ({
+      key: `engine:tor:${i}`,
+      label: b.label,
+      def: b.color,
+    })),
+  },
+  {
+    id: "engine-hail",
+    label: "ProbHail",
+    note: "Extras → Weather Engines: 30-minute hail swaths by size.",
+    entries: HAIL_BANDS.map((b, i) => ({
+      key: `engine:hail:${i}`,
+      label: b.label,
+      def: b.color,
+    })),
+  },
+  {
+    id: "engine-blind",
+    label: "Radar Blind Spot",
+    note: "Extras → Weather Engines: height of the lowest radar beam.",
+    entries: BLIND_BANDS.map((b, i) => ({
+      key: `engine:blind:${i}`,
+      label: b.label,
+      def: b.color,
+    })),
+  },
+  ...(
+    [
+      ["llj", "Nocturnal LLJ Ramp-Up"],
+      ["snsq", "Snow Squall Parameter"],
+      ["nst", "Landspout & Waterspout (NST)"],
+      ["pyro", "Hot-Dry-Windy Index (PyroCb)"],
+      ["tctor", "Landfalling Hurricane Tornado Risk"],
+    ] as const
+  ).map(([id, label]) => ({
+    id: `engine-${id}`,
+    label,
+    note: "Extras → Weather Engines map bands.",
+    entries: FIELD_BANDS[id].labels.map((l, i) => ({
+      key: `engine:${id}:${i}`,
+      label: l,
+      def: FIELD_BANDS[id].colors[i],
+    })),
+  })),
+  {
+    id: "engine-rot",
+    label: "Rotation Track Persistence",
+    note: "Extras → Weather Engines: the last hour's rotation tracks.",
+    entries: ROT_BANDS.map((b, i) => ({
+      key: `engine:rot:${i}`,
+      label: b.label,
+      def: b.color,
+    })),
+  },
+  {
+    id: "engine-pyrocb",
+    label: "PyroCb chance per fire",
+    note: "Extras → Weather Engines: each large fire's dot.",
+    entries: PYRO_BINS.map((b, i) => ({
+      key: `engine:pyrocb:${i}`,
+      label: b.label,
+      def: b.color,
+    })),
+  },
+  {
+    id: "replay",
+    label: "Tornado Archive & Chase Log",
+    note: "Replay map: warnings, hail, your track and the proximity ring (paths use the EF colors).",
+    entries: [
+      {
+        key: "replay:warn:tornado",
+        label: "Tornado warning",
+        def: REPLAY.warn.tornado,
+      },
+      {
+        key: "replay:warn:severe",
+        label: "Severe warning",
+        def: REPLAY.warn.severe,
+      },
+      {
+        key: "replay:warn:emergency",
+        label: "Tornado emergency",
+        def: REPLAY.warn.emergency,
+      },
+      { key: "replay:hail:small", label: 'Hail ¾"', def: REPLAY.hail.small },
+      { key: "replay:hail:mid", label: 'Hail 2"', def: REPLAY.hail.mid },
+      { key: "replay:hail:big", label: 'Hail 4"+', def: REPLAY.hail.big },
+      {
+        key: "replay:prox:safe",
+        label: "Proximity: far",
+        def: REPLAY.prox.safe,
+      },
+      {
+        key: "replay:prox:near",
+        label: "Proximity: near",
+        def: REPLAY.prox.near,
+      },
+      {
+        key: "replay:prox:close",
+        label: "Proximity: close",
+        def: REPLAY.prox.close,
+      },
+      {
+        key: "replay:prox:imminent",
+        label: "Proximity: imminent",
+        def: REPLAY.prox.imminent,
+      },
+      {
+        key: "replay:track:done",
+        label: "Track driven",
+        def: REPLAY.track.done,
+      },
+      {
+        key: "replay:track:rest",
+        label: "Track ahead",
+        def: REPLAY.track.rest,
+      },
+      {
+        key: "replay:track:trail",
+        label: "Track trail",
+        def: REPLAY.track.trail,
+      },
+      {
+        key: "replay:track:chaser",
+        label: "Chaser marker",
+        def: REPLAY.track.chaser,
+      },
+    ],
+  },
+  {
+    id: "replay-radar",
+    label: "Replay radar",
+    note: "Tornado Archive & Chase Log radar reflectivity.",
+    entries: RADAR_STOPS.map(([dbz, c]) => ({
+      key: `replay:radar:${dbz}`,
+      label: `${dbz} dBZ`,
+      def: c,
+    })),
   },
   {
     id: "runs",

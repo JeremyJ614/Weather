@@ -108,6 +108,7 @@ export const DEFAULT_TIERS: Tier[] = [
       "star-gazing",
       "astronomy",
       "climatology",
+      "extras",
     ],
   },
   {

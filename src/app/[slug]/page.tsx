@@ -1,35 +1,12 @@
 import { notFound } from "next/navigation";
 import { PhaseNotice } from "@/components/PhaseNotice";
 import { ALL_PAGES } from "@/lib/nav/registry";
+import { pendingPages } from "@/lib/nav/pending";
 
 export const dynamicParams = false;
 
-// Pages that have their own route now.
-const BUILT = new Set([
-  "login",
-  "admin",
-  "dashboard",
-  "daily-brief",
-  "forecast-discussion",
-  "aqi-pollen",
-  "mosquito-index",
-  "daylight-tracker",
-  "wx-games",
-  "leaderboard",
-  "weekly-polls",
-  "sswxcon",
-  "warnings-reports",
-  "spc-probability",
-  "mesoscale-discussions",
-  "atmospheric-ingredients",
-  "join",
-  "storm-timing-index",
-]);
-
 export function generateStaticParams() {
-  return ALL_PAGES.filter((p) => p.slug && !BUILT.has(p.slug)).map((p) => ({
-    slug: p.slug,
-  }));
+  return pendingPages().map((p) => ({ slug: p.slug }));
 }
 
 export async function generateMetadata({

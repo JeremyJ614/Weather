@@ -134,3 +134,18 @@ export async function portalUrl(customer: string, origin: string) {
   });
   return s.url;
 }
+
+/** Cancels a subscription at once (a member deleting their account). */
+export async function cancelSubscription(id: string) {
+  const r = await fetch(
+    `https://api.stripe.com/v1/subscriptions/${encodeURIComponent(id)}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${process.env.STRIPE_SECRET_KEY}` },
+      cache: "no-store",
+      signal: AbortSignal.timeout(15000),
+    },
+  );
+  // Already canceled is fine: the point is that nothing bills again.
+  if (!r.ok && r.status !== 404) throw new Error(`Stripe ${r.status}`);
+}
