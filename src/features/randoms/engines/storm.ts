@@ -70,67 +70,94 @@ float ease(float t) { return t < 0.5 ? 4.0 * t * t * t : 1.0 - pow(-2.0 * t + 2.
 mat3 rotY(float a) { float s = sin(a), c = cos(a); return mat3(c, 0.0, s, 0.0, 1.0, 0.0, -s, 0.0, c); }
 vec3 ring(float rad, float ang, float y) { return vec3(rad * cos(ang), y, rad * sin(ang)); }
 
+// Light comes from the upper left of the scene, so a cloud has a sunlit side and a shadowed one.
+float shade(float ang) { return 0.55 + 0.45 * max(cos(ang - 2.4), 0.0); }
+
 vec3 supercell(float id, vec3 r) {
   float t = uTime;
-  if (r.x < 0.30) {
-    // updraft: rising, twisting tower, fading in at the base and out at the top
-    float h = fract(r.y + t * 0.04);
-    float y = -10.0 + h * 42.0;
-    float rad = (3.0 + 3.5 * h) * sqrt(r.z) + 0.7 * sin(y * 0.35 + t);
-    oCol = mix(vec3(0.62, 0.7, 0.85), vec3(0.95, 0.97, 1.0), h);
-    oA = 0.55 * smoothstep(0.0, 0.08, h) * (1.0 - smoothstep(0.85, 1.0, h));
-    return ring(rad, r.x / 0.3 * TAU * 7.0 + y * 0.09 + t * 0.6, y);
+  if (r.x < 0.34) {
+    // the mesocyclone: a broad, rotating updraft, banded with striations (the "mothership"
+    // look), barrel-shaped, leaning downstream as it rises
+    float k = r.x / 0.34;
+    float h = r.y;
+    float y = -10.0 + h * 38.0;
+    float ang = k * TAU * 11.0 + t * 0.32 - h * 1.4;
+    float ph = fract(h * 7.0 + 0.12 * sin(ang));
+    float body = mix(14.0, 9.5, pow(h, 1.3)) + 2.0 * sin(h * PI);
+    float ledge = 2.8 * pow(1.0 - ph, 3.0);
+    float rad = (body + ledge) * mix(0.55, 1.0, pow(r.z, 0.3));
+    oCol = mix(vec3(0.16, 0.18, 0.26), vec3(0.46, 0.49, 0.58), h) * shade(ang) * (0.55 + 0.9 * pow(1.0 - ph, 2.0));
+    oA = 0.36;
+    return ring(rad, ang, y) + vec3(h * 4.0, 0.0, 0.0);
   }
-  if (r.x < 0.55) {
-    // anvil spreading downstream, overshooting top over the updraft
-    float k = (r.x - 0.30) / 0.25;
-    float u = r.y;
-    float x = mix(-12.0, 48.0, pow(u, 0.8));
-    float halfW = 9.0 + 15.0 * u;
+  if (r.x < 0.38) {
+    // the overshooting top: the updraft punching through the anvil
+    float rr = sqrt(r.z);
+    float ang = r.y * TAU + t * 0.2;
+    oCol = vec3(0.5, 0.52, 0.6) * shade(ang);
+    oA = 0.24;
+    return ring(rr * 8.5, ang, 28.5 + sqrt(max(1.0 - rr * rr, 0.0)) * 6.5) + vec3(4.0, 0.0, 0.0);
+  }
+  if (r.x < 0.58) {
+    // the anvil: a wedge, thick over the updraft and thinning as it is blown far downstream
+    float k = (r.x - 0.38) / 0.2;
+    float u = pow(r.y, 0.85);
+    float x = mix(-12.0, 52.0, u);
+    float halfW = 12.0 + 15.0 * u;
     float z = (r.z * 2.0 - 1.0) * halfW;
-    float thick = 4.5 * (1.0 - u) + 0.8;
-    float y = 30.0 + (k - 0.5) * thick + 1.6 * sin(x * 0.09 + z * 0.07 + t * 0.4);
-    float d2 = x * x + z * z;
-    y += 7.0 * exp(-d2 / 36.0);
-    oCol = mix(vec3(1.0, 1.0, 1.0), vec3(0.62, 0.74, 0.95), u);
-    oA = 0.42 * (1.0 - 0.6 * u);
+    float y = 28.5 + (k - 0.5) * mix(6.5, 2.0, u) + 1.2 * u + 0.5 * sin(x * 0.12 + z * 0.1 + t * 0.3);
+    oCol = mix(vec3(0.46, 0.5, 0.58), vec3(0.26, 0.29, 0.37), u) * (0.7 + 0.4 * k);
+    oA = 0.2 * (1.0 - smoothstep(0.8, 1.0, abs(z) / halfW)) * (1.0 - smoothstep(0.85, 1.0, u));
     return vec3(x, y, z);
   }
-  if (r.x < 0.68) {
-    // rain-free base with striations, wall cloud lowering under the updraft
-    float rad = 2.0 + sqrt(r.z) * 15.0;
-    float y = -10.0 - 4.5 * exp(-rad * rad / 16.0) + 0.6 * sin(rad * 1.6 - t * 0.5) + (fract(id * 37.0) - 0.5) * 0.8;
-    oCol = mix(vec3(0.34, 0.4, 0.56), vec3(0.55, 0.62, 0.78), smoothstep(4.0, 15.0, rad));
-    oA = 0.5;
-    return ring(rad, r.y * TAU + t * 0.25, y);
+  if (r.x < 0.64) {
+    // mammatus pouches hanging under the downstream anvil
+    float x = 14.0 + r.y * 34.0;
+    float z = (r.z * 2.0 - 1.0) * 17.0;
+    float cell = max(sin(x * 0.75) * sin(z * 0.75), 0.0);
+    oCol = vec3(0.42, 0.34, 0.36);
+    oA = 0.26 * cell;
+    return vec3(x, 26.0 - 2.4 * cell - fract(id * 13.0) * 0.5, z);
   }
-  if (r.x < 0.85) {
-    // forward-flank rain and hail core falling out
+  if (r.x < 0.71) {
+    // the flat, rain-free base under the updraft
+    float rad = 6.0 + sqrt(r.z) * 10.0;
+    float ang = r.y * TAU + t * 0.32;
+    oCol = vec3(0.16, 0.18, 0.25) * shade(ang);
+    oA = 0.3;
+    return ring(rad, ang, -10.0 + (fract(id * 37.0) - 0.5) * 0.6);
+  }
+  if (r.x < 0.78) {
+    // the wall cloud: a rotating block lowering under the updraft's rear side
+    float rr = sqrt(r.z);
+    float ang = r.y * TAU + t * 0.9;
+    float y = -10.0 - 4.5 * (1.0 - rr * rr) + (fract(id * 23.0) - 0.5) * 0.8;
+    oCol = vec3(0.1, 0.12, 0.16) * shade(ang);
+    oA = 0.26;
+    return ring(rr * 6.5, ang, y) + vec3(-3.0, 0.0, 1.5);
+  }
+  if (r.x < 0.93) {
+    // the forward-flank rain and hail core: soft curtains falling out downstream of the
+    // updraft, heaviest in the middle, with rain wrapping round behind the wall cloud
     float fall = fract(r.y + t * 0.35);
-    float y = -11.0 - fall * 11.0;
-    float x = 7.0 + r.z * 15.0 + sin(y * 0.3 + t) * 0.8;
-    float z = -7.0 + fract(id * 91.7) * 17.0;
-    oCol = mix(vec3(0.3, 0.55, 0.95), vec3(0.75, 0.88, 1.0), step(0.93, fract(id * 13.3)));
-    oA = 0.45 * (1.0 - smoothstep(0.8, 1.0, fall));
+    float y = -10.5 - fall * 11.5;
+    float wrap = step(0.8, fract(id * 41.0));
+    float rr = sqrt(r.z) * mix(10.0, 6.0, wrap);
+    float a = fract(id * 91.7) * TAU;
+    vec2 at = mix(vec2(16.0, -1.0), vec2(-6.0, 9.0), wrap);
+    float x = at.x + cos(a) * rr * 1.2 + sin(y * 0.3 + t) * 0.8;
+    float z = at.y + sin(a) * rr;
+    oCol = mix(vec3(0.14, 0.2, 0.34), vec3(0.5, 0.55, 0.66), step(0.96, fract(id * 13.3)));
+    oA = 0.24 * (1.0 - smoothstep(0.8, 1.0, fall)) * (1.0 - smoothstep(0.5, 1.0, r.z));
     return vec3(x, y, z);
   }
-  if (r.x < 0.95) {
-    // inflow band curling into the base, sunlit
-    float s = r.y;
-    float rad = mix(40.0, 6.0, s);
-    float ang = -PI * 0.5 + s * PI * 0.8 + t * 0.2;
-    float y = -9.0 + (r.z - 0.5) * 1.6 + s * 0.8;
-    oCol = vec3(1.0, 0.8, 0.6);
-    oA = 0.16 * smoothstep(0.0, 0.25, s) * (1.0 - smoothstep(0.85, 1.0, s));
-    return ring(rad, ang, y);
-  }
-  // mammatus pouches under the downstream anvil
-  float x = 10.0 + r.y * 34.0;
-  float z = (r.z * 2.0 - 1.0) * 16.0;
-  float cell = max(sin(x * 0.7) * sin(z * 0.7), 0.0);
-  oCol = vec3(1.0, 0.62, 0.55);
-  oA = 0.5 * cell;
-  return vec3(x, 27.6 - 2.0 * cell - fract(id * 13.0) * 0.5, z);
+  // the inflow band (beaver tail) curling in to feed the base
+  float s = r.y;
+  float rad = mix(42.0, 9.0, s);
+  float ang = -PI * 0.45 + s * PI * 0.8 + t * 0.2;
+  oCol = vec3(0.5, 0.42, 0.36);
+  oA = 0.07 * smoothstep(0.0, 0.25, s) * (1.0 - smoothstep(0.85, 1.0, s));
+  return ring(rad + (fract(id * 29.0) - 0.5) * 6.0, ang, -9.5 + (r.z - 0.5) * 3.0 + s * 0.6);
 }
 
 vec3 tornado(float id, vec3 r) {
@@ -142,7 +169,7 @@ vec3 tornado(float id, vec3 r) {
     float rad = (1.0 + 7.5 * pow(h, 2.2)) * (0.8 + 0.2 * sqrt(r.z));
     float ang = r.z * TAU * 13.0 + t * (9.0 - 5.0 * h);
     float sway = sin(h * 3.0 + t * 0.7) * 2.2 * (1.0 - h);
-    oCol = mix(vec3(0.62, 0.62, 0.66), vec3(0.88, 0.9, 0.95), h);
+    oCol = mix(vec3(0.42, 0.42, 0.46), vec3(0.66, 0.68, 0.74), h);
     oA = 0.55;
     return ring(rad, ang, y) + vec3(sway, 0.0, 0.0);
   }
@@ -159,7 +186,7 @@ vec3 tornado(float id, vec3 r) {
     // wall cloud and the rotating storm base above it
     float rad = 6.0 + sqrt(r.z) * 24.0;
     float y = 14.0 + 3.0 * smoothstep(6.0, 30.0, rad) + (fract(id * 51.0) - 0.5) * 2.0 + 0.8 * sin(rad * 0.9 - t);
-    oCol = mix(vec3(0.38, 0.44, 0.6), vec3(0.58, 0.65, 0.8), smoothstep(6.0, 30.0, rad));
+    oCol = mix(vec3(0.2, 0.23, 0.32), vec3(0.4, 0.45, 0.58), smoothstep(6.0, 30.0, rad));
     oA = 0.45;
     return ring(rad, r.y * TAU + t * 0.9, y);
   }
@@ -178,8 +205,8 @@ vec3 hurricane(float id, vec3 r) {
     float h = r.z;
     float ang = r.y * TAU + t * 1.6;
     float rad = 7.0 + h * 5.5 + 0.6 * sin(ang * 6.0 + t * 2.0);
-    oCol = vec3(1.0);
-    oA = 0.6;
+    oCol = vec3(0.78, 0.8, 0.88) * shade(ang);
+    oA = 0.4;
     return ring(rad, ang, -5.0 + h * 14.0);
   }
   if (r.x < 0.72) {
@@ -190,21 +217,21 @@ vec3 hurricane(float id, vec3 r) {
     float ang = u + b * TAU / 4.0 + t * (6.0 / sqrt(rad));
     rad += (r.z - 0.5) * (1.0 + rad * 0.12);
     float y = -4.0 + 4.0 * exp(-rad * 0.05) + (fract(id * 17.0) - 0.5) * 1.5;
-    oCol = mix(vec3(1.0), vec3(0.35, 0.75, 1.0), smoothstep(10.0, 38.0, rad));
-    oA = 0.5 * (1.0 - smoothstep(30.0, 42.0, rad)) + 0.08;
+    oCol = mix(vec3(0.72, 0.75, 0.84), vec3(0.24, 0.5, 0.75), smoothstep(10.0, 38.0, rad));
+    oA = 0.3 * (1.0 - smoothstep(30.0, 42.0, rad)) + 0.05;
     return ring(rad, ang, y);
   }
   if (r.x < 0.92) {
     // cirrus outflow fanning out clockwise on top
     float rad = 8.0 + pow(r.z, 0.7) * 42.0;
     float ang = r.y * TAU - t * 0.12 + sin(rad * 0.15) * 0.3;
-    oCol = vec3(0.72, 0.76, 1.0);
-    oA = 0.12;
+    oCol = vec3(0.5, 0.54, 0.72);
+    oA = 0.1;
     return ring(rad, ang, 10.0 + 1.5 * sin(rad * 0.3 + ang * 3.0) - rad * 0.04);
   }
   // low clouds on the floor of the eye
-  oCol = vec3(0.55, 0.65, 0.85);
-  oA = 0.35;
+  oCol = vec3(0.4, 0.48, 0.64);
+  oA = 0.14;
   return ring(sqrt(r.z) * 6.0, r.y * TAU + t * 0.6, -6.0 + (fract(id * 7.0) - 0.5) * 0.6);
 }
 
@@ -233,7 +260,10 @@ void main() {
   gl_Position = projectionMatrix * mv;
   vDepth = -mv.z;
   vAlpha *= uGain;
-  gl_PointSize = uSize * (3.0 + aRandom.x * 5.0) * (65.0 / max(vDepth, 0.1));
+  // A point right in front of the camera would cover the screen, and thousands of them
+  // added together blow out to white: they fade as they come near and stop growing.
+  vAlpha *= smoothstep(4.0, 22.0, vDepth);
+  gl_PointSize = min(uSize * (3.0 + aRandom.x * 5.0) * (65.0 / max(vDepth, 0.1)), 40.0);
 }
 `;
 
@@ -246,7 +276,7 @@ void main() {
   if (d > 0.5) discard;
   float core = exp(-d * 14.0);
   float halo = exp(-d * 4.0);
-  vec3 col = mix(vColor * 1.2, vec3(1.0), core * 0.45);
+  vec3 col = mix(vColor, vColor * 1.6 + 0.08, core * 0.45);
   gl_FragColor = vec4(col, vAlpha * (halo * 0.5 + core) * smoothstep(260.0, 15.0, vDepth));
 }
 `;
@@ -271,7 +301,7 @@ export async function mount(
   renderer.setPixelRatio(dprFor(tier));
   renderer.setClearColor(0x02030a);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.1;
+  renderer.toneMappingExposure = 0.85;
   el.appendChild(renderer.domElement);
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
@@ -283,7 +313,7 @@ export async function mount(
   controls.autoRotateSpeed = 0.5;
   const composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
-  const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 1.3, 0.6, 0.25);
+  const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.85, 0.55, 0.42);
   if (tier !== "low") composer.addPass(bloom);
 
   const count = tier === "high" ? 135000 : tier === "mid" ? 70000 : 32000;
@@ -312,7 +342,7 @@ export async function mount(
     uFlashAt: { value: new THREE.Vector3() },
     // Fewer particles on slower phones draw a little larger, and brighter without bloom.
     uSize: { value: Math.min(1.8, Math.sqrt(135000 / count)) },
-    uGain: { value: tier === "low" ? 1.5 : 1 },
+    uGain: { value: 1 },
   };
   scene.add(
     new THREE.Points(
@@ -327,19 +357,23 @@ export async function mount(
       }),
     ),
   );
-  const ground = new THREE.GridHelper(140, 28, 0x3a4a70, 0x1a2238);
+  const ground = new THREE.GridHelper(140, 28, 0x232c44, 0x111626);
   ground.position.y = -22.2;
   const gm = ground.material as THREE.Material;
   gm.transparent = true;
   gm.opacity = 0.35;
   scene.add(ground);
 
+  // Fewer particles on slower phones draw brighter without bloom.
+  const gain = tier === "low" ? 1.5 : 1;
+  let fit = 100;
   const unwatch = watchSize(el, (w, h) => {
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
     // Fit the storm (about 34 units either side, 36 up and down) whichever way is tighter.
     const tan = Math.tan((camera.fov * Math.PI) / 360);
     const z = Math.max(36 / tan, 34 / (tan * camera.aspect)) * 1.15;
+    fit = z * 1.06;
     camera.position.set(0, z * 0.34, z);
     controls.target.set(0, 2, 0);
     renderer.setSize(w, h);
@@ -381,6 +415,10 @@ export async function mount(
     uniforms.uFrom.value = from;
     uniforms.uTo.value = to;
     controls.update();
+    // Zoomed in, every line of sight runs through the storm's dense heart and the glow adds
+    // up to white; dimming with distance keeps the brightness of the full view.
+    const near = camera.position.distanceTo(controls.target) / fit;
+    uniforms.uGain.value = gain * Math.min(1, Math.max(0.15, near ** 1.4));
     composer.render();
   });
   return {

@@ -10,7 +10,7 @@ import radars from "@/lib/engines/radars.json";
 export async function GET(req: Request) {
   const e = new URL(req.url).searchParams.get("e");
   if (e === "rot") {
-    const r = await rotationTracks().catch(() => null);
+    const r = await rotationTracks(1440).catch(() => null);
     return Response.json({
       dots: (r?.cells ?? []).map((c) => ({
         lat: c.lat,
