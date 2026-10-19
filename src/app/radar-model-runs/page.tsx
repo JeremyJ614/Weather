@@ -21,7 +21,7 @@ export default async function RadarModelRuns() {
         icon={<Radar aria-hidden />}
         eyebrow={["NEXRAD · MRMS · GOES", "NOAA models"]}
         title="Radar & Model Runs"
-        subtitle="Live radar with a 50-minute loop, MRMS and satellite, the latest GFS and NAM runs, and every model's forecast for your spot."
+        subtitle="Looping radar, MRMS and satellite, HRRR, GFS and ensemble maps rendered from NOAA's data, a 15-minute nowcast, and every model's forecast for your spot."
       />
       {disabled.includes("radar") ? (
         <ModuleOff label="Radar & Model Runs" />

@@ -3,6 +3,8 @@ import "./globals.css";
 import { DeviceSetup } from "@/components/DeviceSetup";
 import { LaunchIntro } from "@/features/intro/LaunchIntro";
 import { GuestGate } from "@/features/account/GuestGate";
+import { PrefsSync } from "@/features/account/PrefsSync";
+import { GuideHost } from "@/features/guide/GuideHost";
 import { Notices } from "@/features/notify/Notices";
 import { Suspense } from "react";
 import { MenuHost } from "@/features/menus/MenuHost";
@@ -68,8 +70,10 @@ export default async function RootLayout({
         <ViewAsBar />
         <Suspense>
           <GuestGate />
+          <GuideHost menus={defaults.menus} />
         </Suspense>
         <Notices />
+        <PrefsSync />
         <MenuHost
           defaults={defaults.menus}
           main={applyLayout(MAIN_NAV, SECOND_NAV, defaults.layout, "main")}

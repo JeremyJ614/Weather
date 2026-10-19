@@ -4,7 +4,7 @@ import { useActionState, useState, useTransition } from "react";
 import { Minus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { NavIcon } from "@/components/NavIcon";
-import { BadgeIcon } from "@/components/BadgeIcon";
+import { BadgePlate } from "@/components/BadgeIcon";
 import type { Badge } from "@/lib/badges";
 import type { Colors } from "@/lib/colors/pick";
 import {
@@ -209,7 +209,7 @@ export function Access({
             No badges yet. Make some in Admin → Badges.
           </p>
         ) : (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(5.5rem,1fr))] gap-2">
+          <div className="flex flex-wrap gap-2">
             {badges.map((b) => {
               const on = have.has(b.id);
               return (
@@ -229,10 +229,9 @@ export function Access({
                       () => setHave(was),
                     );
                   }}
-                  className={`grid justify-items-center gap-1 rounded-xl p-2 text-center text-[11px] ${on ? "" : "opacity-40 grayscale"}`}
+                  className={`rounded-xl ${on ? "" : "opacity-40 grayscale"}`}
                 >
-                  <BadgeIcon badge={b} colors={colors} size={36} />
-                  {b.name}
+                  <BadgePlate badge={b} colors={colors} />
                 </button>
               );
             })}

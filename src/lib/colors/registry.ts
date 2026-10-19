@@ -16,6 +16,8 @@ import { GAUGE_LEVELS } from "@/lib/rivers/style";
 import { SND_BANDS, SND_LINES } from "@/lib/soundings/style";
 import { CAM_KINDS } from "@/lib/cams/style";
 import { SKY_BANDS, SKY_APERTURE } from "@/lib/sky/score";
+import { SCALES } from "@/lib/models/params";
+import { PAT_COLORS } from "@/lib/patterns/style";
 import { ASTRO_LINES } from "@/lib/sky/style";
 import { AURORA_LINES, AURORA_RAMP, KP_SCALE } from "@/lib/aurora/style";
 import { LT_BANDS } from "@/lib/lightning/style";
@@ -387,6 +389,28 @@ export const GROUPS: Group[] = [
       key: `badge:${k}`,
       label: `${k[0].toUpperCase()}${k.slice(1)}`,
       def: v,
+    })),
+  },
+  {
+    id: "models",
+    label: "Model maps",
+    note: "Color scales on the HRRR, GFS and HREF maps in Radar & Model Runs. Each scale's stops spread across that field's contour bands.",
+    entries: Object.entries(SCALES).flatMap(([scale, stops]) =>
+      stops.map((c, i) => ({
+        key: `model:${scale}:${i}`,
+        label: `${scale} scale, stop ${i + 1}`,
+        def: c,
+      })),
+    ),
+  },
+  {
+    id: "patterns",
+    label: "Weather Patterns",
+    note: "Pattern index, the Day 4–7 probabilities and the report bars on Weather Patterns.",
+    entries: PAT_COLORS.map((x) => ({
+      key: `pat:${x.key}`,
+      label: x.label,
+      def: x.color,
     })),
   },
 ];

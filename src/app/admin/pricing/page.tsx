@@ -3,6 +3,7 @@ import { requireAdmin } from "@/lib/auth/admin-guard";
 import { SELLABLE, getBilling, getClaims } from "@/lib/billing/server";
 import { PricingEditor } from "./PricingEditor";
 import { Coupons } from "./Coupons";
+import { PlanLocks } from "./PlanLocks";
 
 export const metadata: Metadata = {
   title: "Pricing · Admin · StormSync Media",
@@ -10,7 +11,7 @@ export const metadata: Metadata = {
 
 export default async function Pricing() {
   const { supabase } = await requireAdmin("billing");
-  const [billing, claims, { data: coupons }, { data: plans }] =
+  const [billing, claims, { data: coupons }, { data: plans }, { data: locks }] =
     await Promise.all([
       getBilling(),
       getClaims(),
@@ -19,6 +20,11 @@ export default async function Pricing() {
         .select("*")
         .order("created_at", { ascending: false }),
       supabase.from("subscriptions").select("tier, status"),
+      supabase
+        .from("app_config")
+        .select("value")
+        .eq("key", "plan_locks")
+        .maybeSingle(),
     ]);
   const count = (f: (x: { tier: string; status: string }) => boolean) =>
     (plans ?? []).filter(f).length;
@@ -28,14 +34,17 @@ export default async function Pricing() {
         <h1 className="display text-3xl text-accent">Pricing &amp; plans</h1>
         <p className="mt-1 text-sm text-muted">
           Prices, the pages each plan opens, add-ons, promotions and codes.
-          Changes show on the signup page right away. Card payments aren&apos;t
-          connected yet, so paid choices are saved without charging anyone.
+          Changes show on the signup page right away.{" "}
+          {process.env.STRIPE_SECRET_KEY
+            ? "Card payments are on: paid plans check out with Stripe."
+            : "Card payments aren't connected yet, so paid choices are saved without charging anyone. Add STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET in Vercel to turn them on."}
         </p>
       </div>
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {[
           ["Plans chosen", count(() => true)],
           ["Free", count((x) => x.status === "free")],
+          ["Paid", count((x) => x.status === "active")],
           ["Awaiting payment", count((x) => x.status === "awaiting_payment")],
         ].map(([k, v]) => (
           <div
@@ -47,6 +56,10 @@ export default async function Pricing() {
           </div>
         ))}
       </div>
+      <PlanLocks
+        initial={Boolean((locks?.value as { on?: boolean } | null)?.on)}
+        payments={Boolean(process.env.STRIPE_SECRET_KEY)}
+      />
       <PricingEditor
         initial={billing}
         claims={claims}

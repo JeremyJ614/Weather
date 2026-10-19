@@ -1,0 +1,227 @@
+.sync {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 13px;
+}
+.sync svg {
+  flex: none;
+  width: 16px;
+  color: var(--accent);
+}
+.sync a {
+  color: var(--accent);
+  text-decoration: underline;
+}
+.card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--surface);
+}
+.card > header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.card > header svg {
+  width: 17px;
+  color: var(--accent);
+}
+.card h2 {
+  font-size: 16px;
+  font-weight: 800;
+}
+.card > header small {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: right;
+}
+.muted {
+  color: var(--muted);
+  font-size: 13px;
+}
+.group {
+  display: grid;
+  gap: 6px;
+}
+.group legend {
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.options {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 6px;
+}
+.options button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface2);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: left;
+}
+.options button svg {
+  flex: none;
+  width: 15px;
+  color: var(--accent);
+}
+.options button[aria-pressed="true"] {
+  border-color: var(--lit-line);
+  box-shadow: 0 0 14px var(--glow);
+  color: var(--accent);
+}
+.options button:disabled {
+  opacity: 0.45;
+}
+.options small {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 600;
+}
+.themes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+.theme {
+  position: relative;
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  text-align: left;
+}
+.theme[aria-pressed="true"] {
+  border-color: var(--accent);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.theme b {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: var(--display-weight);
+  text-transform: var(--display-case);
+}
+.theme small {
+  color: var(--muted);
+  font-size: 11.5px;
+}
+.swatches {
+  display: flex;
+  overflow: hidden;
+  height: 22px;
+  margin-bottom: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.swatches i {
+  flex: 1;
+}
+.tick {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 16px;
+  color: var(--accent);
+}
+.mix {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.mix label {
+  display: grid;
+  gap: 4px;
+}
+.mix small {
+  color: var(--muted);
+  font-size: 11px;
+}
+.mix select {
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface2);
+  font-size: 13px;
+}
+.radios {
+  display: grid;
+  gap: 6px;
+}
+.radios button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface2);
+  text-align: left;
+}
+.radios i {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--muted);
+  border-radius: 50%;
+}
+.radios button[aria-checked="true"] {
+  border-color: var(--lit-line);
+}
+.radios button[aria-checked="true"] i {
+  border-color: var(--accent);
+  box-shadow:
+    inset 0 0 0 3px var(--surface2),
+    inset 0 0 0 8px var(--accent);
+}
+.radios span {
+  display: grid;
+  gap: 2px;
+}
+.radios b {
+  font-size: 13.5px;
+}
+.radios small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.play {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--lit-line);
+  border-radius: 12px;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+}
+.play svg {
+  width: 15px;
+}

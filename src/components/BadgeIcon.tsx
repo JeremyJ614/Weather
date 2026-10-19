@@ -1,3 +1,5 @@
+"use client";
+
 import type { LucideIcon } from "lucide-react";
 import {
   Award,
@@ -23,6 +25,7 @@ import {
 } from "lucide-react";
 import { pick, type Colors } from "@/lib/colors/pick";
 import { RARITY, type Badge } from "@/lib/badges";
+import { AwardBadge } from "@/components/ui/award-badge";
 
 /** Keep in step with BADGE_ICON_NAMES (src/lib/badge-icons.ts). */
 export const BADGE_ICONS: Record<string, LucideIcon> = {
@@ -48,35 +51,29 @@ export const BADGE_ICONS: Record<string, LucideIcon> = {
   Rocket,
 };
 
-/** A badge medallion: its icon, ringed and lit in its rarity color. */
-export function BadgeIcon({
+/**
+ * A badge as members see it: the owner's award-badge plate (gunmetal, multicolor stripe),
+ * its icon and name in the theme, its rarity in its rarity color.
+ */
+export function BadgePlate({
   badge,
   colors,
-  size = 40,
 }: {
-  badge: Pick<Badge, "icon" | "rarity" | "name">;
+  badge: Pick<Badge, "icon" | "rarity" | "name"> & { description?: string };
   colors?: Colors;
-  size?: number;
 }) {
   const I = BADGE_ICONS[badge.icon] ?? Award;
-  const c = pick(
-    colors,
-    `badge:${badge.rarity}`,
-    RARITY[badge.rarity] ?? RARITY.common,
-  );
   return (
-    <span
-      title={badge.name}
-      className="grid shrink-0 place-items-center rounded-full border-2 bg-bg"
-      style={{
-        width: size,
-        height: size,
-        borderColor: c,
-        color: c,
-        boxShadow: `0 0 14px color-mix(in srgb, ${c} 35%, transparent)`,
-      }}
-    >
-      <I style={{ width: size * 0.5, height: size * 0.5 }} aria-hidden />
-    </span>
+    <AwardBadge
+      kicker={`${badge.rarity} badge`}
+      kickerColor={pick(
+        colors,
+        `badge:${badge.rarity}`,
+        RARITY[badge.rarity] ?? RARITY.common,
+      )}
+      title={badge.name || "Badge name"}
+      hint={badge.description || undefined}
+      icon={<I x={11} y={11} width={32} height={32} strokeWidth={1.8} />}
+    />
   );
 }

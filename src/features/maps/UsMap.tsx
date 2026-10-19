@@ -149,7 +149,10 @@ export function UsMap({
   onTap,
   actions = true,
   zoomable = true,
+  view,
 }: {
+  /** Open framed on a part of the canvas instead of the whole country. */
+  view?: { x: number; y: number; w: number };
   /** Still at first; "Zoom & pan" makes it grab-, pinch- and wheel-zoomable. */
   zoomable?: boolean;
   /** Tap handler in canvas coordinates (975×610); makes the map a picker. */
@@ -173,7 +176,7 @@ export function UsMap({
   const [busy, setBusy] = useState(false);
   const svg = useRef<SVGSVGElement>(null);
   const [live, setLive] = useState(false);
-  const z = useZoom(svg, W, H, live, onTap);
+  const z = useZoom(svg, W, H, live, onTap, view);
   const [cities, setCities] = useState<City[] | null>(null);
   const deep = zoomable && z.view.w < W / 1.4;
   useEffect(() => {

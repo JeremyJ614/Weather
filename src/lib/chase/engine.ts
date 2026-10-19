@@ -9,6 +9,7 @@ import {
   type Profile,
 } from "@/lib/sswxcon/kinematics";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { deskNotes, type Desk } from "./desk";
 import {
   CAT_CODES,
   CAT_NAMES,
@@ -83,6 +84,8 @@ export type ChaseDay = {
   spcTop: number;
   candidates: number;
   targets: Target[];
+  /** The forecast desk's notes (Gemini), when they could be written. */
+  desk?: Desk;
 };
 
 const km = (
@@ -194,6 +197,8 @@ export async function runChase(now = new Date()): Promise<ChaseDay> {
     "precipitation_probability",
     "cloud_cover_low",
     "freezing_level_height",
+    "relative_humidity_700hPa",
+    "vertical_velocity_700hPa",
     ...levels.flatMap((l) => [`wind_speed_${l}`, `wind_direction_${l}`]),
   ];
   const r = await fetch(
@@ -263,6 +268,8 @@ export async function runChase(now = new Date()): Promise<ChaseDay> {
             ((Math.atan2(mu, mv) * 180) / Math.PI + 360) % 360,
           ),
           freezingFt: Math.round(v("freezing_level_height", j) * 3.281),
+          rh700: Math.round(v("relative_humidity_700hPa", j)),
+          w700: Math.round(v("vertical_velocity_700hPa", j) * 1000) / 1000,
         };
         const hoursToSunset = sunsetLocal
           ? (Date.parse(`${sunsetLocal}:00Z`) - Date.parse(`${t}:00Z`)) /
@@ -318,6 +325,7 @@ export async function runChase(now = new Date()): Promise<ChaseDay> {
 /** Runs the scan and saves it as today's row (service role). */
 export async function saveChase(): Promise<ChaseDay> {
   const d = await runChase();
+  d.desk = await deskNotes(d).catch(() => undefined);
   const top = d.targets[0];
   const { error } = await supabaseAdmin()
     .from("chase_days")

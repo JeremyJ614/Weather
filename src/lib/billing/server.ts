@@ -1,14 +1,9 @@
 import "server-only";
-import { ALL_PAGES } from "@/lib/nav/registry";
-import { ALWAYS, cleanBilling, type Billing } from "./plans";
+import { cleanBilling, type Billing } from "./plans";
+import { SELLABLE_SLUGS } from "./sellable";
 
+export { SELLABLE, SELLABLE_SLUGS } from "./sellable";
 export const BILLING_TAG = "billing";
-
-/** Every page that can be sold (on a tier, in a custom plan or as an add-on). */
-export const SELLABLE = ALL_PAGES.filter(
-  (p) => !ALWAYS.has(p.slug) && !p.adminOnly,
-);
-export const SELLABLE_SLUGS = SELLABLE.map((p) => p.slug);
 
 const cfg = () => ({
   url: process.env.NEXT_PUBLIC_SUPABASE_URL,

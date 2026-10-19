@@ -6,3 +6,4 @@ design-lab
 docs
 *.md
 src/lib/geo/places.data.ts
+src/lib/library/library.json

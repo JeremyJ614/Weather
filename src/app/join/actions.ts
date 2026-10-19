@@ -14,11 +14,14 @@ import {
   getClaims,
   today,
 } from "@/lib/billing/server";
+import { checkoutUrl, portalUrl, stripeOn } from "@/lib/billing/stripe";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { supabaseServer } from "@/lib/supabase/server";
+import { headers } from "next/headers";
 
 export type PlanResult =
   | { error: string }
+  | { status: "checkout"; url: string }
   | {
       status: "free" | "awaiting_payment";
       first: number;
@@ -41,7 +44,8 @@ export async function checkCoupon(code: string, tier: string) {
 /**
  * Saves the signed-in member's plan. Priced here, on the server, from the owner's
  * pricing, today's promotions and a checked coupon; the browser's numbers are ignored.
- * Paid plans wait for checkout (card payments aren't connected yet): nothing is charged.
+ * With card payments connected a paid plan goes straight to Stripe Checkout; without them
+ * it is saved as awaiting payment and nothing is charged.
  */
 export async function savePlan(
   raw: Choice,
@@ -73,6 +77,18 @@ export async function savePlan(
     pages: [],
     addons: pick(raw.addons),
   };
+  const db = supabaseAdmin();
+  const { data: had } = await db
+    .from("subscriptions")
+    .select("status, stripe_customer, stripe_subscription")
+    .eq("user_id", viewer.id)
+    .maybeSingle();
+  // A second checkout would start a second subscription; changes go through billing.
+  if (had?.status === "active" && had.stripe_subscription)
+    return {
+      error:
+        "You already have a paid plan. Use Manage billing to change or cancel it first.",
+    };
   const [billing, claims] = await Promise.all([getBilling(), getClaims()]);
   const q = quote(
     billing,
@@ -85,7 +101,7 @@ export async function savePlan(
   if (coupon && q.regular > 0 && !c)
     return { error: "That code isn't valid for this plan." };
   const first = [couponOff(q.first[0], c), ...q.first.slice(1)];
-  const { error } = await supabaseAdmin().rpc("save_plan", {
+  const { error } = await db.rpc("save_plan", {
     p_user: viewer.id,
     p_tier: choice.tier as TierId,
     p_cycle: choice.cycle,
@@ -97,10 +113,65 @@ export async function savePlan(
     p_coupon: c?.code ?? null,
   });
   if (error) return { error: "Your plan couldn't be saved. Try again." };
+  if (q.regular > 0 && stripeOn()) {
+    const sb = await supabaseServer();
+    const {
+      data: { user },
+    } = await sb.auth.getUser();
+    try {
+      const url = await checkoutUrl({
+        user: viewer.id,
+        email: user?.email,
+        customer: had?.stripe_customer,
+        name: `${billing.tiers.find((t) => t.id === choice.tier)?.name ?? "Plan"}${choice.addons.length ? ` + ${choice.addons.length} add-on${choice.addons.length === 1 ? "" : "s"}` : ""}`,
+        cycle: choice.cycle,
+        regular: q.regular,
+        first,
+        origin: await origin(),
+      });
+      return { status: "checkout", url };
+    } catch {
+      return {
+        error:
+          "Your plan is saved, but card checkout couldn't start. Try again in a moment.",
+      };
+    }
+  }
   return {
     status: q.regular === 0 ? "free" : "awaiting_payment",
     first: first[0],
     regular: q.regular,
     promo: q.promo?.name ?? null,
   };
+}
+
+async function origin() {
+  const h = await headers();
+  const host =
+    h.get("x-forwarded-host") ?? h.get("host") ?? "weather.sswx.space";
+  return `${h.get("x-forwarded-proto") ?? "https"}://${host}`;
+}
+
+/** Opens Stripe's billing portal for the signed-in member's paid plan. */
+export async function manageBilling(): Promise<{
+  url?: string;
+  error?: string;
+}> {
+  const viewer = await getRealViewer();
+  if (!viewer.signedIn || !viewer.id) return { error: "Sign in first." };
+  if (!stripeOn()) return { error: "Card payments aren't connected yet." };
+  const { data } = await (
+    await supabaseServer()
+  )
+    .from("subscriptions")
+    .select("stripe_customer")
+    .eq("user_id", viewer.id)
+    .maybeSingle();
+  if (!data?.stripe_customer)
+    return { error: "There's no paid plan on this account yet." };
+  try {
+    return { url: await portalUrl(data.stripe_customer, await origin()) };
+  } catch {
+    return { error: "Billing couldn't open. Try again in a moment." };
+  }
 }

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { ALL_PAGES } from "@/lib/nav/registry";
+import { showcaseDue } from "@/features/guide/due";
 import { useViewer } from "./useViewer";
 import s from "./GuestGate.module.css";
 
@@ -28,10 +29,15 @@ export function GuestGate() {
       first = !localStorage.getItem(SEEN);
     } catch {}
     if (!want && !first) return;
-    // Wait for the launch intro to finish before showing.
+    // Wait for the launch intro, then the guest showcase, to finish before showing.
     const html = document.documentElement;
     const show = () => {
-      if (html.dataset.intro || document.getElementById("launch-intro"))
+      if (
+        html.dataset.intro ||
+        document.getElementById("launch-intro") ||
+        html.dataset.guide ||
+        (!want && showcaseDue())
+      )
         return false;
       queueMicrotask(() => setOpen(true));
       return true;

@@ -1,4 +1,5 @@
 import "server-only";
+import { geoPath } from "@/lib/map/geo";
 import type { FeatureCollection, Geometry } from "geojson";
 import { pick, type Colors } from "@/lib/colors/pick";
 import { HAZ_KINDS, USDM, hazardKind } from "./style";
@@ -177,6 +178,44 @@ export type Here = {
   stateWeeks: ReturnType<typeof parseStateCsv>;
 };
 
+/** A state's Drought Monitor categories (percent of area), week by week, newest first. */
+export async function stateDrought(state: string, weeks: number) {
+  if (!FIPS[state]) return [];
+  const end = new Date();
+  const start = new Date(end.getTime() - weeks * 7 * 86400000);
+  const f = (d: Date) =>
+    `${d.getUTCMonth() + 1}/${d.getUTCDate()}/${d.getUTCFullYear()}`;
+  try {
+    const r = await fetch(
+      `https://usdmdataservices.unl.edu/api/StateStatistics/GetDroughtSeverityStatisticsByAreaPercent?aoi=${FIPS[state]}&startdate=${f(start)}&enddate=${f(end)}&statisticsType=2`,
+      {
+        headers: UA,
+        next: { revalidate: 21600 },
+        signal: AbortSignal.timeout(15000),
+      },
+    );
+    return r.ok ? parseStateCsv(await r.text()) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** This week's Drought Monitor projected onto the national map, D0 drawn first. */
+export async function droughtAlbers(colors: Colors = {}) {
+  const now = await droughtNow(colors);
+  return {
+    week: now.week,
+    polys: now.geo.features
+      .map((f) => ({
+        dm: Number(f.properties?.dm),
+        c: String(f.properties?.color),
+        d: geoPath(f.geometry, 0.6),
+      }))
+      .filter((p) => p.d)
+      .sort((a, b) => a.dm - b.dm),
+  };
+}
+
 /** What applies at one place: its drought category, its state's drought, the hazards over it. */
 export async function hazardsHere(lat: number, lon: number): Promise<Here> {
   const pt = `geometry=${lon},${lat}&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&returnGeometry=false&f=json`;
@@ -216,24 +255,7 @@ export async function hazardsHere(lat: number, lon: number): Promise<Here> {
       hazards.set(h.id, h);
     }
   });
-  let stateWeeks: Here["stateWeeks"] = [];
-  if (state && FIPS[state]) {
-    const end = new Date();
-    const start = new Date(end.getTime() - 84 * 86400000);
-    const f = (d: Date) =>
-      `${d.getUTCMonth() + 1}/${d.getUTCDate()}/${d.getUTCFullYear()}`;
-    try {
-      const r = await fetch(
-        `https://usdmdataservices.unl.edu/api/StateStatistics/GetDroughtSeverityStatisticsByAreaPercent?aoi=${FIPS[state]}&startdate=${f(start)}&enddate=${f(end)}&statisticsType=2`,
-        {
-          headers: UA,
-          next: { revalidate: 21600 },
-          signal: AbortSignal.timeout(15000),
-        },
-      );
-      if (r.ok) stateWeeks = parseStateCsv(await r.text());
-    } catch {}
-  }
+  const stateWeeks = state ? await stateDrought(state, 12) : [];
   return {
     state,
     dm: dms.length ? Math.max(...dms) : null,

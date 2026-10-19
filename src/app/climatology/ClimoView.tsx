@@ -8,7 +8,6 @@ import { UsMap } from "@/features/maps/UsMap";
 import { WeatherMap, type ReadyMap } from "@/features/map/WeatherMap";
 import { usePlaces } from "@/features/location/usePlaces";
 import { rasterize } from "@/features/sky/raster";
-import LIGHT from "@/lib/climo/lightning.json";
 import { pick, type Colors } from "@/lib/colors/pick";
 import { EF_COLORS } from "@/lib/colors/ef";
 import { INTENSITY, tierOf, mph } from "@/lib/tropical/style";
@@ -872,12 +871,15 @@ const DEEPER = [
   },
 ];
 
-/** Annual flashes/km² at a point from the bundled LIS/OTD grid (null off the Lower 48). */
-function flashesAt(lat: number, lon: number) {
-  const i = Math.floor((lat - LIGHT.lat0) / LIGHT.step);
-  const j = Math.floor((lon - LIGHT.lon0) / LIGHT.step);
-  if (i < 0 || j < 0 || i >= LIGHT.h || j >= LIGHT.w) return null;
-  return LIGHT.x10[i * LIGHT.w + j] / 10;
+type LGrid = Grid & { first: number; last: number; x10: number[] };
+const LIGHT_YEARS = { first: 1995, last: 2014 };
+
+/** Annual flashes/km² at a point from the LIS/OTD grid (null off the Lower 48). */
+function flashesAt(g: LGrid, lat: number, lon: number) {
+  const i = Math.floor((lat - g.lat0) / g.step);
+  const j = Math.floor((lon - g.lon0) / g.step);
+  if (i < 0 || j < 0 || i >= g.h || j >= g.w) return null;
+  return g.x10[i * g.w + j] / 10;
 }
 
 function Lightning({ c }: { c: (k: string) => string }) {
@@ -889,26 +891,22 @@ function Lightning({ c }: { c: (k: string) => string }) {
       ? `/api/climo/lightning?lat=${active.lat.toFixed(2)}&lon=${active.lon.toFixed(2)}`
       : null,
   );
-  const annual = active ? flashesAt(active.lat, active.lon) : null;
+  const gj = useJson<LGrid>("/api/climo/lightning?grid");
+  const g = gj && gj !== "error" ? gj : null;
+  const annual = g && active ? flashesAt(g, active.lat, active.lon) : null;
   const stops = CLIMO_LIGHT.map((r, i) => ({ at: i * 25, color: c(r.key) }));
   const stopKey = stops.map((x) => x.color).join();
-  const max = Math.max(...LIGHT.x10) / 10;
+  const max = g ? Math.max(...g.x10) / 10 : 0;
   const url = useMemo(
     () =>
+      g &&
       rasterize(
-        Array.from(
-          { length: LIGHT.h },
-          (_, i) => LIGHT.lat0 + (i + 0.5) * LIGHT.step,
-        ),
-        Array.from(
-          { length: LIGHT.w },
-          (_, j) => LIGHT.lon0 + (j + 0.5) * LIGHT.step,
-        ),
-        (i, j) =>
-          Math.min(100, Math.sqrt(LIGHT.x10[i * LIGHT.w + j] / 10 / max) * 100),
+        Array.from({ length: g.h }, (_, i) => g.lat0 + (i + 0.5) * g.step),
+        Array.from({ length: g.w }, (_, j) => g.lon0 + (j + 0.5) * g.step),
+        (i, j) => Math.min(100, Math.sqrt(g.x10[i * g.w + j] / 10 / max) * 100),
         stops,
       ),
-    [stopKey], // eslint-disable-line react-hooks/exhaustive-deps -- stopKey is the colors
+    [g, stopKey], // eslint-disable-line react-hooks/exhaustive-deps -- stopKey is the colors
   );
   const a = d && d !== "error" ? d : null;
   const word =
@@ -928,7 +926,13 @@ function Lightning({ c }: { c: (k: string) => string }) {
       {active && (
         <section className={s.card}>
           <p className={s.eyebrow}>Lightning at {active.label}</p>
-          {annual == null ? (
+          {!g ? (
+            <p className={s.muted}>
+              {gj === "error"
+                ? "The lightning record isn't loading right now."
+                : "Reading NASA's climatology…"}
+            </p>
+          ) : annual == null ? (
             <p className={s.read}>
               The lightning record here covers the Lower 48. Use the live
               Lightning Monitoring page for lightning near you.
@@ -963,8 +967,8 @@ function Lightning({ c }: { c: (k: string) => string }) {
                 </>
               ) : (
                 <p className={s.muted}>
-                  Cloud and ground lightning together, {LIGHT.first}–
-                  {LIGHT.last}.{" "}
+                  Cloud and ground lightning together, {LIGHT_YEARS.first}–
+                  {LIGHT_YEARS.last}.{" "}
                   {annual >= 1
                     ? `About ${Math.round(annual * 2.59)} flashes per square mile each year.`
                     : ""}
@@ -975,17 +979,17 @@ function Lightning({ c }: { c: (k: string) => string }) {
         </section>
       )}
       <UsMap
-        title={`Where lightning strikes · ${LIGHT.first}–${LIGHT.last}`}
+        title={`Where lightning strikes · ${LIGHT_YEARS.first}–${LIGHT_YEARS.last}`}
         legend={CLIMO_LIGHT.map((r, i) => ({
           label:
             i === 0
               ? "Rare"
               : i === 4
-                ? `Most (${max} flashes per km² per year)`
+                ? `Most (${max || "–"} flashes per km² per year)`
                 : "",
           color: c(r.key),
         })).filter((x) => x.label)}
-        status="ready"
+        status={!gj ? "loading" : gj === "error" ? "error" : "ready"}
         file="sswx-lightning-climatology"
       >
         {url && (
@@ -1000,9 +1004,9 @@ function Lightning({ c }: { c: (k: string) => string }) {
         )}
       </UsMap>
       <p className={s.muted}>
-        NASA&apos;s combined LIS/OTD lightning climatology ({LIGHT.first}–
-        {LIGHT.last}): every flash, cloud and ground, per km² per year, from two
-        satellites that together saw the whole country.
+        NASA&apos;s combined LIS/OTD lightning climatology ({LIGHT_YEARS.first}–
+        {LIGHT_YEARS.last}): every flash, cloud and ground, per km² per year,
+        from two satellites that together saw the whole country.
       </p>
     </div>
   );

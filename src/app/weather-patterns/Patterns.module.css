@@ -1,0 +1,250 @@
+.card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--surface);
+}
+.card > header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.card > header svg {
+  width: 17px;
+  color: var(--accent);
+}
+.card > header h3 {
+  font-size: 16px;
+  font-weight: 800;
+}
+.card > header small {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 11px;
+}
+.national {
+  display: grid;
+  gap: 10px;
+}
+.national li {
+  display: grid;
+  gap: 2px;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.national b {
+  color: var(--accent);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.rail {
+  display: flex;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--line);
+  scrollbar-width: none;
+}
+.rail button {
+  flex: none;
+  padding: 9px 11px;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.rail button[aria-selected="true"] {
+  border-color: var(--accent);
+  color: var(--text);
+}
+.desk {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--bg);
+}
+.desk small {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+.desk small svg {
+  width: 15px;
+}
+.desk p {
+  font-size: 15px;
+  line-height: 1.55;
+}
+.figures {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.figures div {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--c);
+  border-radius: 10px;
+  background: var(--bg);
+}
+.figures small,
+.tiles small {
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.figures b {
+  color: var(--c);
+  font-family: var(--font-display);
+  font-size: 26px;
+  line-height: 1;
+}
+.facts {
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.facts b {
+  color: var(--text);
+}
+.gauge {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--surface);
+  position: relative;
+}
+.gauge svg {
+  width: 150px;
+  height: 150px;
+}
+.track {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 11;
+}
+.arc {
+  fill: none;
+  stroke: var(--c);
+  stroke-width: 11;
+  stroke-linecap: round;
+}
+.gauge > div {
+  position: absolute;
+  top: 16px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  height: 150px;
+}
+.gauge > div b {
+  color: var(--c);
+  font-family: var(--font-display);
+  font-size: 36px;
+  line-height: 1;
+}
+.gauge > div span {
+  color: var(--muted);
+  font-size: 11px;
+}
+.gauge p {
+  color: var(--c);
+  font-weight: 800;
+}
+.gauge small {
+  color: var(--muted);
+  font-size: 11.5px;
+  text-align: center;
+}
+.gridWrap {
+  overflow-x: auto;
+}
+.grid {
+  min-width: 560px;
+  border-collapse: separate;
+  border-spacing: 3px;
+  font-size: 11px;
+}
+.grid th {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.grid th small {
+  display: block;
+  font-weight: 500;
+  letter-spacing: 0;
+  opacity: 0.8;
+}
+.grid th:first-child,
+.grid td:first-child {
+  text-align: left;
+  white-space: nowrap;
+}
+.grid td:first-child {
+  font-size: 12px;
+  font-weight: 600;
+}
+.grid td span {
+  display: block;
+  padding: 6px 2px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--muted);
+  font-weight: 800;
+  text-align: center;
+}
+.grid td span[data-on] {
+  border-color: color-mix(in srgb, var(--c) 55%, transparent);
+  background: color-mix(in srgb, var(--c) 18%, transparent);
+  color: var(--c);
+}
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.tiles div {
+  display: grid;
+  gap: 3px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg);
+}
+.tiles b {
+  font-size: 20px;
+  font-weight: 800;
+}
+.muted {
+  color: var(--muted);
+  font-size: 13.5px;
+}
+.small {
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+.foot {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}

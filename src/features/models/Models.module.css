@@ -1,0 +1,255 @@
+.muted {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.runCard {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 14px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+}
+.runCard small,
+.group {
+  color: var(--muted);
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.runCard b {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 16px;
+}
+.runCard b i {
+  width: 8px;
+  height: 8px;
+  border: 1.5px solid var(--accent);
+  border-radius: 50%;
+  box-shadow: 0 0 8px var(--glow);
+}
+.runCard em {
+  padding: 1px 7px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 11px;
+  font-style: normal;
+}
+.runCard label {
+  display: grid;
+  gap: 4px;
+}
+.runCard select {
+  min-height: 34px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+.pills,
+.tabs,
+.speed {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.pills button,
+.speed button {
+  flex: none;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.pills button[aria-pressed="true"],
+.speed button[aria-pressed="true"] {
+  border-color: var(--lit-line);
+  background: var(--lit);
+  color: var(--accent);
+}
+.tabs {
+  border-bottom: 1px solid var(--line);
+}
+.tabs button {
+  flex: none;
+  padding: 9px 10px;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.tabs button[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--text);
+}
+.stamp,
+.wait {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  padding: 4px 9px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--bg) 85%, transparent);
+  font-size: 11.5px;
+  font-weight: 700;
+  pointer-events: none;
+}
+.wait {
+  top: auto;
+  bottom: 10px;
+  color: var(--muted);
+}
+.player {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+}
+.buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.buttons button {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.buttons .play {
+  border-color: var(--lit-line);
+  background: var(--lit);
+  color: var(--accent);
+}
+.hour {
+  display: grid;
+  margin-left: 6px;
+}
+.hour b {
+  font-size: 15px;
+}
+.hour small,
+.ends {
+  color: var(--muted);
+  font-size: 12px;
+}
+.player input {
+  width: 100%;
+  accent-color: var(--accent);
+}
+.ends {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+}
+.legend {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+}
+.legend small {
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.bar {
+  display: flex;
+  height: 12px;
+  overflow: hidden;
+  border-radius: 6px;
+}
+.bar i {
+  flex: 1;
+}
+.ticks {
+  display: flex;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--muted);
+}
+.ticks span {
+  flex: 1;
+}
+.now {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+}
+.now small {
+  color: var(--accent);
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.now h3 {
+  font-size: 19px;
+  font-weight: 800;
+}
+.nowKeys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.nowKeys b {
+  margin-right: 4px;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 16px;
+}
+.steps {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 22px;
+  gap: 2px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+.steps div {
+  display: grid;
+  grid-template-rows: 70px auto 14px;
+  justify-items: center;
+}
+.steps i {
+  align-self: end;
+  width: 14px;
+  height: 70px;
+  border-radius: 3px 3px 0 0;
+  background: var(--accent);
+  transform-origin: bottom;
+}
+.steps b {
+  font-size: 9.5px;
+  font-weight: 600;
+}
+.steps small {
+  font-size: 9px;
+  color: var(--muted);
+  white-space: nowrap;
+}

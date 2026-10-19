@@ -35,6 +35,7 @@ export function shouldPlay(
  * Inline script for <head>: decides before first paint so the intro covers the
  * page from the very first frame (or never shows at all). Mirrors shouldPlay, and
  * also plays on the installed app's first launch (it shares storage with the browser,
- * so a same-day browser visit would otherwise have used up the day's play).
+ * so a same-day browser visit would otherwise have used up the day's play), and once on
+ * request from account settings ("Play it now").
  */
-export const introBootScript = `(function(){try{var p=localStorage.getItem("sswx-intro")||"daily",l=localStorage.getItem("sswx-intro-last"),d=new Date(),k=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"),play=p==="always"||(p==="first"&&!l)||(p!=="off"&&p!=="always"&&p!=="first"&&l!==k);var app=matchMedia("(display-mode: standalone)").matches||navigator.standalone;if(app&&p!=="off"&&!localStorage.getItem("sswx-intro-app")){play=true;localStorage.setItem("sswx-intro-app","1")}if(play)document.documentElement.dataset.intro="play"}catch(e){}})()`;
+export const introBootScript = `(function(){try{var p=localStorage.getItem("sswx-intro")||"daily",l=localStorage.getItem("sswx-intro-last"),d=new Date(),k=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"),play=p==="always"||(p==="first"&&!l)||(p!=="off"&&p!=="always"&&p!=="first"&&l!==k);if(sessionStorage.getItem("sswx-intro-now")){play=true;sessionStorage.removeItem("sswx-intro-now")}var app=matchMedia("(display-mode: standalone)").matches||navigator.standalone;if(app&&p!=="off"&&!localStorage.getItem("sswx-intro-app")){play=true;localStorage.setItem("sswx-intro-app","1")}if(play)document.documentElement.dataset.intro="play"}catch(e){}})()`;

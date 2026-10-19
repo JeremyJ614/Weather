@@ -1,23 +1,171 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Map as MaplibreMap } from "maplibre-gl";
 import { WeatherMap, type ReadyMap } from "@/features/map/WeatherMap";
 import { BASINS, type BasinId } from "@/lib/tropical/style";
-import type { Outlook } from "@/lib/tropical/nhc";
+import type { Outlook, Storm } from "@/lib/tropical/nhc";
+import s from "./TropicalMap.module.css";
 
 type Geo = Outlook["geo"];
+export type ReconDot = {
+  key: string;
+  lat: number;
+  lon: number;
+  label: string;
+  active: boolean;
+};
+
+/** NASA GIBS MUR sea-surface temperature; the analysis lags about three days. */
+const SST = (date: string) =>
+  "https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&VERSION=1.3.0&LAYERS=GHRSST_L4_MUR_Sea_Surface_Temperature&STYLES=&FORMAT=image%2Fpng&TRANSPARENT=TRUE&CRS=EPSG%3A3857&WIDTH=256&HEIGHT=256&BBOX={bbox-epsg-3857}&TIME=" +
+  date;
+/** GIBS's own MUR palette, read off its legend (°C), for the key under the map. */
+export const SST_KEY = [
+  { c: 20, color: "#1d2f8f" },
+  { c: 22, color: "#2563c9" },
+  { c: 24, color: "#22b8d8" },
+  { c: 26, color: "#2fbf71" },
+  { c: 28, color: "#e6d93a" },
+  { c: 30, color: "#ef8a2c" },
+  { c: 32, color: "#c9342b" },
+];
+const sstDate = () =>
+  new Date(Date.now() - 3 * 86400_000).toISOString().slice(0, 10);
+const centroid = (g: GeoJSON.Geometry): [number, number] | null => {
+  const ring =
+    g.type === "Polygon"
+      ? g.coordinates[0]
+      : g.type === "MultiPolygon"
+        ? g.coordinates[0][0]
+        : null;
+  if (!ring?.length) return null;
+  const x = ring.reduce((a, p) => a + p[0], 0) / ring.length;
+  const y = ring.reduce((a, p) => a + p[1], 0) / ring.length;
+  return [x, y];
+};
+type Label = {
+  kind: "storm" | "odds" | "recon";
+  key: string;
+  x: number;
+  y: number;
+  text: string;
+  color?: string;
+  active?: boolean;
+};
+type Toggles = { sst: boolean; odds: boolean; recon: boolean; labels: boolean };
 type Hit = { title: string; lines: string[] };
 
 const isLine = ["==", ["geometry-type"], "LineString"];
 const isPoint = ["==", ["geometry-type"], "Point"];
 
 /** NHC's picture of a basin: outlook areas, cones, tracks, forecast points and watches. */
-export function TropicalMap({ geo, start }: { geo: Geo; start: BasinId }) {
+export function TropicalMap({
+  geo,
+  start,
+  storms = [],
+  recon = [],
+  focus,
+}: {
+  geo: Geo;
+  start: BasinId;
+  storms?: Storm[];
+  recon?: ReconDot[];
+  /** Open on one storm instead of a basin. */
+  focus?: { lat: number; lon: number };
+}) {
   const map = useRef<MaplibreMap | null>(null);
-  const [basin, setBasin] = useState<BasinId>(start);
+  const [basin, setBasin] = useState<string>(
+    focus ? "focus" : storms.length ? "active" : start,
+  );
   const [hit, setHit] = useState<Hit | null>(null);
+  const [t, setT] = useState<Toggles>({
+    sst: true,
+    odds: true,
+    recon: true,
+    labels: true,
+  });
+  const [labels, setLabels] = useState<Label[]>([]);
+  const src = useRef({ storms, recon, geo });
   const b0 = BASINS.find((b) => b.id === start)!;
+  const activeBox = () => {
+    if (!storms.length) return null;
+    const xs = storms.map((x) => x.lon);
+    const ys = storms.map((x) => x.lat);
+    return [
+      [Math.min(...xs) - 12, Math.min(...ys) - 8],
+      [Math.max(...xs) + 12, Math.max(...ys) + 8],
+    ] as [[number, number], [number, number]];
+  };
+
+  function relayout() {
+    const m = map.current;
+    if (!m) return;
+    const c = m.getContainer();
+    const at = (lon: number, lat: number) => {
+      const p = m.project([lon, lat]);
+      return p.x < -40 ||
+        p.y < -20 ||
+        p.x > c.clientWidth + 40 ||
+        p.y > c.clientHeight + 20
+        ? null
+        : { x: p.x, y: p.y };
+    };
+    const { storms: st, recon: rc, geo: g } = src.current;
+    const out: Label[] = [];
+    for (const x of st) {
+      const p = at(x.lon, x.lat);
+      if (p)
+        out.push({
+          kind: "storm",
+          key: x.id,
+          ...p,
+          text: `${x.name.toUpperCase()} ${x.mph}`,
+          color: x.color,
+        });
+    }
+    (g.areas.features ?? []).forEach((f, i) => {
+      const pr = (f.properties ?? {}) as Record<string, unknown>;
+      const ctr = pr.prob7day ? centroid(f.geometry) : null;
+      const p = ctr && at(ctr[0], ctr[1]);
+      if (p)
+        out.push({
+          kind: "odds",
+          key: `a${i}`,
+          ...p,
+          text: String(pr.prob7day),
+          color: String(pr.color ?? ""),
+        });
+    });
+    for (const r of rc) {
+      const p = at(r.lon, r.lat);
+      if (p)
+        out.push({
+          kind: "recon",
+          key: r.key,
+          ...p,
+          text: `✈ ${r.label}`,
+          active: r.active,
+        });
+    }
+    setLabels(out);
+  }
+
+  useEffect(() => {
+    src.current = { storms, recon, geo };
+    relayout();
+  }, [storms, recon, geo]);
+
+  useEffect(() => {
+    const m = map.current;
+    if (!m) return;
+    const vis = (id: string, on: boolean) =>
+      m.getLayer(id) &&
+      m.setLayoutProperty(id, "visibility", on ? "visible" : "none");
+    vis("sst", t.sst);
+    vis("areas-fill", t.odds);
+    vis("areas-line", t.odds);
+  }, [t]);
 
   const ready = ({ map: any }: ReadyMap) => {
     // Mapbox and MapLibre share these calls; MapLibre's types describe both.
@@ -29,6 +177,28 @@ export function TropicalMap({ geo, start }: { geo: Geo; start: BasinId }) {
         data: data as GeoJSON.FeatureCollection,
       });
     (Object.keys(geo) as (keyof Geo)[]).forEach((k) => add(k, geo[k]));
+    m.addSource("sst", {
+      type: "raster",
+      tiles: [SST(sstDate())],
+      tileSize: 256,
+      maxzoom: 7,
+    });
+    m.addLayer({
+      id: "sst",
+      type: "raster",
+      source: "sst",
+      paint: { "raster-opacity": 0.72 },
+    });
+    // Labels follow the map: re-project on every move frame.
+    let raf = 0;
+    m.on("move", () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(relayout);
+    });
+    const box = focus ? null : storms.length ? activeBox() : null;
+    if (focus) m.jumpTo({ center: [focus.lon, focus.lat], zoom: 4.6 });
+    else if (box) m.fitBounds(box, { padding: 20, duration: 0, maxZoom: 5 });
+    relayout();
     m.addLayer({
       id: "areas-fill",
       type: "fill",
@@ -160,28 +330,45 @@ export function TropicalMap({ geo, start }: { geo: Geo; start: BasinId }) {
     }
   };
 
-  const go = (id: BasinId) => {
+  const go = (id: string) => {
     setBasin(id);
     setHit(null);
-    const b = BASINS.find((x) => x.id === id)!;
-    map.current?.flyTo({ center: b.center, zoom: b.zoom, duration: 900 });
+    const m = map.current;
+    if (!m) return;
+    if (id === "focus" && focus)
+      m.flyTo({ center: [focus.lon, focus.lat], zoom: 4.6, duration: 900 });
+    else if (id === "active") {
+      const box = activeBox();
+      if (box) m.fitBounds(box, { padding: 20, duration: 900, maxZoom: 5 });
+    } else if (id === "world")
+      m.flyTo({ center: [-100, 15], zoom: 1, duration: 900 });
+    else {
+      const b = BASINS.find((x) => x.id === id)!;
+      m.flyTo({ center: b.center, zoom: b.zoom, duration: 900 });
+    }
   };
+  const views = [
+    ...(focus ? [{ id: "focus", name: "This storm" }] : []),
+    ...(storms.length ? [{ id: "active", name: "Active zone" }] : []),
+    ...BASINS.map((b) => ({ id: b.id as string, name: b.name })),
+    { id: "world", name: "Worldwide" },
+  ];
 
   return (
     <div className="grid gap-2">
-      <div className="flex gap-1.5" role="group" aria-label="Basin">
-        {BASINS.map((b) => (
+      <div className={s.views} role="group" aria-label="View">
+        {views.map((v) => (
           <button
-            key={b.id}
+            key={v.id}
             type="button"
-            aria-pressed={basin === b.id}
-            onClick={() => go(b.id)}
-            className="min-h-9 rounded-full border border-line px-3 text-xs font-semibold aria-pressed:border-[var(--lit-line)] aria-pressed:bg-[var(--lit)] aria-pressed:text-accent"
+            aria-pressed={basin === v.id}
+            onClick={() => go(v.id)}
           >
-            {b.name}
+            {v.name}
           </button>
         ))}
       </div>
+
       <div className="relative">
         <WeatherMap
           center={b0.center}
@@ -190,6 +377,30 @@ export function TropicalMap({ geo, start }: { geo: Geo; start: BasinId }) {
           className="h-[60dvh] min-h-80"
           onReady={ready}
         />
+        <div className={s.overlay} aria-hidden>
+          {labels
+            .filter((l) =>
+              l.kind === "storm"
+                ? t.labels
+                : l.kind === "odds"
+                  ? t.labels && t.odds
+                  : t.recon,
+            )
+            .map((l) => (
+              <span
+                key={l.key}
+                className={s[l.kind]}
+                data-active={l.active || undefined}
+                style={{
+                  transform: `translate(${l.x}px, ${l.y}px)`,
+                  ["--c" as string]: l.color,
+                }}
+              >
+                {l.kind === "storm" && <i />}
+                {l.kind === "storm" ? <b>{l.text}</b> : l.text}
+              </span>
+            ))}
+        </div>
         {hit && (
           <button
             type="button"
@@ -205,6 +416,43 @@ export function TropicalMap({ geo, start }: { geo: Geo; start: BasinId }) {
           </button>
         )}
       </div>
+      <div className={s.toggles} role="group" aria-label="Layers">
+        {(
+          [
+            ["sst", "Sea surface temp"],
+            ["odds", "7-day formation odds"],
+            ["recon", "Recon"],
+            ["labels", "Labels"],
+          ] as const
+        ).map(([k, l]) => (
+          <button
+            key={k}
+            type="button"
+            aria-pressed={t[k]}
+            onClick={() => setT({ ...t, [k]: !t[k] })}
+          >
+            <i />
+            {l}
+          </button>
+        ))}
+      </div>
+      {t.sst && (
+        <div className={s.sst}>
+          <small>Sea surface temperature · {sstDate()}</small>
+          <div>
+            {SST_KEY.map((k) => (
+              <i key={k.c} style={{ background: k.color }} />
+            ))}
+          </div>
+          <p>
+            {SST_KEY.map((k) => (
+              <span key={k.c}>{k.c}</span>
+            ))}
+            <span>°C</span>
+          </p>
+          <small>Above 26°C sustains development.</small>
+        </div>
+      )}
     </div>
   );
 }

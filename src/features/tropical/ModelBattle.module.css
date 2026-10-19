@@ -172,3 +172,144 @@
     animation: none;
   }
 }
+.clock {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+  pointer-events: none;
+}
+.clock b {
+  padding: 6px 12px;
+  border: 1px solid var(--lit-line);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bg) 85%, transparent);
+  box-shadow: 0 0 18px var(--glow);
+  color: var(--accent);
+  font-family: var(--font-display);
+  font-size: 18px;
+  letter-spacing: 0.04em;
+}
+.clock small {
+  padding: 2px 8px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg) 85%, transparent);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.player {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+}
+.player > button {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.player .play {
+  border-color: var(--lit-line);
+  background: var(--lit);
+  color: var(--accent);
+}
+.player input {
+  flex: 1;
+  min-width: 120px;
+  accent-color: var(--accent);
+}
+.speed {
+  display: flex;
+  gap: 4px;
+}
+.speed button {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.speed button[aria-pressed="true"] {
+  border-color: var(--lit-line);
+  background: var(--lit);
+  color: var(--accent);
+}
+.intensity {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+}
+.intensity header {
+  display: grid;
+  gap: 2px;
+}
+.intensity h3 {
+  font-family: var(--font-display);
+  font-size: 18px;
+  text-transform: uppercase;
+}
+.intensity header small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.intensity ol {
+  display: grid;
+  gap: 6px;
+}
+.intensity li {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 7.5rem) 1fr 2.4rem 3.2rem;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  transition: opacity var(--t-base) var(--ease);
+}
+.intensity li[data-done] {
+  opacity: 0.45;
+}
+.rank {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.windBar {
+  height: 10px;
+  overflow: hidden;
+  border-radius: 5px;
+  background: var(--bg);
+}
+.windBar u {
+  display: block;
+  height: 100%;
+  border-radius: 5px;
+  transform-origin: left;
+  transition: transform var(--t-base) var(--ease);
+}
+.intensity li b {
+  font-family: var(--font-mono);
+  text-align: right;
+}
+.intensity li em {
+  padding: 2px 6px;
+  border: 1px solid;
+  border-radius: 8px;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 700;
+  text-align: center;
+}

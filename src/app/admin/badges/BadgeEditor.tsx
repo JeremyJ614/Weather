@@ -2,7 +2,7 @@
 
 import { useActionState, useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
-import { BadgeIcon, BADGE_ICONS } from "@/components/BadgeIcon";
+import { BadgePlate, BADGE_ICONS } from "@/components/BadgeIcon";
 import { RARITIES, type Badge } from "@/lib/badges";
 import type { Colors } from "@/lib/colors/pick";
 import { deleteBadge, saveBadge } from "./actions";
@@ -33,8 +33,8 @@ export function BadgeEditor({
     >
       {badge && <input type="hidden" name="id" value={badge.id} />}
       <input type="hidden" name="icon" value={icon} />
-      <div className="flex items-center gap-3">
-        <BadgeIcon badge={{ icon, rarity, name }} colors={colors} size={52} />
+      <div className="grid gap-3">
+        <BadgePlate badge={{ icon, rarity, name }} colors={colors} />
         <input
           name="name"
           required

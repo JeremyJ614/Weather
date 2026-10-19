@@ -27,6 +27,19 @@ const ADMIN_GROUP: NavGroup = {
     })),
   ],
 };
+const SHOWCASE_GROUP: NavGroup = {
+  id: "showcase",
+  label: "Showcase",
+  icon: "Sparkles",
+  pages: [
+    {
+      slug: "?showcase",
+      label: "Replay the showcase",
+      icon: "Sparkles",
+      phase: "62c",
+    },
+  ],
+};
 const subscribe = (cb: () => void) => {
   addEventListener("storage", cb);
   return () => removeEventListener("storage", cb);
@@ -77,6 +90,8 @@ export function MenuHost({
   const { isAdmin, signedIn, adminShortcuts, pending } = useViewer();
   const guest = !signedIn && !pending;
   const seconds = visibleNav(secondGroups, isAdmin, signedIn, guest);
+  // Guests can replay the showcase from the second menu.
+  if (guest) seconds.push(SHOWCASE_GROUP);
   // The owner's switchable Admin shortcuts group (admin → Overview).
   if (adminShortcuts) seconds.push(ADMIN_GROUP);
   return (

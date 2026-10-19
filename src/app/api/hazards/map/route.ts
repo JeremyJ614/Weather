@@ -1,9 +1,27 @@
 import { getColors } from "@/lib/colors/server";
-import { cpcHazards, droughtNow } from "@/lib/hazards/data";
+import { cpcHazards, droughtAlbers, droughtNow } from "@/lib/hazards/data";
 
-/** GET /api/hazards/map?layer=cpc|usdm → colored GeoJSON for the Hazards & Droughts maps. */
+/**
+ * GET /api/hazards/map?layer=cpc|usdm → colored GeoJSON for the Hazards & Droughts maps;
+ * ?layer=usdm&shape=albers → the Drought Monitor as paths for the national map.
+ */
 export async function GET(req: Request) {
-  const layer = new URL(req.url).searchParams.get("layer");
+  const q = new URL(req.url).searchParams;
+  const layer = q.get("layer");
+  if (layer === "usdm" && q.get("shape") === "albers")
+    try {
+      return Response.json(await droughtAlbers(await getColors()), {
+        headers: {
+          "Cache-Control":
+            "public, s-maxage=21600, stale-while-revalidate=3600",
+        },
+      });
+    } catch {
+      return Response.json(
+        { error: "The Drought Monitor isn't answering right now." },
+        { status: 502 },
+      );
+    }
   if (layer !== "cpc" && layer !== "usdm")
     return Response.json({ error: "Unknown layer" }, { status: 400 });
   try {

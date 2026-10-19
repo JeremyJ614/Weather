@@ -17,7 +17,12 @@ import {
   type Promo,
   type TierId,
 } from "@/lib/billing/plans";
-import { checkCoupon, savePlan, type PlanResult } from "./actions";
+import {
+  checkCoupon,
+  manageBilling,
+  savePlan,
+  type PlanResult,
+} from "./actions";
 import s from "./Join.module.css";
 
 type Page = { slug: string; label: string; icon: string; phase: string };
@@ -71,6 +76,9 @@ export function JoinView({
   signedIn,
   hasProfile,
   current,
+  locked,
+  notice,
+  billingOpen,
 }: {
   billing: Billing;
   claims: Record<string, number>;
@@ -80,6 +88,12 @@ export function JoinView({
   signedIn: boolean;
   hasProfile: boolean;
   current: Current;
+  /** The page a plan lock sent this member here from. */
+  locked: { label: string; tier: string | null } | null;
+  /** Back from Stripe Checkout. */
+  notice: "paid" | "canceled" | null;
+  /** The member has a paid plan Stripe can manage. */
+  billingOpen: boolean;
 }) {
   const sellable = pages.map((p) => p.slug);
   const label = new Map(pages.map((p) => [p.slug, p]));
@@ -173,6 +187,7 @@ export function JoinView({
     start(async () => {
       const r = await savePlan(choice, coupon?.code ?? "");
       setResult(r);
+      if ("url" in r) location.assign(r.url);
       if (!("error" in r))
         try {
           localStorage.removeItem(KEY);
@@ -290,7 +305,59 @@ export function JoinView({
           Start free or pick a plan, then add any extra pages you want. Change
           it any time.
         </p>
+        <Link href="?showcase" scroll={false} className={s.see}>
+          <Sparkles aria-hidden /> See what you get
+        </Link>
       </section>
+
+      {notice && (
+        <aside className={s.promo} role="status">
+          <Crown aria-hidden />
+          <span>
+            <b>
+              {notice === "paid"
+                ? "Payment received. Thank you!"
+                : "Checkout canceled"}
+            </b>
+            <small>
+              {notice === "paid"
+                ? "Your plan turns on within a minute. Pull to refresh if a page still asks you to upgrade."
+                : "Nothing was charged. Your choices are still here when you're ready."}
+            </small>
+          </span>
+        </aside>
+      )}
+
+      {billingOpen && (
+        <button
+          type="button"
+          className={s.see}
+          disabled={pending}
+          onClick={() =>
+            start(async () => {
+              const r = await manageBilling();
+              if (r.url) location.assign(r.url);
+              else setResult({ error: r.error ?? "Billing couldn't open." });
+            })
+          }
+        >
+          <Crown aria-hidden /> Manage billing
+        </button>
+      )}
+
+      {locked && (
+        <aside className={s.promo} role="status">
+          <Crown aria-hidden />
+          <span>
+            <b>{locked.label} isn&apos;t on your plan</b>
+            <small>
+              {locked.tier
+                ? `It comes with ${locked.tier} and up, or add it to any plan below.`
+                : "Add it to any plan below."}
+            </small>
+          </span>
+        </aside>
+      )}
 
       {promos.map((p) => (
         <aside key={p.id} className={s.promo}>
@@ -373,6 +440,11 @@ export function JoinView({
         <div className={s.result} role="status">
           {"error" in result ? (
             <p>{result.error}</p>
+          ) : result.status === "checkout" ? (
+            <p>
+              <b>Taking you to secure checkout…</b> Payments are handled by
+              Stripe; your card never touches our servers.
+            </p>
           ) : result.status === "free" ? (
             <p>
               <b>You&apos;re all set on Free.</b> Everything free is open now.{" "}

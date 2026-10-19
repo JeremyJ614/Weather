@@ -88,10 +88,10 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 ## Educational
 - [x] 54. Climatology: tornado, lightning and hurricane subtabs: near-you records (tracks within 25 mi, storms within 60 mi, LIS flash rate by month), national tornado density, hurricane passage density, yearly/monthly/hourly/EF/state charts, season curves, ACE seasons; data built by scripts/build-climo.py
 - [x] 55. Weather Glossary (port): all 168 VIP terms, search, topic chips, A–Z jump, linkable terms
-- [ ] 56. Free Content Library (port from Academy)
+- [x] 56. Free Content Library (port from Academy: 14 shelves, 118 NOAA JetStream articles, 418 figures, server search)
 
 ## Everything Else
-- [ ] 57. Weather Patterns (port)
+- [x] 57. Weather Patterns (port; Fix-It #6.7: AI recaps of the past week, month and year from SPC reports)
 - [ ] 58. Extras: engine pipeline (scheduled Python jobs writing map layers)
 - [ ] 59. Extras: first engines (Radar Blind Spot, ProbTor, ProbHail)
 - [ ] 60. Extras: next engines (chosen in the questionnaire)
@@ -99,11 +99,11 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 - [ ] 61. Disaster Response directory, sign-up form and admin inbox
 
 ## Account
-- [ ] 62. My Profile
-- [ ] 62b. Account settings: menus, offered themes, intro on/off
-- [ ] 62c. New-user intro guide covering every section, ending with menu choice; guest showcase guide (first visit, skippable, replay button in the second menu, replays after 7 days) — see `docs/07-PRICING.md`
-- [ ] 63. Notifications center with every toggle
-- [ ] 64. Signup page `/join` (wow-factor design, tiers + build-your-own + add-ons, live pricing tracker, promotions, coupons, guest-guide button) with Stripe; admin pricing/add-on/promotion/coupon editors; tier access enforcement — see `docs/07-PRICING.md`
+- [x] 62. My Profile (identity and plan, points, streaks, guesses, trivia accuracy, poll votes, badges, leaderboard titles, saved places, referral code; edit name/nickname/city/phone)
+- [x] 62b. Account settings: menus, offered themes, intro on/off
+- [x] 62c. New-user intro guide covering every section, ending with menu choice; guest showcase guide (first visit, skippable, replay button in the second menu, replays after 7 days) — see `docs/07-PRICING.md`
+- [x] 63. Notifications center with every toggle
+- [x] 64. Signup page `/join` (wow-factor design, tiers + build-your-own + add-ons, live pricing tracker, promotions, coupons, guest-guide button) with Stripe; admin pricing/add-on/promotion/coupon editors; tier access enforcement — see `docs/07-PRICING.md`
 
 ## Second menu
 - [ ] 65. Official Tornado Archive: data pipeline (significant events, 2000 onward, NWS DAT updates)

@@ -184,47 +184,6 @@ export function reAge(t: string, now: number) {
 /** How many frames each RealEarth loop holds. */
 export const RE_FRAMES = 10;
 
-/** NOAA model maps (NCEP MAG): which fields each model publishes and its frame hours. */
-export const MODEL_MAPS = {
-  gfs: {
-    label: "GFS",
-    hours: Array.from({ length: 40 }, (_, i) => (i + 1) * 6),
-    fields: {
-      sim_radar_comp: "Simulated radar",
-      "10m_wnd_2m_temp": "Temperature & wind",
-      precip_p03: "3-hour precipitation",
-      precip_ptot: "Total precipitation",
-      "850_temp_mslp_precip": "Pressure & precip",
-      "500_vort_ht": "500 mb vorticity",
-    } as Record<string, string>,
-  },
-  nam: {
-    label: "NAM",
-    hours: Array.from({ length: 28 }, (_, i) => (i + 1) * 3),
-    fields: {
-      "10m_wnd_2m_temp": "Temperature & wind",
-      precip_p03: "3-hour precipitation",
-      precip_ptot: "Total precipitation",
-      "850_temp_mslp_precip": "Pressure & precip",
-      "500_vort_ht": "500 mb vorticity",
-    } as Record<string, string>,
-  },
-} as const;
-export type ModelId = keyof typeof MODEL_MAPS;
-
-/** The image URL for one model frame (GFS uses nested folders, NAM a flat one). */
-export function magUrl(
-  model: ModelId,
-  cycle: string,
-  field: string,
-  hour: number,
-): string {
-  const h = String(hour).padStart(3, "0");
-  return model === "gfs"
-    ? `https://mag.ncep.noaa.gov/data/gfs/${cycle}/namer/${field}/gfs_namer_${h}_${field}.gif`
-    : `https://mag.ncep.noaa.gov/data/nam/${cycle}/nam_namer_${h}_${field}.gif`;
-}
-
 /** Models compared at your location (Open-Meteo ids) with their default line colors. */
 export const COMPARE = [
   { id: "ncep_hrrr_conus", key: "hrrr", label: "HRRR", color: "#f472b6" },
