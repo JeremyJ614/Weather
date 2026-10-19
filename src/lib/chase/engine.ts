@@ -2,6 +2,7 @@ import "server-only";
 import { inside, spcFeatures } from "@/lib/colors/spc-server";
 import { stp, swti } from "@/lib/ingredients/calc";
 import {
+  lowLayer,
   shear06,
   srh,
   stormMotion,
@@ -86,6 +87,8 @@ export type ChaseDay = {
   targets: Target[];
   /** The forecast desk's notes (Gemini), when they could be written. */
   desk?: Desk;
+  /** Rebuilt later from SPC's archived outlook and archived model runs. */
+  backfill?: boolean;
 };
 
 const km = (
@@ -141,11 +144,32 @@ function why(t: Omit<Target, "why" | "place" | "rank">): string[] {
   return out;
 }
 
-/** Runs the scan and returns the day (does not save). */
-export async function runChase(now = new Date()): Promise<ChaseDay> {
+/** SPC's Day 1 outlook for a past day: the 1630Z issue, or the nearest one archived. */
+async function archived(day: string, k: string) {
+  const ymd = day.replaceAll("-", "");
+  for (const z of ["1630", "1300", "2000"]) {
+    const f = await spcFeatures(
+      `outlook/archive/${day.slice(0, 4)}/day1otlk_${ymd}_${z}_${k}`,
+    ).catch(() => null);
+    if (f) return f;
+  }
+  return [];
+}
+
+/**
+ * Runs the scan and returns the day (does not save). With `day` it rebuilds a past day
+ * from SPC's archive and Open-Meteo's archived model runs, on fewer points and only the
+ * fields the score needs (the free API's daily allowance).
+ */
+export async function runChase(
+  now = new Date(),
+  past?: string,
+): Promise<ChaseDay> {
   const [cat, torn, hail, wind] = await Promise.all(
     ["cat", "torn", "hail", "wind"].map((k) =>
-      spcFeatures(`outlook/day1otlk_${k}`).catch(() => []),
+      past
+        ? archived(past, k)
+        : spcFeatures(`outlook/day1otlk_${k}`).catch(() => []),
     ),
   );
   const at = (
@@ -185,7 +209,7 @@ export async function runChase(now = new Date()): Promise<ChaseDay> {
     points = QUIET.map(([lat, lon]) => ({ lat, lon, spc: spcAt(lat, lon) }));
   points = points
     .sort((a, b) => b.spc.cat - a.spc.cat || b.spc.torn - a.spc.torn)
-    .slice(0, 60);
+    .slice(0, past ? 16 : 60);
 
   const levels = ["10m", "925hPa", "850hPa", "700hPa", "500hPa"];
   const vars = [
@@ -197,12 +221,27 @@ export async function runChase(now = new Date()): Promise<ChaseDay> {
     "precipitation_probability",
     "cloud_cover_low",
     "freezing_level_height",
-    "relative_humidity_700hPa",
-    "vertical_velocity_700hPa",
     ...levels.flatMap((l) => [`wind_speed_${l}`, `wind_direction_${l}`]),
+    ...(past
+      ? []
+      : [
+          "relative_humidity_700hPa",
+          "vertical_velocity_700hPa",
+          "relative_humidity_850hPa",
+          "relative_humidity_500hPa",
+          "temperature_850hPa",
+          "temperature_700hPa",
+          "temperature_500hPa",
+          "geopotential_height_850hPa",
+          "geopotential_height_700hPa",
+          "geopotential_height_500hPa",
+          "surface_pressure",
+          "boundary_layer_height",
+        ]),
   ];
+  const today = past ?? chaseDay(now);
   const r = await fetch(
-    `https://api.open-meteo.com/v1/forecast?latitude=${points.map((p) => p.lat).join(",")}&longitude=${points.map((p) => p.lon).join(",")}&hourly=${vars.join(",")}&daily=sunset&wind_speed_unit=ms&forecast_days=2&timezone=auto`,
+    `https://${past ? "historical-forecast-api" : "api"}.open-meteo.com/v1/forecast?latitude=${points.map((p) => p.lat).join(",")}&longitude=${points.map((p) => p.lon).join(",")}&hourly=${vars.join(",")}&daily=sunset&wind_speed_unit=ms&${past ? `start_date=${past}&end_date=${past}` : "forecast_days=2"}&timezone=auto`,
     { signal: AbortSignal.timeout(30000), cache: "no-store" },
   );
   if (!r.ok) throw new Error(`Open-Meteo ${r.status}`);
@@ -211,14 +250,18 @@ export async function runChase(now = new Date()): Promise<ChaseDay> {
     hourly: Record<string, (number | null)[]> & { time: string[] };
     daily: { time: string[]; sunset: string[] };
     utc_offset_seconds: number;
+    elevation?: number;
   }[];
-  const today = chaseDay(now);
 
   const scored = points.flatMap((p, i) => {
     const o = list[i];
     if (!o?.hourly) return [];
     const h = o.hourly;
     const v = (k: string, j: number) => Number(h[k]?.[j] ?? 0) || 0;
+    /** A field this run may not carry: undefined rather than a made-up 0. */
+    const opt = (k: string, j: number, f = (x: number) => Math.round(x)) =>
+      h[k]?.[j] == null ? undefined : f(Number(h[k][j]));
+    const elev = o.elevation ?? 0;
     const day = o.daily.time.find((d) => d === today) ?? o.daily.time[0];
     const sunsetLocal = o.daily.sunset[o.daily.time.indexOf(day)];
     const toUtc = (local: string) =>
@@ -245,6 +288,7 @@ export async function runChase(now = new Date()): Promise<ChaseDay> {
         const dewC = v("dew_point_2m", j);
         const s = srh(prof);
         const sh = shear06(prof);
+        const low = lowLayer(prof, elev > 600);
         const [mu, mv] = stormMotion([
           uv(...prof.w500),
           uv(...prof.w850),
@@ -268,8 +312,41 @@ export async function runChase(now = new Date()): Promise<ChaseDay> {
             ((Math.atan2(mu, mv) * 180) / Math.PI + 360) % 360,
           ),
           freezingFt: Math.round(v("freezing_level_height", j) * 3.281),
-          rh700: Math.round(v("relative_humidity_700hPa", j)),
-          w700: Math.round(v("vertical_velocity_700hPa", j) * 1000) / 1000,
+          rh700: opt("relative_humidity_700hPa", j),
+          w700: opt(
+            "vertical_velocity_700hPa",
+            j,
+            (x) => Math.round(x * 1000) / 1000,
+          ),
+          ...(past
+            ? {}
+            : {
+                t850: opt(
+                  "temperature_850hPa",
+                  j,
+                  (x) => Math.round(x * 10) / 10,
+                ),
+                t700: opt(
+                  "temperature_700hPa",
+                  j,
+                  (x) => Math.round(x * 10) / 10,
+                ),
+                t500: opt(
+                  "temperature_500hPa",
+                  j,
+                  (x) => Math.round(x * 10) / 10,
+                ),
+                z850: opt("geopotential_height_850hPa", j),
+                z700: opt("geopotential_height_700hPa", j),
+                z500: opt("geopotential_height_500hPa", j),
+                rh850: opt("relative_humidity_850hPa", j),
+                rh500: opt("relative_humidity_500hPa", j),
+                pres: opt("surface_pressure", j),
+                pbl: opt("boundary_layer_height", j),
+                elev: Math.round(elev),
+                shear01: Math.round(low.shear),
+                srh01: Math.round(low.srh),
+              }),
         };
         const hoursToSunset = sunsetLocal
           ? (Date.parse(`${sunsetLocal}:00Z`) - Date.parse(`${t}:00Z`)) /
@@ -315,6 +392,7 @@ export async function runChase(now = new Date()): Promise<ChaseDay> {
   return {
     day: today,
     generated: now.toISOString(),
+    ...(past ? { backfill: true } : {}),
     quiet,
     spcTop: Math.max(0, ...points.map((p) => p.spc.cat)),
     candidates: scored.length,
@@ -326,6 +404,39 @@ export async function runChase(now = new Date()): Promise<ChaseDay> {
 export async function saveChase(): Promise<ChaseDay> {
   const d = await runChase();
   d.desk = await deskNotes(d).catch(() => undefined);
+  return save(d);
+}
+
+/**
+ * Fills this year's missing days (newest first), a few per call, so the Yearly tab covers
+ * the whole season rather than starting the day the page went live. Stops at the first
+ * failure (usually the model archive's daily allowance) and picks up on the next call.
+ */
+export async function backfillChase(max = 3) {
+  const today = chaseDay();
+  const { data, error } = await supabaseAdmin()
+    .from("chase_days")
+    .select("day")
+    .gte("day", `${today.slice(0, 4)}-01-01`);
+  if (error) throw new Error(error.message);
+  const have = new Set((data ?? []).map((r) => r.day as string));
+  const missing: string[] = [];
+  for (
+    const d = new Date(`${today.slice(0, 4)}-01-01T12:00:00Z`);
+    d.toISOString().slice(0, 10) < today;
+    d.setUTCDate(d.getUTCDate() + 1)
+  )
+    if (!have.has(d.toISOString().slice(0, 10)))
+      missing.push(d.toISOString().slice(0, 10));
+  const done: [string, number][] = [];
+  for (const day of missing.reverse().slice(0, max)) {
+    const d = await save(await runChase(new Date(), day));
+    done.push([day, d.targets[0]?.score ?? 0]);
+  }
+  return { done, left: missing.length - done.length };
+}
+
+async function save(d: ChaseDay): Promise<ChaseDay> {
   const top = d.targets[0];
   const { error } = await supabaseAdmin()
     .from("chase_days")

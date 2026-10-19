@@ -24,6 +24,22 @@ export type Hour = {
   /** 700 mb humidity (%) and vertical motion (m/s, positive is rising); older days lack them. */
   rh700?: number;
   w700?: number;
+  /** Upper-air temperatures (°C) and heights (m), the ground's height (m) and pressure (mb). Newer days only. */
+  t850?: number;
+  t700?: number;
+  t500?: number;
+  z850?: number;
+  z700?: number;
+  z500?: number;
+  elev?: number;
+  pres?: number;
+  /** Boundary layer depth (m), 850/500 mb humidity (%). */
+  pbl?: number;
+  rh850?: number;
+  rh500?: number;
+  /** Lowest-layer shear (kt) and helicity (m²/s²). */
+  shear01?: number;
+  srh01?: number;
 };
 export type Spc = { cat: number; torn: number; hail: number; wind: number };
 
@@ -167,6 +183,8 @@ export const BANDS = [
   { min: 70, label: "Worth going", color: "#ef4444" },
   { min: 85, label: "Big day", color: "#d946ef" },
 ];
+/** The second target's color (editable). */
+export const CHASE_ALT = "#a78bfa";
 export const bandIndex = (score: number) =>
   BANDS.findLastIndex((b) => score >= b.min);
 
@@ -246,3 +264,135 @@ export function plainNote(t: {
       : "The ingredients line up; the main way this fails is storms not initiating where expected.",
   };
 }
+
+const r1 = (x: number) => Math.round(x * 10) / 10;
+const fin = (x: number | undefined): x is number =>
+  typeof x === "number" && Number.isFinite(x);
+
+/** Stull's wet-bulb temperature (°C) from temperature (°C) and humidity (%). */
+export function wetBulb(t: number, rh: number) {
+  const h = Math.max(5, Math.min(99, rh));
+  return (
+    t * Math.atan(0.151977 * Math.sqrt(h + 8.313659)) +
+    Math.atan(t + h) -
+    Math.atan(h - 1.676331) +
+    0.00391838 * h ** 1.5 * Math.atan(0.023101 * h) -
+    4.686035
+  );
+}
+
+/** Humidity (%) from temperature and dew point (°C). */
+const rhOf = (t: number, td: number) =>
+  100 * Math.exp((17.625 * td) / (243.04 + td) - (17.625 * t) / (243.04 + t));
+
+export type Derived = {
+  lcl: number;
+  /** 700–500 mb and surface–700 mb lapse rates (°C/km). */
+  lapse75: number | null;
+  lapse03: number | null;
+  /** Surface mixing ratio (g/kg). */
+  mix: number | null;
+  scp: number;
+  ehi: number;
+  ship: number | null;
+  /** Wet-bulb zero height above ground (ft). */
+  wbzFt: number | null;
+};
+
+/** The composites VIP shows, worked out from one hour's model levels (null when a level is missing). */
+export function derive(h: Hour): Derived {
+  const tC = (h.temp - 32) / 1.8;
+  const tdC = (h.dew - 32) / 1.8;
+  const elev = h.elev ?? 0;
+  const lapse75 =
+    fin(h.t700) && fin(h.t500) && fin(h.z700) && fin(h.z500)
+      ? r1(((h.t700 - h.t500) / (h.z500 - h.z700)) * 1000)
+      : null;
+  const lapse03 =
+    fin(h.t700) && fin(h.z700) && h.z700 - elev > 500
+      ? r1(((tC - h.t700) / (h.z700 - elev)) * 1000)
+      : null;
+  const e = 6.112 * Math.exp((17.67 * tdC) / (tdC + 243.5));
+  const mix = fin(h.pres) ? r1((621.97 * e) / (h.pres - e)) : null;
+  const shearMs = h.shear / 1.94384;
+  const shearTerm = shearMs < 10 ? 0 : Math.min(1, shearMs / 20);
+  const scp = r1(Math.max(0, (h.cape / 1000) * (h.srh / 50) * shearTerm));
+  const ehi = r1(Math.max(0, (h.cape * h.srh) / 160000));
+  let ship: number | null = null;
+  if (mix != null && lapse75 != null && fin(h.t500)) {
+    const sh = Math.max(7, Math.min(27, shearMs));
+    const mr = Math.max(11, Math.min(13.6, mix));
+    const t5 = Math.min(-5.5, h.t500);
+    let v = (h.cape * mr * lapse75 * -t5 * sh) / 42_000_000;
+    if (h.cape < 1300) v *= h.cape / 1300;
+    if (lapse75 < 5.8) v *= lapse75 / 5.8;
+    const fz = h.freezingFt / 3.281 - elev;
+    if (fz < 2400) v *= Math.max(0, fz) / 2400;
+    ship = Math.round(Math.max(0, v) * 100) / 100;
+  }
+  // Wet-bulb zero: walk up from the ground through 850, 700 and 500 mb to where it crosses 0 °C.
+  let wbzFt: number | null = null;
+  const levels: [number, number][] = [[0, wetBulb(tC, rhOf(tC, tdC))]];
+  for (const [t, z, rh] of [
+    [h.t850, h.z850, h.rh850],
+    [h.t700, h.z700, h.rh700],
+    [h.t500, h.z500, h.rh500],
+  ] as const)
+    if (fin(t) && fin(z) && fin(rh) && z - elev > 50)
+      levels.push([z - elev, wetBulb(t, rh)]);
+  if (levels.length > 1) {
+    if (levels[0][1] <= 0) wbzFt = 0;
+    for (let i = 1; i < levels.length && wbzFt == null; i++) {
+      const [z0, w0] = levels[i - 1];
+      const [z1, w1] = levels[i];
+      if (w0 > 0 && w1 <= 0)
+        wbzFt =
+          Math.round(((z0 + ((z1 - z0) * w0) / (w0 - w1)) * 3.281) / 100) * 100;
+    }
+  }
+  return {
+    lcl: lclFt(h.temp, h.dew),
+    lapse75,
+    lapse03,
+    mix,
+    scp,
+    ehi,
+    ship,
+    wbzFt,
+  };
+}
+
+/** Where today sits in the year (1–5): VIP's "chance this is the year's best". */
+export function yearRank(score: number, year: number[]): number {
+  if (score < 30 || !year.length) return 1;
+  const best = Math.max(...year);
+  const pct = percentile(score, year);
+  if (score >= best * 0.95 && score >= 50) return 5;
+  if (pct >= 90) return 4;
+  if (pct >= 75) return 3;
+  if (pct >= 50) return 2;
+  return 1;
+}
+
+export const YEARLY_MEANING: Record<number, { title: string; body: string }> = {
+  1: {
+    title: "No chance of being the year's best",
+    body: "A day you chase because you're already out, not one you drive for.",
+  },
+  2: {
+    title: "Very little chance",
+    body: "A real setup with a real ceiling. Worth going if it's close to you.",
+  },
+  3: {
+    title: "Has a chance",
+    body: "The kind of day that turns into the year's best about as often as it doesn't.",
+  },
+  4: {
+    title: "Good chance",
+    body: "Clear your calendar. Days like this are why the season exists.",
+  },
+  5: {
+    title: "Very high chance this is the year's best",
+    body: "Go. You'll remember where you were on this one.",
+  },
+};

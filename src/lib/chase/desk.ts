@@ -9,7 +9,13 @@ import type { ChaseDay } from "./engine";
  * and the way it busts), strictly from the numbers the engine computed. Never invents a
  * number; the prompt hands it every one it may use.
  */
-export type Desk = { summary: string; targets: DeskNote[] };
+export type Desk = {
+  summary: string;
+  targets: DeskNote[];
+  /** "If you're going": practical notes, and one safety line. */
+  tips?: string[];
+  safety?: string;
+};
 const MODELS = ["gemini-flash-latest", "gemini-flash-lite-latest"];
 
 const PROMPT = (
@@ -18,7 +24,8 @@ const PROMPT = (
 Use ONLY the numbers given below; do not invent values. Plain, confident, chaser language. Local times as given.
 Return JSON: {"summary": one sentence (max 25 words) describing the day's best setup and where,
 "targets": [for each target in order: {"desk": 3-4 sentences on initiation timing, storm mode, motion, daylight and evolution,
-"tornado": 1 sentence, "hail": 1 sentence, "wind": 1 sentence, "bust": 2 sentences on how the day fails}]}.
+"tornado": 1 sentence, "hail": 1 sentence, "wind": 1 sentence, "bust": 2 sentences on how the day fails}],
+"tips": 3 short practical tips for someone heading out today (where to sit relative to storm motion, timing, daylight), "safety": 1 sentence on the day's biggest safety concern}.
 FACTS:
 ${facts}`;
 
@@ -61,7 +68,7 @@ Mode: ${t.mode.mode} (${t.mode.flavor}), hail estimate ${t.mode.hailIn} in. Bust
             generationConfig: {
               temperature: 0.4,
               responseMimeType: "application/json",
-              maxOutputTokens: 1800,
+              maxOutputTokens: 2200,
             },
           }),
           signal: AbortSignal.timeout(25000),
@@ -84,6 +91,11 @@ Mode: ${t.mode.mode} (${t.mode.flavor}), hail estimate ${t.mode.hailIn} in. Bust
           wind: clean(j.targets?.[i]?.wind, 260),
           bust: clean(j.targets?.[i]?.bust, 400),
         })),
+        tips: (Array.isArray(j.tips) ? j.tips : [])
+          .map((x) => clean(x, 240))
+          .filter(Boolean)
+          .slice(0, 4),
+        safety: clean(j.safety, 260) || undefined,
       };
       if (desk.summary && desk.targets.every((t) => t.desk)) {
         ok = true;

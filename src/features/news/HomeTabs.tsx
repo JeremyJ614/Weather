@@ -30,7 +30,7 @@ const nextFrame = () =>
  * every phone (CSS animations are zeroed under reduced motion). Reduced motion gets
  * an opacity-only fade, which is safe for motion sensitivity.
  */
-function slideIn(el: Element | null | undefined, dir: number) {
+export function slideIn(el: Element | null | undefined, dir: number) {
   if (!el || typeof el.animate !== "function") return;
   const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
   el.animate(

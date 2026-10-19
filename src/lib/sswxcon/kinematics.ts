@@ -49,6 +49,22 @@ export function srh(p: Profile): number {
   return Math.abs(h);
 }
 
+/**
+ * Shear (kt) and helicity in the lowest layer: 10 m to 925 hPa, or to 850 hPa on high
+ * ground where 925 hPa is underground (about 0–1 km).
+ */
+export function lowLayer(p: Profile, high = false) {
+  const top = uv(...(high ? p.w850 : p.w925));
+  const bottom = uv(...p.w10);
+  const [su, sv] = stormMotion([uv(...p.w500), uv(...p.w850), uv(...p.w925)]);
+  const [u0, v0] = [bottom[0] - su, bottom[1] - sv];
+  const [u1, v1] = [top[0] - su, top[1] - sv];
+  return {
+    shear: Math.hypot(top[0] - bottom[0], top[1] - bottom[1]),
+    srh: Math.abs(u0 * v1 - u1 * v0),
+  };
+}
+
 export function shear06(p: Profile): number {
   const [u0, v0] = uv(...p.w10);
   const [u1, v1] = uv(...p.w500);

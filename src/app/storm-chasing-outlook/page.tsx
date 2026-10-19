@@ -33,7 +33,7 @@ export default async function StormChasingOutlook() {
     sb.from("chase_days").select("data").eq("day", today).maybeSingle(),
     sb
       .from("chase_days")
-      .select("day, top_score, spc_cat, tornado_pct, place")
+      .select("day, top_score, spc_cat, tornado_pct, place, generated_at")
       .gte("day", `${today.slice(0, 4)}-01-01`)
       .order("day"),
     getColors(),
