@@ -18,3 +18,18 @@ export function placeStyle(id: string, size = 0): CSSProperties {
 }
 
 export const isLeft = (id: string) => id.includes("left");
+
+/** Class names for a quick menu's round button at a placement (Fab.module.css). */
+export function fabPlace(id: string, f: Readonly<Record<string, string>>) {
+  const v = id.startsWith("top")
+    ? f.top
+    : id.endsWith("-raised")
+      ? f.raised
+      : f.pos;
+  const h = id.includes("left")
+    ? f.left
+    : id.includes("center")
+      ? f.center
+      : f.right;
+  return `${v} ${h}`;
+}

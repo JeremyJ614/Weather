@@ -12,12 +12,12 @@ describe("site defaults", () => {
   it("keeps the user's own picks over the defaults", () => {
     expect(
       pickMenus(
-        { main: "ledger", second: "depth" },
+        { main: "ledger", second: "radar" },
         { main: "plates", second: "dial" },
       ),
     ).toEqual({
       main: "ledger",
-      second: "depth",
+      second: "radar",
     });
   });
   it("never shows the same style twice", () => {

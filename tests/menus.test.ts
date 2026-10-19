@@ -30,11 +30,21 @@ describe("menu choice", () => {
   });
   it("has every offered style built", () => {
     expect(OFFERED.main).toHaveLength(12);
-    expect(OFFERED.second).toHaveLength(10);
+    expect(OFFERED.second).toHaveLength(11);
+    for (const id of [...OFFERED.main, ...OFFERED.second])
+      expect(MENU_STYLES[id], id).toBeDefined();
   });
   it("only allows offered styles in each menu", () => {
     expect(pickMenus({ main: "morph" }).main).toBe(DEFAULT_MENUS.main);
     expect(pickMenus({ second: "notch" }).second).toBe(DEFAULT_MENUS.second);
+  });
+  it("drops the retired menus (owner's Final Fix-It #15–16)", () => {
+    for (const id of ["split", "notch", "depth", "curtain"]) {
+      expect(OFFERED.main).not.toContain(id);
+      expect(OFFERED.second).not.toContain(id);
+      expect(MENU_STYLES[id]).toBeUndefined();
+    }
+    expect(OFFERED.second).not.toContain("scrolltabs");
   });
   it("finds a clean or raised placement for every offered pair", () => {
     for (const a of OFFERED.main)

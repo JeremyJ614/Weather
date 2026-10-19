@@ -1,4 +1,4 @@
-/** Icon names a badge may use (drawn by src/components/BadgeIcon.tsx). */
+/** Icon names a badge may use (drawn from src/components/badge-icon-set.ts). */
 export const BADGE_ICON_NAMES = [
   "Award",
   "Trophy",

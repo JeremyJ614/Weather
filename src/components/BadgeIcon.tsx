@@ -1,137 +1,33 @@
 "use client";
 
-import { useId } from "react";
-import type { LucideIcon } from "lucide-react";
-import {
-  Award,
-  BadgeCheck,
-  BellRing,
-  Binoculars,
-  BookOpen,
-  Brain,
-  CalendarCheck,
-  Car,
-  CloudHail,
-  CloudLightning,
-  CloudRain,
-  CloudSnow,
-  CloudSun,
-  Compass,
-  Crosshair,
-  Crown,
-  Droplets,
-  Eye,
-  Flag,
-  Flame,
-  Footprints,
-  Gem,
-  GraduationCap,
-  HandHeart,
-  Heart,
-  Hourglass,
-  Infinity as InfinityIcon,
-  Lightbulb,
-  MapPinned,
-  Medal,
-  Megaphone,
-  Moon,
-  MoonStar,
-  Mountain,
-  Orbit,
-  Radar,
-  Rainbow,
-  Rocket,
-  Route,
-  Satellite,
-  Shield,
-  Smartphone,
-  Snowflake,
-  Sparkles,
-  Star,
-  Sun,
-  Sunrise,
-  Sunset,
-  Target,
-  Telescope,
-  Thermometer,
-  Tornado,
-  Trophy,
-  Umbrella,
-  UserPlus,
-  Users,
-  Vote,
-  Waves,
-  Wind,
-  Zap,
-} from "lucide-react";
+import { useEffect, useId, useState } from "react";
 import { pick, type Colors } from "@/lib/colors/pick";
 import { RARITY, type Badge } from "@/lib/badges";
 import { AwardBadge } from "@/components/ui/award-badge";
 
-/** Keep in step with BADGE_ICON_NAMES (src/lib/badge-icons.ts). */
-export const BADGE_ICONS: Record<string, LucideIcon> = {
-  Award,
-  Trophy,
-  Medal,
-  Star,
-  Crown,
-  Gem,
-  Sparkles,
-  Zap,
-  Flame,
-  Tornado,
-  CloudLightning,
-  CloudRain,
-  CloudHail,
-  CloudSnow,
-  CloudSun,
-  Rainbow,
-  Snowflake,
-  Sun,
-  Sunrise,
-  Sunset,
-  Moon,
-  MoonStar,
-  Wind,
-  Waves,
-  Droplets,
-  Thermometer,
-  Umbrella,
-  Radar,
-  Satellite,
-  Orbit,
-  Telescope,
-  Binoculars,
-  Eye,
-  Compass,
-  MapPinned,
-  Route,
-  Car,
-  Mountain,
-  Flag,
-  Footprints,
-  Target,
-  Crosshair,
-  Shield,
-  BadgeCheck,
-  Infinity: InfinityIcon,
-  Hourglass,
-  CalendarCheck,
-  Lightbulb,
-  BookOpen,
-  GraduationCap,
-  Brain,
-  Vote,
-  Megaphone,
-  UserPlus,
-  Users,
-  HandHeart,
-  Heart,
-  BellRing,
-  Smartphone,
-  Rocket,
-};
+type IconSet = typeof import("./badge-icon-set").BADGE_ICONS;
+let loaded: IconSet | null = null;
+let loading: Promise<IconSet> | null = null;
 
+/**
+ * The badge icon set (60 icons), fetched once after the page is up rather than with it:
+ * emblems draw their frames at once and their icons a moment later.
+ */
+export function useBadgeIcons() {
+  const [set, setSet] = useState(loaded);
+  useEffect(() => {
+    if (loaded) return;
+    let live = true;
+    loading ??= import("./badge-icon-set").then(
+      (m) => (loaded = m.BADGE_ICONS),
+    );
+    loading.then((x) => live && setSet(x));
+    return () => {
+      live = false;
+    };
+  }, []);
+  return set;
+}
 // Turning rays and twinkles: transform and opacity only, still for reduced motion and
 // on low-tier devices.
 const EMBLEM_CSS =
@@ -171,7 +67,8 @@ export function EmblemGroup({
   color: string;
 }) {
   const id = useId().replace(/:/g, "");
-  const I = BADGE_ICONS[icon] ?? Award;
+  const icons = useBadgeIcons();
+  const I = icons ? (icons[icon] ?? icons.Award) : null;
   const tier = ["common", "rare", "epic", "legendary"].indexOf(rarity);
   return (
     <g>
@@ -221,14 +118,16 @@ export function EmblemGroup({
           opacity="0.8"
         />
       )}
-      <I
-        x={tier === 3 ? 18 : 16}
-        y={tier === 3 ? 18 : 16}
-        width={tier === 3 ? 18 : 22}
-        height={tier === 3 ? 18 : 22}
-        strokeWidth={1.9}
-        color={tier >= 2 ? color : "var(--accent)"}
-      />
+      {I && (
+        <I
+          x={tier === 3 ? 18 : 16}
+          y={tier === 3 ? 18 : 16}
+          width={tier === 3 ? 18 : 22}
+          height={tier === 3 ? 18 : 22}
+          strokeWidth={1.9}
+          color={tier >= 2 ? color : "var(--accent)"}
+        />
+      )}
       {tier >= 2 && (
         <g fill="#fff">
           <path className="bdg-tw" d={spark(9, 12, 3)} />

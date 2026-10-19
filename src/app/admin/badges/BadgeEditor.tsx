@@ -2,7 +2,7 @@
 
 import { useActionState, useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
-import { BadgePlate, BADGE_ICONS } from "@/components/BadgeIcon";
+import { BadgePlate, useBadgeIcons } from "@/components/BadgeIcon";
 import { metricName, RARITIES, type Badge } from "@/lib/badges";
 import type { Colors } from "@/lib/colors/pick";
 import { deleteBadge, saveBadge } from "./actions";
@@ -24,6 +24,7 @@ export function BadgeEditor({
   const [rarity, setRarity] = useState(badge?.rarity ?? "common");
   const [name, setName] = useState(badge?.name ?? "");
   const [gone, setGone] = useState(false);
+  const icons = useBadgeIcons();
   const [del, start] = useTransition();
   if (gone) return null;
   return (
@@ -107,7 +108,7 @@ export function BadgeEditor({
         role="radiogroup"
         aria-label="Icon"
       >
-        {Object.entries(BADGE_ICONS).map(([k, I]) => (
+        {Object.entries(icons ?? {}).map(([k, I]) => (
           <button
             key={k}
             type="button"

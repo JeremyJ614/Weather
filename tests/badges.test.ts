@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BADGE_ICONS } from "@/components/BadgeIcon";
+import { BADGE_ICONS } from "@/components/badge-icon-set";
 import { BADGE_ICON_NAMES } from "@/lib/badge-icons";
 
 describe("badge icons", () => {

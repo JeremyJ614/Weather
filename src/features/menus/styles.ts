@@ -10,7 +10,6 @@ const TOP: Placement[] = [
   { id: "top-right", zones: ["top-right"] },
   { id: "top-left", zones: ["top-left"] },
 ];
-const TOP_LEFT_FIRST: Placement[] = [TOP[1], TOP[0]];
 const BAR: Placement[] = [{ id: "bottom-bar", zones: BOTTOM_BAR }];
 const FLOAT_CENTER: Placement[] = [
   { id: "bottom-center", zones: ["bottom-center"] },
@@ -22,6 +21,15 @@ const FLOAT_RIGHT: Placement[] = [
   FLOAT_CENTER[2],
   FLOAT_CENTER[0],
 ];
+
+const FLOAT_LEFT: Placement[] = [
+  FLOAT_CENTER[2],
+  FLOAT_CENTER[1],
+  FLOAT_CENTER[0],
+];
+const SEARCH: Placement[] = [TOP[1], TOP[0], FLOAT_LEFT[0], FLOAT_RIGHT[0]];
+// The dock is a short centered bar; beside another bottom menu it rides above it.
+const DOCK: Placement[] = [{ id: "bottom-bar", zones: ["bottom-center"] }];
 
 const EDGE: Placement[] = [
   { id: "right-edge", zones: ["right"] },
@@ -59,12 +67,6 @@ export const MENU_STYLES: Record<string, MenuStyle> = {
     "Glass Ledger",
     FLOAT_CENTER,
     lazy(() => import("./GlassLedger").then((m) => m.GlassLedger)),
-  ),
-  split: S(
-    "split",
-    "Split Sidebar",
-    TOP_LEFT_FIRST,
-    lazy(() => import("./SplitSidebar").then((m) => m.SplitSidebar)),
   ),
   spotlight: S(
     "spotlight",
@@ -108,18 +110,6 @@ export const MENU_STYLES: Record<string, MenuStyle> = {
     FLOAT_CENTER,
     lazy(() => import("./Vortex").then((m) => m.Vortex)),
   ),
-  notch: S(
-    "notch",
-    "Notch Bar",
-    BAR,
-    lazy(() => import("./NotchBar").then((m) => m.NotchBar)),
-  ),
-  depth: S(
-    "depth",
-    "Depth Drawer",
-    TOP_LEFT_FIRST,
-    lazy(() => import("./DepthDrawer").then((m) => m.DepthDrawer)),
-  ),
   dial: S(
     "dial",
     "Speed Dial",
@@ -138,11 +128,47 @@ export const MENU_STYLES: Record<string, MenuStyle> = {
     EDGE,
     lazy(() => import("./EdgePeek").then((m) => m.EdgePeek)),
   ),
-  curtain: S(
-    "curtain",
-    "Curtain Reveal",
-    TOP_LEFT_FIRST,
-    lazy(() => import("./CurtainReveal").then((m) => m.CurtainReveal)),
+  wallet: S(
+    "wallet",
+    "Wallet Stack",
+    TOP,
+    lazy(() => import("./WalletStack").then((m) => m.WalletStack)),
+  ),
+  iris: S(
+    "iris",
+    "Iris",
+    TOP,
+    lazy(() => import("./Iris").then((m) => m.Iris)),
+  ),
+  radar: S(
+    "radar",
+    "Radar Scope",
+    FLOAT_RIGHT,
+    lazy(() => import("./RadarScope").then((m) => m.RadarScope)),
+  ),
+  palette: S(
+    "palette",
+    "Command Palette",
+    SEARCH,
+    lazy(() => import("./CommandPalette").then((m) => m.CommandPalette)),
+  ),
+  dock: S(
+    "dock",
+    "Magnify Dock",
+    DOCK,
+    lazy(() => import("./MagnifyDock").then((m) => m.MagnifyDock)),
+  ),
+  deck: S(
+    "deck",
+    "Flip Deck",
+    FLOAT_LEFT,
+    lazy(() => import("./FlipDeck").then((m) => m.FlipDeck)),
+  ),
+  ripple: S(
+    "ripple",
+    "Ripple Grid",
+    FLOAT_RIGHT,
+    lazy(() => import("./RippleGrid").then((m) => m.RippleGrid)),
   ),
 };
 

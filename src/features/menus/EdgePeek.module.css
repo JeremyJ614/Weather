@@ -13,20 +13,32 @@
 }
 .tab {
   position: fixed;
-  top: 50%;
+  top: 0;
   right: 0;
   z-index: 66;
   display: grid;
   place-items: center;
   width: 30px;
   height: 92px;
-  margin-top: -46px;
+  /* Its spot on the edge (--y, a share of the screen's height) is a transform, so moving it is smooth. */
+  transform: translate3d(0, calc(var(--y, 0.34) * 100dvh - 46px), 0);
+  touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
   border: 1.5px solid var(--accent);
   border-right: 0;
   border-radius: 16px 0 0 16px;
   background: var(--lit);
   color: var(--accent);
   box-shadow: var(--glow);
+  transition: box-shadow 0.25s;
+}
+/* Picked up: it glows harder while it follows the finger. */
+.tab[data-moving] {
+  box-shadow:
+    var(--glow),
+    0 0 30px 2px var(--accent);
 }
 [data-left="true"] .tab {
   right: auto;
