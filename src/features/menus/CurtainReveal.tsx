@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/components/IntentLink";
 import { href } from "@/lib/nav/registry";
 import { Burger } from "./Burger";
 import s from "./CurtainReveal.module.css";

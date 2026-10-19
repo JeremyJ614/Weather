@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/IntentLink";
 import { NavIcon } from "@/components/NavIcon";
 import { href, type NavGroup } from "@/lib/nav/registry";
 

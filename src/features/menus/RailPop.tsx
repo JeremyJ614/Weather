@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/components/IntentLink";
 import { NavIcon } from "@/components/NavIcon";
 import { href } from "@/lib/nav/registry";
 import { Items, single } from "./Items";

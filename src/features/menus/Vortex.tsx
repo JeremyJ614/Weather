@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/components/IntentLink";
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Tornado } from "lucide-react";
 import { NavIcon } from "@/components/NavIcon";
