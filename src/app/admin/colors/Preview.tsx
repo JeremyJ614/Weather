@@ -75,6 +75,18 @@ export function previewSource(
         url: "/api/rivers/preview",
         title: "River gauges at action stage or higher",
       };
+    case "engine-tor":
+      return { url: "/api/engines/preview?e=tor", title: "ProbTor storms now" };
+    case "engine-hail":
+      return {
+        url: "/api/engines/preview?e=hail",
+        title: "ProbHail storms now",
+      };
+    case "engine-blind":
+      return {
+        url: "/api/engines/preview?e=blind",
+        title: "Lowest radar beam, sampled every half degree",
+      };
     case "reports":
       return {
         url: "/api/reports?hours=48",

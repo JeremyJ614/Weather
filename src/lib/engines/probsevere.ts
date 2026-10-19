@@ -1,0 +1,179 @@
+import "server-only";
+import { PLACES } from "@/lib/geo/places.data";
+import { nearestPlace, parsePlaces } from "@/lib/geo/search";
+import {
+  cone,
+  hailBand,
+  motion,
+  swath,
+  torOutlook,
+  type Cell,
+} from "./project";
+
+/**
+ * Reads NOAA/CIMSS ProbSevere v3 (MRMS, new every 2 minutes) and turns it into the ProbTor
+ * and ProbHail layers. The newest file is compared with one about 10 minutes older to get
+ * each storm's rotation trend and lightning jump (storm IDs carry across files).
+ */
+const BASE = "https://mrms.ncep.noaa.gov/ProbSevere/PROBSEVERE/";
+const UA = { "User-Agent": "StormSync Weather (https://weather.sswx.space)" };
+let rows: ReturnType<typeof parsePlaces> | null = null;
+
+type Raw = {
+  validTime?: string;
+  features: {
+    geometry: { type: string; coordinates: number[][][] };
+    properties: Record<string, string>;
+  }[];
+};
+
+const num = (v: string | undefined) => Number(v) || 0;
+
+function cells(raw: Raw): Cell[] {
+  return raw.features
+    .filter((f) => f.geometry?.type === "Polygon")
+    .map((f) => {
+      const p = f.properties;
+      const ring = f.geometry.coordinates[0] as [number, number][];
+      return {
+        id: p.ID,
+        lat: num(p.MLAT) || ring[0][1],
+        lon: num(p.MLON) || ring[0][0],
+        ring,
+        tor: num(p.ProbTor),
+        hail: num(p.ProbHail),
+        wind: num(p.ProbWind),
+        severe: num(p.ProbSevere),
+        meshIn: num(p.MESH) / 25.4,
+        az: num(p.MAXLLAZ),
+        flash: num(p.FLASH_RATE),
+        jump: num(p.LJA) > 0,
+        east: num(p.MOTION_EAST),
+        north: -num(p.MOTION_SOUTH),
+      };
+    });
+}
+
+const stamp = (f: string) => {
+  const m = /(\d{8})_(\d{6})/.exec(f);
+  return m
+    ? Date.parse(
+        `${m[1].slice(0, 4)}-${m[1].slice(4, 6)}-${m[1].slice(6)}T${m[2].slice(0, 2)}:${m[2].slice(2, 4)}:${m[2].slice(4)}Z`,
+      )
+    : 0;
+};
+
+async function file(name: string): Promise<Raw> {
+  // Each file name is a fixed time, so a fetched file never changes.
+  const r = await fetch(BASE + name, {
+    headers: UA,
+    signal: AbortSignal.timeout(15000),
+    next: { revalidate: 3600 },
+  });
+  if (!r.ok) throw new Error(`ProbSevere ${r.status}`);
+  return r.json();
+}
+
+export type EngineStorm = {
+  id: string;
+  place: string;
+  lat: number;
+  lon: number;
+  tor: number;
+  p20: number;
+  p40: number;
+  p60: number;
+  trend: string;
+  jump: boolean;
+  hail: number;
+  meshIn: number;
+  band: number;
+  wind: number;
+  mph: number;
+  toward: string;
+};
+
+export async function probSevere() {
+  const list = await fetch(BASE, {
+    headers: UA,
+    signal: AbortSignal.timeout(10000),
+    next: { revalidate: 60 },
+  }).then((r) => (r.ok ? r.text() : ""));
+  const names = [...list.matchAll(/MRMS_PROBSEVERE_\d{8}_\d{6}\.json/g)]
+    .map((m) => m[0])
+    .filter((v, i, a) => a.indexOf(v) === i)
+    .sort();
+  const latest = names.at(-1);
+  if (!latest) throw new Error("ProbSevere has no files");
+  const t = stamp(latest);
+  const older = [...names].reverse().find((n) => stamp(n) <= t - 9 * 60_000);
+  const [now, then] = await Promise.all([
+    file(latest),
+    older ? file(older).catch(() => null) : null,
+  ]);
+  const prev = new Map(
+    (then ? cells(then) : []).map((c) => [c.id, c] as const),
+  );
+  rows ??= parsePlaces(PLACES);
+  const tor: GeoJSON.Feature[] = [];
+  const hail: GeoJSON.Feature[] = [];
+  const storms: EngineStorm[] = [];
+  for (const c of cells(now)) {
+    const o = torOutlook(c, prev.get(c.id));
+    const band = hailBand(c.meshIn);
+    if (o.p20 < 3 && band === 0 && c.hail < 15 && c.wind < 30) continue;
+    const near = nearestPlace(rows, c.lat, c.lon, 1000);
+    const m = motion(c);
+    storms.push({
+      id: c.id,
+      place: near
+        ? `${near.miles < 3 ? "" : `${Math.round(near.miles)} mi from `}${near.hit.name}, ${near.hit.st}`
+        : `${c.lat.toFixed(2)}, ${c.lon.toFixed(2)}`,
+      lat: c.lat,
+      lon: c.lon,
+      tor: o.now,
+      p20: o.p20,
+      p40: o.p40,
+      p60: o.p60,
+      trend: o.trend,
+      jump: o.jump,
+      hail: Math.round(c.hail),
+      meshIn: Math.round(c.meshIn * 100) / 100,
+      band,
+      wind: Math.round(c.wind),
+      mph: m.mph,
+      toward: m.toward,
+    });
+    if (o.p20 >= 3)
+      for (const [from, to, p, step] of [
+        [40, 60, o.p60, 2],
+        [20, 40, o.p40, 1],
+        [0, 20, o.p20, 0],
+      ] as const)
+        tor.push({
+          type: "Feature",
+          properties: { id: c.id, p, step },
+          geometry: { type: "Polygon", coordinates: [cone(c, from, to)] },
+        });
+    if (band > 0 || c.hail >= 15)
+      hail.push({
+        type: "Feature",
+        properties: { id: c.id, band, p: Math.round(c.hail) },
+        geometry: { type: "Polygon", coordinates: [swath(c)] },
+      });
+  }
+  storms.sort((a, b) => b.p20 - a.p20 || b.hail - a.hail);
+  return {
+    at: new Date(t).toISOString(),
+    total: now.features.length,
+    storms: storms.slice(0, 40),
+    tor: {
+      type: "FeatureCollection",
+      features: tor,
+    } as GeoJSON.FeatureCollection,
+    hail: {
+      type: "FeatureCollection",
+      features: hail,
+    } as GeoJSON.FeatureCollection,
+  };
+}

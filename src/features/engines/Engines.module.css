@@ -1,0 +1,247 @@
+.picker {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+.picker button {
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  min-height: 78px;
+  padding: 8px 4px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  text-align: center;
+}
+.picker button svg {
+  width: 20px;
+  color: var(--muted);
+}
+.picker b {
+  font-size: 12.5px;
+  line-height: 1.15;
+}
+.picker small {
+  color: var(--muted);
+  font-size: 10.5px;
+  line-height: 1.25;
+}
+.picker button[aria-selected="true"] {
+  border-color: var(--lit-line);
+  background: var(--lit);
+  box-shadow: 0 0 16px -6px var(--accent);
+}
+.picker button[aria-selected="true"] svg {
+  color: var(--accent);
+}
+.mapBox {
+  position: relative;
+}
+.map {
+  height: min(60vh, 480px);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+}
+.badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border: 1px solid var(--lit-line);
+  border-radius: 999px;
+  background: rgb(5 8 18 / 0.75);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+.badge svg {
+  width: 13px;
+}
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.legend i {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+.small {
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--surface);
+}
+.card > header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 10px;
+}
+.card h3 {
+  font-size: 15px;
+  font-weight: 800;
+}
+.card > header small {
+  color: var(--muted);
+  font-size: 11.5px;
+}
+.storms {
+  display: grid;
+  gap: 8px;
+}
+.storms li {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--bg) 60%, transparent);
+}
+.storms button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+}
+.where {
+  display: grid;
+  min-width: 0;
+}
+.where b {
+  overflow: hidden;
+  font-size: 13.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.where small {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 11.5px;
+}
+.where svg {
+  width: 12px;
+}
+.odds {
+  display: flex;
+  flex: none;
+  gap: 6px;
+}
+.odds > span {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  width: 38px;
+  font-variant-numeric: tabular-nums;
+}
+.odds i {
+  width: 8px;
+  height: 26px;
+  border-radius: 3px;
+  transform-origin: bottom;
+}
+.odds b {
+  font-size: 12px;
+}
+.odds small,
+.hail small {
+  color: var(--muted);
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.hail {
+  display: grid;
+  flex: none;
+  justify-items: end;
+}
+.hail i {
+  width: 34px;
+  height: 6px;
+  border-radius: 3px;
+}
+.hail b {
+  font-size: 15px;
+}
+.flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.flags span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.flags span[data-k="up"] {
+  border-color: var(--lit-line);
+  color: var(--accent);
+}
+.flags svg {
+  width: 12px;
+}
+.readout {
+  display: grid;
+  gap: 2px;
+}
+.readout b {
+  font-family: var(--font-display);
+  font-size: 28px;
+  color: var(--accent);
+}
+.readout span {
+  color: var(--muted);
+  font-size: 13px;
+}
+.how {
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+.how summary {
+  cursor: pointer;
+  font-weight: 800;
+}
+.how p {
+  margin-top: 8px;
+  color: var(--muted);
+}
+.how p b {
+  color: var(--text);
+}

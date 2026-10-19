@@ -24,6 +24,7 @@ import { LT_BANDS } from "@/lib/lightning/style";
 import { CLIMO_LIGHT, CLIMO_LINES, CLIMO_RAMP } from "@/lib/climo/style";
 import { COMPARE } from "@/lib/radar/products";
 import { BANDS as CHASE_BANDS, CHASE_ALT } from "@/lib/chase/score";
+import { BLIND_BANDS, HAIL_BANDS, TOR_BINS } from "@/lib/engines/colors";
 import { PROB as WINTER_PROB } from "@/lib/winter/style";
 import { CONTAIN, FIRE_RISK } from "@/lib/fire/style";
 import { HAZ_KINDS, USDM } from "@/lib/hazards/style";
@@ -281,6 +282,36 @@ export const GROUPS: Group[] = [
       })),
       { key: "chase:alt", label: "Second target", def: CHASE_ALT },
     ],
+  },
+  {
+    id: "engine-tor",
+    label: "ProbTor",
+    note: "Extras → Weather Engines: tornado chance cones by probability.",
+    entries: TOR_BINS.map((b, i) => ({
+      key: `engine:tor:${i}`,
+      label: b.label,
+      def: b.color,
+    })),
+  },
+  {
+    id: "engine-hail",
+    label: "ProbHail",
+    note: "Extras → Weather Engines: 30-minute hail swaths by size.",
+    entries: HAIL_BANDS.map((b, i) => ({
+      key: `engine:hail:${i}`,
+      label: b.label,
+      def: b.color,
+    })),
+  },
+  {
+    id: "engine-blind",
+    label: "Radar Blind Spot",
+    note: "Extras → Weather Engines: height of the lowest radar beam.",
+    entries: BLIND_BANDS.map((b, i) => ({
+      key: `engine:blind:${i}`,
+      label: b.label,
+      def: b.color,
+    })),
   },
   {
     id: "runs",
