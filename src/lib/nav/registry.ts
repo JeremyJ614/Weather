@@ -138,6 +138,8 @@ export const MAIN_NAV: NavGroup[] = [
       p("settings", "Account Settings", "Settings", "62b"),
       p("notifications", "Notifications", "Bell", "63"),
       p("join", "Plans & Pricing", "Crown", "64"),
+      p("faq", "FAQ", "CircleHelp", "Final Fix-It"),
+      p("contact", "Contact Us", "Mail", "Final Fix-It"),
       p("login", "Login / Signup", "LogIn", "08"),
       p("admin", "Admin Panel", "ShieldCheck", "11", true),
     ],
@@ -171,7 +173,7 @@ export const href = (page: NavPage) => `/${page.slug}`;
 export const GUEST_PAGES = ["", "disaster-response", "join", "login"];
 /** Paths a guest may request; the proxy sends everything else to the signup gate. */
 export const GUEST_PATHS =
-  /^\/(?:$|disaster-response|join|login|signup|welcome|auth|privacy|news|offline|sswxcon|contact|closed|api)(?:\/|$)/;
+  /^\/(?:$|disaster-response|join|login|signup|welcome|auth|privacy|news|offline|sswxcon|contact|faq|closed|api)(?:\/|$)/;
 
 /**
  * Groups as a given viewer may see them. Signed-in members see "My Account" instead of
