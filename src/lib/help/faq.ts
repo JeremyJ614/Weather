@@ -26,7 +26,11 @@ const section = (title: string, items: FaqItem[]): FaqSection => ({
   items,
 });
 const tab = (title: string, sections: FaqSection[]): FaqTab => ({
-  id: id("t"),
+  // Readable ids, so a link can open a tab: /faq?tab=plans-billing
+  id: title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, ""),
   title,
   sections,
 });
