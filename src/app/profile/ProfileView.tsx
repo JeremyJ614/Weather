@@ -12,6 +12,9 @@ import {
   Star,
   Trophy,
   Vote,
+  Bell,
+  LogOut,
+  Settings,
 } from "lucide-react";
 import { BadgePlate } from "@/components/BadgeIcon";
 import { usePlaces } from "@/features/location/usePlaces";
@@ -279,6 +282,23 @@ export function ProfileView({
           </p>
         </section>
       )}
+
+      <nav className={s.links} aria-label="Your account">
+        <Link href="/settings">
+          <Settings aria-hidden /> Account Settings
+        </Link>
+        <Link href="/notifications">
+          <Bell aria-hidden /> Notifications
+        </Link>
+        <Link href="/settings#plan-h">
+          <Crown aria-hidden /> Plan &amp; billing
+        </Link>
+        <form action="/auth/signout" method="post">
+          <button type="submit">
+            <LogOut aria-hidden /> Sign out
+          </button>
+        </form>
+      </nav>
     </div>
   );
 }
