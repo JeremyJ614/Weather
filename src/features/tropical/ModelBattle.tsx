@@ -68,7 +68,7 @@ function at(t: Track, h: number, off: number) {
   };
 }
 
-/** Model Battle Royale: every model's newest track, and who has been closest so far. */
+/** Model Tracks: every model's newest track, and who has been closest so far. */
 export function ModelBattle({
   storms,
   colors,
@@ -83,7 +83,7 @@ export function ModelBattle({
   const [ready, setReady] = useState(false);
   const [h, setH] = useState(0);
   const [playing, setPlaying] = useState(false);
-  const [speed, setSpeed] = useState<keyof typeof SPEEDS>("Normal");
+  const [speed, setSpeed] = useState<keyof typeof SPEEDS>("Fast");
   // Follow the storm by default; "every track" fits the whole spread of models.
   const [cam, setCam] = useState<"follow" | "all">("follow");
   const col = (tech: string) =>

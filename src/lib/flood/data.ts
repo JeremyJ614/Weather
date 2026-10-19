@@ -62,6 +62,8 @@ const geoQ =
 /** One ERO day as colored GeoJSON (for the interactive map). */
 export async function eroMap(day: number, colors: Colors = {}): Promise<FC> {
   const fc = await get<FC>(`${ERO(day)}/query?${geoQ}`, 1800);
+  // An unanswered request must not be served (and cached) as "no risk today".
+  if (!fc) throw new Error("WPC unavailable");
   return {
     type: "FeatureCollection",
     features: (fc?.features ?? [])

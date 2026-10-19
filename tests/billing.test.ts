@@ -116,3 +116,27 @@ describe("billing", () => {
     ).toBe(false);
   });
 });
+
+import { SELLABLE_SLUGS } from "@/lib/billing/sellable";
+import { ALWAYS as ALWAYS_OPEN } from "@/lib/billing/plans";
+
+describe("pages every plan includes", () => {
+  it("never sells the basics as add-ons", () => {
+    for (const slug of [
+      "",
+      "join",
+      "faq",
+      "contact",
+      "login",
+      "profile",
+      "settings",
+      "notifications",
+      "news",
+      "disaster-response",
+    ])
+      expect(SELLABLE_SLUGS).not.toContain(slug);
+    expect([...ALWAYS_OPEN].every((s) => !SELLABLE_SLUGS.includes(s))).toBe(
+      true,
+    );
+  });
+});

@@ -45,7 +45,7 @@ const HOW: Record<string, string> = {
   community:
     "Make a forecast in the daily game and get scored against what actually happens, answer trivia, vote in the weekly poll and climb the leaderboard. Points earn badges and titles.",
   severe:
-    "Start with the SSWXCon score for the big picture, then SPC's outlooks, live warnings and discussions. Tropical Outlook's Battle Royale races the models; Storm Chasing Outlook picks the day's two best targets and explains them tab by tab.",
+    "Start with the SSWXCon score for the big picture, then SPC's outlooks, live warnings and discussions. Tropical Outlook's Model Tracks races the models; Storm Chasing Outlook picks the day's two best targets and explains them tab by tab.",
   tools:
     "Pick a model, a run and a field on Radar & Model Runs, then press play or drag the timeline. Tap a river gauge for its forecast crest; spin a 3D sounding with your finger.",
   specialty:
@@ -133,7 +133,7 @@ const SHOWCASE: Step[] = [
     icon: "Orbit",
     kicker: "Every hazard",
     title: "Tropics to blizzards",
-    body: "Hurricane tracks and a model battle royale, flooding, fire weather, drought and a full winter center.",
+    body: "Hurricane tracks, every model's track side by side, flooding, fire weather, drought and a full winter center.",
     chips: [
       "tropical-outlook",
       "flooding-outlook",

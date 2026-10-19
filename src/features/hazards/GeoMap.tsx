@@ -16,6 +16,8 @@ type Props = {
   /** Called with the tapped feature's properties (or null on empty map). */
   onPick?: (p: Record<string, unknown> | null) => void;
   className?: string;
+  /** Zoom to what was drawn (for products that cover a small area). */
+  fit?: boolean;
 };
 
 /** An interactive US map of one colored GeoJSON layer, loaded after the map is ready. */
@@ -25,6 +27,7 @@ export function GeoMap({
   filter,
   onPick,
   className = "h-[56dvh] min-h-80",
+  fit = false,
 }: Props) {
   const map = useRef<MaplibreMap | null>(null);
   const [ready, setReady] = useState(false);
@@ -38,18 +41,47 @@ export function GeoMap({
     const m = map.current;
     if (!m || !ready) return;
     let live = true;
-    fetch(url)
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((g) => {
-        if (!live) return;
-        (m.getSource("geo") as GeoJSONSource | undefined)?.setData(g);
-        setState("ok");
-      })
-      .catch(() => live && setState("error"));
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    // Government map services are often slow; try a few times before giving up.
+    const load = (tries: number) =>
+      fetch(url)
+        .then((r) => (r.ok ? r.json() : Promise.reject()))
+        .then((g: GeoJSON.FeatureCollection) => {
+          if (!live) return;
+          (m.getSource("geo") as GeoJSONSource | undefined)?.setData(g);
+          setState("ok");
+          // Small areas (one state's worth of risk) are easy to miss at a national zoom.
+          const pts = g.features.flatMap((f) =>
+            f.geometry.type === "Polygon"
+              ? f.geometry.coordinates.flat()
+              : f.geometry.type === "MultiPolygon"
+                ? f.geometry.coordinates.flat(2)
+                : [],
+          );
+          if (fit && pts.length) {
+            const xs = pts.map((p) => p[0]);
+            const ys = pts.map((p) => p[1]);
+            m.fitBounds(
+              [
+                [Math.min(...xs), Math.min(...ys)],
+                [Math.max(...xs), Math.max(...ys)],
+              ],
+              { padding: 40, maxZoom: 5.5, duration: 800 },
+            );
+          }
+        })
+        .catch(() => {
+          if (!live) return;
+          if (tries > 0) timer = setTimeout(() => load(tries - 1), 4000);
+          else setState("error");
+        });
+    setState("loading");
+    load(3);
     return () => {
       live = false;
+      clearTimeout(timer);
     };
-  }, [url, ready]);
+  }, [url, ready, fit]);
 
   useEffect(() => {
     const m = map.current;

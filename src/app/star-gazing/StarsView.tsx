@@ -7,6 +7,8 @@ import {
   Eye,
   Map as MapIcon,
   Telescope,
+  Pause,
+  Play,
 } from "lucide-react";
 import { HomeTabs } from "@/features/news/HomeTabs";
 import { UsMap } from "@/features/maps/UsMap";
@@ -303,7 +305,15 @@ function SkyMap({
   const g = useJson<Grid>("/api/sky/grid");
   const [view, setView] = useState<"tonight" | "tomorrow" | "hour">("tonight");
   const [hi, setHi] = useState(0);
+  const [playing, setPlaying] = useState(false);
   const grid = g && g !== "error" ? g : null;
+  const steps = grid?.scores[0]?.length ?? 1;
+  // Play walks the hours and loops; leaving "By hour" stops it.
+  useEffect(() => {
+    if (!playing || view !== "hour") return;
+    const t = setInterval(() => setHi((h) => (h + 1) % steps), 900);
+    return () => clearInterval(t);
+  }, [playing, view, steps]);
   const stops: { at: number; color: string }[] = [...SKY_BANDS]
     .reverse()
     .map((b) => ({ at: b.min, color: c(b.key) }));
@@ -351,7 +361,10 @@ function SkyMap({
             key={k}
             type="button"
             aria-pressed={k === view}
-            onClick={() => setView(k)}
+            onClick={() => {
+              setView(k);
+              setPlaying(false);
+            }}
           >
             {l}
           </button>
@@ -359,12 +372,23 @@ function SkyMap({
       </div>
       {view === "hour" && grid && (
         <div className={s.scrub}>
+          <button
+            type="button"
+            className={s.play}
+            aria-label={playing ? "Pause" : "Play the hours"}
+            onClick={() => setPlaying((p) => !p)}
+          >
+            {playing ? <Pause aria-hidden /> : <Play aria-hidden />}
+          </button>
           <input
             type="range"
             min={0}
             max={(grid.scores[0]?.length ?? 1) - 1}
             value={hi}
-            onChange={(e) => setHi(+e.target.value)}
+            onChange={(e) => {
+              setPlaying(false);
+              setHi(+e.target.value);
+            }}
             aria-label="Hour"
           />
           <b>{t ? `${day(t)} ${hr(t)}` : ""}</b>

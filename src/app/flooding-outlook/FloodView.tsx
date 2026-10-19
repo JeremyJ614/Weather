@@ -147,6 +147,7 @@ export function FloodView({
                 </div>
                 <div className="relative">
                   <GeoMap
+                    fit
                     url={url}
                     label={`Excessive rainfall outlook, ${dayName(day)}`}
                     onPick={setPicked}

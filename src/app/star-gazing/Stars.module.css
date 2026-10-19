@@ -242,3 +242,17 @@
   height: 9px;
   border-radius: 50%;
 }
+.play {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 1px solid var(--lit-line);
+  border-radius: 50%;
+  color: var(--accent);
+  box-shadow: 0 0 14px -6px var(--accent);
+}
+.play svg {
+  width: 18px;
+}
