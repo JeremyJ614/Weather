@@ -87,6 +87,10 @@ import {
   Bookmark,
   Layers,
   Globe,
+  Hand,
+  Download,
+  PanelTop,
+  Lightbulb,
 } from "lucide-react";
 
 /** Only the icons the navigation uses, so the bundle carries nothing else. */
@@ -178,6 +182,10 @@ const MAP: Record<string, LucideIcon> = {
   Bookmark,
   Layers,
   Globe,
+  Hand,
+  Download,
+  PanelTop,
+  Lightbulb,
 };
 
 /** Every icon the menus can show (the Menu editor offers these). */

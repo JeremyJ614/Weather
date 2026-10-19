@@ -22,9 +22,11 @@ export function savePrefs(p: Prefs, signedIn: boolean) {
     if (p.theme) localStorage.setItem(KEYS.theme, JSON.stringify(p.theme));
     if (p.intro) localStorage.setItem(KEYS.intro, p.intro);
     if (p.toured) localStorage.setItem(KEYS.tour, "done");
+    if (p.quick) localStorage.setItem(KEYS.quick, JSON.stringify(p.quick));
   } catch {}
   // The menu host listens for storage events; same-tab writes don't fire one.
   if (p.menus) dispatchEvent(new StorageEvent("storage", { key: KEYS.menus }));
+  if (p.quick) dispatchEvent(new StorageEvent("storage", { key: KEYS.quick }));
   if (p.theme) applyTheme(p.theme);
   if (!signedIn) return Promise.resolve(false);
   return fetch("/api/me/prefs", {
@@ -66,6 +68,7 @@ export function PrefsSync() {
         if (p.menus && !has(KEYS.menus)) fill.menus = p.menus;
         if (p.theme && !has(KEYS.theme)) fill.theme = p.theme;
         if (p.intro && !has(KEYS.intro)) fill.intro = p.intro;
+        if (p.quick && !has(KEYS.quick)) fill.quick = p.quick;
         if (p.toured) fill.toured = true;
         savePrefs(fill, false);
         let toured = false;

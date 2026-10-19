@@ -225,3 +225,45 @@
 .play svg {
   width: 15px;
 }
+.pins {
+  display: grid;
+  gap: 6px;
+}
+.pins li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 6px 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface2);
+  font-size: 13px;
+  font-weight: 700;
+}
+.pins li > svg {
+  flex: none;
+  color: var(--accent);
+}
+.pins li span {
+  flex: 1;
+  min-width: 0;
+}
+.pins li > svg:last-child {
+  width: 14px;
+  color: var(--muted);
+}
+.pins button {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  color: var(--muted);
+}
+.pins button:disabled {
+  opacity: 0.3;
+}
+.pins button svg {
+  width: 16px;
+}

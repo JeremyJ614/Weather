@@ -168,3 +168,4 @@ Personal Warnings & Alerts, Affected Communities Outlook, FairWeather Tracking, 
 | 78 | Weather Patterns | Past Month showed "SPC's storm reports aren't answering" because 30 live report fetches timed out | Counts come from a daily ledger and a twice-daily precomputed cache |
 | 79 | Tropical | Battle Royale stayed zoomed out on the basin, so the storm it was playing was hard to follow | The camera follows the storm; "All models" zooms back out |
 | 80 | Storm Chasing | Only days since the page went live were in the year's ledger (3 days), so Yearly started the season over; nothing ran the scan if no one opened the page | Missing days rebuild from SPC's archive and archived model runs every 30 minutes until the year is full, and any missed day refills |
+| 81 | Tour | Finishing the tour's menu pick saved only on the device, so another phone never got it | The pick saves to the account too |

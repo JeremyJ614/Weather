@@ -1,11 +1,20 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, Check, X } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  Zap,
+} from "lucide-react";
 import { NavIcon } from "@/components/NavIcon";
 import { savePrefs } from "@/features/account/PrefsSync";
 import { MENU_NAMES, OFFERED, pickMenus } from "@/features/menus/catalog";
+import { MENU_STYLES } from "@/features/menus/styles";
+import { resolvePlacements } from "@/lib/nav/spots";
 import { KEYS } from "@/lib/prefs-keys";
 import { ALL_PAGES, MAIN_NAV, visibleNav } from "@/lib/nav/registry";
 import s from "./Guide.module.css";
@@ -23,26 +32,71 @@ type Step = {
   title: string;
   body: string;
   chips?: string[];
+  /** Hands-on tips: things that aren't obvious until someone shows you. */
+  tips?: { icon: string; title: string; text: string }[];
   end?: "menus" | "cta";
 };
 
 /** How to use each section of the main menu (by group id). */
 const HOW: Record<string, string> = {
-  home: "Your start screen: the Weather Clock, conditions where you are, Weather News and today's highlights. Tap the logo any time to come back.",
+  home: "Your start screen: the Weather Clock, conditions where you are, Weather News and today's highlights. Tap the SSWX logo from any page to come back.",
   local:
-    "Everything here follows your active place. Save up to five places in My Profile and switch between them on the dashboard.",
+    "Everything here follows your active place. The Dashboard is the full picture, the Daily Brief is the short version (it can come by email too), and the Forecast Discussion is your NWS office in plain words.",
   community:
-    "Play the daily forecast game and trivia, vote in the weekly poll and climb the leaderboard. Points earn badges and titles.",
+    "Make a forecast in the daily game and get scored against what actually happens, answer trivia, vote in the weekly poll and climb the leaderboard. Points earn badges and titles.",
   severe:
-    "Outlooks, warnings and discussions from SPC, the NWS and NHC, plus our own SSWXCon score and storm timing. Tap a map to zoom; most maps download as a picture.",
+    "Start with the SSWXCon score for the big picture, then SPC's outlooks, live warnings and discussions. Tropical Outlook's Battle Royale races the models; Storm Chasing Outlook picks the day's two best targets and explains them tab by tab.",
   tools:
-    "Radar loops and model runs drawn from NOAA's own data. Pick a model, a run and a field, then press play. River gauges and 3D soundings live here too.",
+    "Pick a model, a run and a field on Radar & Model Runs, then press play or drag the timeline. Tap a river gauge for its forecast crest; spin a 3D sounding with your finger.",
   specialty:
-    "Sky conditions for star gazing, the moon and planets, aurora chances and live lightning.",
-  edu: "Records and climatology for your area, a weather glossary and a free library of lessons.",
-  else: "Weather patterns and the rest. A page that is still being built says so plainly.",
+    "Tonight's sky for star gazing, the moon and planets, where the aurora could reach and live lightning strikes near you.",
+  edu: "Records and averages for your place, a glossary for any word you hit on another page, and a free library of lessons.",
+  else: "Weather Patterns sums up what already happened (yesterday, the week, the month, the season) in plain words with the numbers behind it.",
   account:
-    "Your profile, badges and places; Account Settings for menus, themes and this intro; notifications and your plan.",
+    "My Profile holds your places and badges; Account Settings your menus, Quick Menu, theme and this tour; Notifications which alerts reach your phone.",
+};
+
+const TIPS: Step["tips"] = [
+  {
+    icon: "Hand",
+    title: "Maps move when you ask",
+    text: "Maps hold still so the page scrolls smoothly. Tap Zoom & pan to pinch, drag and zoom; tap Done to scroll again. The square button brings back the whole country.",
+  },
+  {
+    icon: "Download",
+    title: "Keep any map",
+    text: "Download PNG saves a map with its legend and title; Share sends it straight to a text or a post.",
+  },
+  {
+    icon: "PanelTop",
+    title: "Subtabs remember",
+    text: "Open a subtab once and it stays loaded, so flipping back is instant and a map keeps its spot.",
+  },
+  {
+    icon: "MapPin",
+    title: "Five places",
+    text: "Save up to five places in My Profile. Every local page and your Daily Brief follow the one that's active.",
+  },
+  {
+    icon: "Bell",
+    title: "Alerts your way",
+    text: "Choose which alerts reach your phone, and set quiet hours, in Notifications. Warnings and watches still come through.",
+  },
+  {
+    icon: "House",
+    title: "Home from anywhere",
+    text: "The SSWX logo at the top always takes you back to the Homepage.",
+  },
+];
+
+/** Where a main menu sits, in words, so the tour can say where to tap. */
+const SPOT: Record<string, string> = {
+  "top-right": "top right corner",
+  "top-left": "top left corner",
+  "bottom-bar": "bar along the bottom",
+  "bottom-center": "bottom middle",
+  "bottom-right": "bottom right corner",
+  "bottom-left": "bottom left corner",
 };
 
 const page = (slug: string) => ALL_PAGES.find((p) => p.slug === slug);
@@ -132,6 +186,13 @@ const SHOWCASE: Step[] = [
     chips: ["wx-games", "leaderboard", "weekly-polls", "free-content-library"],
   },
   {
+    icon: "Palette",
+    kicker: "Make it yours",
+    title: "Your app, your way",
+    body: "Pick from eighteen menu styles and fifteen ready-made themes, fill a Quick Menu with the pages you use most, and choose exactly which alerts reach your phone.",
+    chips: ["settings", "notifications", "profile"],
+  },
+  {
     icon: "Sparkles",
     kicker: "Join free",
     title: "Start free today",
@@ -157,10 +218,17 @@ function tourSteps(name: string | null): Step[] {
       chips: g.pages.map((p) => p.slug),
     })),
     {
+      icon: "Lightbulb",
+      kicker: "Good to know",
+      title: "Things worth knowing",
+      body: "",
+      tips: TIPS,
+    },
+    {
       icon: "Menu",
       kicker: "Last step",
-      title: "Pick your menus",
-      body: "Your main menu holds every page; the second menu is a quick launcher. Choose a style for each, or keep ours. Change them any time in Account Settings.",
+      title: "Try the main menus",
+      body: "Tap the arrows and the menu on your screen changes right now. Open it, try it, then keep the one you like.",
       end: "menus",
     },
   ];
@@ -175,13 +243,17 @@ export function Guide({ mode, name, menus, onDone }: GuideProps) {
   const [held, setHeld] = useState(false);
   const [pick, setPick] = useState(menus);
   const next = useRef<HTMLButtonElement>(null);
+  // What this device had before the tour swapped menus live, to put back on Skip.
+  const before = useRef<string | null>(null);
+  const changed = useRef(false);
   const step = steps[i];
   const last = i === steps.length - 1;
 
   useEffect(() => {
     let saved: { main?: string; second?: string } = {};
     try {
-      saved = JSON.parse(localStorage.getItem(KEYS.menus) || "{}");
+      before.current = localStorage.getItem(KEYS.menus);
+      saved = JSON.parse(before.current || "{}");
     } catch {}
     queueMicrotask(() => setPick(pickMenus(saved, menus)));
     const prev = document.body.style.overflow;
@@ -192,26 +264,62 @@ export function Guide({ mode, name, menus, onDone }: GuideProps) {
     };
   }, [menus]);
 
+  /** Shows a menu choice on the page now (the menu host listens for storage events). */
+  const apply = (raw: string | null) => {
+    try {
+      if (raw == null) localStorage.removeItem(KEYS.menus);
+      else localStorage.setItem(KEYS.menus, raw);
+    } catch {}
+    dispatchEvent(new StorageEvent("storage", { key: KEYS.menus }));
+  };
+  const close = useCallback(() => {
+    if (changed.current) apply(before.current);
+    onDone();
+  }, [onDone]);
+  const cycle = (d: number) => {
+    const list = OFFERED.main.filter((id) => id !== pick.second);
+    const at = Math.max(0, list.indexOf(pick.main));
+    const m = { ...pick, main: list[(at + d + list.length) % list.length] };
+    changed.current = true;
+    setPick(m);
+    apply(JSON.stringify(m));
+  };
+
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onDone();
+      // Escape closes an open menu first, not the tour.
+      if (document.documentElement.dataset.menuOpen) return;
+      if (e.key === "Escape") close();
       if (e.key === "ArrowRight")
         setI((k) => Math.min(steps.length - 1, k + 1));
       if (e.key === "ArrowLeft") setI((k) => Math.max(0, k - 1));
     };
     addEventListener("keydown", key);
     return () => removeEventListener("keydown", key);
-  }, [onDone, steps.length]);
+  }, [close, steps.length]);
 
   const finish = (save: boolean) => {
-    if (save) savePrefs({ menus: pick }, false);
+    if (!save) return close();
+    savePrefs({ menus: pick }, mode === "tour");
     onDone();
   };
+  const compact = step.end === "menus";
+  const spot =
+    MENU_STYLES[pick.main] && MENU_STYLES[pick.second]
+      ? SPOT[
+          resolvePlacements(
+            MENU_STYLES[pick.main].placements,
+            MENU_STYLES[pick.second].placements,
+          ).main.id.replace(/-raised$/, "")
+        ]
+      : null;
+  const choices = OFFERED.main.filter((id) => id !== pick.second);
   const auto = mode === "showcase" && !last;
 
   return (
     <div
       className={s.shade}
+      data-compact={compact || undefined}
       role="dialog"
       aria-modal="true"
       aria-label={
@@ -241,14 +349,14 @@ export function Guide({ mode, name, menus, onDone }: GuideProps) {
         <button
           type="button"
           className={s.skip}
-          onClick={onDone}
+          onClick={close}
           aria-label={mode === "tour" ? "Skip the tour" : "Skip"}
         >
           Skip <X aria-hidden />
         </button>
 
         <div key={i} className={s.body}>
-          <div className={s.art} aria-hidden>
+          <div className={s.art} aria-hidden hidden={compact}>
             <span className={s.orbit}>
               <i />
               <i />
@@ -274,35 +382,59 @@ export function Guide({ mode, name, menus, onDone }: GuideProps) {
               })}
             </ul>
           )}
-          {step.end === "menus" &&
-            (["main", "second"] as const).map((slot) => (
-              <fieldset key={slot} className={s.pick}>
-                <legend>{slot === "main" ? "Main menu" : "Second menu"}</legend>
-                <div>
-                  {OFFERED[slot].map((id) => {
-                    const other = slot === "main" ? pick.second : pick.main;
-                    return (
-                      <button
-                        key={id}
-                        type="button"
-                        aria-pressed={pick[slot] === id}
-                        disabled={id === other}
-                        onClick={() => setPick({ ...pick, [slot]: id })}
-                      >
-                        {pick[slot] === id && <Check aria-hidden />}
-                        {MENU_NAMES[id]}
-                      </button>
-                    );
-                  })}
+          {step.tips && (
+            <ul className={s.tips}>
+              {step.tips.map((t, k) => (
+                <li key={t.title} style={{ ["--i" as string]: k }}>
+                  <NavIcon name={t.icon} className="size-5" />
+                  <span>
+                    <b>{t.title}</b>
+                    {t.text}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {step.end === "menus" && (
+            <>
+              <div className={s.cycle}>
+                <button
+                  type="button"
+                  aria-label="Previous menu style"
+                  onClick={() => cycle(-1)}
+                >
+                  <ChevronLeft aria-hidden />
+                </button>
+                <div aria-live="polite">
+                  <b>{MENU_NAMES[pick.main]}</b>
+                  <small>
+                    {choices.indexOf(pick.main) + 1} of {choices.length}
+                    {spot ? ` · open it from the ${spot}` : ""}
+                  </small>
                 </div>
-              </fieldset>
-            ))}
+                <button
+                  type="button"
+                  aria-label="Next menu style"
+                  onClick={() => cycle(1)}
+                >
+                  <ChevronRight aria-hidden />
+                </button>
+              </div>
+              <p className={s.quick}>
+                <Zap aria-hidden />
+                <span>
+                  Your second menu is your <b>Quick Menu</b>: the storm chasing
+                  pages, plus any page you pin in Account Settings.
+                </span>
+              </p>
+            </>
+          )}
           {step.end === "cta" && (
             <div className={s.cta}>
-              <Link href="/join" className={s.primary} onClick={onDone}>
+              <Link href="/join" className={s.primary} onClick={close}>
                 See plans
               </Link>
-              <Link href="/signup" className={s.ghost} onClick={onDone}>
+              <Link href="/signup" className={s.ghost} onClick={close}>
                 Sign up free
               </Link>
             </div>
@@ -336,7 +468,7 @@ export function Guide({ mode, name, menus, onDone }: GuideProps) {
                 className={s.primary}
                 onClick={() => finish(true)}
               >
-                Use these
+                Use this one
               </button>
             </span>
           ) : (
@@ -344,7 +476,7 @@ export function Guide({ mode, name, menus, onDone }: GuideProps) {
               type="button"
               ref={next}
               className={s.primary}
-              onClick={() => (last ? onDone() : setI(i + 1))}
+              onClick={() => (last ? close() : setI(i + 1))}
             >
               {last ? "Keep looking" : "Next"}{" "}
               {!last && <ArrowRight aria-hidden />}

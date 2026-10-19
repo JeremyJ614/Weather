@@ -30,7 +30,7 @@ describe("menu choice", () => {
   });
   it("has every offered style built", () => {
     expect(OFFERED.main).toHaveLength(12);
-    expect(OFFERED.second).toHaveLength(8);
+    expect(OFFERED.second).toHaveLength(10);
   });
   it("only allows offered styles in each menu", () => {
     expect(pickMenus({ main: "morph" }).main).toBe(DEFAULT_MENUS.main);
