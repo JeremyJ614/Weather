@@ -102,3 +102,65 @@ export function kpNeeded(lat: number) {
     if (viewLineLat(t / 10) <= Math.abs(lat) + 1e-9) return t / 10;
   return null;
 }
+
+/** Geomagnetic north pole (IGRF dipole, 2025). */
+const POLE = { lat: 80.8, lon: -72.7 };
+const RAD = Math.PI / 180;
+
+/** Dipole geomagnetic latitude of a point, in degrees. */
+export function gmLat(lat: number, lon: number) {
+  const s =
+    Math.sin(lat * RAD) * Math.sin(POLE.lat * RAD) +
+    Math.cos(lat * RAD) *
+      Math.cos(POLE.lat * RAD) *
+      Math.cos((lon - POLE.lon) * RAD);
+  return Math.asin(Math.max(-1, Math.min(1, s))) / RAD;
+}
+
+/** The geographic latitude along a meridian that sits at a given geomagnetic latitude. */
+function latAtGm(gm: number, lon: number) {
+  let lo = 0;
+  let hi = 89.9;
+  for (let i = 0; i < 40; i++) {
+    const mid = (lo + hi) / 2;
+    if (gmLat(mid, lon) < gm) lo = mid;
+    else hi = mid;
+  }
+  return (lo + hi) / 2;
+}
+
+/**
+ * The oval's equatorward edge as one continuous, smooth line across the map. OVATION only
+ * reaches 10% where the oval is bright (mostly the night side), so the raw edge has gaps; the
+ * oval itself is a ring around the geomagnetic pole, so each gap is filled at the geomagnetic
+ * latitude the measured edge sits at, and the 1° stair-steps are smoothed out.
+ */
+export function continuousEdge(
+  edge: [number, number][],
+  lon0: number,
+  lon1: number,
+): [number, number][] {
+  if (!edge.length) return [];
+  const gms = edge.map(([lon, lat]) => gmLat(lat, lon)).sort((a, b) => a - b);
+  const gm = gms[Math.floor(gms.length / 2)];
+  const known = new Map(edge.map(([lon, lat]) => [lon, lat]));
+  const raw: number[] = [];
+  for (let lon = lon0; lon <= lon1; lon++)
+    raw.push(known.get(lon) ?? latAtGm(gm, lon));
+  const out: [number, number][] = [];
+  const W = 3;
+  for (let i = 0; i < raw.length; i++) {
+    let sum = 0;
+    let n = 0;
+    for (
+      let k = Math.max(0, i - W);
+      k <= Math.min(raw.length - 1, i + W);
+      k++
+    ) {
+      sum += raw[k];
+      n++;
+    }
+    out.push([lon0 + i, Math.round((sum / n) * 100) / 100]);
+  }
+  return out;
+}

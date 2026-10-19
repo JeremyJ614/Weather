@@ -1,4 +1,5 @@
 import "server-only";
+import { continuousEdge } from "./style";
 
 /**
  * Aurora Center data, all NOAA SWPC: the OVATION 30-minute aurora forecast (the North
@@ -54,14 +55,15 @@ export async function ovation() {
       }
     }
   }
+  const line = continuousEdge(edge, SECTOR.lon0, SECTOR.lon1);
   return {
     observed: j["Observation Time"],
     forecast: j["Forecast Time"],
     w,
     h,
     grid,
-    edge,
-    view: edge.map(
+    edge: line,
+    view: line.map(
       ([lon, lat]) => [lon, lat - HORIZON_DEG] as [number, number],
     ),
   };

@@ -1,11 +1,22 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BarChart3, Brain, CalendarRange, Globe2, History } from "lucide-react";
+import {
+  BarChart3,
+  Brain,
+  CalendarRange,
+  Flame,
+  Globe2,
+  History,
+  MapPin,
+  TrendingDown,
+  TrendingUp,
+} from "lucide-react";
 import { pick, type Colors } from "@/lib/colors/pick";
 import { SPC_PALETTES } from "@/lib/colors/spc";
 import { ERO_LEVELS } from "@/lib/flood/levels";
 import type { OutlookDay, Period } from "@/lib/patterns/data";
+import type { Season } from "@/lib/patterns/season";
 import { INDEX_LABELS, PAT_COLORS, indexBand } from "@/lib/patterns/style";
 import s from "./Patterns.module.css";
 
@@ -40,8 +51,23 @@ const day = (d: string) =>
     timeZone: "UTC",
   });
 
-function usePeriod(id: Period["id"]) {
-  const [res, setRes] = useState<Record<string, Period | "error">>({});
+const range = (p: Period) =>
+  p.from && p.to
+    ? p.from === p.to
+      ? new Date(`${p.from}T12:00:00Z`).toLocaleDateString("en-US", {
+          weekday: "long",
+          month: "short",
+          day: "numeric",
+          timeZone: "UTC",
+        })
+      : `${day(p.from)} – ${day(p.to)}`
+    : "";
+
+/** A period: stored by the daily job and handed in, or fetched if it wasn't ready. */
+function usePeriod(id: Period["id"], initial: Partial<Record<string, Period>>) {
+  const [res, setRes] = useState<Record<string, Period | "error">>(
+    initial as Record<string, Period>,
+  );
   useEffect(() => {
     if (res[id]) return;
     let live = true;
@@ -64,6 +90,8 @@ export function PatternsView({
   eroDay,
   hazards,
   colors,
+  periods,
+  season,
 }: {
   outlook: OutlookDay[] | null;
   index: {
@@ -77,6 +105,9 @@ export function PatternsView({
   eroDay: number | null;
   hazards: string[] | null;
   colors: Colors;
+  /** Recaps the daily job stored (any may be missing on a fresh install). */
+  periods: Partial<Record<string, Period>>;
+  season: Season | null;
 }) {
   const c = (k: string) =>
     pick(
@@ -94,11 +125,7 @@ export function PatternsView({
   };
   const band = index ? indexBand(index.score) : 0;
   const [pid, setPid] = useState<Period["id"]>("week");
-  const p = usePeriod(pid);
-  const year = usePeriod("year");
-  const y = year && year !== "error" ? year : null;
-  const jan1 = `${new Date().getFullYear()}-01-01`;
-  const ytd = y?.series.filter((d) => d.day >= jan1) ?? [];
+  const p = usePeriod(pid, periods);
   const lit = (regions: string[]) => regions.length;
   const d1 = outlook?.[0];
   const d1Regions = d1
@@ -172,12 +199,43 @@ export function PatternsView({
           </p>
         ) : (
           <>
+            <p className={s.range}>
+              <CalendarRange aria-hidden /> {range(p)}
+              {p.days > 1 && <span>{p.days} days</span>}
+            </p>
             {p.summary && (
-              <div className={s.desk}>
-                <small>
-                  <Brain aria-hidden /> SSWX Forecast Desk
-                </small>
-                <p>{p.summary}</p>
+              <div className={s.recap}>
+                <p className={s.headline}>
+                  <TrendingUp aria-hidden />
+                  {p.summary.headline}
+                </p>
+                <p className={s.story}>{p.summary.story}</p>
+                {p.summary.highlights.length > 0 && (
+                  <div className={s.highlights}>
+                    <small>
+                      <Brain aria-hidden /> Highlights from the forecast desk
+                    </small>
+                    <ul>
+                      {p.summary.highlights.map((h) => (
+                        <li key={h}>{h}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {p.topStates.length > 0 && (
+                  <div className={s.places}>
+                    <small>
+                      <MapPin aria-hidden /> Where it happened
+                    </small>
+                    <span>
+                      {p.topStates.map(([st, n]) => (
+                        <i key={st}>
+                          {st} <b>{n}</b>
+                        </i>
+                      ))}
+                    </span>
+                  </div>
+                )}
               </div>
             )}
             <div className={s.figures}>
@@ -190,7 +248,9 @@ export function PatternsView({
                 </div>
               ))}
             </div>
-            {p.series.length > 1 && <Series series={p.series} c={c} />}
+            {p.series.length > 1 && (
+              <Series series={p.series} c={c} id={p.id} />
+            )}
             <ul className={s.facts}>
               {p.busiest && (
                 <li>
@@ -309,9 +369,11 @@ export function PatternsView({
                               }
                             >
                               {v == null
-                                ? d.low
-                                  ? "—"
-                                  : "·"
+                                ? d.failed
+                                  ? "?"
+                                  : d.low
+                                    ? "—"
+                                    : "·"
                                 : d.kind === "cat"
                                   ? String(v)
                                   : `${v}%`}
@@ -324,14 +386,21 @@ export function PatternsView({
                 </tbody>
               </table>
             </div>
-            {!outlook.some((d) =>
-              lit(Object.values(d.cells).filter(Boolean) as string[]),
-            ) && (
+            {outlook.some((d) => d.failed) && (
               <p className={s.muted}>
-                No SPC risk areas over any region in the next 7 days: a
-                genuinely quiet week nationally.
+                Some of SPC&apos;s outlooks didn&apos;t load (&ldquo;?&rdquo;);
+                they&apos;ll fill in on the next refresh.
               </p>
             )}
+            {!outlook.some((d) => d.failed) &&
+              !outlook.some((d) =>
+                lit(Object.values(d.cells).filter(Boolean) as string[]),
+              ) && (
+                <p className={s.muted}>
+                  No SPC risk areas over any region in the next 7 days: a
+                  genuinely quiet week nationally.
+                </p>
+              )}
             <p className={s.small}>
               Days 1–3 are SPC&apos;s categorical outlooks; days 4–7 are its Day
               4–8 probabilities (SPC issues no categories past day 3), so the
@@ -347,51 +416,48 @@ export function PatternsView({
         <header>
           <BarChart3 aria-hidden />
           <h3>Season so far</h3>
-          <small>Since Jan 1</small>
+          <small>
+            {season?.since && season.through
+              ? `${day(season.since)} – ${day(season.through)}`
+              : `Since Jan 1`}
+          </small>
         </header>
-        {!y ? (
+        {!season || !season.tiles.length ? (
           <p className={s.muted}>
-            {year === "error"
-              ? "SPC's storm reports aren't answering right now."
-              : "Counting this year's reports…"}
+            This year&apos;s numbers are being counted from SPC&apos;s daily
+            reports. They refresh twice a day, after SPC posts each day&apos;s
+            final reports.
           </p>
         ) : (
-          <div className={s.tiles}>
-            {(["torn", "hail", "wind"] as const).map((k) => (
-              <div key={k}>
-                <small>
-                  {k === "torn"
-                    ? "Tornado reports"
-                    : k === "hail"
-                      ? "Hail reports"
-                      : "Wind reports"}
-                </small>
-                <b style={{ color: c(k) }}>
-                  {ytd.reduce((a, d) => a + d[k], 0).toLocaleString("en-US")}
-                </b>
-              </div>
-            ))}
-            <div>
-              <small>Tornado days</small>
-              <b>{ytd.filter((d) => d.torn > 0).length}</b>
+          <>
+            <div className={s.tiles}>
+              {season.tiles.map((t) => {
+                const Icon =
+                  t.tone === "up"
+                    ? TrendingUp
+                    : t.tone === "down"
+                      ? TrendingDown
+                      : t.tone === "hot"
+                        ? Flame
+                        : null;
+                return (
+                  <div key={t.id} data-tone={t.tone}>
+                    <small>{t.label}</small>
+                    <b>
+                      {Icon && <Icon aria-hidden />}
+                      {t.value}
+                    </b>
+                    <span>{t.sub}</span>
+                  </div>
+                );
+              })}
             </div>
-            <div>
-              <small>Busiest day</small>
-              <b>
-                {(() => {
-                  const top = [...ytd].sort(
-                    (a, b) =>
-                      b.torn + b.hail + b.wind - (a.torn + a.hail + a.wind),
-                  )[0];
-                  return top ? day(top.day) : "–";
-                })()}
-              </b>
-            </div>
-            <div>
-              <small>Days tracked</small>
-              <b>{ytd.length}</b>
-            </div>
-          </div>
+            <p className={s.small}>
+              Counted from SPC&apos;s daily storm reports ({season.days} days
+              this year); the strongest tornado, EF3+ days, deaths and pace come
+              from NWS damage surveys. Updated twice a day.
+            </p>
+          </>
         )}
       </section>
       <p className={s.foot}>
@@ -406,51 +472,126 @@ export function PatternsView({
 function Series({
   series,
   c,
+  id,
 }: {
   series: Period["series"];
   c: (k: string) => string;
+  id: Period["id"];
 }) {
-  // Weekly bins for long periods so the bars stay readable.
+  // Weekly bins for the year so the bars stay readable; every bar names its dates.
   const bin = series.length > 60 ? 7 : 1;
-  const bars: { torn: number; hail: number; wind: number }[] = [];
+  const bars: {
+    from: string;
+    to: string;
+    torn: number;
+    hail: number;
+    wind: number;
+  }[] = [];
   for (let i = 0; i < series.length; i += bin) {
     const x = series.slice(i, i + bin);
     bars.push({
+      from: x[0].day,
+      to: x.at(-1)!.day,
       torn: x.reduce((a, d) => a + d.torn, 0),
       hail: x.reduce((a, d) => a + d.hail, 0),
       wind: x.reduce((a, d) => a + d.wind, 0),
     });
   }
   const max = Math.max(1, ...bars.map((b) => b.torn + b.hail + b.wind));
-  const w = 300 / bars.length;
+  const L = 26;
+  const R = 316;
+  const T = 8;
+  const B = 84;
+  const w = (R - L) / bars.length;
+  const when = (b: (typeof bars)[number]) =>
+    b.from === b.to ? day(b.from) : `${day(b.from)} – ${day(b.to)}`;
+  // Which bars get a date under them.
+  const label = (b: (typeof bars)[number], i: number) => {
+    const d = new Date(`${b.from}T12:00:00Z`);
+    if (id === "week")
+      return d.toLocaleDateString("en-US", {
+        weekday: "short",
+        timeZone: "UTC",
+      });
+    if (id === "month") return i % 5 === 0 ? day(b.from) : null;
+    const prev = bars[i - 1];
+    return !prev || prev.from.slice(5, 7) !== b.from.slice(5, 7)
+      ? d.toLocaleDateString("en-US", { month: "short", timeZone: "UTC" })
+      : null;
+  };
   return (
-    <svg
-      viewBox="0 0 300 80"
-      className="w-full"
-      role="img"
-      aria-label="Reports over the period"
-    >
-      {bars.map((b, i) => {
-        let y = 80;
-        return (
-          <g key={i}>
-            {(["wind", "hail", "torn"] as const).map((k) => {
-              const h = (b[k] / max) * 76;
-              y -= h;
-              return (
-                <rect
-                  key={k}
-                  x={i * w + w * 0.1}
-                  y={y}
-                  width={w * 0.8}
-                  height={h}
-                  fill={c(k)}
-                />
-              );
-            })}
-          </g>
-        );
-      })}
-    </svg>
+    <figure className={s.chart}>
+      <svg
+        viewBox="0 0 320 104"
+        className="w-full"
+        role="img"
+        aria-label={`Storm reports per ${bin > 1 ? "week" : "day"}, ${when({ ...bars[0], to: bars.at(-1)!.to })}`}
+      >
+        <line x1={L} x2={R} y1={B} y2={B} className={s.axis} />
+        <line x1={L} x2={R} y1={T} y2={T} className={s.grid} />
+        <line
+          x1={L}
+          x2={R}
+          y1={(T + B) / 2}
+          y2={(T + B) / 2}
+          className={s.grid}
+        />
+        <text x={L - 4} y={T + 3} className={s.tick} textAnchor="end">
+          {max}
+        </text>
+        <text x={L - 4} y={(T + B) / 2 + 3} className={s.tick} textAnchor="end">
+          {Math.round(max / 2)}
+        </text>
+        <text x={L - 4} y={B + 3} className={s.tick} textAnchor="end">
+          0
+        </text>
+        {bars.map((b, i) => {
+          let y = B;
+          const lab = label(b, i);
+          return (
+            <g key={b.from}>
+              <title>
+                {`${when(b)}: ${b.torn} tornado, ${b.hail} hail, ${b.wind} wind`}
+              </title>
+              {(["wind", "hail", "torn"] as const).map((k) => {
+                const h = (b[k] / max) * (B - T);
+                y -= h;
+                return (
+                  <rect
+                    key={k}
+                    x={L + i * w + w * 0.12}
+                    y={y}
+                    width={Math.max(0.8, w * 0.76)}
+                    height={h}
+                    fill={c(k)}
+                  />
+                );
+              })}
+              {lab && (
+                <text
+                  x={L + i * w + w / 2}
+                  y={B + 12}
+                  className={s.tick}
+                  textAnchor={id === "week" ? "middle" : "start"}
+                >
+                  {lab}
+                </text>
+              )}
+            </g>
+          );
+        })}
+      </svg>
+      <figcaption className={s.legend}>
+        {(["torn", "hail", "wind"] as const).map((k) => (
+          <span key={k}>
+            <i style={{ background: c(k) }} />
+            {k === "torn" ? "Tornado" : k === "hail" ? "Hail" : "Wind"}
+          </span>
+        ))}
+        <span className={s.per}>
+          reports per {bin > 1 ? "week" : "day"} · tap a bar for its numbers
+        </span>
+      </figcaption>
+    </figure>
   );
 }

@@ -164,3 +164,6 @@ Personal Warnings & Alerts, Affected Communities Outlook, FairWeather Tracking, 
 | 74 | Menus | Live Bento's zoomed section panel stayed on screen after a page was picked (the menu closed underneath it); seven other menus kept their open section the same way | The open section lives in `useMenuNav` with the open state, so closing a menu always folds it |
 | 75 | Climatology | A cached tornado record from before deaths were added crashed the page (`deaths.reduce`) | Missing deaths read as none |
 | 76 | Signup | The email-link step stopped new members before the signup questions and plans | No email confirmation: human check, account made and signed in, then questions, then Plans |
+| 77 | Aurora | The oval's lines stopped short and broke into pieces where OVATION had no value | One continuous, smoothed edge from side to side of the map |
+| 78 | Weather Patterns | Past Month showed "SPC's storm reports aren't answering" because 30 live report fetches timed out | Counts come from a daily ledger and a twice-daily precomputed cache |
+| 79 | Tropical | Battle Royale stayed zoomed out on the basin, so the storm it was playing was hard to follow | The camera follows the storm; "All models" zooms back out |
