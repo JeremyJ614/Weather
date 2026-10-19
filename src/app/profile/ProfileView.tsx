@@ -16,11 +16,11 @@ import {
   LogOut,
   Settings,
 } from "lucide-react";
-import { BadgePlate } from "@/components/BadgeIcon";
+import { BadgeEmblem, BadgePlate } from "@/components/BadgeIcon";
 import { usePlaces } from "@/features/location/usePlaces";
 import { setActive, write } from "@/features/location/store";
 import type { Colors } from "@/lib/colors/pick";
-import type { Badge } from "@/lib/badges";
+import { progressText, type Badge } from "@/lib/badges";
 import { saveProfile } from "./actions";
 import s from "./Profile.module.css";
 
@@ -47,6 +47,10 @@ export type ProfileData = {
   bestStreak: number;
   badges: (Badge & { at: string })[];
   badgeTotal: number;
+  /** Badges given on this visit. */
+  fresh: string[];
+  /** Automatic badges not earned yet, closest to done first. */
+  toEarn: (Badge & { value: number; goal: number })[];
   titles: {
     kind: string;
     period: string;
@@ -75,6 +79,7 @@ export function ProfileView({
 }) {
   const [editing, setEditing] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showAll, setShowAll] = useState(false);
   const { places, active } = usePlaces();
   const initials = d.name
     .split(/\s+/)
@@ -171,7 +176,8 @@ export function ProfileView({
         {d.badges.length ? (
           <ul className={s.badges}>
             {d.badges.map((b) => (
-              <li key={b.id}>
+              <li key={b.id} data-new={d.fresh.includes(b.id) || undefined}>
+                {d.fresh.includes(b.id) && <i className={s.newTag}>New</i>}
                 <BadgePlate badge={b} colors={colors} />
               </li>
             ))}
@@ -181,6 +187,44 @@ export function ProfileView({
             No badges yet. Play the forecast game, answer trivia and vote in
             polls to start earning them.
           </p>
+        )}
+        {d.toEarn.length > 0 && (
+          <>
+            <h3 className={s.subhead}>Up next</h3>
+            <ul className={s.toEarn}>
+              {(showAll ? d.toEarn : d.toEarn.slice(0, 5)).map((b) => {
+                const pct = Math.min(1, b.value / b.goal);
+                const txt = progressText(b.rule_metric!, b.value, b.goal);
+                return (
+                  <li key={b.id}>
+                    <BadgeEmblem badge={b} colors={colors} size={40} dim />
+                    <span>
+                      <b>{b.name}</b>
+                      <small>{b.description}</small>
+                      {txt && (
+                        <span className={s.bar} aria-label={txt}>
+                          <i style={{ transform: `scaleX(${pct})` }} />
+                        </span>
+                      )}
+                      {txt && <small>{txt}</small>}
+                    </span>
+                    <em data-r={b.rarity}>{b.rarity}</em>
+                  </li>
+                );
+              })}
+            </ul>
+            {d.toEarn.length > 5 && (
+              <button
+                type="button"
+                className={s.more}
+                onClick={() => setShowAll((v) => !v)}
+              >
+                {showAll
+                  ? "Show fewer"
+                  : `Show all ${d.toEarn.length} badges to earn`}
+              </button>
+            )}
+          </>
         )}
       </section>
 

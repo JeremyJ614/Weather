@@ -3,7 +3,7 @@
 import { useActionState, useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
 import { BadgePlate, BADGE_ICONS } from "@/components/BadgeIcon";
-import { RARITIES, type Badge } from "@/lib/badges";
+import { metricName, RARITIES, type Badge } from "@/lib/badges";
 import type { Colors } from "@/lib/colors/pick";
 import { deleteBadge, saveBadge } from "./actions";
 
@@ -83,6 +83,25 @@ export function BadgeEditor({
           ))}
         </datalist>
       </div>
+      {badge?.rule_metric && (
+        <label className="grid gap-1 text-sm">
+          <span className="text-muted">
+            Earned automatically: {metricName(badge.rule_metric)}
+          </span>
+          {!metricName(badge.rule_metric).endsWith("(yes/no)") ? (
+            <input
+              name="goal"
+              type="number"
+              min={1}
+              max={1000000}
+              required
+              defaultValue={badge.rule_goal ?? 1}
+              aria-label="Goal"
+              className={field}
+            />
+          ) : null}
+        </label>
+      )}
       <div
         className="flex flex-wrap gap-1.5"
         role="radiogroup"
