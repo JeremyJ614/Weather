@@ -1,0 +1,267 @@
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 64;
+  background: radial-gradient(
+    ellipse at 50% 60%,
+    color-mix(in srgb, var(--accent) 12%, var(--bg)) 0%,
+    color-mix(in srgb, var(--bg) 92%, transparent) 60%
+  );
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+.on .scrim {
+  opacity: 1;
+  pointer-events: auto;
+}
+.stage {
+  position: fixed;
+  top: 50%;
+  left: 0;
+  right: 0;
+  z-index: 65;
+  display: grid;
+  justify-items: center;
+  gap: 18px;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate3d(0, -40%, 0) scale(0.9);
+  transition:
+    opacity 0.3s,
+    transform 0.55s var(--spring);
+}
+.on .stage {
+  pointer-events: auto;
+  opacity: 1;
+  transform: translate3d(0, -50%, 0);
+}
+.deck {
+  position: relative;
+  width: 100%;
+  height: 300px;
+  perspective: 900px;
+  touch-action: pan-y;
+}
+.slot {
+  position: absolute;
+  top: 0;
+  left: calc(50% - 95px);
+  width: 190px;
+  height: 280px;
+  transform-style: preserve-3d;
+  transition:
+    transform 0.55s var(--spring),
+    opacity 0.3s;
+}
+.deck[data-drag] .slot {
+  transition: none;
+}
+.card {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.7s var(--spring);
+}
+.on .card {
+  /* backwards only, so the card's flip transition works once it's dealt. */
+  animation: deal 0.6s var(--spring) backwards;
+  animation-delay: calc(var(--i) * 70ms);
+}
+.card[data-flipped] {
+  transform: rotateY(180deg);
+}
+.face,
+.back {
+  position: absolute;
+  inset: 0;
+  border-radius: 22px;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.face {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 10px;
+  padding: 18px 14px;
+  overflow: hidden;
+  border: 1.5px solid color-mix(in srgb, var(--accent) 45%, var(--line));
+  background:
+    radial-gradient(
+      120% 70% at 50% 0%,
+      color-mix(in srgb, var(--accent) 16%, transparent),
+      transparent 70%
+    ),
+    linear-gradient(170deg, var(--surface2), var(--bg));
+  box-shadow: 0 24px 40px -22px #000;
+  color: var(--text);
+  text-align: center;
+}
+/* A sheen that glides across the front card. */
+.face::after {
+  content: "";
+  position: absolute;
+  inset: -40% -60%;
+  background: linear-gradient(
+    105deg,
+    transparent 40%,
+    color-mix(in srgb, #fff 14%, transparent) 50%,
+    transparent 60%
+  );
+  opacity: 0;
+  transform: translateX(-60%);
+  pointer-events: none;
+}
+.card[data-front] .face {
+  border-color: var(--accent);
+  box-shadow:
+    0 24px 40px -22px #000,
+    0 0 30px -8px var(--accent);
+}
+.card[data-front] .face::after {
+  opacity: 1;
+  animation: sheen 3.6s ease-in-out infinite;
+}
+.face i {
+  display: grid;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  border: 1.5px solid var(--accent);
+  border-radius: 50%;
+  color: var(--accent);
+  box-shadow:
+    0 0 24px -6px var(--accent),
+    inset 0 0 18px -8px var(--accent);
+}
+.face b {
+  font-family: var(--font-display);
+  font-weight: var(--display-weight);
+  text-transform: var(--display-case);
+  font-size: 19px;
+  line-height: 1.1;
+}
+.face small {
+  color: var(--muted);
+  font-size: 11.5px;
+}
+.back {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 8px;
+  padding: 12px;
+  border: 1.5px solid var(--accent);
+  background: var(--surface);
+  box-shadow: 0 0 30px -8px var(--accent);
+  transform: rotateY(180deg);
+}
+.back p {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.back p button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  color: var(--muted);
+}
+.back p svg {
+  width: 16px;
+}
+.pages {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.pages a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.15;
+}
+.pages a svg {
+  flex: none;
+  color: var(--accent);
+}
+.pages a[aria-current="page"] {
+  background: var(--lit);
+  outline: 1px solid var(--lit-line);
+}
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.nav button {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1.5px solid var(--lit-line);
+  border-radius: 50%;
+  color: var(--accent);
+}
+.nav button:disabled {
+  opacity: 0.3;
+}
+.nav svg {
+  width: 20px;
+}
+.dots {
+  display: flex;
+  gap: 6px;
+}
+.dots i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--line);
+  transition: transform 0.3s var(--spring);
+}
+.dots i[data-on] {
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+  transform: scale(1.35);
+}
+.on .trig svg {
+  transform: rotate(-12deg) scale(1.08);
+}
+@keyframes deal {
+  from {
+    opacity: 0;
+    transform: translate3d(-120px, 160px, 0) rotate(-24deg) scale(0.6);
+  }
+}
+@keyframes sheen {
+  0%,
+  55% {
+    transform: translateX(-60%);
+  }
+  100% {
+    transform: translateX(60%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .on .card,
+  .card[data-front] .face::after {
+    animation: none;
+  }
+}

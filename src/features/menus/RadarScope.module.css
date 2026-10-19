@@ -1,0 +1,228 @@
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 64;
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+.on .scrim {
+  opacity: 1;
+  pointer-events: auto;
+}
+.wrap {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 65;
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+  width: min(92vw, 400px);
+  max-height: calc(100dvh - 120px);
+  padding: 6px 0 34px;
+  overflow-y: auto;
+  scrollbar-width: none;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate3d(-50%, -46%, 0) scale(0.6) rotate(-25deg);
+  transition:
+    opacity 0.3s,
+    transform 0.55s var(--spring);
+}
+.on .wrap {
+  pointer-events: auto;
+  opacity: 1;
+  transform: translate3d(-50%, -50%, 0);
+}
+.scope {
+  position: relative;
+  width: min(80vw, 330px);
+  aspect-ratio: 1;
+  border: 1.5px solid var(--lit-line);
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--accent) 10%, var(--bg)) 0%,
+    var(--bg) 70%
+  );
+  box-shadow:
+    0 0 40px -10px var(--accent),
+    inset 0 0 40px -12px var(--accent);
+}
+.grid {
+  position: absolute;
+  inset: 0;
+  fill: none;
+  stroke: color-mix(in srgb, var(--accent) 22%, transparent);
+  stroke-width: 0.6;
+}
+.beam {
+  position: absolute;
+  inset: 2%;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    color-mix(in srgb, var(--accent) 55%, transparent),
+    transparent 22%
+  );
+  -webkit-mask: radial-gradient(circle, #000 69%, transparent 70%);
+  mask: radial-gradient(circle, #000 69%, transparent 70%);
+  animation: sweep 4s linear infinite;
+  pointer-events: none;
+}
+.blip {
+  position: absolute;
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  width: 84px;
+  translate: -50% -22px;
+  color: var(--text);
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1.15;
+  text-align: center;
+  opacity: 0;
+  transform: scale(0.3);
+  transition:
+    opacity 0.25s,
+    transform 0.5s var(--spring);
+}
+.on .blip {
+  opacity: 1;
+  transform: none;
+  transition-delay: calc(0.12s + var(--i) * 40ms);
+}
+.blip i {
+  position: relative;
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1.5px solid var(--accent);
+  border-radius: 50%;
+  background: var(--bg);
+  color: var(--accent);
+  box-shadow: 0 0 14px -3px var(--accent);
+}
+/* A ping each time the beam passes. */
+.blip i::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+  opacity: 0;
+  animation: ping 4s var(--d) infinite;
+}
+.blip span {
+  display: -webkit-box;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 2px 6px;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.blip[aria-current="page"] i {
+  box-shadow: 0 0 22px 0 var(--accent);
+}
+.hub {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  place-items: center;
+  gap: 1px;
+  width: 64px;
+  height: 64px;
+  translate: -50% -50%;
+  border: 1.5px solid var(--lit-line);
+  border-radius: 50%;
+  background: var(--lit);
+  color: var(--accent);
+  box-shadow: var(--glow);
+}
+.hub svg {
+  width: 18px;
+  height: 18px;
+}
+.hub small {
+  max-width: 56px;
+  overflow: hidden;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  width: 100%;
+}
+.list > * {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--line));
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 700;
+  text-align: left;
+  animation: rise 0.4s var(--ease) both;
+  animation-delay: calc(var(--i) * 25ms);
+}
+.list > * svg {
+  flex: none;
+  color: var(--accent);
+}
+.trig svg {
+  animation: sweep 3s linear infinite;
+}
+@keyframes sweep {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes ping {
+  0%,
+  8% {
+    opacity: 0;
+    transform: scale(1);
+  }
+  10% {
+    opacity: 0.9;
+  }
+  30%,
+  100% {
+    opacity: 0;
+    transform: scale(1.9);
+  }
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .beam,
+  .trig svg,
+  .blip i::after {
+    animation: none;
+  }
+}
+:global(html[data-tier="low"]) .blip i::after {
+  animation: none;
+}

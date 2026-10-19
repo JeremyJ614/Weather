@@ -212,7 +212,6 @@ function StormMap({
   const [group, setGroup] = useState(groups[0].id);
   const [id, setId] = useState(overlays[0].id);
   const [h, setH] = useState(0);
-  const [opacity, setOpacity] = useState(0.8);
   const inGroup = overlays.filter((x) => x.group === group);
   const o = inGroup.find((x) => x.id === id) ?? inGroup[0];
   return (
@@ -251,7 +250,7 @@ function StormMap({
         url={`/api/winter/img?id=${o.id}${h ? `&h=${h}` : ""}`}
         bounds={o.bounds}
         label={o.label}
-        opacity={opacity}
+        opacity={1}
       />
       <div className={s.controls}>
         {o.hours && (
@@ -273,17 +272,6 @@ function StormMap({
             ))}
           </div>
         )}
-        <label className={s.opacity}>
-          Opacity
-          <input
-            type="range"
-            min={0.25}
-            max={1}
-            step={0.05}
-            value={opacity}
-            onChange={(e) => setOpacity(+e.target.value)}
-          />
-        </label>
       </div>
       <p className={s.muted}>
         {o.note} A blank map is usually the right answer, not a broken one:

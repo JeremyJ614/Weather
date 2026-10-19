@@ -1,13 +1,14 @@
 /*
   Adapted from Techartist's "Three.js + GLSL Particle Animation" CodePen (MIT License):
   https://codepen.io/VoXelo/pen/NPbGqrx
-  Particles that form an astrolabe, a DNA helix and a beating heart, morphing between them.
+  Particles that form a tornado, a lightning strike, an astrolabe and a DNA helix, morphing
+  from one to the next. The tornado and the lightning are ours; the other two are the pen's.
 */
 import * as THREE from "three";
 import { dprFor, loop, watchSize, type Ctx, type Scene } from "../stage";
 import { teardown } from "./util";
 
-export const SHAPES = ["Astrolabe", "DNA helix", "Heart"];
+export const SHAPES = ["Tornado", "Lightning strike", "Astrolabe", "DNA helix"];
 export type Morph = Scene & { next(): number };
 
 const VERT = /* glsl */ `
@@ -80,43 +81,100 @@ const VERT = /* glsl */ `
           return pos;
       }
 
-      vec3 getHeart(float id, vec3 rnd) {
-          float u = rnd.x * PI * 2.0;
-          float v = acos(2.0 * rnd.y - 1.0);
-          
-          float x = 16.0 * pow(sin(u), 3.0);
-          float y = 13.0 * cos(u) - 5.0 * cos(2.0 * u) - 2.0 * cos(3.0 * u) - cos(4.0 * u) + 3.0;
-          float z = 5.0 * cos(v);
-          
-          vec3 pos = vec3(x, y, z);
-          
-          float layer = floor(rnd.z * 3.0); 
-          float scale = 1.0 - (layer * 0.35);
-          
-          float beat = 1.0 + pow(sin(uTime * 3.0 - layer * 0.8), 8.0) * 0.12;
-          
-          return pos * scale * beat * 1.5;
+      float tri(float x) { return abs(fract(x) - 0.5) * 4.0 - 1.0; }
+
+      // A funnel under a rotating wall cloud, with a debris cloud where it meets the ground.
+      // It spins faster toward the ground and its rope sways.
+      vec3 getTornado(float id, vec3 rnd) {
+          vec3 pos;
+          if (rnd.x < 0.62) {
+              float t = rnd.y;
+              float y = -30.0 + t * 54.0;
+              float r = 1.3 + pow(t, 2.3) * 15.0;
+              r *= 0.75 + 0.5 * fract(id * 977.0);
+              float a = rnd.z * PI * 2.0 + uTime * (4.5 - 3.0 * t);
+              float sway = sin(t * 3.0 + uTime * 0.6) * 4.0 * (1.0 - t);
+              pos = vec3(cos(a) * r + sway, y, sin(a) * r);
+          } else if (rnd.x < 0.86) {
+              float r = sqrt(rnd.y) * 38.0;
+              float a = rnd.z * PI * 2.0 + uTime * (0.6 - r * 0.01);
+              float y = 25.0 + (fract(id * 331.0) - 0.5) * 4.0 - (1.0 - r / 38.0) * 3.5;
+              pos = vec3(cos(a) * r, y, sin(a) * r);
+          } else {
+              float k = rnd.y;
+              float a = rnd.z * PI * 2.0 + uTime * 5.0;
+              float r = 2.0 + k * 10.0 + sin(id * 500.0) * 1.2;
+              pos = vec3(cos(a) * r + sin(uTime * 0.6) * 4.0, -30.0 + k * k * 11.0, sin(a) * r);
+          }
+          return pos;
+      }
+
+      // The bolt's main channel, zigzagging down from cloud to ground.
+      vec3 bolt(float t) {
+          return vec3(5.0 * tri(t * 3.1 + 0.2) + 2.5 * tri(t * 7.3) + 1.2 * tri(t * 17.0),
+                      30.0 - t * 60.0,
+                      3.0 * tri(t * 2.3 + 0.6) + 1.4 * tri(t * 11.0));
+      }
+
+      // A cloud-to-ground strike: the channel, four branches, the cloud it leaves and the
+      // flash where it lands.
+      vec3 getLightning(float id, vec3 rnd) {
+          vec3 pos;
+          float jit = fract(id * 733.0);
+          vec3 off = (vec3(fract(id * 91.0), fract(id * 57.0), fract(id * 23.0)) - 0.5);
+          if (rnd.x < 0.5) {
+              pos = bolt(rnd.y) + off * (jit < 0.7 ? 0.8 : 3.0);
+          } else if (rnd.x < 0.75) {
+              float b = floor(rnd.z * 4.0);
+              float side = mod(b, 2.0) < 1.0 ? 1.0 : -1.0;
+              float t0 = 0.12 + b * 0.17;
+              float L = 20.0 - b * 3.0;
+              float sx = rnd.y;
+              vec3 start = bolt(t0);
+              pos = start + vec3(side * sx * L * 0.7 + 1.5 * tri(sx * 5.0 + b),
+                                 -sx * L * 0.8,
+                                 (b - 1.5) * sx * 4.0 + tri(sx * 7.0)) + off * 0.8;
+          } else if (rnd.x < 0.92) {
+              float r = sqrt(rnd.y) * 36.0;
+              float a = rnd.z * PI * 2.0 + uTime * 0.15;
+              pos = vec3(cos(a) * r, 31.0 + (jit - 0.5) * 5.0 * (1.0 - r / 40.0), sin(a) * r);
+          } else {
+              float r = rnd.y * 9.0;
+              float a = rnd.z * PI * 2.0;
+              vec3 g = bolt(1.0);
+              pos = vec3(g.x + cos(a) * r, -30.0 + (1.0 - rnd.y) * jit * 2.0, g.z + sin(a) * r);
+          }
+          return pos;
       }
 
       vec3 getShapePosition(int shape, float id, vec3 rnd) {
-          if (shape == 0) return getAstrolabe(id, rnd);
-          if (shape == 1) return getDNA(id, rnd);
-          if (shape == 2) return getHeart(id, rnd);
+          if (shape == 0) return getTornado(id, rnd);
+          if (shape == 1) return getLightning(id, rnd);
+          if (shape == 2) return getAstrolabe(id, rnd);
+          if (shape == 3) return getDNA(id, rnd);
           return vec3(0.0);
       }
 
       vec3 getShapeColor(int shape, float id, vec3 rnd) {
-          if (shape == 0) return palette(id + uTime*0.05, vec3(0.5, 0.5, 0.6), vec3(0.3, 0.3, 0.4), vec3(1.0, 1.0, 1.0), vec3(0.0, 0.33, 0.67));
+          if (shape == 0) {
+              if (rnd.x < 0.62) return mix(vec3(0.55, 0.6, 0.68), vec3(0.75, 0.8, 0.88), rnd.y);
+              if (rnd.x < 0.86) return vec3(0.28, 0.32, 0.42) + 0.1 * fract(id * 331.0);
+              return vec3(0.6, 0.45, 0.32);
+          }
           if (shape == 1) {
+              // Strikes, then restrikes, every few seconds.
+              float f = fract(uTime * 0.3);
+              float flash = 0.35 + 0.65 * max(step(f, 0.05), step(abs(f - 0.1), 0.02));
+              if (rnd.x < 0.75) return mix(vec3(0.55, 0.45, 1.0), vec3(0.95, 0.95, 1.0), step(fract(id * 733.0), 0.7)) * flash;
+              if (rnd.x < 0.92) return vec3(0.2, 0.2, 0.35) * (0.6 + flash);
+              return vec3(0.75, 0.7, 1.0) * flash;
+          }
+          if (shape == 2) return palette(id + uTime*0.05, vec3(0.5, 0.5, 0.6), vec3(0.3, 0.3, 0.4), vec3(1.0, 1.0, 1.0), vec3(0.0, 0.33, 0.67));
+          if (shape == 3) {
               float h = (id - 0.5) * 60.0; 
               float rungZone = fract(h * 0.5);
               if(rungZone < 0.15 && rnd.y > 0.4) return vec3(0.0, 0.9, 0.4);
               return palette(id * 0.1, vec3(0.2, 0.6, 0.8), vec3(0.1, 0.3, 0.4), vec3(1.0, 1.0, 1.0), vec3(0.0, 0.2, 0.4));
-          }
-          if (shape == 2) {
-              float layer = floor(rnd.z * 3.0); 
-              if (layer == 2.0) return vec3(1.0, 0.6, 0.8);
-              return palette(id, vec3(0.9, 0.1, 0.2), vec3(0.3, 0.0, 0.1), vec3(1.0, 0.5, 0.5), vec3(0.0, 0.0, 0.0));
           }
           return vec3(1.0);
       }
@@ -139,9 +197,7 @@ const VERT = /* glsl */ `
           float breatheMask = sin(uMorphProgress * PI);
           finalPos += normalize(finalPos) * breatheMask * 8.0;
 
-          float autoRot1 = (uCurrentShape == 2) ? 0.0 : uTime * 0.1;
-          float autoRot2 = (uTargetShape == 2) ? 0.0 : uTime * 0.1;
-          float rotY = mix(autoRot1, autoRot2, easedMorph) + uMouse.x * 0.5;
+          float rotY = uTime * 0.1 + uMouse.x * 0.5;
           float rotX = uMouse.y * 0.5;
           
           mat3 rotMatY = mat3(

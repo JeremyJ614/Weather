@@ -73,6 +73,13 @@ type FieldData = {
   storms?: { name: string; lat: number; lon: number; mph: number }[];
   note: string | null;
 };
+const WINDOWS = [
+  { w: 60, label: "1 h", long: "last hour" },
+  { w: 120, label: "2 h", long: "last 2 hours" },
+  { w: 240, label: "4 h", long: "last 4 hours" },
+  { w: 360, label: "6 h", long: "last 6 hours" },
+  { w: 1440, label: "24 h", long: "last 24 hours" },
+] as const;
 type RotData = {
   at: string;
   cells: { lat: number; lon: number; v: number }[];
@@ -184,10 +191,10 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
     ],
   },
   rot: {
-    lead: "Observed, not a forecast: the last hour.",
+    lead: "Observed, not a forecast: up to the last 24 hours.",
     body: [
-      "NOAA's MRMS system merges every radar's low-level rotation (0–2 km azimuthal shear) and keeps the strongest value each spot saw in the last 60 minutes. Drawn as glowing trails, a long, bright track is a storm that kept rotating.",
-      "The list ranks tracks by length and strength. Strong straight-line wind shear, ground clutter and wind farms can leave short marks too, so short or stationary blobs are left out. Always check the radar and National Weather Service warnings.",
+      "NOAA's MRMS system merges every radar's low-level rotation (0–2 km azimuthal shear) and keeps the strongest value each spot saw over the window you pick: 1, 2, 4, 6 or 24 hours. Drawn as glowing trails, a long, bright track is a storm that kept rotating.",
+      "The list ranks tracks by length and strength. Strong straight-line wind shear, ground clutter and wind farms can leave short marks too, so short or stationary blobs are left out. Over 1 and 2 hours a track must also sit with a storm NOAA's ProbSevere is following; over longer windows, where those storms may have died, it must have travelled at least 15 km. Always check the radar and National Weather Service warnings.",
     ],
   },
   llj: {
@@ -293,6 +300,7 @@ export function EnginesTab({ colors }: { colors: Colors }) {
     Partial<Record<FieldId, FieldData | "error">>
   >({});
   const [rot, setRot] = useState<RotData | "error" | null>(null);
+  const [win, setWin] = useState<(typeof WINDOWS)[number]["w"]>(1440);
   const engineRef = useRef(engine);
   useEffect(() => {
     engineRef.current = engine;
@@ -331,7 +339,7 @@ export function EnginesTab({ colors }: { colors: Colors }) {
     let live = true;
     const load = () =>
       document.visibilityState === "visible" &&
-      fetch("/api/engines/rotation")
+      fetch(`/api/engines/rotation?w=${win}`)
         .then((r) => (r.ok ? r.json() : Promise.reject()))
         .then((d: RotData) => live && setRot(d))
         .catch(() => live && setRot((x) => x ?? "error"));
@@ -341,7 +349,7 @@ export function EnginesTab({ colors }: { colors: Colors }) {
       live = false;
       clearInterval(t);
     };
-  }, [engine]);
+  }, [engine, win]);
 
   // ProbSevere every two minutes while a storm engine is open and the page is visible.
   useEffect(() => {
@@ -758,9 +766,27 @@ export function EnginesTab({ colors }: { colors: Colors }) {
       {engine === "rot" && (
         <section className={s.card}>
           <header>
-            <h3>Longest rotation tracks, last hour</h3>
+            <h3>
+              Longest rotation tracks, {WINDOWS.find((x) => x.w === win)?.long}
+            </h3>
             {rot && rot !== "error" && <small>MRMS {time(rot.at)}</small>}
           </header>
+          <div className={s.windows} role="group" aria-label="Track window">
+            {WINDOWS.map((x) => (
+              <button
+                key={x.w}
+                type="button"
+                aria-pressed={x.w === win}
+                onClick={() => {
+                  if (x.w === win) return;
+                  setWin(x.w);
+                  setRot(null);
+                }}
+              >
+                {x.label}
+              </button>
+            ))}
+          </div>
           {rot === null && <p className={s.small}>Reading MRMS…</p>}
           {rot === "error" && (
             <p className={s.small}>
@@ -770,7 +796,8 @@ export function EnginesTab({ colors }: { colors: Colors }) {
           )}
           {rot && rot !== "error" && rot.tracks.length === 0 && (
             <p className={s.small}>
-              No storm has held rotation over the last hour.
+              No storm has held rotation over the{" "}
+              {WINDOWS.find((x) => x.w === win)?.long}.
             </p>
           )}
           {rot && rot !== "error" && (

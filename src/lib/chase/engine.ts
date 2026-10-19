@@ -412,7 +412,11 @@ export async function saveChase(): Promise<ChaseDay> {
  * the whole season rather than starting the day the page went live. Stops at the first
  * failure (usually the model archive's daily allowance) and picks up on the next call.
  */
-export async function backfillChase(max = 3) {
+/**
+ * Rebuilds this year's missing days, newest first, three at a time. A new day only starts in
+ * the first 20 seconds, so every one finishes inside the function's minute.
+ */
+export async function backfillChase(startFor = 20_000) {
   const today = chaseDay();
   const { data, error } = await supabaseAdmin()
     .from("chase_days")
@@ -428,12 +432,18 @@ export async function backfillChase(max = 3) {
   )
     if (!have.has(d.toISOString().slice(0, 10)))
       missing.push(d.toISOString().slice(0, 10));
+  const queue = missing.reverse();
+  const until = Date.now() + startFor;
   const done: [string, number][] = [];
-  for (const day of missing.reverse().slice(0, max)) {
-    const d = await save(await runChase(new Date(), day));
-    done.push([day, d.targets[0]?.score ?? 0]);
-  }
-  return { done, left: missing.length - done.length };
+  const worker = async () => {
+    while (queue.length && Date.now() < until) {
+      const day = queue.shift()!;
+      const d = await save(await runChase(new Date(), day));
+      done.push([day, d.targets[0]?.score ?? 0]);
+    }
+  };
+  await Promise.all([worker(), worker(), worker()]);
+  return { done, left: queue.length };
 }
 
 async function save(d: ChaseDay): Promise<ChaseDay> {

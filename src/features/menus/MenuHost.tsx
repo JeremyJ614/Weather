@@ -118,14 +118,11 @@ export function MenuHost({
   // The owner's switchable Admin shortcuts group (admin → Overview).
   if (adminShortcuts) seconds.push(ADMIN_GROUP);
   if (immersive) return null;
+  const mains = visibleNav(mainGroups, isAdmin, signedIn, guest);
   return (
     <>
-      <M.Component
-        groups={visibleNav(mainGroups, isAdmin, signedIn, guest)}
-        placement={mp}
-        role="main"
-      />
-      <S.Component groups={seconds} placement={sp} role="second" />
+      <M.Component groups={mains} placement={mp} role="main" />
+      <S.Component groups={seconds} placement={sp} role="second" all={mains} />
     </>
   );
 }

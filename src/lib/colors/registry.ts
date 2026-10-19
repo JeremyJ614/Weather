@@ -224,7 +224,7 @@ export const GROUPS: Group[] = [
   {
     id: "models",
     label: "Tropical models",
-    note: "Each model's track in the Model Battle Royale.",
+    note: "Each model's track on Tropical Outlook's Model Tracks.",
     entries: ROSTER.map((m) => ({
       key: `model:${m.tech}`,
       label: m.name,

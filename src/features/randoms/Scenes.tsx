@@ -160,7 +160,6 @@ export function StormScene() {
 export function SliderScene() {
   const [scene, setScene] = useState<Slider | null>(null);
   const [i, setI] = useState(0);
-  const [strength, setStrength] = useState(0.3);
   const slide = SLIDES[i];
   const go = (n: number) => {
     const k = (n + SLIDES.length) % SLIDES.length;
@@ -214,17 +213,6 @@ export function SliderScene() {
       <section className={`${s.panel} ${s.info}`}>
         <h4>{slide.name}</h4>
         <p>{slide.about}</p>
-        <Range
-          label="Distortion"
-          min={0}
-          max={1}
-          step={0.05}
-          value={strength}
-          onChange={(v) => {
-            setStrength(v);
-            scene?.strength(v);
-          }}
-        />
         <p className={s.credit}>
           Photo: {slide.credit}.{" "}
           <a href={slide.page} target="_blank" rel="noreferrer">

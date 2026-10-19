@@ -5,13 +5,22 @@ import { nearestPlace, parsePlaces } from "@/lib/geo/search";
 import { stormCenters } from "./probsevere";
 
 /**
- * Rotation Track Persistence (Extras): NOAA MRMS 60-minute rotation tracks, the strongest
- * 0–2 km azimuthal shear each spot saw in the last hour. The national grid is 7000 × 14000
- * cells, packed as a 16-bit PNG inside GRIB2; it is inflated as a stream, one row at a time,
- * keeping only cells with real rotation, so memory stays small.
+ * Rotation Track Persistence (Extras): NOAA MRMS rotation tracks, the strongest 0–2 km
+ * azimuthal shear each spot saw over the last 1, 2, 4, 6 or 24 hours. The national grid is
+ * 7000 × 14000 cells, packed as a 16-bit PNG inside GRIB2; it is inflated as a stream, one
+ * row at a time, keeping only cells with real rotation, so memory stays small.
  */
-const URL_60 =
-  "https://mrms.ncep.noaa.gov/2D/RotationTrack60min/MRMS_RotationTrack60min.latest.grib2.gz";
+/** The windows MRMS publishes, in minutes. */
+export const ROT_WINDOWS = [60, 120, 240, 360, 1440] as const;
+export type RotWindow = (typeof ROT_WINDOWS)[number];
+export const isRotWindow = (n: number): n is RotWindow =>
+  (ROT_WINDOWS as readonly number[]).includes(n);
+const url = (w: RotWindow) =>
+  `https://mrms.ncep.noaa.gov/2D/RotationTrack${w}min/MRMS_RotationTrack${w}min.latest.grib2.gz`;
+const meshUrl = (w: RotWindow) =>
+  `https://mrms.ncep.noaa.gov/2D/MESH_Max_${w}min/MRMS_MESH_Max_${w}min.latest.grib2.gz`;
+/** mm: MRMS's estimated hail size at or above this means a storm's updraft really was there. */
+const MESH_MIN = 2;
 const UA = { "User-Agent": "StormSync Weather (https://weather.sswx.space)" };
 /** ×10⁻³ s⁻¹: below this a track is noise. */
 export const ROT_MIN = 4;
@@ -183,16 +192,72 @@ export function tracks(cells: RotCell[]) {
   return [...groups.values()];
 }
 
+/** km: a rotating storm leaves a trail about this wide at most; wider is a blob of clutter
+ * or of many storms run together. */
+const TRAIL_KM = 12;
+
+const cellKey = (lat: number, lon: number) =>
+  `${Math.round(lat / POOL)}:${Math.round(lon / POOL)}`;
+
+/** Fetches a one-field MRMS GRIB2 and calls `hit` for every CONUS cell at or above `min`. */
+async function scan(
+  src: string,
+  min: number,
+  hit: (lat: number, lon: number, v: number) => void,
+) {
+  const r = await fetch(src, {
+    headers: UA,
+    cache: "no-store",
+    signal: AbortSignal.timeout(20_000),
+  });
+  if (!r.ok) throw new Error(`MRMS ${r.status}`);
+  const buf = new Uint8Array(gunzipSync(new Uint8Array(await r.arrayBuffer())));
+  const { grid, pack, png } = sections(buf);
+  const scale = 2 ** pack.e;
+  const div = 10 ** pack.d;
+  const floor = Math.max(1, Math.ceil((min * div - pack.r) / scale));
+  await eachRow(png, (j, ints) => {
+    for (let i = 0; i < ints.length; i++) {
+      if (ints[i] < floor) continue;
+      const lat = grid.lat1 - j * grid.dj;
+      const lon = ((grid.lon1 + i * grid.di + 180) % 360) - 180;
+      // The lower 48 only; the grid runs into Canada and Mexico.
+      if (lat > 49.5 || lat < 24 || lon < -125 || lon > -66.5) continue;
+      hit(lat, lon, (pack.r + ints[i] * scale) / div);
+    }
+  });
+  return r.headers.get("last-modified");
+}
+
+/** The ~2 km cells where MRMS estimated hail over the window: where a storm's updraft was. */
+async function hailSwath(win: RotWindow) {
+  const keys = new Set<string>();
+  await scan(meshUrl(win), MESH_MIN, (lat, lon) => keys.add(cellKey(lat, lon)));
+  return keys;
+}
+
 let rows: ReturnType<typeof parsePlaces> | null = null;
 
-export async function rotationTracks() {
-  const [r, storms] = await Promise.all([
-    fetch(URL_60, {
-      headers: UA,
-      cache: "no-store",
-      signal: AbortSignal.timeout(20_000),
+export async function rotationTracks(win: RotWindow = 60) {
+  // Over two hours or less, the storms that left the tracks are still on ProbSevere's list.
+  // Longer windows include storms that have since died, so there a track must instead run
+  // through MRMS's hail swath for the same window: a storm's updraft really was there.
+  const recent = win <= 120;
+  const pool = new Map<string, RotCell>();
+  const [stamp, storms, hail] = await Promise.all([
+    // MRMS stores rotation tracks in units of 0.001 s⁻¹, the unit ROT_MIN is in.
+    scan(url(win), ROT_MIN, (lat, lon, v) => {
+      const k = cellKey(lat, lon);
+      const had = pool.get(k);
+      if (!had || had.v < v)
+        pool.set(k, {
+          lat: Math.round(lat / POOL) * POOL,
+          lon: Math.round(lon / POOL) * POOL,
+          v,
+        });
     }),
-    stormCenters().catch(() => null),
+    recent ? stormCenters().catch(() => null) : null,
+    recent ? null : hailSwath(win).catch(() => null),
   ]);
   // Rotation only counts inside a real storm: within 50 km of one ProbSevere is tracking.
   // That drops sea clutter, wind farms and other radar noise.
@@ -208,34 +273,21 @@ export async function rotationTracks() {
           ) < 50,
       ),
     );
-  if (!r.ok) throw new Error(`MRMS ${r.status}`);
-  const stamp = r.headers.get("last-modified");
-  const buf = new Uint8Array(gunzipSync(new Uint8Array(await r.arrayBuffer())));
-  const { grid, pack, png } = sections(buf);
-  const scale = 2 ** pack.e;
-  const div = 10 ** pack.d;
-  // MRMS stores rotation tracks in units of 0.001 s⁻¹. Integers at or above this are at
-  // least ROT_MIN.
-  const floor = Math.max(1, Math.ceil((ROT_MIN * div - pack.r) / scale));
-  const pool = new Map<string, RotCell>();
-  await eachRow(png, (j, ints) => {
-    for (let i = 0; i < ints.length; i++) {
-      if (ints[i] < floor) continue;
-      const v = (pack.r + ints[i] * scale) / div;
-      const lat = grid.lat1 - j * grid.dj;
-      const lon = ((grid.lon1 + i * grid.di + 180) % 360) - 180;
-      // The lower 48 only; the grid runs into Canada and Mexico.
-      if (lat > 49.5 || lat < 24 || lon < -125 || lon > -66.5) continue;
-      const k = `${Math.round(lat / POOL)}:${Math.round(lon / POOL)}`;
-      const had = pool.get(k);
-      if (!had || had.v < v)
-        pool.set(k, {
-          lat: Math.round(lat / POOL) * POOL,
-          lon: Math.round(lon / POOL) * POOL,
-          v,
-        });
+  // …or, over long windows, has at least a few cells within ~4 km of hail.
+  const inHail = (g: RotCell[]) => {
+    if (!hail) return true;
+    let n = 0;
+    for (const c of g) {
+      const y = Math.round(c.lat / POOL);
+      const x = Math.round(c.lon / POOL);
+      let near = false;
+      for (let dy = -2; dy <= 2 && !near; dy++)
+        for (let dx = -2; dx <= 2 && !near; dx++)
+          near = hail.has(`${y + dy}:${x + dx}`);
+      if (near && ++n >= Math.min(5, Math.max(3, g.length * 0.15))) return true;
     }
-  });
+    return false;
+  };
   const cells = [...pool.values()].map((c) => ({
     lat: Math.round(c.lat * 1000) / 1000,
     lon: Math.round(c.lon * 1000) / 1000,
@@ -243,7 +295,7 @@ export async function rotationTracks() {
   }));
   rows ??= parsePlaces(PLACES);
   const places = rows;
-  const real = tracks(cells).filter(nearStorm);
+  const real = tracks(cells).filter((g) => nearStorm(g) && inHail(g));
   const list: RotTrack[] = real
     .filter((g) => g.length >= 5)
     .map((g) => {
@@ -261,6 +313,12 @@ export async function rotationTracks() {
       const near = nearestPlace(places, top.lat, top.lon, 1000);
       return {
         far: !near || near.miles > 75,
+        // The group's area over its length is how wide the trail is.
+        wide:
+          (g.length *
+            (POOL * 111.32) ** 2 *
+            Math.cos((top.lat * Math.PI) / 180)) /
+          Math.max(km, 1),
         place: near
           ? `${near.miles < 3 ? "" : `${Math.round(near.miles)} mi from `}${near.hit.name}, ${near.hit.st}`
           : `${top.lat.toFixed(2)}, ${top.lon.toFixed(2)}`,
@@ -273,7 +331,13 @@ export async function rotationTracks() {
     })
     // A track is something that moved: a blob that stays put is clutter.
     // …and one far from any U.S. town is over Canada, Mexico or open water.
-    .filter((t) => t.km >= 10 && t.peak >= 6 && !t.far)
+    .filter(
+      (t) =>
+        t.km >= (recent ? 10 : 15) &&
+        t.peak >= 6 &&
+        !t.far &&
+        (recent || t.wide <= TRAIL_KM),
+    )
     .map((t) => ({
       place: t.place,
       lat: t.lat,
@@ -284,9 +348,15 @@ export async function rotationTracks() {
     }))
     .sort((a, b) => b.km * b.peak - a.km * a.peak)
     .slice(0, 25);
+  // Over long windows only the tracks themselves are drawn, not every stray mark.
+  const keep = new Set(list.map((t) => `${t.lat}:${t.lon}`));
+  const drawn = recent
+    ? real
+    : real.filter((g) => g.some((c) => keep.has(`${c.lat}:${c.lon}`)));
   return {
     at: stamp ? new Date(stamp).toISOString() : new Date().toISOString(),
-    cells: real.flat(),
+    window: win,
+    cells: drawn.flat(),
     tracks: list,
   };
 }

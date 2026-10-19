@@ -31,10 +31,14 @@ const SIGNED_OUT: Viewer = {
 /** Who is signed in, once per request. Roles come from the database, never from the client. */
 export const getRealViewer = cache(async (): Promise<Viewer> => {
   const supabase = await supabaseServer();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return SIGNED_OUT;
+  // Checked locally against the project's signing key: no auth-server round trip per page.
+  const { data } = await supabase.auth.getClaims();
+  const c = data?.claims;
+  if (!c?.sub) return SIGNED_OUT;
+  const user = {
+    id: c.sub,
+    user_metadata: (c.user_metadata ?? {}) as Record<string, unknown>,
+  };
   const [{ data: profile }, { data: roles }] = await Promise.all([
     supabase
       .from("profiles")

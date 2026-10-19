@@ -16,7 +16,10 @@ export type Tier = {
   pages: string[];
 };
 
-/** Pages that are never sold (always open, or account pages). */
+/**
+ * Pages every plan includes and that are never sold as add-ons: the homepage, news, help and
+ * contact, plans and sign-in, and the member's own account pages.
+ */
 export const ALWAYS = new Set([
   "",
   "news",
@@ -25,6 +28,12 @@ export const ALWAYS = new Set([
   "settings",
   "notifications",
   "login",
+  "signup",
+  "join",
+  "faq",
+  "contact",
+  "privacy",
+  "welcome",
   "admin",
 ]);
 

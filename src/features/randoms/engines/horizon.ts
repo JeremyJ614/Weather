@@ -208,6 +208,11 @@ void main(){
   float minR = 100000.0;
 
   
+  // From far out, space is flat: fly straight to the sphere where bending starts.
+  float bb = dot(p, v);
+  float cc = dot(p, p) - 34.0 * 34.0;
+  if (cc > 0.0 && bb < 0.0 && bb * bb > cc) p += v * (-bb - sqrt(bb * bb - cc));
+
   vec3 aDir = vec3(cy, 0.0, sy);
   vec3 tDir = vec3(-sy, 0.0, cy);
   float sPrev = dot(p, aDir) + 20.0;
@@ -539,6 +544,7 @@ export async function mount(
   let yaw = 0;
   let pitch = 0.12;
   let dist = 27;
+  const MAX_DIST = 64;
   let orbit = !reduced;
   let dragging = false;
   let px = 0;
@@ -558,7 +564,7 @@ export async function mount(
     if (pointers.size === 2) {
       const [a, b] = [...pointers.values()];
       const d = Math.hypot(a.x - b.x, a.y - b.y);
-      if (pinch) dist = Math.max(6, Math.min(34, dist * (pinch / d)));
+      if (pinch) dist = Math.max(6, Math.min(MAX_DIST, dist * (pinch / d)));
       pinch = d;
       dragging = false;
       return;
@@ -576,7 +582,10 @@ export async function mount(
   };
   const wheel = (e: WheelEvent) => {
     e.preventDefault();
-    dist = Math.max(6, Math.min(34, dist * (1 + Math.sign(e.deltaY) * 0.08)));
+    dist = Math.max(
+      6,
+      Math.min(MAX_DIST, dist * (1 + Math.sign(e.deltaY) * 0.08)),
+    );
   };
   const reset = () => {
     yaw = 0;

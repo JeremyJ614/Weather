@@ -59,6 +59,8 @@ export default async function Profile() {
     );
   const id = viewer.id;
   const db = await supabaseServer();
+  // Anything earned since the last hourly award is given now, so it shows on this visit.
+  const { data: fresh } = await db.rpc("award_my_badges");
   const [
     { data: p },
     { data: points },
@@ -67,6 +69,7 @@ export default async function Profile() {
     { data: votes },
     { data: mine },
     { data: badges },
+    { data: progress },
     { data: titles },
     { data: sub },
     { data: bonus },
@@ -82,7 +85,12 @@ export default async function Profile() {
     db.from("game_guesses").select("guess_date").eq("user_id", id),
     db.from("poll_votes").select("poll_id").eq("user_id", id),
     db.from("member_badges").select("badge_id, awarded_at").eq("user_id", id),
-    db.from("badges").select("id, name, description, icon, rarity, grp"),
+    db
+      .from("badges")
+      .select(
+        "id, name, description, icon, rarity, grp, rule_metric, rule_goal",
+      ),
+    db.rpc("my_badge_progress"),
     db
       .from("game_titles")
       .select("kind, period, name, points")
@@ -152,6 +160,21 @@ export default async function Profile() {
       .map((b) => ({ ...b, at: owned.get(b.id)! }))
       .sort((a, b) => b.at.localeCompare(a.at)),
     badgeTotal: badges?.length ?? 0,
+    fresh: ((fresh ?? []) as string[]).filter((x) => typeof x === "string"),
+    toEarn: ((badges ?? []) as Badge[])
+      .filter((b) => b.rule_metric && b.rule_goal && !owned.has(b.id))
+      .map((b) => ({
+        ...b,
+        value: Number(
+          (progress ?? []).find(
+            (m: { metric: string; value: number }) =>
+              m.metric === b.rule_metric,
+          )?.value ?? 0,
+        ),
+        goal: b.rule_goal!,
+      }))
+      // Closest to done first.
+      .sort((a, b) => b.value / b.goal - a.value / a.goal),
     titles: (titles ?? []).map((t) => ({
       kind: t.kind as string,
       period: t.period as string,

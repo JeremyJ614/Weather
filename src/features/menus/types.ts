@@ -5,6 +5,8 @@ export interface MenuProps {
   groups: NavGroup[];
   placement: Placement;
   role: "main" | "second";
+  /** Every page the viewer can open (the main menu's groups), for menus that search. */
+  all?: NavGroup[];
 }
 
 export interface MenuStyle {

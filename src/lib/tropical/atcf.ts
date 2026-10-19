@@ -1,5 +1,5 @@
 /**
- * NHC ATCF decks for the Model Battle Royale: every model's newest forecast track (a-deck)
+ * NHC ATCF decks for Model Tracks: every model's newest forecast track (a-deck)
  * and how far each model's past forecasts landed from where the storm actually went
  * (b-deck best track). Pure functions; fetching lives in the API route.
  */

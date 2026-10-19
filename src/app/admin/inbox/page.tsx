@@ -21,8 +21,8 @@ export default async function Inbox() {
       <h1 className="display text-3xl text-accent">Contact inbox</h1>
       <p className="mt-1 text-sm text-muted">
         {unread} unread of {rows.length}. Every form that writes to the team
-        lands here (the Contact page now; new forms add their own tag). Messages
-        are kept for a year.
+        lands here, tagged with the form it came from (edit the Contact Us forms
+        in Contact forms). Messages are kept for a year.
       </p>
       {!rows.length ? (
         <p className="mt-6 text-muted">No messages yet.</p>

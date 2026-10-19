@@ -133,7 +133,7 @@ export function TropicalView({
           },
           {
             id: "trop-models",
-            label: "Battle Royale",
+            label: "Model Tracks",
             icon: <Swords aria-hidden />,
             panel: (
               <ModelBattle
@@ -616,7 +616,7 @@ function StormModels({ id, colors }: { id: string; colors: Colors }) {
       )}
       <p className={s.note}>
         NOAA/NHC ATCF automated tracker aids. Wind in mph. Guidance only: the
-        official forecast is NHC Official. The Battle Royale tab races every
+        official forecast is NHC Official. The Model Tracks tab races every
         model&apos;s track.
       </p>
     </section>

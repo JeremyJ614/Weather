@@ -12,7 +12,9 @@ export default async function Badges() {
   const [{ data }, { data: awards }, colors] = await Promise.all([
     supabase
       .from("badges")
-      .select("id, name, description, icon, rarity, grp")
+      .select(
+        "id, name, description, icon, rarity, grp, rule_metric, rule_goal",
+      )
       .order("grp")
       .order("name"),
     supabase.from("member_badges").select("badge_id"),
@@ -28,8 +30,10 @@ export default async function Badges() {
       <div>
         <h1 className="display text-3xl text-accent">Badges</h1>
         <p className="mt-1 text-sm text-muted">
-          Make badges here; give them to members from each member&apos;s page.
-          Rarity colors are editable in Map &amp; data colors.
+          Badges with a goal are earned automatically (checked every hour, and
+          whenever a member opens their profile). Make your own here and give
+          them from each member&apos;s page. Rarity colors are editable in Map
+          &amp; data colors.
         </p>
       </div>
       <BadgeEditor colors={colors} groups={groups} />

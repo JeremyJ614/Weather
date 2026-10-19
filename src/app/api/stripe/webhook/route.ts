@@ -1,3 +1,4 @@
+import { sendReceipt } from "@/lib/billing/receipt";
 import { planStatus, verifySignature } from "@/lib/billing/stripe";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
@@ -8,7 +9,8 @@ type Event = {
 
 /**
  * Stripe → our plans. Checkout completing makes the member's plan active; subscription
- * changes and cancellations follow it. Only signed events are read (STRIPE_WEBHOOK_SECRET).
+ * changes and cancellations follow it; every paid invoice sends our receipt. Only signed
+ * events are read (STRIPE_WEBHOOK_SECRET).
  */
 export async function POST(req: Request) {
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -48,6 +50,9 @@ export async function POST(req: Request) {
       .from("subscriptions")
       .update({ status, updated_at: now })
       .eq("stripe_subscription", String(o.id));
+  } else if (ev.type === "invoice.paid") {
+    // A failed email must not make Stripe retry the whole event.
+    await sendReceipt(o).catch(() => null);
   }
   return Response.json({ received: true });
 }

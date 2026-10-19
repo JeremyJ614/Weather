@@ -1,37 +1,33 @@
 "use server";
 
 import { supabaseServer } from "@/lib/supabase/server";
+import { checkSubmission, getContactForms } from "@/lib/help/forms";
+import { alertInbox } from "@/lib/help/alert";
 
 export type ContactState = { error?: string; sent?: boolean } | null;
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
-/** Every form that writes to the team goes through here into admin → Contact inbox. */
+/**
+ * Every Contact Us form goes through here: checked against the form the owner built, then
+ * saved to admin → Contact inbox (tagged with the form's id) and the team is alerted.
+ */
 export async function sendContact(
   _: ContactState,
   fd: FormData,
 ): Promise<ContactState> {
-  const s = (k: string, n: number) =>
-    String(fd.get(k) ?? "")
-      .trim()
-      .slice(0, n);
-  const form = s("form", 32).toLowerCase();
-  const name = s("name", 80);
-  const email = s("email", 200);
-  const body = s("body", 4000);
-  if (!/^[a-z0-9-]{1,32}$/.test(form))
-    return { error: "That form couldn't be read." };
-  if (!name) return { error: "Enter your name." };
-  if (!EMAIL.test(email)) return { error: "Enter your email so we can reply." };
-  if (!body) return { error: "Write your message." };
+  const form = String(fd.get("form") ?? "");
+  const tab = (await getContactForms()).tabs.find((t) => t.on && t.id === form);
+  if (!tab) return { error: "That form couldn't be read. Reload the page." };
   // Bots fill every field, including the hidden one.
-  if (s("website", 200)) return { sent: true };
+  if (String(fd.get("website") ?? "")) return { sent: true };
+  const m = checkSubmission(tab, (id) => String(fd.get(`f_${id}`) ?? ""));
+  if ("error" in m) return m;
   const sb = await supabaseServer();
   const { error } = await sb.rpc("contact_send", {
-    p_form: form,
-    p_name: name,
-    p_email: email,
-    p_subject: s("subject", 120),
-    p_body: body,
+    p_form: tab.id,
+    p_name: m.name,
+    p_email: m.email,
+    p_subject: m.subject,
+    p_body: m.body,
   });
   if (error)
     return {
@@ -40,5 +36,6 @@ export async function sendContact(
           ? "That's a lot of messages. Try again in an hour."
           : "Your message couldn't be sent. Try again.",
     };
+  await alertInbox({ form: tab.title, ...m });
   return { sent: true };
 }

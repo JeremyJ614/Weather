@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/components/IntentLink";
 import { X } from "lucide-react";
 import { NavIcon } from "@/components/NavIcon";
 import { href } from "@/lib/nav/registry";
@@ -63,10 +63,29 @@ export function BentoBoard({ groups, placement, role }: MenuProps) {
         })}
       </nav>
       <div className={s.sheet} data-open={!!g}>
+        {/* The sheet's backdrop: drifting aurora light, radar rings and the section's emblem. */}
+        <div className={s.fx} aria-hidden>
+          <i className={s.a1} />
+          <i className={s.a2} />
+          <i className={s.a3} />
+          <svg viewBox="0 0 200 200" className={s.rings}>
+            {[90, 66, 42, 18].map((r) => (
+              <circle key={r} cx="100" cy="100" r={r} />
+            ))}
+          </svg>
+          <span className={s.sweep} />
+          {g && <NavIcon name={g.icon} className={s.mark} />}
+        </div>
         {g && (
-          <>
+          <div className={s.body} key={g.id}>
+            <span className={s.grab} />
             <p className={s.h}>
-              {g.label}
+              <span>
+                <small>
+                  {g.pages.length} page{g.pages.length === 1 ? "" : "s"}
+                </small>
+                {g.label}
+              </span>
               <button
                 aria-label="Back to sections"
                 onClick={() => setSel(null)}
@@ -74,8 +93,15 @@ export function BentoBoard({ groups, placement, role }: MenuProps) {
                 <X className="size-5" aria-hidden />
               </button>
             </p>
-            <Items group={g} path={path} className={s.mi} />
-          </>
+            <div className={s.list}>
+              <Items
+                group={g}
+                path={path}
+                className={s.mi}
+                iconClass="size-5"
+              />
+            </div>
+          </div>
         )}
       </div>
       <Burger open={open} onClick={toggle} style={placeStyle(placement.id)} />

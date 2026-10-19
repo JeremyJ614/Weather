@@ -60,7 +60,7 @@ export async function sendTestInvoice(json: string): Promise<InvoiceState> {
     raw = JSON.parse(json);
   } catch {}
   const t = cleanInvoice(raw);
-  const { subject, html } = invoiceHtml(t, {
+  const { subject, html, text } = invoiceHtml(t, {
     name: viewer.name ?? "there",
     plan: "VIP",
     number: "TEST",
@@ -78,6 +78,7 @@ export async function sendTestInvoice(json: string): Promise<InvoiceState> {
       to: user.email,
       subject: `[Test] ${subject}`,
       html,
+      text,
     }),
   });
   if (!res.ok) return { error: "The test couldn't be sent. Try again." };

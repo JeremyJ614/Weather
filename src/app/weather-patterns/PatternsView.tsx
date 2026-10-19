@@ -42,7 +42,7 @@ const PERIODS = [
   ["yesterday", "Yesterday"],
   ["week", "Past week"],
   ["month", "Past month"],
-  ["year", "Past year"],
+  ["year", "This year"],
 ] as const;
 const day = (d: string) =>
   new Date(`${d}T12:00:00Z`).toLocaleDateString("en-US", {
@@ -195,7 +195,7 @@ export function PatternsView({
           </p>
         ) : !p ? (
           <p className={s.muted}>
-            Reading {pid === "year" ? "a year of" : "the"} storm reports…
+            Reading {pid === "year" ? "this year's" : "the"} storm reports…
           </p>
         ) : (
           <>

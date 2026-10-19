@@ -33,7 +33,6 @@ void main() {
 
 export type Slider = Scene & {
   show(i: number): void;
-  strength(v: number): void;
 };
 
 const ease = (t: number) =>
@@ -93,7 +92,8 @@ export async function mount(
     aspectA: { value: new THREE.Vector2(1, 1) },
     aspectB: { value: new THREE.Vector2(1, 1) },
     progress: { value: 0 },
-    intensity: { value: 0.3 },
+    // Full strength, always: each photo pours all the way through the next.
+    intensity: { value: 1 },
   };
   const mat = new THREE.ShaderMaterial({
     uniforms,
@@ -149,9 +149,6 @@ export async function mount(
         get(i + 1);
         get(i - 1);
       });
-    },
-    strength(v) {
-      uniforms.intensity.value = v;
     },
     dispose() {
       l.stop();

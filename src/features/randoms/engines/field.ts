@@ -148,7 +148,7 @@ export async function mount(
     tsl.smoothstep(0, 0.75, tsl.screenUV.sub(0.5).length()),
   );
   scene.add(lines);
-  const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+  const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 200);
   camera.position.set(1, 0.25, 1).setLength(10);
   const renderer = new THREE.WebGPURenderer({
     antialias: tier !== "low",
@@ -161,7 +161,7 @@ export async function mount(
   controls.enableDamping = true;
   controls.enablePan = false;
   controls.minDistance = 5;
-  controls.maxDistance = 18;
+  controls.maxDistance = 40;
 
   const unwatch = watchSize(el, (w, h) => {
     camera.aspect = w / h;

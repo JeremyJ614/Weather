@@ -227,6 +227,26 @@ export function SettingsView({
             </select>
           </label>
         </div>
+        {/* Every kind of text the app draws, in the chosen fonts, so a set can be judged
+            on numbers and temperatures as well as headings. */}
+        <div
+          className={s.sample}
+          data-font={theme.font}
+          aria-label={`${font(theme.font)?.name} preview`}
+        >
+          <p className={s.sDisplay}>Severe storms tonight</p>
+          <p className={s.sTemp}>
+            72°<small>Feels like 75°F</small>
+          </p>
+          <p className={s.sBody}>
+            Scattered thunderstorms develop after 3 PM, with gusts to 60 mph and
+            quarter-size hail possible before midnight.
+          </p>
+          <p className={s.sLabel}>Wind · 15 mph SSW · Gusts 28</p>
+          <p className={s.sMono}>
+            0123456789 · 29.92 inHg · 12:45 PM · 0.42″ · 68% · UV 7
+          </p>
+        </div>
       </section>
 
       <section className={s.card} aria-labelledby="intro-h">

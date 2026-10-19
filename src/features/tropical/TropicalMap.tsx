@@ -17,9 +17,10 @@ export type ReconDot = {
 };
 
 /** NASA GIBS MUR sea-surface temperature; the analysis lags about three days. */
+// GIBS's pre-rendered tile service (WMTS): its on-the-fly WMS times out under load and
+// left gaps in the map.
 const SST = (date: string) =>
-  "https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&VERSION=1.3.0&LAYERS=GHRSST_L4_MUR_Sea_Surface_Temperature&STYLES=&FORMAT=image%2Fpng&TRANSPARENT=TRUE&CRS=EPSG%3A3857&WIDTH=256&HEIGHT=256&BBOX={bbox-epsg-3857}&TIME=" +
-  date;
+  `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/GHRSST_L4_MUR_Sea_Surface_Temperature/default/${date}/GoogleMapsCompatible_Level7/{z}/{y}/{x}.png`;
 /** GIBS's own MUR palette, read off its legend (°C), for the key under the map. */
 export const SST_KEY = [
   { c: 20, color: "#1d2f8f" },
@@ -49,6 +50,8 @@ type Label = {
   key: string;
   x: number;
   y: number;
+  lon: number;
+  lat: number;
   text: string;
   color?: string;
   active?: boolean;
@@ -94,6 +97,11 @@ export function TropicalMap({
     labels: true,
   });
   const [labels, setLabels] = useState<Label[]>([]);
+  // Label elements by key: moved directly on every map frame, so they stay pinned while
+  // panning and zooming without re-rendering the page.
+  const nodes = useRef(
+    new Map<string, { el: HTMLElement; lon: number; lat: number }>(),
+  );
   const src = useRef({ storms, recon, geo });
   const b0 = BASINS.find((b) => b.id === start)!;
   const activeBox = () => {
@@ -117,7 +125,7 @@ export function TropicalMap({
         p.x > c.clientWidth + 40 ||
         p.y > c.clientHeight + 20
         ? null
-        : { x: p.x, y: p.y };
+        : { x: p.x, y: p.y, lon, lat };
     };
     const { storms: st, recon: rc, geo: g } = src.current;
     const out: Label[] = [];
@@ -197,12 +205,19 @@ export function TropicalMap({
       source: "sst",
       paint: { "raster-opacity": 0.72 },
     });
-    // Labels follow the map: re-project on every move frame.
+    // Labels follow the map frame by frame (positions only); which labels show is
+    // worked out again once the map settles.
     let raf = 0;
     m.on("move", () => {
       cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(relayout);
+      raf = requestAnimationFrame(() => {
+        for (const n of nodes.current.values()) {
+          const p = m.project([n.lon, n.lat]);
+          n.el.style.transform = `translate(${p.x}px, ${p.y}px)`;
+        }
+      });
     });
+    m.on("moveend", relayout);
     const box = focus
       ? null
       : wide
@@ -406,6 +421,11 @@ export function TropicalMap({
             .map((l) => (
               <span
                 key={l.key}
+                ref={(el) => {
+                  if (el)
+                    nodes.current.set(l.key, { el, lon: l.lon, lat: l.lat });
+                  else nodes.current.delete(l.key);
+                }}
                 className={s[l.kind]}
                 data-active={l.active || undefined}
                 style={{

@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { OWNER_EMAIL } from "@/lib/help/alert";
 import {
   assess,
   shouldAlert,
@@ -6,7 +7,6 @@ import {
   type LastAlert,
 } from "@/lib/ops/watchdog";
 
-const OWNER_EMAIL = "jaywx@yahoo.com";
 const FROM = "StormSync Media <no-reply@send.sswx.space>";
 
 const pct = (n: number) => `${(n * 100).toFixed(1)}%`;

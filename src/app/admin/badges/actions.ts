@@ -30,8 +30,15 @@ export async function saveBadge(
   if (!RARITIES.includes(row.rarity)) return { error: "Pick a rarity." };
   if (id && !/^[0-9a-f-]{36}$/.test(id))
     return { error: "That badge couldn't be found." };
+  // An automatic badge's goal can be raised or lowered; what it counts can't change.
+  const goal = Number(s("goal", 8));
+  if (fd.has("goal") && !(Number.isInteger(goal) && goal >= 1 && goal <= 1e6))
+    return { error: "The goal must be a whole number from 1 up." };
   const { error } = id
-    ? await supabase.from("badges").update(row).eq("id", id)
+    ? await supabase
+        .from("badges")
+        .update(fd.has("goal") ? { ...row, rule_goal: goal } : row)
+        .eq("id", id)
     : await supabase.from("badges").insert(row);
   if (error) return { error: "The badge couldn't be saved. Try again." };
   await supabase.rpc("log_admin", {

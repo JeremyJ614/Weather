@@ -1,42 +1,45 @@
 import type { Metadata } from "next";
-import { Card } from "@/components/ui/Card";
-import { ContactForm } from "@/features/contact/ContactForm";
+import { Mail } from "lucide-react";
+import { PageHero } from "@/components/ui/PageHero";
 import { getViewer } from "@/lib/auth/viewer";
+import { getContactForms } from "@/lib/help/forms";
 import { supabaseServer } from "@/lib/supabase/server";
+import { ContactView } from "./ContactView";
 
-export const metadata: Metadata = { title: "Contact · StormSync Media" };
+export const metadata: Metadata = { title: "Contact Us · StormSync Weather" };
 
-/** Write to the team; messages land in admin → Contact inbox. */
+/** The owner's Contact Us forms (admin → Contact forms); messages land in admin → Contact inbox. */
 export default async function Contact({
   searchParams,
 }: {
-  searchParams: Promise<{ about?: string }>;
+  searchParams: Promise<{ about?: string; tab?: string }>;
 }) {
-  const { about } = await searchParams;
-  const viewer = await getViewer();
-  const {
-    data: { user },
-  } = await (await supabaseServer()).auth.getUser();
+  const [{ about, tab }, viewer, forms] = await Promise.all([
+    searchParams,
+    getViewer(),
+    getContactForms(),
+  ]);
+  const { data } = viewer.signedIn
+    ? await (await supabaseServer()).auth.getClaims()
+    : { data: null };
+  const email = data?.claims?.email;
   return (
-    <main className="mx-auto max-w-md px-4 pt-6 pb-24">
-      <Card className="grid gap-4">
-        <div>
-          <p className="eyebrow">StormSync Weather</p>
-          <h1 className="font-[family-name:var(--font-display)] text-2xl font-extrabold">
-            Contact us
-          </h1>
-          <p className="mt-1 text-sm text-muted">
-            Questions, ideas or a problem with your account. We read every
-            message.
-          </p>
-        </div>
-        <ContactForm
-          form="contact"
-          name={viewer.signedIn ? (viewer.name ?? "") : ""}
-          email={user?.email ?? ""}
-          subject={about?.slice(0, 120) ?? ""}
-        />
-      </Card>
+    <main className="mx-auto max-w-2xl px-4 pt-4 pb-28">
+      <PageHero
+        icon={<Mail aria-hidden />}
+        eyebrow={["Help"]}
+        title="Contact Us"
+        subtitle="Questions, ideas or a problem with your account. We read every message and reply by email."
+      />
+      <ContactView
+        tabs={forms.tabs.filter((t) => t.on)}
+        initial={tab}
+        prefill={{
+          name: viewer.signedIn ? (viewer.name ?? "") : "",
+          email: typeof email === "string" ? email : "",
+          subject: about?.slice(0, 120) ?? "",
+        }}
+      />
     </main>
   );
 }

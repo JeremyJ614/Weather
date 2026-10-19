@@ -101,7 +101,7 @@ describe("bands", () => {
 
 import { vi } from "vitest";
 vi.mock("server-only", () => ({}));
-import { tracks } from "@/lib/engines/rotation";
+import { isRotWindow, ROT_WINDOWS, tracks } from "@/lib/engines/rotation";
 import { FIELD_BANDS, pyroBin, rotBin } from "@/lib/engines/colors";
 
 describe("rotation tracks", () => {
@@ -115,6 +115,11 @@ describe("rotation tracks", () => {
     const g = tracks([...line, ...far]);
     expect(g).toHaveLength(2);
     expect(g.map((x) => x.length).sort((a, b) => a - b)).toEqual([1, 10]);
+  });
+  it("offers only the windows MRMS publishes, up to 24 hours", () => {
+    expect(ROT_WINDOWS).toEqual([60, 120, 240, 360, 1440]);
+    expect(isRotWindow(1440)).toBe(true);
+    expect(isRotWindow(90)).toBe(false);
   });
   it("bins rotation and PyroCb chance", () => {
     expect([4, 6, 9, 12, 20].map(rotBin)).toEqual([0, 1, 2, 3, 4]);

@@ -30,9 +30,10 @@ export async function proxy(request: NextRequest) {
       },
     },
   });
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Verified locally against the project's signing key (no round trip to the auth server);
+  // it still refreshes an expiring session.
+  const { data: claims } = await supabase.auth.getClaims();
+  const user = claims?.claims?.sub ? { id: claims.claims.sub } : null;
   const path = request.nextUrl.pathname;
   if (!user && !GUEST_PATHS.test(path) && request.method === "GET") {
     const to = request.nextUrl.clone();

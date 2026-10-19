@@ -1,0 +1,50 @@
+.wrap {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  padding: 22vh 16px 0;
+}
+.scope {
+  position: relative;
+  overflow: hidden;
+  width: 64px;
+  height: 64px;
+  border: 1px solid var(--lit-line);
+  border-radius: 50%;
+  box-shadow: 0 0 22px -8px var(--accent);
+}
+.scope i {
+  position: absolute;
+  inset: 0;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    color-mix(in srgb, var(--accent) 55%, transparent) 60deg,
+    transparent 61deg
+  );
+  animation: sweep 1.4s linear infinite;
+}
+.text {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  animation: fade 1.4s ease-in-out infinite;
+}
+@keyframes sweep {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes fade {
+  50% {
+    opacity: 0.45;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .scope i,
+  .text {
+    animation: none;
+  }
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/components/IntentLink";
 import { Plus } from "lucide-react";
 import { NavIcon } from "@/components/NavIcon";
 import { Beam } from "@/components/ui/Beam";

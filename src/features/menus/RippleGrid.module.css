@@ -1,0 +1,199 @@
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 64;
+  background: color-mix(in srgb, var(--bg) 84%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s;
+}
+.on .scrim {
+  opacity: 1;
+  pointer-events: auto;
+}
+/* The rings start at the button's center and spread past the screen's far corner. */
+.rings {
+  position: fixed;
+  bottom: calc(46px + env(safe-area-inset-bottom, 0px));
+  right: 44px;
+  z-index: 64;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+[data-side="left"] .rings {
+  right: auto;
+  left: 44px;
+}
+[data-side="center"] .rings {
+  right: 50%;
+}
+[data-raised] .rings {
+  bottom: calc(120px + env(safe-area-inset-bottom, 0px));
+}
+.rings i {
+  position: absolute;
+  top: -60px;
+  left: -60px;
+  width: 120px;
+  height: 120px;
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+  box-shadow:
+    0 0 24px -4px var(--accent),
+    inset 0 0 24px -8px var(--accent);
+  opacity: 0;
+  transform: scale(0.2);
+}
+.on .rings i {
+  animation: ring 1.3s var(--ease) both;
+}
+.on .rings i:nth-child(2) {
+  animation-delay: 0.16s;
+}
+.on .rings i:nth-child(3) {
+  animation-delay: 0.32s;
+}
+.grid {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(90px + env(safe-area-inset-bottom, 0px));
+  z-index: 65;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  max-width: 460px;
+  max-height: calc(100dvh - 190px);
+  margin: 0 auto;
+  overflow-y: auto;
+  padding: 4px;
+  scrollbar-width: none;
+  pointer-events: none;
+}
+[data-raised] .grid {
+  bottom: calc(164px + env(safe-area-inset-bottom, 0px));
+}
+.on .grid {
+  pointer-events: auto;
+}
+.tile {
+  position: relative;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 8px;
+  min-height: 104px;
+  padding: 12px 6px 10px;
+  border: 1.5px solid color-mix(in srgb, var(--accent) 40%, var(--line));
+  border-radius: 22px;
+  background:
+    radial-gradient(
+      90% 70% at 50% 30%,
+      color-mix(in srgb, var(--accent) 12%, transparent),
+      transparent 70%
+    ),
+    var(--surface);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+  opacity: 0;
+  transform: scale(0.4);
+}
+.on .tile {
+  animation: land 0.6s var(--spring) both;
+  animation-delay: var(--d);
+}
+/* Each tile sends out its own little ring as it lands. */
+.tile::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border: 2px solid var(--accent);
+  border-radius: inherit;
+  opacity: 0;
+  pointer-events: none;
+}
+.on .tile::after {
+  animation: splash 0.8s var(--ease) both;
+  animation-delay: var(--d);
+}
+.tile i {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border: 1.5px solid var(--accent);
+  border-radius: 50%;
+  color: var(--accent);
+  box-shadow: 0 0 16px -5px var(--accent);
+}
+.tile em {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-style: normal;
+}
+.tile[aria-current="page"] {
+  border-color: var(--accent);
+  box-shadow: var(--glow);
+}
+.back i {
+  border-style: dashed;
+}
+.on .trig svg {
+  animation: wobble 1.2s var(--ease);
+}
+@keyframes ring {
+  0% {
+    opacity: 0.9;
+    transform: scale(0.2);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(14);
+  }
+}
+@keyframes land {
+  0% {
+    opacity: 0;
+    transform: scale(0.4) translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes splash {
+  0% {
+    opacity: 0.8;
+    transform: scale(0.9);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.18);
+  }
+}
+@keyframes wobble {
+  30% {
+    transform: scale(1.2) rotate(-8deg);
+  }
+  60% {
+    transform: scale(0.95) rotate(5deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .on .rings i,
+  .on .tile::after,
+  .on .trig svg {
+    animation: none;
+  }
+  .on .tile {
+    animation-duration: 0.01s;
+  }
+}

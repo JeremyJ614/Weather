@@ -130,8 +130,22 @@ export const PERIODS = [
   { id: "yesterday", label: "Yesterday", days: 1 },
   { id: "week", label: "Past week", days: 7 },
   { id: "month", label: "Past month", days: 30 },
-  { id: "year", label: "Past year", days: 365 },
+  // Year to date: from January 1 of the last complete day's year, starting over each January.
+  { id: "year", label: "This year", days: 0 },
 ] as const;
+
+/** How many days a period covers, ending yesterday (UTC); "year" counts from January 1. */
+export function spanDays(p: (typeof PERIODS)[number], now = Date.now()) {
+  if (p.id !== "year") return p.days;
+  const y = new Date(now - 86400_000);
+  const jan1 = Date.UTC(y.getUTCFullYear(), 0, 1);
+  return (
+    Math.round(
+      (Date.UTC(y.getUTCFullYear(), y.getUTCMonth(), y.getUTCDate()) - jan1) /
+        86400_000,
+    ) + 1
+  );
+}
 
 export function aggregate(
   p: (typeof PERIODS)[number],
@@ -259,9 +273,10 @@ export async function syncLedger() {
 
 /** A period's numbers from the ledger (or SPC directly while the ledger fills). */
 async function periodDays(p: (typeof PERIODS)[number]) {
-  const since = ymd(new Date(Date.now() - p.days * 86400_000));
+  const n = spanDays(p);
+  const since = ymd(new Date(Date.now() - n * 86400_000));
   const list = await ledgerSince(since).catch(() => []);
-  return list.length >= p.days * 0.9 ? list : reportDays(p.days);
+  return list.length >= n * 0.9 ? list : reportDays(n);
 }
 
 /** A period with the forecast desk's recap: what the daily job stores, and the fallback. */

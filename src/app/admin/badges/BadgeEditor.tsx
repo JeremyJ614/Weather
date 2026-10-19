@@ -2,8 +2,8 @@
 
 import { useActionState, useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
-import { BadgePlate, BADGE_ICONS } from "@/components/BadgeIcon";
-import { RARITIES, type Badge } from "@/lib/badges";
+import { BadgePlate, useBadgeIcons } from "@/components/BadgeIcon";
+import { metricName, RARITIES, type Badge } from "@/lib/badges";
 import type { Colors } from "@/lib/colors/pick";
 import { deleteBadge, saveBadge } from "./actions";
 
@@ -24,6 +24,7 @@ export function BadgeEditor({
   const [rarity, setRarity] = useState(badge?.rarity ?? "common");
   const [name, setName] = useState(badge?.name ?? "");
   const [gone, setGone] = useState(false);
+  const icons = useBadgeIcons();
   const [del, start] = useTransition();
   if (gone) return null;
   return (
@@ -83,12 +84,31 @@ export function BadgeEditor({
           ))}
         </datalist>
       </div>
+      {badge?.rule_metric && (
+        <label className="grid gap-1 text-sm">
+          <span className="text-muted">
+            Earned automatically: {metricName(badge.rule_metric)}
+          </span>
+          {!metricName(badge.rule_metric).endsWith("(yes/no)") ? (
+            <input
+              name="goal"
+              type="number"
+              min={1}
+              max={1000000}
+              required
+              defaultValue={badge.rule_goal ?? 1}
+              aria-label="Goal"
+              className={field}
+            />
+          ) : null}
+        </label>
+      )}
       <div
         className="flex flex-wrap gap-1.5"
         role="radiogroup"
         aria-label="Icon"
       >
-        {Object.entries(BADGE_ICONS).map(([k, I]) => (
+        {Object.entries(icons ?? {}).map(([k, I]) => (
           <button
             key={k}
             type="button"

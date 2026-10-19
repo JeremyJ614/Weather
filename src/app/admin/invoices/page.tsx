@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   title: "Invoice email · Admin · StormSync Media",
 };
 
-/** The receipt members get after a payment (VIP #22). Real sends start with checkout. */
+/** The receipt members get after every payment (VIP #22); sent by src/lib/billing/receipt.ts. */
 export default async function Invoices() {
   const { supabase, viewer } = await requireAdmin("billing");
   const [{ data }, lines] = await Promise.all([
@@ -24,8 +24,9 @@ export default async function Invoices() {
       <div>
         <h1 className="display text-3xl text-accent">Invoice email</h1>
         <p className="mt-1 text-sm text-muted">
-          The receipt members get after each payment. Members get it once card
-          payments open (Phase 64); until then, send yourself a test.
+          The receipt members get after every payment, the first one and each
+          renewal, with a link to Stripe&apos;s copy of the invoice. Send
+          yourself a test to see it in your inbox.
         </p>
       </div>
       <InvoiceEditor

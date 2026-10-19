@@ -34,6 +34,9 @@ export function InvoiceEditor({
     number: "PREVIEW",
     date: "Today",
     lines,
+    url: "#",
+    // A srcdoc frame resolves paths against this page, so the preview shows this server's images.
+    origin: "",
   });
   const area = (k: keyof InvoiceTemplate, label: string, n: number) => (
     <label className="grid gap-1 text-sm font-bold">
@@ -78,6 +81,15 @@ export function InvoiceEditor({
           className={`${field} font-normal`}
         />
       </label>
+      <label className="grid gap-1 text-sm font-bold">
+        Heading
+        <input
+          value={t.heading}
+          maxLength={60}
+          onChange={(e) => set("heading", e.target.value)}
+          className={`${field} font-normal`}
+        />
+      </label>
       {area("intro", "Opening", 600)}
       {area("footer", "Footer", 400)}
       <p className="text-xs text-muted">
@@ -90,7 +102,7 @@ export function InvoiceEditor({
         title="Invoice preview"
         srcDoc={preview.html}
         sandbox=""
-        className="h-[440px] w-full rounded-2xl border border-line bg-[#0b0c14]"
+        className="h-[760px] w-full rounded-2xl border border-line bg-[#0b0c14]"
       />
       {msg && (
         <p role="status" className="text-sm text-accent">

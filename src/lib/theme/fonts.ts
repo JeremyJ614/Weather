@@ -1,17 +1,13 @@
 /* Every family a font set can use, bundled with the app (latin subset) so builds never
- fetch from Google. Only the default set (VIP Classic + mono) preloads. Regenerate with the vendor-fonts tool. */
+ fetch from Google. Only the default set (VIP Classic + mono) preloads. A variable font is a
+ single file with a weight range, so the browser fetches it once rather than once per weight. */
 import localFont from "next/font/local";
 
 const f_playfair_display = localFont({
   src: [
     {
-      path: "./fonts/playfair_display-700.woff2",
-      weight: "700",
-      style: "normal",
-    },
-    {
-      path: "./fonts/playfair_display-800.woff2",
-      weight: "800",
+      path: "./fonts/playfair_display.woff2",
+      weight: "400 900",
       style: "normal",
     },
   ],
@@ -20,12 +16,7 @@ const f_playfair_display = localFont({
   variable: "--ff-playfair",
 });
 const f_mulish = localFont({
-  src: [
-    { path: "./fonts/mulish-400.woff2", weight: "400", style: "normal" },
-    { path: "./fonts/mulish-600.woff2", weight: "600", style: "normal" },
-    { path: "./fonts/mulish-700.woff2", weight: "700", style: "normal" },
-    { path: "./fonts/mulish-800.woff2", weight: "800", style: "normal" },
-  ],
+  src: [{ path: "./fonts/mulish.woff2", weight: "200 1000", style: "normal" }],
   display: "swap",
   preload: false,
   variable: "--ff-mulish",
@@ -33,13 +24,8 @@ const f_mulish = localFont({
 const f_jetbrains_mono = localFont({
   src: [
     {
-      path: "./fonts/jetbrains_mono-400.woff2",
-      weight: "400",
-      style: "normal",
-    },
-    {
-      path: "./fonts/jetbrains_mono-600.woff2",
-      weight: "600",
+      path: "./fonts/jetbrains_mono.woff2",
+      weight: "400 800",
       style: "normal",
     },
   ],
@@ -70,40 +56,25 @@ const f_barlow_condensed = localFont({
   variable: "--ff-barlowc",
 });
 const f_figtree = localFont({
-  src: [
-    { path: "./fonts/figtree-400.woff2", weight: "400", style: "normal" },
-    { path: "./fonts/figtree-600.woff2", weight: "600", style: "normal" },
-    { path: "./fonts/figtree-700.woff2", weight: "700", style: "normal" },
-  ],
+  src: [{ path: "./fonts/figtree.woff2", weight: "300 900", style: "normal" }],
   display: "swap",
   preload: false,
   variable: "--ff-figtree",
 });
 const f_raleway = localFont({
-  src: [
-    { path: "./fonts/raleway-500.woff2", weight: "500", style: "normal" },
-    { path: "./fonts/raleway-700.woff2", weight: "700", style: "normal" },
-    { path: "./fonts/raleway-800.woff2", weight: "800", style: "normal" },
-  ],
+  src: [{ path: "./fonts/raleway.woff2", weight: "100 900", style: "normal" }],
   display: "swap",
   preload: true,
   variable: "--ff-raleway",
 });
 const f_dm_sans = localFont({
-  src: [
-    { path: "./fonts/dm_sans-400.woff2", weight: "400", style: "normal" },
-    { path: "./fonts/dm_sans-600.woff2", weight: "600", style: "normal" },
-    { path: "./fonts/dm_sans-700.woff2", weight: "700", style: "normal" },
-  ],
+  src: [{ path: "./fonts/dm_sans.woff2", weight: "100 1000", style: "normal" }],
   display: "swap",
   preload: true,
   variable: "--ff-dmsans",
 });
 const f_cinzel = localFont({
-  src: [
-    { path: "./fonts/cinzel-600.woff2", weight: "600", style: "normal" },
-    { path: "./fonts/cinzel-700.woff2", weight: "700", style: "normal" },
-  ],
+  src: [{ path: "./fonts/cinzel.woff2", weight: "400 900", style: "normal" }],
   display: "swap",
   preload: false,
   variable: "--ff-cinzel",
@@ -118,20 +89,13 @@ const f_rajdhani = localFont({
   variable: "--ff-rajdhani",
 });
 const f_exo_2 = localFont({
-  src: [
-    { path: "./fonts/exo_2-400.woff2", weight: "400", style: "normal" },
-    { path: "./fonts/exo_2-600.woff2", weight: "600", style: "normal" },
-    { path: "./fonts/exo_2-700.woff2", weight: "700", style: "normal" },
-  ],
+  src: [{ path: "./fonts/exo_2.woff2", weight: "100 900", style: "normal" }],
   display: "swap",
   preload: false,
   variable: "--ff-exo2",
 });
 const f_orbitron = localFont({
-  src: [
-    { path: "./fonts/orbitron-600.woff2", weight: "600", style: "normal" },
-    { path: "./fonts/orbitron-800.woff2", weight: "800", style: "normal" },
-  ],
+  src: [{ path: "./fonts/orbitron.woff2", weight: "400 900", style: "normal" }],
   display: "swap",
   preload: false,
   variable: "--ff-orbitron",
@@ -159,8 +123,7 @@ const f_chakra_petch = localFont({
 });
 const f_ibm_plex_sans = localFont({
   src: [
-    { path: "./fonts/ibm_plex_sans-400.woff2", weight: "400", style: "normal" },
-    { path: "./fonts/ibm_plex_sans-600.woff2", weight: "600", style: "normal" },
+    { path: "./fonts/ibm_plex_sans.woff2", weight: "100 700", style: "normal" },
   ],
   display: "swap",
   preload: false,
@@ -176,19 +139,14 @@ const f_ibm_plex_mono = localFont({
   variable: "--ff-plexmono",
 });
 const f_oswald = localFont({
-  src: [
-    { path: "./fonts/oswald-500.woff2", weight: "500", style: "normal" },
-    { path: "./fonts/oswald-700.woff2", weight: "700", style: "normal" },
-  ],
+  src: [{ path: "./fonts/oswald.woff2", weight: "400 700", style: "normal" }],
   display: "swap",
   preload: false,
   variable: "--ff-oswald",
 });
 const f_source_sans_3 = localFont({
   src: [
-    { path: "./fonts/source_sans_3-400.woff2", weight: "400", style: "normal" },
-    { path: "./fonts/source_sans_3-600.woff2", weight: "600", style: "normal" },
-    { path: "./fonts/source_sans_3-700.woff2", weight: "700", style: "normal" },
+    { path: "./fonts/source_sans_3.woff2", weight: "200 900", style: "normal" },
   ],
   display: "swap",
   preload: false,
@@ -212,10 +170,7 @@ const f_saira_condensed = localFont({
   variable: "--ff-sairac",
 });
 const f_saira = localFont({
-  src: [
-    { path: "./fonts/saira-400.woff2", weight: "400", style: "normal" },
-    { path: "./fonts/saira-600.woff2", weight: "600", style: "normal" },
-  ],
+  src: [{ path: "./fonts/saira.woff2", weight: "100 900", style: "normal" }],
   display: "swap",
   preload: false,
   variable: "--ff-saira",
@@ -230,20 +185,14 @@ const f_russo_one = localFont({
 });
 const f_nunito_sans = localFont({
   src: [
-    { path: "./fonts/nunito_sans-400.woff2", weight: "400", style: "normal" },
-    { path: "./fonts/nunito_sans-600.woff2", weight: "600", style: "normal" },
-    { path: "./fonts/nunito_sans-700.woff2", weight: "700", style: "normal" },
+    { path: "./fonts/nunito_sans.woff2", weight: "200 1000", style: "normal" },
   ],
   display: "swap",
   preload: false,
   variable: "--ff-nunitosans",
 });
 const f_outfit = localFont({
-  src: [
-    { path: "./fonts/outfit-400.woff2", weight: "400", style: "normal" },
-    { path: "./fonts/outfit-600.woff2", weight: "600", style: "normal" },
-    { path: "./fonts/outfit-800.woff2", weight: "800", style: "normal" },
-  ],
+  src: [{ path: "./fonts/outfit.woff2", weight: "100 900", style: "normal" }],
   display: "swap",
   preload: false,
   variable: "--ff-outfit",
@@ -257,10 +206,7 @@ const f_alfa_slab_one = localFont({
   variable: "--ff-alfaslab",
 });
 const f_lexend = localFont({
-  src: [
-    { path: "./fonts/lexend-400.woff2", weight: "400", style: "normal" },
-    { path: "./fonts/lexend-600.woff2", weight: "600", style: "normal" },
-  ],
+  src: [{ path: "./fonts/lexend.woff2", weight: "100 900", style: "normal" }],
   display: "swap",
   preload: false,
   variable: "--ff-lexend",
