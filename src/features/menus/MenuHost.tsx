@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useSyncExternalStore } from "react";
+import { useIsImmersive } from "@/lib/immersive";
 import { visibleNav, type NavGroup } from "@/lib/nav/registry";
 import { ADMIN_SECTIONS } from "@/lib/admin/sections";
 import { resolvePlacements } from "@/lib/nav/spots";
@@ -74,6 +75,7 @@ export function MenuHost({
 }) {
   const raw = useSyncExternalStore(subscribe, read, () => "");
   const quickRaw = useSyncExternalStore(subscribe, readQuick, () => "");
+  const immersive = useIsImmersive();
   let saved: { main?: string; second?: string } = {};
   try {
     saved = raw ? JSON.parse(raw) : {};
@@ -115,6 +117,7 @@ export function MenuHost({
   if (guest) seconds.push(SHOWCASE_GROUP);
   // The owner's switchable Admin shortcuts group (admin → Overview).
   if (adminShortcuts) seconds.push(ADMIN_GROUP);
+  if (immersive) return null;
   return (
     <>
       <M.Component

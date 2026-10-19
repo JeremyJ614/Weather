@@ -26,6 +26,7 @@ import { COMPARE } from "@/lib/radar/products";
 import { BANDS as CHASE_BANDS, CHASE_ALT } from "@/lib/chase/score";
 import { BLIND_BANDS, HAIL_BANDS, TOR_BINS } from "@/lib/engines/colors";
 import { PROB as WINTER_PROB } from "@/lib/winter/style";
+import { DEFAULTS as REPLAY, RADAR_STOPS } from "@/features/replay/palette";
 import { CONTAIN, FIRE_RISK } from "@/lib/fire/style";
 import { HAZ_KINDS, USDM } from "@/lib/hazards/style";
 import { ROSTER } from "@/lib/tropical/atcf";
@@ -311,6 +312,81 @@ export const GROUPS: Group[] = [
       key: `engine:blind:${i}`,
       label: b.label,
       def: b.color,
+    })),
+  },
+  {
+    id: "replay",
+    label: "Tornado Archive & Chase Log",
+    note: "Replay map: warnings, hail, your track and the proximity ring (paths use the EF colors).",
+    entries: [
+      {
+        key: "replay:warn:tornado",
+        label: "Tornado warning",
+        def: REPLAY.warn.tornado,
+      },
+      {
+        key: "replay:warn:severe",
+        label: "Severe warning",
+        def: REPLAY.warn.severe,
+      },
+      {
+        key: "replay:warn:emergency",
+        label: "Tornado emergency",
+        def: REPLAY.warn.emergency,
+      },
+      { key: "replay:hail:small", label: 'Hail ¾"', def: REPLAY.hail.small },
+      { key: "replay:hail:mid", label: 'Hail 2"', def: REPLAY.hail.mid },
+      { key: "replay:hail:big", label: 'Hail 4"+', def: REPLAY.hail.big },
+      {
+        key: "replay:prox:safe",
+        label: "Proximity: far",
+        def: REPLAY.prox.safe,
+      },
+      {
+        key: "replay:prox:near",
+        label: "Proximity: near",
+        def: REPLAY.prox.near,
+      },
+      {
+        key: "replay:prox:close",
+        label: "Proximity: close",
+        def: REPLAY.prox.close,
+      },
+      {
+        key: "replay:prox:imminent",
+        label: "Proximity: imminent",
+        def: REPLAY.prox.imminent,
+      },
+      {
+        key: "replay:track:done",
+        label: "Track driven",
+        def: REPLAY.track.done,
+      },
+      {
+        key: "replay:track:rest",
+        label: "Track ahead",
+        def: REPLAY.track.rest,
+      },
+      {
+        key: "replay:track:trail",
+        label: "Track trail",
+        def: REPLAY.track.trail,
+      },
+      {
+        key: "replay:track:chaser",
+        label: "Chaser marker",
+        def: REPLAY.track.chaser,
+      },
+    ],
+  },
+  {
+    id: "replay-radar",
+    label: "Replay radar",
+    note: "Tornado Archive & Chase Log radar reflectivity.",
+    entries: RADAR_STOPS.map(([dbz, c]) => ({
+      key: `replay:radar:${dbz}`,
+      label: `${dbz} dBZ`,
+      def: c,
     })),
   },
   {

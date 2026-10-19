@@ -106,9 +106,9 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 - [x] 64. Signup page `/join` (wow-factor design, tiers + build-your-own + add-ons, live pricing tracker, promotions, coupons, guest-guide button) with Stripe; admin pricing/add-on/promotion/coupon editors; tier access enforcement — see `docs/07-PRICING.md`
 
 ## Second menu
-- [ ] 65. Official Tornado Archive: data pipeline (significant events, 2000 onward, NWS DAT updates)
-- [ ] 66. Official Tornado Archive: replay experience
-- [ ] 67. Storm Chasing Log: logging and replay
+- [x] 65. Official Tornado Archive: data pipeline (54 famous events built from SPC + DAT, plus every NWS-surveyed tornado day added automatically every 6 hours; backfill to 2024)
+- [x] 66. Official Tornado Archive: replay experience (the Log repo's full-screen replay: GPU funnels, 7 speeds, damage points and contours, surveys, hail, warnings, archived radar, 3D chase cam)
+- [x] 67. Storm Chasing Log: logging and replay (members upload GPS tracks; tornadoes near the route found from the NWS survey; replay with a 3D chase camera)
 
 ## Finish
 - [ ] 68. Bug, glitch, performance and style sweep

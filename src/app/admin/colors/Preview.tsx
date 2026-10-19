@@ -87,6 +87,12 @@ export function previewSource(
         url: "/api/engines/preview?e=blind",
         title: "Lowest radar beam, sampled every half degree",
       };
+    case "replay":
+      return {
+        url: "/api/archive/preview",
+        title:
+          "Greenfield, 21 May 2024: warnings and hail (chase colors show on a chase)",
+      };
     case "reports":
       return {
         url: "/api/reports?hours=48",
