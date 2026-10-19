@@ -87,6 +87,25 @@ export function previewSource(
         url: "/api/engines/preview?e=blind",
         title: "Lowest radar beam, sampled every half degree",
       };
+    case "engine-rot":
+      return {
+        url: "/api/engines/preview?e=rot",
+        title: "Rotation tracks, last hour",
+      };
+    case "engine-pyrocb":
+      return {
+        url: "/api/engines/preview?e=pyrocb",
+        title: "Large fires' PyroCb chance today",
+      };
+    case "engine-llj":
+    case "engine-snsq":
+    case "engine-nst":
+    case "engine-pyro":
+    case "engine-tctor":
+      return {
+        url: `/api/engines/preview?e=${id.slice(7)}`,
+        title: "The engine's latest map, every half degree",
+      };
     case "replay":
       return {
         url: "/api/archive/preview",

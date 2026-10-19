@@ -1,10 +1,38 @@
 import { probSevere } from "@/lib/engines/probsevere";
-import { torBin } from "@/lib/engines/colors";
+import { pyroBin, rotBin, torBin, type FieldId } from "@/lib/engines/colors";
+import { fieldDots } from "@/lib/engines/fields";
+import { rotationTracks } from "@/lib/engines/rotation";
+
+export const maxDuration = 60;
 import radars from "@/lib/engines/radars.json";
 
 /** Dots for admin → Map & data colors: today's engine storms, or the blind-spot grid sampled. */
 export async function GET(req: Request) {
   const e = new URL(req.url).searchParams.get("e");
+  if (e === "rot") {
+    const r = await rotationTracks().catch(() => null);
+    return Response.json({
+      dots: (r?.cells ?? []).map((c) => ({
+        lat: c.lat,
+        lon: c.lon,
+        key: `engine:rot:${rotBin(c.v)}`,
+      })),
+    });
+  }
+  if (e === "pyrocb") {
+    const r = await fieldDots("pyro").catch(() => null);
+    return Response.json({
+      dots: (r?.fires ?? []).map((f) => ({
+        lat: f.lat,
+        lon: f.lon,
+        key: `engine:pyrocb:${pyroBin(f.chance)}`,
+      })),
+    });
+  }
+  if (e && ["llj", "snsq", "nst", "pyro", "tctor"].includes(e))
+    return Response.json(
+      await fieldDots(e as FieldId).catch(() => ({ dots: [] })),
+    );
   if (e === "blind") {
     const buf = new Uint8Array(
       await (

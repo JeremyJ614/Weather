@@ -120,7 +120,7 @@ export async function recentCycles(model: ModelId, n = 4) {
 }
 
 /** One GRIB record, found by its .idx line and fetched by byte range. */
-async function record(url: string, match: string, also?: string) {
+export async function record(url: string, match: string, also?: string) {
   const r = await fetch(`${url}.idx`, {
     headers: UA,
     next: { revalidate: 3600 },
@@ -324,10 +324,12 @@ const unMercY = (y: number) => (Math.atan(Math.sinh(y)) * 180) / Math.PI;
 /** Paint a field over a region as a transparent Web-Mercator PNG (`width` px across). */
 export function paint(
   f: Field,
-  p: Param,
+  p: Pick<Param, "levels" | "full">,
   colors: string[],
   b: number[],
   width: number,
+  /** Optional mask: pixels where this is false stay transparent. */
+  keep?: (lat: number, lon: number) => boolean,
 ) {
   const [w, s, e, n] = b;
   const top = mercY(n);
@@ -346,6 +348,7 @@ export function paint(
     const lat = unMercY(top - ((y + 0.5) / H) * (top - bot));
     for (let x = 0; x < W; x++) {
       const lon = w + ((x + 0.5) / W) * (e - w);
+      if (keep && !keep(lat, lon)) continue;
       const [fi, fj] = loc(lat, lon);
       if (fi < 0 || fj < 0 || fi > gw - 1 || fj > gh - 1) continue;
       const i = Math.floor(fi);

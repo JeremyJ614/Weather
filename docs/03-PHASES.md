@@ -92,9 +92,9 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 
 ## Everything Else
 - [x] 57. Weather Patterns (port; Fix-It #6.7: AI recaps of the past week, month and year from SPC reports)
-- [ ] 58. Extras: engine pipeline (scheduled Python jobs writing map layers)
-- [ ] 59. Extras: first engines (Radar Blind Spot, ProbTor, ProbHail)
-- [ ] 60. Extras: next engines (chosen in the questionnaire)
+- [x] 58. Extras: engine pipeline (computed on request on our server from NOAA data and cached at the CDN, instead of scheduled jobs: nothing stored)
+- [x] 59. Extras: first engines (Radar Blind Spot, ProbTor, ProbHail)
+- [x] 60. Extras: next engines (Rotation Track Persistence, Nocturnal LLJ, Landspout/Waterspout, Snow Squall, Wildfire/PyroCb, Landfalling Hurricane Tornado Risk)
 - [ ] 60b. Engine Preview: private admin-only area where post-launch engines are built and shown to the owner for approval before release
 - [ ] 61. Disaster Response directory, sign-up form and admin inbox
 

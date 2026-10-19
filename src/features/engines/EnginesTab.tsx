@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type {
   GeoJSONSource,
+  ImageSource,
   Map as MaplibreMap,
   MapMouseEvent,
 } from "maplibre-gl";
@@ -11,24 +12,78 @@ import {
   ArrowRight,
   ArrowUpRight,
   CloudHail,
+  Flame,
   FlaskConical,
   Radar,
+  RotateCw,
+  Snowflake,
   Tornado,
+  Waves,
+  Wind,
   Zap,
 } from "lucide-react";
 import { WeatherMap, type ReadyMap } from "@/features/map/WeatherMap";
 import { pick, type Colors } from "@/lib/colors/pick";
 import {
   BLIND_BANDS,
+  FIELD_BANDS,
   HAIL_BANDS,
+  PYRO_BINS,
+  ROT_BANDS,
   TOR_BINS,
+  pyroBin,
+  rotBin,
   torBin,
+  type FieldId,
 } from "@/lib/engines/colors";
 import type { EngineStorm } from "@/lib/engines/probsevere";
 import radars from "@/lib/engines/radars.json";
 import s from "./Engines.module.css";
 
-type Engine = "tor" | "hail" | "blind";
+type Engine = "tor" | "hail" | "blind" | "rot" | FieldId;
+const FIELDS: FieldId[] = ["llj", "nst", "snsq", "pyro", "tctor"];
+const isField = (e: Engine): e is FieldId => FIELDS.includes(e as FieldId);
+type Spot = {
+  lat: number;
+  lon: number;
+  value: number;
+  place: string;
+  water?: boolean;
+};
+type Fire = {
+  name: string;
+  state: string;
+  acres: number;
+  contained: number | null;
+  lat: number;
+  lon: number;
+  hdwi: number;
+  lapse: number;
+  chance: number;
+  blowup: string;
+};
+type FieldData = {
+  cycle: string;
+  fh: number;
+  valid: string;
+  bounds: number[];
+  image: string;
+  spots: Spot[];
+  fires?: Fire[];
+  storms?: { name: string; lat: number; lon: number; mph: number }[];
+  note: string | null;
+};
+type RotData = {
+  at: string;
+  cells: { lat: number; lon: number; v: number }[];
+  tracks: {
+    place: string;
+    lat: number;
+    lon: number;
+    peak: number;
+    km: number;
+  }[];
+};
 type Data = {
   at: string;
   total: number;
@@ -58,6 +113,42 @@ const ENGINES: {
     name: "ProbHail",
     sub: "Hail swaths, next 30 min",
     icon: <CloudHail aria-hidden />,
+  },
+  {
+    id: "rot",
+    name: "Rotation Tracks",
+    sub: "Storms that kept rotating",
+    icon: <RotateCw aria-hidden />,
+  },
+  {
+    id: "llj",
+    name: "Nocturnal LLJ",
+    sub: "Low-level jet ramp-up tonight",
+    icon: <Wind aria-hidden />,
+  },
+  {
+    id: "nst",
+    name: "Landspouts & Waterspouts",
+    sub: "Non-supercell tornadoes",
+    icon: <Waves aria-hidden />,
+  },
+  {
+    id: "snsq",
+    name: "Snow Squalls",
+    sub: "Whiteout squalls, next hours",
+    icon: <Snowflake aria-hidden />,
+  },
+  {
+    id: "pyro",
+    name: "Wildfire & PyroCb",
+    sub: "Blowups and fire storms",
+    icon: <Flame aria-hidden />,
+  },
+  {
+    id: "tctor",
+    name: "Hurricane Tornadoes",
+    sub: "Landfalling storm risk",
+    icon: <Tornado aria-hidden />,
   },
   {
     id: "blind",
@@ -90,6 +181,50 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
       "Radar beams travel in a straight line while the Earth curves away underneath, so the farther a spot is from a radar, the higher the lowest beam passes over it.",
       "This shows the center of the lowest (0.5°) beam from the nearest of the 159 NWS radars, using the standard 4/3-Earth model, measured above the radar. Terrain is not included, so in the West mountains block more than this shows.",
       "Where the beam is thousands of feet up, a tornado's rotation near the ground can hide under it. Tap anywhere to see the beam height there.",
+    ],
+  },
+  rot: {
+    lead: "Observed, not a forecast: the last hour.",
+    body: [
+      "NOAA's MRMS system merges every radar's low-level rotation (0–2 km azimuthal shear) and keeps the strongest value each spot saw in the last 60 minutes. Drawn as glowing trails, a long, bright track is a storm that kept rotating.",
+      "The list ranks tracks by length and strength. Strong straight-line wind shear, ground clutter and wind farms can leave short marks too, so short or stationary blobs are left out. Always check the radar and National Weather Service warnings.",
+    ],
+  },
+  llj: {
+    lead: "Good for tonight's pattern; placement within about 100 miles.",
+    body: [
+      "After sunset the ground cools, friction drops away and the wind a few thousand feet up speeds into a nocturnal low-level jet, which feeds overnight storms and can turn them severe after dark.",
+      "From the latest HRRR run, this compares the 850 and 925 mb wind at about 1 a.m. Central with six hours earlier, then weighs in 0–1 km storm-relative helicity and most-unstable CAPE. 0–100: the higher, the stronger and faster the ramp-up where storms could use it.",
+      "Mountains are left blank where those pressure levels are underground, and the open ocean is skipped.",
+    ],
+  },
+  nst: {
+    lead: "Fair: these tornadoes are hard to forecast.",
+    body: [
+      "Landspouts and waterspouts don't come from rotating supercells. They form when a growing storm stretches spin that already sits along a wind boundary at the ground.",
+      "This is the Storm Prediction Center's Non-Supercell Tornado parameter from the HRRR for the next hour: steep low-level lapse rates, CAPE in the lowest 3 km, little inhibition, weak deep-layer shear and spin in the 10 m wind. 1 and up is favorable.",
+      "Over water it is a waterspout index, counted only within about 40 miles of land. A storm still has to form on the boundary for anything to happen.",
+    ],
+  },
+  snsq: {
+    lead: "Good for the next few hours.",
+    body: [
+      "A snow squall is a short, intense burst of snow with strong wind that drops visibility to near zero in seconds, the cause of many highway pileups.",
+      "This is the Storm Prediction Center's Snow Squall Parameter from the HRRR for the next hour, built from the surface, 850 and 700 mb levels: moist air in the lowest 2 km, an unstable low-level lapse rate, and strong mean wind, only where the 2 m wet-bulb temperature is at or below 1 °C so the snow reaches the ground. 1 and up means squalls are possible.",
+    ],
+  },
+  pyro: {
+    lead: "Fair, and experimental.",
+    body: [
+      "The map is the Hot-Dry-Windy Index at the afternoon peak (about 4 p.m. Central) from the HRRR: how dry the air is (vapor pressure deficit) times the 80 m wind. Around 100 and up, fires can blow up.",
+      "Each large active fire (100 acres and up, from the national incident feed) gets a pyrocumulonimbus chance: the HDWI there, a steep 700–500 mb lapse rate, enough mid-level moisture for the smoke plume to build into its own thunderstorm, the fire's size, and how much of it is still uncontained.",
+    ],
+  },
+  tctor: {
+    lead: "Good for the broad zone; band tornadoes are brief.",
+    body: [
+      "Landfalling tropical storms and hurricanes spawn quick tornadoes in their outer rain bands, mostly on the right side of the track and 50 to 400 miles from the center.",
+      "This multiplies 0–1 km storm-relative helicity by 0–3 km CAPE from the HRRR a few hours ahead, only in that right-side zone around each active storm near the U.S. When no storm is close, the map stays empty.",
     ],
   },
 };
@@ -154,6 +289,10 @@ export function EnginesTab({ colors }: { colors: Colors }) {
     null,
   );
   const [map, setMap] = useState<MaplibreMap | null>(null);
+  const [fields, setFields] = useState<
+    Partial<Record<FieldId, FieldData | "error">>
+  >({});
+  const [rot, setRot] = useState<RotData | "error" | null>(null);
   const engineRef = useRef(engine);
   useEffect(() => {
     engineRef.current = engine;
@@ -165,10 +304,48 @@ export function EnginesTab({ colors }: { colors: Colors }) {
     pick(colors, `engine:hail:${i}`, HAIL_BANDS[i].color);
   const blindColor = (i: number) =>
     pick(colors, `engine:blind:${i}`, BLIND_BANDS[i].color);
+  const fieldColor = (id: FieldId, i: number) =>
+    pick(colors, `engine:${id}:${i}`, FIELD_BANDS[id].colors[i]);
+  const rotColor = (i: number) =>
+    pick(colors, `engine:rot:${i}`, ROT_BANDS[i].color);
+  const pyroColor = (i: number) =>
+    pick(colors, `engine:pyrocb:${i}`, PYRO_BINS[i].color);
+
+  // A model engine's map is read once per visit (the server keeps it 30 minutes).
+  const want = isField(engine) && !fields[engine] ? engine : null;
+  useEffect(() => {
+    if (!want) return;
+    let live = true;
+    fetch(`/api/engines/field?e=${want}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((d: FieldData) => live && setFields((f) => ({ ...f, [want]: d })))
+      .catch(() => live && setFields((f) => ({ ...f, [want]: "error" })));
+    return () => {
+      live = false;
+    };
+  }, [want]);
+
+  // Rotation tracks every four minutes while that engine is open and the page is visible.
+  useEffect(() => {
+    if (engine !== "rot") return;
+    let live = true;
+    const load = () =>
+      document.visibilityState === "visible" &&
+      fetch("/api/engines/rotation")
+        .then((r) => (r.ok ? r.json() : Promise.reject()))
+        .then((d: RotData) => live && setRot(d))
+        .catch(() => live && setRot((x) => x ?? "error"));
+    load();
+    const t = setInterval(load, 240_000);
+    return () => {
+      live = false;
+      clearInterval(t);
+    };
+  }, [engine]);
 
   // ProbSevere every two minutes while a storm engine is open and the page is visible.
   useEffect(() => {
-    if (engine === "blind") return;
+    if (engine !== "tor" && engine !== "hail") return;
     let live = true;
     const load = () =>
       document.visibilityState === "visible" &&
@@ -250,6 +427,51 @@ export function EnginesTab({ colors }: { colors: Colors }) {
         "line-width": 0.8,
       },
     });
+    m.addSource("rot", { type: "geojson", data: EMPTY });
+    const rotStep = (): unknown[] =>
+      ROT_BANDS.flatMap((b, i) => (i ? [b.min, rotColor(i)] : [rotColor(0)]));
+    m.addLayer({
+      id: "rot-glow",
+      type: "circle",
+      source: "rot",
+      paint: {
+        "circle-color": ["step", ["get", "v"], ...rotStep()] as never,
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 3, 9, 9],
+        "circle-blur": 1,
+        "circle-opacity": 0.55,
+      },
+    });
+    m.addLayer({
+      id: "rot-core",
+      type: "circle",
+      source: "rot",
+      paint: {
+        "circle-color": ["step", ["get", "v"], ...rotStep()] as never,
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 1, 9, 3],
+      },
+    });
+    m.addSource("fires", { type: "geojson", data: EMPTY });
+    m.addLayer({
+      id: "fires",
+      type: "circle",
+      source: "fires",
+      paint: {
+        "circle-color": [
+          "step",
+          ["get", "chance"],
+          pyroColor(0),
+          PYRO_BINS[1].min,
+          pyroColor(1),
+          PYRO_BINS[2].min,
+          pyroColor(2),
+          PYRO_BINS[3].min,
+          pyroColor(3),
+        ],
+        "circle-radius": 6,
+        "circle-stroke-color": "#000000",
+        "circle-stroke-width": 1.2,
+      },
+    });
     m.addSource("radars", {
       type: "geojson",
       data: {
@@ -307,22 +529,92 @@ export function EnginesTab({ colors }: { colors: Colors }) {
     vis("hail-line", e === "hail");
     vis("blind", e === "blind");
     vis("radars", e === "blind");
+    vis("rot-glow", e === "rot");
+    vis("rot-core", e === "rot");
+    vis("fires", e === "pyro");
+    vis("field", isField(e));
   };
 
   useEffect(() => {
     if (!map) return;
+    const f = isField(engine) ? fields[engine] : undefined;
+    if (f && f !== "error") {
+      const [W, S, E, N] = f.bounds;
+      const coordinates: [
+        [number, number],
+        [number, number],
+        [number, number],
+        [number, number],
+      ] = [
+        [W, N],
+        [E, N],
+        [E, S],
+        [W, S],
+      ];
+      const src = map.getSource("field") as ImageSource | undefined;
+      if (src) src.updateImage({ url: f.image, coordinates });
+      else {
+        map.addSource("field", { type: "image", url: f.image, coordinates });
+        map.addLayer(
+          {
+            id: "field",
+            type: "raster",
+            source: "field",
+            paint: { "raster-opacity": 0.72, "raster-fade-duration": 0 },
+          },
+          "tor-fill",
+        );
+      }
+      (map.getSource("fires") as GeoJSONSource | undefined)?.setData({
+        type: "FeatureCollection",
+        features: (f.fires ?? []).map((x) => ({
+          type: "Feature",
+          properties: { chance: x.chance },
+          geometry: { type: "Point", coordinates: [x.lon, x.lat] },
+        })),
+      });
+    }
+    if (rot && rot !== "error")
+      (map.getSource("rot") as GeoJSONSource | undefined)?.setData({
+        type: "FeatureCollection",
+        features: rot.cells.map((c) => ({
+          type: "Feature",
+          properties: { v: c.v },
+          geometry: { type: "Point", coordinates: [c.lon, c.lat] },
+        })),
+      });
     show(map, engine);
     if (data) {
       (map.getSource("tor") as GeoJSONSource | undefined)?.setData(data.tor);
       (map.getSource("hail") as GeoJSONSource | undefined)?.setData(data.hail);
     }
-  }, [map, engine, data]);
+  }, [map, engine, data, fields, rot]);
 
   const storms =
     data?.storms.filter((x) =>
       engine === "tor" ? x.p20 >= 3 : x.band > 0 || x.hail >= 15,
     ) ?? [];
   const how = HOW[engine];
+  const legend: [string, string][] =
+    engine === "tor"
+      ? TOR_BINS.map((b, i) => [b.label, torColor(i)])
+      : engine === "hail"
+        ? HAIL_BANDS.map((b, i) => [b.label, hailColor(i)])
+        : engine === "blind"
+          ? BLIND_BANDS.map((b, i) => [b.label, blindColor(i)])
+          : engine === "rot"
+            ? ROT_BANDS.map((b, i) => [`${b.label} ${b.min}+`, rotColor(i)])
+            : FIELD_BANDS[engine].labels.map((l, i) => [
+                l,
+                fieldColor(engine, i),
+              ]);
+  const field = isField(engine) ? fields[engine] : undefined;
+  const valid = (iso: string) =>
+    new Date(iso).toLocaleString("en-US", {
+      weekday: "short",
+      hour: "numeric",
+      minute: "2-digit",
+    });
   const focus = (x: EngineStorm) =>
     map?.flyTo({ center: [x.lon, x.lat], zoom: 8, duration: 1200 });
 
@@ -359,24 +651,10 @@ export function EnginesTab({ colors }: { colors: Colors }) {
         </span>
       </div>
       <div className={s.legend}>
-        {(engine === "tor"
-          ? TOR_BINS
-          : engine === "hail"
-            ? HAIL_BANDS
-            : BLIND_BANDS
-        ).map((b, i) => (
-          <span key={b.label}>
-            <i
-              style={{
-                background:
-                  engine === "tor"
-                    ? torColor(i)
-                    : engine === "hail"
-                      ? hailColor(i)
-                      : blindColor(i),
-              }}
-            />
-            {b.label}
+        {legend.map(([label, color]) => (
+          <span key={label}>
+            <i style={{ background: color }} />
+            {label}
           </span>
         ))}
       </div>
@@ -386,7 +664,7 @@ export function EnginesTab({ colors }: { colors: Colors }) {
         </p>
       )}
 
-      {engine !== "blind" && (
+      {(engine === "tor" || engine === "hail") && (
         <section className={s.card}>
           <header>
             <h3>
@@ -474,6 +752,183 @@ export function EnginesTab({ colors }: { colors: Colors }) {
               </li>
             ))}
           </ul>
+        </section>
+      )}
+
+      {engine === "rot" && (
+        <section className={s.card}>
+          <header>
+            <h3>Longest rotation tracks, last hour</h3>
+            {rot && rot !== "error" && <small>MRMS {time(rot.at)}</small>}
+          </header>
+          {rot === null && <p className={s.small}>Reading MRMS…</p>}
+          {rot === "error" && (
+            <p className={s.small}>
+              MRMS isn&apos;t answering right now. Trying again in a few
+              minutes.
+            </p>
+          )}
+          {rot && rot !== "error" && rot.tracks.length === 0 && (
+            <p className={s.small}>
+              No storm has held rotation over the last hour.
+            </p>
+          )}
+          {rot && rot !== "error" && (
+            <ul className={s.storms}>
+              {rot.tracks.map((t) => (
+                <li key={`${t.lat},${t.lon}`}>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      map?.flyTo({
+                        center: [t.lon, t.lat],
+                        zoom: 8,
+                        duration: 1200,
+                      })
+                    }
+                  >
+                    <span className={s.where}>
+                      <b>{t.place}</b>
+                      <small>{t.km} km track</small>
+                    </span>
+                    <span className={s.hail}>
+                      <i style={{ background: rotColor(rotBin(t.peak)) }} />
+                      <b>{t.peak}</b>
+                      <small>peak ×10⁻³/s</small>
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
+
+      {isField(engine) && (
+        <section className={s.card}>
+          <header>
+            <h3>
+              {engine === "pyro"
+                ? "Large fires, blowup and PyroCb"
+                : engine === "tctor" &&
+                    field &&
+                    field !== "error" &&
+                    field.storms?.length
+                  ? "Highest risk near the storm"
+                  : "Strongest spots"}
+            </h3>
+            {field && field !== "error" && (
+              <small>
+                HRRR {field.cycle.slice(8)}Z run, valid {valid(field.valid)}
+              </small>
+            )}
+          </header>
+          {!field && <p className={s.small}>Running the engine…</p>}
+          {field === "error" && (
+            <p className={s.small}>
+              The model data isn&apos;t answering right now. Try again in a few
+              minutes.
+            </p>
+          )}
+          {field && field !== "error" && field.note && (
+            <p className={s.small}>{field.note}</p>
+          )}
+          {field &&
+            field !== "error" &&
+            engine !== "pyro" &&
+            !field.note &&
+            field.spots.length === 0 && (
+              <p className={s.small}>
+                Nothing reaches the first band anywhere in the lower 48 right
+                now.
+              </p>
+            )}
+          {field && field !== "error" && engine !== "pyro" && (
+            <ul className={s.storms}>
+              {field.spots.map((x) => (
+                <li key={`${x.lat},${x.lon}`}>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      map?.flyTo({
+                        center: [x.lon, x.lat],
+                        zoom: 6.5,
+                        duration: 1200,
+                      })
+                    }
+                  >
+                    <span className={s.where}>
+                      <b>{x.place}</b>
+                      {engine === "nst" && (
+                        <small>{x.water ? "Waterspout" : "Landspout"}</small>
+                      )}
+                    </span>
+                    <span className={s.hail}>
+                      <i
+                        style={{
+                          background: fieldColor(
+                            engine,
+                            Math.max(
+                              0,
+                              FIELD_BANDS[engine].levels.findLastIndex(
+                                (l) => x.value >= l,
+                              ),
+                            ),
+                          ),
+                        }}
+                      />
+                      <b>{x.value}</b>
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {field && field !== "error" && engine === "pyro" && (
+            <>
+              {!field.fires?.length && (
+                <p className={s.small}>
+                  No large uncontained fire is burning right now.
+                </p>
+              )}
+              <ul className={s.storms}>
+                {(field.fires ?? []).map((f) => (
+                  <li key={`${f.name}${f.lat}`}>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        map?.flyTo({
+                          center: [f.lon, f.lat],
+                          zoom: 8,
+                          duration: 1200,
+                        })
+                      }
+                    >
+                      <span className={s.where}>
+                        <b>
+                          {f.name}, {f.state}
+                        </b>
+                        <small>
+                          {f.acres.toLocaleString("en-US")} acres
+                          {f.contained !== null
+                            ? ` · ${f.contained}% contained`
+                            : ""}{" "}
+                          · blowup {f.blowup.toLowerCase()} (HDWI {f.hdwi})
+                        </small>
+                      </span>
+                      <span className={s.hail}>
+                        <i
+                          style={{ background: pyroColor(pyroBin(f.chance)) }}
+                        />
+                        <b>{f.chance}%</b>
+                        <small>PyroCb</small>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
         </section>
       )}
 

@@ -24,7 +24,14 @@ import { LT_BANDS } from "@/lib/lightning/style";
 import { CLIMO_LIGHT, CLIMO_LINES, CLIMO_RAMP } from "@/lib/climo/style";
 import { COMPARE } from "@/lib/radar/products";
 import { BANDS as CHASE_BANDS, CHASE_ALT } from "@/lib/chase/score";
-import { BLIND_BANDS, HAIL_BANDS, TOR_BINS } from "@/lib/engines/colors";
+import {
+  BLIND_BANDS,
+  FIELD_BANDS,
+  HAIL_BANDS,
+  PYRO_BINS,
+  ROT_BANDS,
+  TOR_BINS,
+} from "@/lib/engines/colors";
 import { PROB as WINTER_PROB } from "@/lib/winter/style";
 import { DEFAULTS as REPLAY, RADAR_STOPS } from "@/features/replay/palette";
 import { CONTAIN, FIRE_RISK } from "@/lib/fire/style";
@@ -310,6 +317,44 @@ export const GROUPS: Group[] = [
     note: "Extras → Weather Engines: height of the lowest radar beam.",
     entries: BLIND_BANDS.map((b, i) => ({
       key: `engine:blind:${i}`,
+      label: b.label,
+      def: b.color,
+    })),
+  },
+  ...(
+    [
+      ["llj", "Nocturnal LLJ Ramp-Up"],
+      ["snsq", "Snow Squall Parameter"],
+      ["nst", "Landspout & Waterspout (NST)"],
+      ["pyro", "Hot-Dry-Windy Index (PyroCb)"],
+      ["tctor", "Landfalling Hurricane Tornado Risk"],
+    ] as const
+  ).map(([id, label]) => ({
+    id: `engine-${id}`,
+    label,
+    note: "Extras → Weather Engines map bands.",
+    entries: FIELD_BANDS[id].labels.map((l, i) => ({
+      key: `engine:${id}:${i}`,
+      label: l,
+      def: FIELD_BANDS[id].colors[i],
+    })),
+  })),
+  {
+    id: "engine-rot",
+    label: "Rotation Track Persistence",
+    note: "Extras → Weather Engines: the last hour's rotation tracks.",
+    entries: ROT_BANDS.map((b, i) => ({
+      key: `engine:rot:${i}`,
+      label: b.label,
+      def: b.color,
+    })),
+  },
+  {
+    id: "engine-pyrocb",
+    label: "PyroCb chance per fire",
+    note: "Extras → Weather Engines: each large fire's dot.",
+    entries: PYRO_BINS.map((b, i) => ({
+      key: `engine:pyrocb:${i}`,
       label: b.label,
       def: b.color,
     })),

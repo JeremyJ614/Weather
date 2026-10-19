@@ -93,6 +93,21 @@ export type EngineStorm = {
   toward: string;
 };
 
+/** Centers of every storm ProbSevere is tracking right now (no probability filter). */
+export async function stormCenters(): Promise<[number, number][]> {
+  const list = await fetch(BASE, {
+    headers: UA,
+    signal: AbortSignal.timeout(10000),
+    next: { revalidate: 60 },
+  }).then((r) => (r.ok ? r.text() : ""));
+  const latest = [...list.matchAll(/MRMS_PROBSEVERE_\d{8}_\d{6}\.json/g)]
+    .map((m) => m[0])
+    .sort()
+    .at(-1);
+  if (!latest) throw new Error("ProbSevere has no files");
+  return cells(await file(latest)).map((c) => [c.lat, c.lon]);
+}
+
 export async function probSevere() {
   const list = await fetch(BASE, {
     headers: UA,
