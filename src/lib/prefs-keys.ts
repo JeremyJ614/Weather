@@ -7,6 +7,8 @@ export type Prefs = {
   theme?: { palette: string; font: string };
   intro?: IntroPref;
   places?: Places;
+  /** Pages the member pinned to the Quick Menu (slugs, in order). */
+  quick?: string[];
   /** The member has seen the new-member tour. */
   toured?: boolean;
 };
@@ -16,4 +18,5 @@ export const KEYS = {
   theme: "sswx-theme",
   intro: "sswx-intro",
   tour: "sswx-tour",
+  quick: "sswx-quick",
 } as const;

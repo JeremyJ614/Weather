@@ -18,6 +18,8 @@ export type DayReports = {
   bigHail: { in: number; where: string } | null;
   bigGust: { mph: number; where: string } | null;
   states: Record<string, number>;
+  /** Tornado reports by state (the season's "top tornado state"). */
+  tornStates: Record<string, number>;
 };
 
 /** One SPC filtered report CSV (three sections: tornado, wind, hail) → counts. */
@@ -30,6 +32,7 @@ export function parseReports(day: string, csv: string): DayReports {
     bigHail: null,
     bigGust: null,
     states: {},
+    tornStates: {},
   };
   let kind: "torn" | "wind" | "hail" | null = null;
   for (const line of csv.split(/\r?\n/)) {
@@ -42,7 +45,10 @@ export function parseReports(day: string, csv: string): DayReports {
       if (c.length < 7) continue;
       out[kind]++;
       const st = c[4];
-      if (/^[A-Z]{2}$/.test(st)) out.states[st] = (out.states[st] ?? 0) + 1;
+      if (/^[A-Z]{2}$/.test(st)) {
+        out.states[st] = (out.states[st] ?? 0) + 1;
+        if (kind === "torn") out.tornStates[st] = (out.tornStates[st] ?? 0) + 1;
+      }
       const where = `${c[2]}, ${st}`;
       if (kind === "hail") {
         const inch = Number(c[1]) / 100;
@@ -59,7 +65,7 @@ export function parseReports(day: string, csv: string): DayReports {
 }
 
 const ymd = (d: Date) => d.toISOString().slice(0, 10);
-async function reportsFor(day: string): Promise<DayReports | null> {
+export async function reportsFor(day: string): Promise<DayReports | null> {
   const age = (Date.now() - Date.parse(`${day}T12:00:00Z`)) / 86400_000;
   try {
     const r = await fetch(
@@ -94,9 +100,19 @@ export async function reportDays(n: number): Promise<DayReports[]> {
   return out.filter((d): d is DayReports => !!d);
 }
 
+/** The forecast desk's recap of a period, in our own friendly voice. */
+export type Recap = {
+  headline: string;
+  story: string;
+  highlights: string[];
+};
+
 export type Period = {
   id: "yesterday" | "week" | "month" | "year";
   label: string;
+  /** First and last report day covered (UTC convective days). */
+  from: string | null;
+  to: string | null;
   days: number;
   torn: number;
   hail: number;
@@ -107,7 +123,7 @@ export type Period = {
   topStates: [string, number][];
   tornadoDays: number;
   series: { day: string; torn: number; hail: number; wind: number }[];
-  summary: string | null;
+  summary: Recap | null;
 };
 
 export const PERIODS = [
@@ -138,6 +154,8 @@ export function aggregate(
   return {
     id: p.id,
     label: p.label,
+    from: list[0]?.day ?? null,
+    to: list.at(-1)?.day ?? null,
     days: list.length,
     torn: list.reduce((a, d) => a + d.torn, 0),
     hail: list.reduce((a, d) => a + d.hail, 0),
@@ -158,45 +176,189 @@ export function aggregate(
   };
 }
 
+type LedgerRow = {
+  day: string;
+  torn: number;
+  hail: number;
+  wind: number;
+  states: Record<string, number>;
+  torn_states: Record<string, number>;
+  big_hail: DayReports["bigHail"];
+  big_gust: DayReports["bigGust"];
+};
+const fromRow = (r: LedgerRow): DayReports => ({
+  day: r.day,
+  torn: r.torn,
+  hail: r.hail,
+  wind: r.wind,
+  states: r.states ?? {},
+  tornStates: r.torn_states ?? {},
+  bigHail: r.big_hail,
+  bigGust: r.big_gust,
+});
+
+/** Ledger days from `since` through yesterday, oldest first. */
+export async function ledgerSince(since: string): Promise<DayReports[]> {
+  const { data, error } = await supabaseAdmin()
+    .from("report_days")
+    .select("day, torn, hail, wind, states, torn_states, big_hail, big_gust")
+    .gte("day", since)
+    .lt("day", ymd(new Date()))
+    .order("day")
+    .limit(1200);
+  if (error) throw new Error(error.message);
+  return (data as LedgerRow[]).map(fromRow);
+}
+
+/**
+ * Brings the ledger up to date: the last 8 days again (SPC revises recent reports) and any
+ * day missing from the past 400. A first run fills the whole year in one pass.
+ */
+export async function syncLedger() {
+  const db = supabaseAdmin();
+  const start = ymd(new Date(Date.now() - 400 * 86400_000));
+  const { data } = await db.from("report_days").select("day").gte("day", start);
+  const have = new Set((data ?? []).map((r: { day: string }) => r.day));
+  const todo: string[] = [];
+  for (let i = 400; i >= 1; i--) {
+    const d = ymd(new Date(Date.now() - i * 86400_000));
+    if (i <= 8 || !have.has(d)) todo.push(d);
+  }
+  const rows: LedgerRow[] = [];
+  let next = 0;
+  await Promise.all(
+    Array.from({ length: 16 }, async () => {
+      while (next < todo.length) {
+        const r = await reportsFor(todo[next++]);
+        if (r)
+          rows.push({
+            day: r.day,
+            torn: r.torn,
+            hail: r.hail,
+            wind: r.wind,
+            states: r.states,
+            torn_states: r.tornStates,
+            big_hail: r.bigHail,
+            big_gust: r.bigGust,
+          });
+      }
+    }),
+  );
+  for (let i = 0; i < rows.length; i += 200) {
+    const { error } = await db
+      .from("report_days")
+      .upsert(
+        rows
+          .slice(i, i + 200)
+          .map((r) => ({ ...r, updated_at: new Date().toISOString() })),
+      );
+    if (error) throw new Error(error.message);
+  }
+  return { checked: todo.length, saved: rows.length };
+}
+
+/** A period's numbers from the ledger (or SPC directly while the ledger fills). */
+async function periodDays(p: (typeof PERIODS)[number]) {
+  const since = ymd(new Date(Date.now() - p.days * 86400_000));
+  const list = await ledgerSince(since).catch(() => []);
+  return list.length >= p.days * 0.9 ? list : reportDays(p.days);
+}
+
+/** A period with the forecast desk's recap: what the daily job stores, and the fallback. */
+export async function buildPeriod(id: Period["id"]): Promise<Period> {
+  const p = PERIODS.find((x) => x.id === id)!;
+  const a = aggregate(p, await periodDays(p));
+  return { ...a, summary: await summarize(a) };
+}
+
 const memo = new Map<string, { at: number; v: Promise<Period> }>();
 const MODELS = ["gemini-flash-latest", "gemini-flash-lite-latest"];
 
-/** A period's numbers, and (week, month, year) the AI's plain-English summary of them. */
+/** A period as the page shows it: the stored recap when fresh, else built now. */
 export function period(id: Period["id"]): Promise<Period> {
   const key = `${id}:${ymd(new Date())}`;
   const hit = memo.get(key);
   if (hit && Date.now() - hit.at < 3 * 3600_000) return hit.v;
-  const p = PERIODS.find((x) => x.id === id)!;
-  const v = reportDays(p.days).then(async (list) => {
-    const a = aggregate(p, list);
-    return { ...a, summary: id === "yesterday" ? null : await summarize(a) };
-  });
+  const v = cached<Period>(id, 30).then((c) => c ?? buildPeriod(id));
   memo.set(key, { at: Date.now(), v });
   v.catch(() => memo.delete(key));
   return v;
 }
 
-async function summarize(a: Omit<Period, "summary">): Promise<string | null> {
+/**
+ * Every stored recap (public data, read with the anon key so it works anywhere), cached for
+ * ten minutes. Entries older than `hours` count as missing.
+ */
+export async function readCache(hours = 30): Promise<Record<string, unknown>> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) return {};
+  const r = await fetch(
+    `${url}/rest/v1/pattern_cache?select=key,value,updated_at`,
+    {
+      headers: { apikey: key, Authorization: `Bearer ${key}` },
+      next: { revalidate: 600 },
+      signal: AbortSignal.timeout(8000),
+    },
+  ).catch(() => null);
+  if (!r?.ok) return {};
+  const rows = (await r.json()) as {
+    key: string;
+    value: unknown;
+    updated_at: string;
+  }[];
+  return Object.fromEntries(
+    rows
+      .filter((x) => Date.now() - Date.parse(x.updated_at) < hours * 3600_000)
+      .map((x) => [x.key, x.value]),
+  );
+}
+
+/** A pattern_cache entry no older than `hours`. */
+export async function cached<T>(key: string, hours: number): Promise<T | null> {
+  return ((await readCache(hours))[key] as T | undefined) ?? null;
+}
+
+export async function store(key: string, value: unknown) {
+  const { error } = await supabaseAdmin()
+    .from("pattern_cache")
+    .upsert({ key, value, updated_at: new Date().toISOString() });
+  if (error) throw new Error(error.message);
+}
+
+const fmtDay = (d: string) =>
+  new Date(`${d}T12:00:00Z`).toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+
+async function summarize(a: Omit<Period, "summary">): Promise<Recap | null> {
   const key = process.env.GEMINI_API_KEY;
   if (!key || !a.days) return null;
-  // Monthly totals for the year, weekly for the month, daily for the week.
+  // Daily lines for a week or less, weekly for a month, monthly for the year.
   const step = a.id === "year" ? 30 : a.id === "month" ? 7 : 1;
   const chunks: string[] = [];
   for (let i = 0; i < a.series.length; i += step) {
     const c = a.series.slice(i, i + step);
     chunks.push(
-      `${c[0].day}${c.length > 1 ? `..${c.at(-1)!.day}` : ""}: ${c.reduce((s, d) => s + d.torn, 0)} tornado, ${c.reduce((s, d) => s + d.hail, 0)} hail, ${c.reduce((s, d) => s + d.wind, 0)} wind`,
+      `${fmtDay(c[0].day)}${c.length > 1 ? ` to ${fmtDay(c.at(-1)!.day)}` : ""}: ${c.reduce((s, d) => s + d.torn, 0)} tornado, ${c.reduce((s, d) => s + d.hail, 0)} hail, ${c.reduce((s, d) => s + d.wind, 0)} wind reports`,
     );
   }
-  const facts = `Period: ${a.label} (${a.days} days of SPC preliminary storm reports).
-Totals: ${a.torn} tornado reports, ${a.hail} hail reports, ${a.wind} wind reports; tornado reports on ${a.tornadoDays} days.
-Busiest day: ${a.busiest ? `${a.busiest.day} with ${a.busiest.total} reports` : "none"}.
-Largest hail: ${a.bigHail ? `${a.bigHail.in} in near ${a.bigHail.where} on ${a.bigHail.day}` : "none"}.
-Strongest measured gust: ${a.bigGust ? `${a.bigGust.mph} mph near ${a.bigGust.where} on ${a.bigGust.day}` : "none"}.
+  const facts = `Period: ${a.label}, ${a.from ? fmtDay(a.from) : ""} to ${a.to ? fmtDay(a.to) : ""} (${a.days} days of SPC preliminary storm reports).
+Totals: ${a.torn} tornado reports, ${a.hail} hail reports, ${a.wind} damaging wind reports; tornado reports on ${a.tornadoDays} days.
+Busiest day: ${a.busiest ? `${fmtDay(a.busiest.day)} with ${a.busiest.total} reports` : "none"}.
+Largest hail: ${a.bigHail ? `${a.bigHail.in} inches near ${a.bigHail.where} on ${fmtDay(a.bigHail.day)}` : "none"}.
+Strongest measured gust: ${a.bigGust ? `${a.bigGust.mph} mph near ${a.bigGust.where} on ${fmtDay(a.bigGust.day)}` : "none"}.
 Most reports by state: ${a.topStates.map(([s, n]) => `${s} ${n}`).join(", ") || "none"}.
 Breakdown:
 ${chunks.join("\n")}`;
-  const prompt = `You are the SSWX Forecast Desk. Write a 3-4 sentence plain-English recap of severe weather across the U.S. for this period, using ONLY these numbers (no invented values, no forecasts). Mention when activity peaked and where it concentrated. Note these are preliminary reports (one storm can make several).\n\n${facts}`;
+  const prompt = `You are the SSWX Forecast Desk at StormSync Media, writing for weather fans who follow us. Recap severe weather across the U.S. for this period like a friendly meteorologist talking to their audience: warm, plain, a little personal ("we saw", "it was a busy stretch for..."), never dry or technical, no jargon or abbreviations except state names. Use ONLY the facts given: no invented numbers, places or forecasts. Say when it was busiest and where storms concentrated; if it was quiet, say so kindly. These are preliminary reports (one storm can make several), so prefer words like "reports" over exact storm counts.
+
+Answer with JSON only: {"headline": one short sentence that sums up the period, "story": 3 to 4 sentences, "highlights": 2 to 4 short bullet sentences of the standout moments with dates}.
+
+${facts}`;
   const db = supabaseAdmin();
   for (const model of MODELS) {
     let ok = false;
@@ -211,7 +373,11 @@ ${chunks.join("\n")}`;
           },
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.3, maxOutputTokens: 400 },
+            generationConfig: {
+              temperature: 0.5,
+              maxOutputTokens: 700,
+              responseMimeType: "application/json",
+            },
           }),
           signal: AbortSignal.timeout(20000),
         },
@@ -222,9 +388,10 @@ ${chunks.join("\n")}`;
           ?.map((p: { text?: string }) => p.text ?? "")
           .join("")
           .trim() ?? "";
-      if (text) {
+      const r = cleanRecap(text);
+      if (r) {
         ok = true;
-        return text.slice(0, 900);
+        return r;
       }
     } catch {
       // overloaded or timed out: try the next model
@@ -233,6 +400,31 @@ ${chunks.join("\n")}`;
     }
   }
   return null;
+}
+
+/** The model's JSON, checked and trimmed; anything else is no recap. */
+export function cleanRecap(text: string): Recap | null {
+  try {
+    const j = JSON.parse(text.replace(/^```(?:json)?|```$/g, "").trim()) as {
+      headline?: unknown;
+      story?: unknown;
+      highlights?: unknown;
+    };
+    const str = (v: unknown, n: number) =>
+      typeof v === "string" ? v.trim().slice(0, n) : "";
+    const headline = str(j.headline, 200);
+    const story = str(j.story, 900);
+    if (!headline || !story) return null;
+    const highlights = Array.isArray(j.highlights)
+      ? j.highlights
+          .map((h) => str(h, 220))
+          .filter(Boolean)
+          .slice(0, 4)
+      : [];
+    return { headline, story, highlights };
+  } catch {
+    return null;
+  }
 }
 
 /** VIP's regions, sampled on a coarse grid so a long thin risk area still lights one up. */
@@ -263,6 +455,8 @@ export type OutlookDay = {
   kind: "cat" | "prob";
   /** SPC said predictability is too low to draw areas this day. */
   low: boolean;
+  /** SPC's outlook for this day couldn't be read (shown as unknown, never as quiet). */
+  failed?: boolean;
   /** Day 1–3: SPC category code; day 4–7: the highest probability (%). */
   cells: Record<string, string | number | null>;
 };
@@ -271,9 +465,13 @@ export type OutlookDay = {
 export async function regionalOutlook(): Promise<OutlookDay[]> {
   const days = await Promise.all(
     [1, 2, 3, 4, 5, 6, 7].map(async (d) => {
+      let failed = false;
       const feats = await spcFeatures(
         d <= 3 ? `outlook/day${d}otlk_cat` : `exper/day4-8/day${d}prob`,
-      ).catch(() => []);
+      ).catch(() => {
+        failed = true;
+        return [];
+      });
       const cells: OutlookDay["cells"] = {};
       for (const r of REGIONS) {
         const pts = samples(r);
@@ -304,6 +502,7 @@ export async function regionalOutlook(): Promise<OutlookDay[]> {
         low: feats.some((f) =>
           /too low/i.test(String(f.properties.LABEL ?? "")),
         ),
+        ...(failed ? { failed } : {}),
         cells,
       };
     }),

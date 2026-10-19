@@ -277,7 +277,8 @@ function Tornadoes({
         [t.first, 0],
       )
     : [0, 0];
-  const totalDead = t ? t.deaths.reduce((a, b) => a + b, 0) : 0;
+  // A cached answer from before deaths were added has none; it must not crash the page.
+  const totalDead = (t?.deaths ?? []).reduce((a, b) => a + b, 0);
   const seasonRows = t
     ? [["United States", t.months] as const, ...Object.entries(t.regionMonth)]
         .map(([name, v]) => {
@@ -657,7 +658,7 @@ function Tornadoes({
             />
             <p className={s.muted}>Tornadoes reported (bright: EF2+)</p>
             <Bars
-              values={t.deaths}
+              values={t.deaths ?? []}
               labels={t.byYear.map((_, i) => String(t.first + i))}
               every={15}
               color={c("c5")}

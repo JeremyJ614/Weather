@@ -313,3 +313,12 @@
   font-weight: 700;
   text-align: center;
 }
+.label {
+  margin-bottom: -6px;
+  padding-left: 2px;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}

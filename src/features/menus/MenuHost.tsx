@@ -4,6 +4,8 @@ import { useEffect, useSyncExternalStore } from "react";
 import { visibleNav, type NavGroup } from "@/lib/nav/registry";
 import { ADMIN_SECTIONS } from "@/lib/admin/sections";
 import { resolvePlacements } from "@/lib/nav/spots";
+import { quickGroups } from "@/lib/nav/quick";
+import { KEYS } from "@/lib/prefs-keys";
 import { useViewer } from "@/features/account/useViewer";
 import { MENU_STYLES, pickMenus } from "./styles";
 
@@ -51,6 +53,13 @@ const read = () => {
     return "";
   }
 };
+const readQuick = () => {
+  try {
+    return localStorage.getItem(KEYS.quick) ?? "";
+  } catch {
+    return "";
+  }
+};
 
 /** Renders the user's main and second menus with non-overlapping placements. */
 export function MenuHost({
@@ -64,6 +73,7 @@ export function MenuHost({
   second: NavGroup[];
 }) {
   const raw = useSyncExternalStore(subscribe, read, () => "");
+  const quickRaw = useSyncExternalStore(subscribe, readQuick, () => "");
   let saved: { main?: string; second?: string } = {};
   try {
     saved = raw ? JSON.parse(raw) : {};
@@ -87,9 +97,20 @@ export function MenuHost({
     else delete root.dataset.logoSide;
   }, [bar, topLeft]);
   // Admin-only pages are listed only for admins; the pages themselves check on the server.
-  const { isAdmin, signedIn, adminShortcuts, pending } = useViewer();
+  const { isAdmin, signedIn, adminShortcuts, pending, locked } = useViewer();
   const guest = !signedIn && !pending;
-  const seconds = visibleNav(secondGroups, isAdmin, signedIn, guest);
+  let picks: string[] = [];
+  try {
+    picks = quickRaw ? JSON.parse(quickRaw) : [];
+  } catch {}
+  // The Quick Menu: chasing pages always, then the member's pins (Account Settings).
+  const seconds = guest
+    ? visibleNav(secondGroups, isAdmin, signedIn, guest)
+    : quickGroups(
+        visibleNav(secondGroups, isAdmin, signedIn, guest),
+        Array.isArray(picks) ? picks : [],
+        { isAdmin, locked: locked ?? [] },
+      );
   // Guests can replay the showcase from the second menu.
   if (guest) seconds.push(SHOWCASE_GROUP);
   // The owner's switchable Admin shortcuts group (admin → Overview).

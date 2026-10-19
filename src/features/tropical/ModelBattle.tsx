@@ -84,6 +84,8 @@ export function ModelBattle({
   const [h, setH] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState<keyof typeof SPEEDS>("Normal");
+  // Follow the storm by default; "every track" fits the whole spread of models.
+  const [cam, setCam] = useState<"follow" | "all">("follow");
   const col = (tech: string) =>
     pick(colors, `model:${tech}`, name.get(tech)?.color ?? "#888888");
 
@@ -204,16 +206,21 @@ export function ModelBattle({
       type: "FeatureCollection",
       features: best,
     });
-    const all = h
-      ? []
-      : [
-          ...(d?.tracks.flatMap((t) => t.points.map((p) => [p.lon, p.lat])) ??
-            []),
-          ...best.flatMap((f) => f.geometry.coordinates),
-        ];
-    if (all.length) {
-      const xs = all.map((c) => c[0]);
-      const ys = all.map((c) => c[1]);
+    // col depends only on colors, which never change on this page.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, hidden, ready, h]);
+
+  // The camera: on the storm, moving with the models' middle position as the race plays.
+  useEffect(() => {
+    const m = map.current;
+    if (!m || !ready) return;
+    const d = data && data !== "error" ? data : null;
+    const shown = (d?.tracks ?? []).filter((t) => !hidden.has(t.tech));
+    if (cam === "all") {
+      const pts = shown.flatMap((t) => t.points.map((p) => [p.lon, p.lat]));
+      if (!pts.length) return;
+      const xs = pts.map((c) => c[0]);
+      const ys = pts.map((c) => c[1]);
       m.fitBounds(
         [
           [Math.min(...xs), Math.min(...ys)],
@@ -221,10 +228,26 @@ export function ModelBattle({
         ],
         { padding: 36, duration: 700, maxZoom: 6 },
       );
+      return;
     }
-    // col depends only on colors, which never change on this page.
+    const heads = shown
+      .map((t) => at(t, h, (dtgMs(t.dtg) - start) / 3600_000))
+      .filter((x): x is NonNullable<typeof x> => !!x && !x.done);
+    const mid = (v: number[]) => v.sort((a, b) => a - b)[v.length >> 1];
+    const here = storms.find((x) => x.id === id);
+    const center: [number, number] = heads.length
+      ? [mid(heads.map((x) => x.lon)), mid(heads.map((x) => x.lat))]
+      : here
+        ? [here.lon, here.lat]
+        : [-75, 25];
+    m.easeTo({
+      center,
+      zoom: 5.2,
+      duration: playing ? Math.min(SPEEDS[speed], 700) : 700,
+    });
+    // start/speed/playing only tune the glide; h and the data drive it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, hidden, ready, h]);
+  }, [h, cam, data, hidden, ready, id]);
 
   const onReady = ({ map: any }: ReadyMap) => {
     const m = any as unknown as MaplibreMap;
@@ -292,6 +315,7 @@ export function ModelBattle({
 
   return (
     <div className="grid gap-3">
+      {storms.length > 1 && <small className={s.label}>Storm</small>}
       {storms.length > 1 && (
         <div className="flex flex-wrap gap-1.5" role="group" aria-label="Storm">
           {storms.map((x) => (
@@ -363,6 +387,23 @@ export function ModelBattle({
             onChange={(e) => (setPlaying(false), setH(+e.target.value))}
             aria-label="Forecast hour"
           />
+          <div className={s.speed} role="group" aria-label="Camera">
+            {(
+              [
+                ["follow", "Follow storm"],
+                ["all", "Every track"],
+              ] as const
+            ).map(([k, label]) => (
+              <button
+                key={k}
+                type="button"
+                aria-pressed={cam === k}
+                onClick={() => setCam(k)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           <div className={s.speed} role="group" aria-label="Speed">
             {(Object.keys(SPEEDS) as (keyof typeof SPEEDS)[]).map((k) => (
               <button
@@ -387,6 +428,7 @@ export function ModelBattle({
           offOf={offOf}
         />
       )}
+      <small className={s.label}>Models · tap one to hide or show it</small>
       <div className={s.chips} role="group" aria-label="Show models">
         {(d?.tracks ?? []).map((t) => (
           <button

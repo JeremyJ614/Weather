@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
 import { ChevronDown, Menu } from "lucide-react";
 import { NavIcon } from "@/components/NavIcon";
 import { href } from "@/lib/nav/registry";
@@ -13,8 +12,7 @@ import { useMenuNav } from "./useMenuNav";
 
 /** Glass Ledger: a glass bottom sheet; one section open at a time, pages as an icon grid. */
 export function GlassLedger({ groups, placement, role }: MenuProps) {
-  const { open, setOpen, path } = useMenuNav(role);
-  const [sel, setSel] = useState<string | null>(null);
+  const { open, setOpen, path, sub: sel, setSub: setSel } = useMenuNav(role);
   return (
     <div className={open ? s.on : undefined} data-menu-role={role}>
       <button

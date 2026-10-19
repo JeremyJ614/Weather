@@ -19,6 +19,8 @@ export const MENU_NAMES: Record<string, string> = {
   depth: "Depth Drawer",
   dial: "Speed Dial",
   curtain: "Curtain Reveal",
+  capsule: "Quick Capsule",
+  peek: "Edge Peek",
 };
 
 export const OFFERED = {
@@ -37,6 +39,8 @@ export const OFFERED = {
     "notch",
   ].filter((id) => MENU_NAMES[id]),
   second: [
+    "capsule",
+    "peek",
     "morph",
     "plates",
     "depth",

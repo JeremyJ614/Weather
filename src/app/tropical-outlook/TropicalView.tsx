@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import {
   ExternalLink,
-  Map as MapIcon,
   Satellite,
   ScrollText,
   Tornado,
@@ -79,31 +78,25 @@ export function TropicalView({
     }));
   return (
     <div className="grid gap-4">
+      <section className={s.basin}>
+        <header>
+          <small>Live basin</small>
+          <h3>The tropics right now</h3>
+        </header>
+        <TropicalMap
+          geo={data.geo}
+          start={busiest}
+          storms={data.storms}
+          recon={dots}
+          wide
+        />
+        <Legend colors={colors} />
+      </section>
       <Summary data={data} airborne={recon?.filter((r) => r.active).length} />
       <HomeTabs
         label="Tropical"
         variant="pills"
         tabs={[
-          {
-            id: "trop-map",
-            label: "Live Basin",
-            icon: <MapIcon aria-hidden />,
-            panel: (
-              <section className={s.basin}>
-                <header>
-                  <small>Live basin</small>
-                  <h3>The tropics right now</h3>
-                </header>
-                <TropicalMap
-                  geo={data.geo}
-                  start={busiest}
-                  storms={data.storms}
-                  recon={dots}
-                />
-                <Legend colors={colors} />
-              </section>
-            ),
-          },
           {
             id: "trop-storms",
             label: `Storms${data.storms.length ? ` · ${data.storms.length}` : ""}`,

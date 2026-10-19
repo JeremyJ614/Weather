@@ -4,6 +4,7 @@
  * them up on sign-in. Every value is checked against what the app offers before it is kept.
  */
 import { OFFERED } from "@/features/menus/catalog";
+import { cleanQuick } from "@/lib/nav/quick";
 import { parse as parsePlaces } from "@/features/location/store";
 import { FONT_SETS, PALETTES } from "@/lib/theme/registry";
 import type { IntroPref } from "@/features/intro/schedule";
@@ -39,6 +40,7 @@ export function cleanPrefs(raw: unknown): Prefs {
   if (typeof r.intro === "string" && INTROS.includes(r.intro))
     out.intro = r.intro as IntroPref;
   if (r.toured === true) out.toured = true;
+  if (Array.isArray(r.quick)) out.quick = cleanQuick(r.quick);
   if (r.places && typeof r.places === "object") {
     const p = parsePlaces(JSON.stringify(r.places));
     if (p.list.length) out.places = p;

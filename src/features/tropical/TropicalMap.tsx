@@ -58,6 +58,11 @@ type Hit = { title: string; lines: string[] };
 
 const isLine = ["==", ["geometry-type"], "LineString"];
 const isPoint = ["==", ["geometry-type"], "Point"];
+/** The U.S. with the East Pacific, Gulf, Caribbean and western Atlantic around it. */
+const US_BOX: [[number, number], [number, number]] = [
+  [-130, 8],
+  [-58, 50],
+];
 
 /** NHC's picture of a basin: outlook areas, cones, tracks, forecast points and watches. */
 export function TropicalMap({
@@ -66,6 +71,7 @@ export function TropicalMap({
   storms = [],
   recon = [],
   focus,
+  wide,
 }: {
   geo: Geo;
   start: BasinId;
@@ -73,10 +79,12 @@ export function TropicalMap({
   recon?: ReconDot[];
   /** Open on one storm instead of a basin. */
   focus?: { lat: number; lon: number };
+  /** Open on the U.S. and its oceans (the page's headline map). */
+  wide?: boolean;
 }) {
   const map = useRef<MaplibreMap | null>(null);
   const [basin, setBasin] = useState<string>(
-    focus ? "focus" : storms.length ? "active" : start,
+    focus ? "focus" : wide ? "us" : storms.length ? "active" : start,
   );
   const [hit, setHit] = useState<Hit | null>(null);
   const [t, setT] = useState<Toggles>({
@@ -195,7 +203,13 @@ export function TropicalMap({
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(relayout);
     });
-    const box = focus ? null : storms.length ? activeBox() : null;
+    const box = focus
+      ? null
+      : wide
+        ? US_BOX
+        : storms.length
+          ? activeBox()
+          : null;
     if (focus) m.jumpTo({ center: [focus.lon, focus.lat], zoom: 4.6 });
     else if (box) m.fitBounds(box, { padding: 20, duration: 0, maxZoom: 5 });
     relayout();
@@ -337,6 +351,8 @@ export function TropicalMap({
     if (!m) return;
     if (id === "focus" && focus)
       m.flyTo({ center: [focus.lon, focus.lat], zoom: 4.6, duration: 900 });
+    else if (id === "us")
+      m.fitBounds(US_BOX, { padding: 10, duration: 900, maxZoom: 5 });
     else if (id === "active") {
       const box = activeBox();
       if (box) m.fitBounds(box, { padding: 20, duration: 900, maxZoom: 5 });
@@ -349,6 +365,7 @@ export function TropicalMap({
   };
   const views = [
     ...(focus ? [{ id: "focus", name: "This storm" }] : []),
+    ...(wide ? [{ id: "us", name: "U.S. & oceans" }] : []),
     ...(storms.length ? [{ id: "active", name: "Active zone" }] : []),
     ...BASINS.map((b) => ({ id: b.id as string, name: b.name })),
     { id: "world", name: "Worldwide" },

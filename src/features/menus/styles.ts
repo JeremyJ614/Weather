@@ -23,6 +23,11 @@ const FLOAT_RIGHT: Placement[] = [
   FLOAT_CENTER[0],
 ];
 
+const EDGE: Placement[] = [
+  { id: "right-edge", zones: ["right"] },
+  { id: "left-edge", zones: ["left"] },
+];
+
 const S = (
   id: string,
   name: string,
@@ -120,6 +125,18 @@ export const MENU_STYLES: Record<string, MenuStyle> = {
     "Speed Dial",
     FLOAT_RIGHT,
     lazy(() => import("./SpeedDial").then((m) => m.SpeedDial)),
+  ),
+  capsule: S(
+    "capsule",
+    "Quick Capsule",
+    FLOAT_RIGHT,
+    lazy(() => import("./QuickCapsule").then((m) => m.QuickCapsule)),
+  ),
+  peek: S(
+    "peek",
+    "Edge Peek",
+    EDGE,
+    lazy(() => import("./EdgePeek").then((m) => m.EdgePeek)),
   ),
   curtain: S(
     "curtain",

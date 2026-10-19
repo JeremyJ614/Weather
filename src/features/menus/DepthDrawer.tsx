@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
 import { NavIcon } from "@/components/NavIcon";
 import { href } from "@/lib/nav/registry";
 import { Burger } from "./Burger";
@@ -14,8 +13,7 @@ import { usePush } from "./usePush";
 
 /** Depth Drawer: the page tilts back in 3D while the drawer slides in. */
 export function DepthDrawer({ groups, placement, role }: MenuProps) {
-  const { open, setOpen, path } = useMenuNav(role);
-  const [exp, setExp] = useState<string | null>(null);
+  const { open, setOpen, path, sub: exp, setSub: setExp } = useMenuNav(role);
   const side = isLeft(placement.id) ? "left" : "right";
   usePush("depth", open, side);
   return (

@@ -6,7 +6,13 @@ import { getColors } from "@/lib/colors/server";
 import { getSiteDefaults } from "@/lib/settings";
 import { eroDays } from "@/lib/flood/data";
 import { cpcHazards } from "@/lib/hazards/data";
-import { patternIndex, regionalOutlook } from "@/lib/patterns/data";
+import {
+  patternIndex,
+  readCache,
+  regionalOutlook,
+  type Period,
+} from "@/lib/patterns/data";
+import type { Season } from "@/lib/patterns/season";
 import { PatternsView } from "./PatternsView";
 
 export const metadata: Metadata = {
@@ -17,15 +23,17 @@ export const revalidate = 1800;
 export default async function WeatherPatterns() {
   const { disabled } = await getSiteDefaults();
   const off = disabled.includes("patterns");
-  const [outlook, index, ero, cpc, colors] = off
-    ? [null, null, null, null, {}]
+  const [outlook, index, ero, cpc, colors, cache] = off
+    ? [null, null, null, null, {}, {}]
     : await Promise.all([
         regionalOutlook().catch(() => null),
         patternIndex().catch(() => null),
         eroDays().catch(() => null),
         cpcHazards().catch(() => null),
         getColors(),
+        readCache().catch(() => ({})),
       ]);
+  const stored = cache as Record<string, unknown>;
   return (
     <main className="mx-auto max-w-2xl px-4 pt-4 pb-28">
       <PageHero
@@ -49,6 +57,14 @@ export default async function WeatherPatterns() {
           }
           hazards={cpc ? [...new Set(cpc.list.map((h) => h.label))] : null}
           colors={colors}
+          periods={
+            Object.fromEntries(
+              ["yesterday", "week", "month", "year"]
+                .filter((k) => stored[k])
+                .map((k) => [k, stored[k] as Period]),
+            ) as Partial<Record<string, Period>>
+          }
+          season={(stored.season as Season | undefined) ?? null}
         />
       )}
     </main>

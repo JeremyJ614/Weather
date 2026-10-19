@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
 import { NavIcon } from "@/components/NavIcon";
 import { href } from "@/lib/nav/registry";
 import { Items, single } from "./Items";
@@ -11,8 +10,7 @@ import { useMenuNav } from "./useMenuNav";
 
 /** Bottom Rail Pop: a thumb-height rail; one section's panel pops up at a time. */
 export function RailPop({ groups, role }: MenuProps) {
-  const { open, setOpen, path } = useMenuNav(role);
-  const [sel, setSel] = useState<string | null>(null);
+  const { open, setOpen, path, sub: sel, setSub: setSel } = useMenuNav(role);
   const g = open ? groups.find((x) => x.id === sel) : undefined;
   return (
     <div data-menu-role={role}>

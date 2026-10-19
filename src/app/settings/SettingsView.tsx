@@ -16,6 +16,7 @@ import { savePrefs } from "@/features/account/PrefsSync";
 import { parsePref, type IntroPref } from "@/features/intro/schedule";
 import { KEYS } from "@/lib/prefs-keys";
 import { FONT_SETS, PALETTES, TEMPLATES } from "@/lib/theme/registry";
+import { QuickMenu } from "./QuickMenu";
 import s from "./Settings.module.css";
 
 type Pair = { main: string; second: string };
@@ -119,14 +120,17 @@ export function SettingsView({
           <h2 id="menus-h">Menus</h2>
         </header>
         <p className={s.muted}>
-          Your main menu holds every page; the second menu is a quick shortcut
-          launcher. They can&apos;t be the same style, and they never overlap.
+          Your main menu holds every page; the second menu is your Quick Menu, a
+          short launcher you fill below. They can&apos;t be the same style, and
+          they never overlap.
         </p>
         {(["main", "second"] as const).map((slot) => {
           const other = slot === "main" ? menus.second : menus.main;
           return (
             <fieldset key={slot} className={s.group}>
-              <legend>{slot === "main" ? "Main menu" : "Second menu"}</legend>
+              <legend>
+                {slot === "main" ? "Main menu" : "Quick Menu (second menu)"}
+              </legend>
               <div className={s.options}>
                 {OFFERED[slot].map((id) => (
                   <button
@@ -151,6 +155,8 @@ export function SettingsView({
           );
         })}
       </section>
+
+      <QuickMenu onSave={(quick) => save({ quick })} />
 
       <section className={s.card} aria-labelledby="theme-h">
         <header>

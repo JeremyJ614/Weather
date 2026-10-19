@@ -161,3 +161,11 @@ Personal Warnings & Alerts, Affected Communities Outlook, FairWeather Tracking, 
 | 71 | Hazards & Droughts | Drought Monitor drew as bright, heavy-outlined blobs on the web map | Drawn on the national map with clean category fills under the state lines; Ohio gets its own zoomed tab |
 | 72 | Badges | The badge library (VIP admin imports) replaced the owner's chosen award-badge plates with round medallions | Every badge (profile, login, admin member, badge editor) is the gunmetal award plate again, with the badge's icon and rarity |
 | 73 | Award badge | Several plates on one page shared SVG filter/mask ids, and the stripe ignored reduced motion | Ids are per plate; the stripe holds still for reduced motion and low-tier devices |
+| 74 | Menus | Live Bento's zoomed section panel stayed on screen after a page was picked (the menu closed underneath it); seven other menus kept their open section the same way | The open section lives in `useMenuNav` with the open state, so closing a menu always folds it |
+| 75 | Climatology | A cached tornado record from before deaths were added crashed the page (`deaths.reduce`) | Missing deaths read as none |
+| 76 | Signup | The email-link step stopped new members before the signup questions and plans | No email confirmation: human check, account made and signed in, then questions, then Plans |
+| 77 | Aurora | The oval's lines stopped short and broke into pieces where OVATION had no value | One continuous, smoothed edge from side to side of the map |
+| 78 | Weather Patterns | Past Month showed "SPC's storm reports aren't answering" because 30 live report fetches timed out | Counts come from a daily ledger and a twice-daily precomputed cache |
+| 79 | Tropical | Battle Royale stayed zoomed out on the basin, so the storm it was playing was hard to follow | The camera follows the storm; "All models" zooms back out |
+| 80 | Storm Chasing | Only days since the page went live were in the year's ledger (3 days), so Yearly started the season over; nothing ran the scan if no one opened the page | Missing days rebuild from SPC's archive and archived model runs every 30 minutes until the year is full, and any missed day refills |
+| 81 | Tour | Finishing the tour's menu pick saved only on the device, so another phone never got it | The pick saves to the account too |

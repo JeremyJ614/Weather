@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { NavIcon } from "@/components/NavIcon";
 import { href } from "@/lib/nav/registry";
@@ -24,8 +23,7 @@ const FX: Record<string, string> = {
 
 /** Live Bento: every tile is alive; picking one zooms it to full screen. */
 export function LiveBento({ groups, placement, role }: MenuProps) {
-  const { open, setOpen, path } = useMenuNav(role);
-  const [sel, setSel] = useState<string | null>(null);
+  const { open, setOpen, path, sub: sel, setSub: setSel } = useMenuNav(role);
   const g = groups.find((x) => x.id === sel);
   const toggle = () => {
     setSel(null);

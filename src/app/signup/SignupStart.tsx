@@ -1,20 +1,23 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, CornerDownLeft, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { sendEmailLink, signInWithGoogle } from "../login/actions";
+import { HumanCheck } from "@/features/account/HumanCheck";
+import { signInWithGoogle } from "../login/actions";
+import { startSignup } from "./actions";
 import s from "../welcome/Interactive.module.css";
 
-/** Email first: a one-time link proves it, then the signup questions begin. */
+/** Email and a human check, then straight into the signup questions: no email to confirm. */
 export function SignupStart({ next }: { next: string }) {
-  const [link, linkAction, linkPending] = useActionState(sendEmailLink, null);
+  const [start, startAction, startPending] = useActionState(startSignup, null);
+  const [human, setHuman] = useState(false);
   const [g, googleAction, googlePending] = useActionState(
     signInWithGoogle,
     null,
   );
-  const err = link?.error ?? g?.error;
+  const err = start?.error ?? g?.error;
   return (
     <div className={s.shell}>
       <div className={s.top}>
@@ -34,44 +37,40 @@ export function SignupStart({ next }: { next: string }) {
       </div>
       <div className={s.stage}>
         <section className={`${s.step} ${s.on}`}>
-          {link?.sent ? (
-            <>
-              <h1 className={s.q}>
-                <small>CHECK YOUR EMAIL</small>
-                Tap the link we sent to {link.sent}
-              </h1>
-              <p className={s.help}>
-                It opens your signup questions. It works once and expires in an
-                hour.
+          <form id="signup-email" action={startAction} className="grid gap-5">
+            <input type="hidden" name="next" value={next} />
+            <h1 className={s.q}>
+              <small>STEP 1 · YOUR EMAIL</small>
+              What&apos;s your email?
+            </h1>
+            <p className={s.help}>
+              No confirmation email: you&apos;ll go straight to a few quick
+              questions, then pick your plan.
+            </p>
+            <input
+              name="email"
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              required
+              autoFocus
+              placeholder="you@example.com"
+              className={s.field}
+            />
+            <input
+              name="website"
+              tabIndex={-1}
+              autoComplete="off"
+              aria-hidden
+              className="absolute -left-[9999px] h-px w-px opacity-0"
+            />
+            <HumanCheck onDone={setHuman} />
+            {err && (
+              <p role="alert" className={s.error}>
+                {err}
               </p>
-            </>
-          ) : (
-            <form id="signup-email" action={linkAction} className="grid gap-5">
-              <input type="hidden" name="next" value={next} />
-              <h1 className={s.q}>
-                <small>STEP 1 · YOUR EMAIL</small>
-                What&apos;s your email?
-              </h1>
-              <p className={s.help}>
-                We&apos;ll send a link to confirm it&apos;s yours.
-              </p>
-              <input
-                name="email"
-                type="email"
-                inputMode="email"
-                autoComplete="email"
-                required
-                autoFocus
-                placeholder="you@example.com"
-                className={s.field}
-              />
-              {err && (
-                <p role="alert" className={s.error}>
-                  {err}
-                </p>
-              )}
-            </form>
-          )}
+            )}
+          </form>
           <form action={googleAction}>
             <input type="hidden" name="next" value={next} />
             <Button
@@ -98,23 +97,21 @@ export function SignupStart({ next }: { next: string }) {
       </div>
       <div className={s.foot}>
         <span />
-        {!link?.sent && (
-          <div className="flex items-center gap-3">
-            <span className={s.enter}>
-              or press Enter{" "}
-              <CornerDownLeft className="inline size-3" aria-hidden />
-            </span>
-            <Button
-              type="submit"
-              form="signup-email"
-              variant="primary"
-              className="w-auto px-6"
-              disabled={linkPending}
-            >
-              {linkPending ? "Sending…" : "Continue"}
-            </Button>
-          </div>
-        )}
+        <div className="flex items-center gap-3">
+          <span className={s.enter}>
+            or press Enter{" "}
+            <CornerDownLeft className="inline size-3" aria-hidden />
+          </span>
+          <Button
+            type="submit"
+            form="signup-email"
+            variant="primary"
+            className="w-auto px-6"
+            disabled={startPending || !human}
+          >
+            {startPending ? "Setting up…" : human ? "Continue" : "Checking…"}
+          </Button>
+        </div>
       </div>
     </div>
   );

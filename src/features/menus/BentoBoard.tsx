@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
 import { X } from "lucide-react";
 import { NavIcon } from "@/components/NavIcon";
 import { href } from "@/lib/nav/registry";
@@ -16,8 +15,7 @@ const SPANS = [s.w2, "", "", `${s.w2} ${s.h2}`, "", "", s.w2, "", ""];
 
 /** Bento Board: sections as tiles of different sizes; a tile's pages rise in a sheet. */
 export function BentoBoard({ groups, placement, role }: MenuProps) {
-  const { open, setOpen, path } = useMenuNav(role);
-  const [sel, setSel] = useState<string | null>(null);
+  const { open, setOpen, path, sub: sel, setSub: setSel } = useMenuNav(role);
   const g = groups.find((x) => x.id === sel);
   const toggle = () => {
     setSel(null);

@@ -23,7 +23,7 @@ import { AURORA_LINES, AURORA_RAMP, KP_SCALE } from "@/lib/aurora/style";
 import { LT_BANDS } from "@/lib/lightning/style";
 import { CLIMO_LIGHT, CLIMO_LINES, CLIMO_RAMP } from "@/lib/climo/style";
 import { COMPARE } from "@/lib/radar/products";
-import { BANDS as CHASE_BANDS } from "@/lib/chase/score";
+import { BANDS as CHASE_BANDS, CHASE_ALT } from "@/lib/chase/score";
 import { PROB as WINTER_PROB } from "@/lib/winter/style";
 import { CONTAIN, FIRE_RISK } from "@/lib/fire/style";
 import { HAZ_KINDS, USDM } from "@/lib/hazards/style";
@@ -273,11 +273,14 @@ export const GROUPS: Group[] = [
     id: "chase",
     label: "Chase score",
     note: "The Storm Chasing Outlook's score bands.",
-    entries: CHASE_BANDS.map((b, i) => ({
-      key: `chase:band:${i}`,
-      label: `${b.min}+ · ${b.label}`,
-      def: b.color,
-    })),
+    entries: [
+      ...CHASE_BANDS.map((b, i) => ({
+        key: `chase:band:${i}`,
+        label: `${b.min}+ · ${b.label}`,
+        def: b.color,
+      })),
+      { key: "chase:alt", label: "Second target", def: CHASE_ALT },
+    ],
   },
   {
     id: "runs",
