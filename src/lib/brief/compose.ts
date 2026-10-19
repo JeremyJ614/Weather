@@ -1,5 +1,6 @@
 import type { Hour, Period } from "@/lib/weather/types";
 import { aqiBand } from "@/lib/air/scales";
+import type { Part } from "./parts";
 
 /** The Daily Brief's content. Built from the shared data layer; pure parts are tested. */
 export type Brief = {
@@ -18,6 +19,17 @@ export type Brief = {
   spc: string | null;
   aqi: number | null;
   alerts: { event: string; headline: string; ends: string | null }[];
+  /** What the email draws beyond the page's own fetch: the day in parts, hourly rain, sky. */
+  extra?: {
+    parts: Part[];
+    pops: number[];
+    mid: string | null;
+    end: string | null;
+    sunrise: string | null;
+    sunset: string | null;
+    gust: number;
+    moon: { name: string; pct: number };
+  };
 };
 
 /** First hour in the next 24 with at least a 40% chance of rain, and the highest chance. */

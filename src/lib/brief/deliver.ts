@@ -2,29 +2,41 @@ import "server-only";
 import webpush from "web-push";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { buildBrief } from "./build";
+import { getColors } from "@/lib/colors/server";
+import { bandFor } from "@/lib/sswxcon/score";
 import { briefText, isDue, type Brief } from "./compose";
+import { emailHtml, emailText, type National } from "./email";
 import { unsubUrl } from "./unsub";
 
 const FROM = "StormSync Weather <brief@send.sswx.space>";
 const SITE = "https://weather.sswx.space";
 
-const esc = (s: string) =>
-  s.replace(
-    /[&<>"]/g,
-    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!,
-  );
-
-function emailHtml(b: Brief, unsub: string) {
-  const t = briefText(b);
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${esc(t.subject)}</title></head><body style="margin:0;background:#0b0c14;color:#eceef5;font-family:Arial,sans-serif">
-<div style="display:none;max-height:0;overflow:hidden">${esc(t.push)}</div>
-<div style="max-width:560px;margin:0 auto;padding:24px">
-<p style="color:#d9b76f;font-size:12px;letter-spacing:.12em;text-transform:uppercase;margin:0">StormSync Daily Brief</p>
-<h1 style="font-family:Georgia,serif;color:#d9b76f;margin:6px 0 16px">${esc(b.place)}</h1>
-${t.lines.map((l) => `<p style="margin:0 0 10px;line-height:1.5">${esc(l)}</p>`).join("")}
-<p style="margin:22px 0 0"><a href="${SITE}/daily-brief" style="color:#d9b76f">Open your brief</a> · <a href="${SITE}/daily-brief#settings" style="color:#8f92a8">Change these emails</a> · <a href="${unsub}" style="color:#8f92a8">Unsubscribe</a></p>
-<p style="margin:14px 0 0;color:#8f92a8;font-size:12px">You get this because you turned on the Daily Brief at weather.sswx.space. StormSync Weather, weather.sswx.space</p>
-</div></body></html>`;
+/** The national part of the email, read once per run: SSWXCon and the top weather stories. */
+async function national(): Promise<National> {
+  const db = supabaseAdmin();
+  const [snap, news] = await Promise.all([
+    db
+      .from("sswxcon_snapshots")
+      .select("at, total")
+      .order("at", { ascending: false })
+      .limit(1),
+    db
+      .from("weather_news_items")
+      .select("title, url, source")
+      .order("severity", { ascending: false })
+      .order("published_at", { ascending: false })
+      .limit(3),
+  ]);
+  const s = snap.data?.[0];
+  const fresh = s && Date.now() - Date.parse(s.at) < 3 * 3600_000;
+  const band = fresh ? bandFor(s.total) : null;
+  return {
+    score:
+      fresh && band
+        ? { total: s.total, label: band.label, color: band.color }
+        : null,
+    headlines: (news.data ?? []) as National["headlines"],
+  };
 }
 
 type Sub = {
@@ -59,6 +71,9 @@ export async function deliverBriefs(now = new Date()) {
   if (pub && priv)
     webpush.setVapidDetails("mailto:no-reply@send.sswx.space", pub, priv);
   const tally = { email: { sent: 0, failed: 0 }, push: { sent: 0, failed: 0 } };
+  const mail = due.some((d) => d.s.by_email)
+    ? await Promise.all([national(), getColors()])
+    : null;
   const briefs = new Map<string, Brief>();
 
   for (const { s, localDate } of due.slice(0, 200)) {
@@ -73,7 +88,7 @@ export async function deliverBriefs(now = new Date()) {
       }
     }
     const text = briefText(brief);
-    if (s.by_email && process.env.RESEND_API_KEY) {
+    if (s.by_email && mail && process.env.RESEND_API_KEY) {
       const { data } = await db.auth.admin.getUserById(s.user_id);
       const to = data.user?.email;
       const unsub = unsubUrl(SITE, s.user_id);
@@ -88,15 +103,13 @@ export async function deliverBriefs(now = new Date()) {
               from: FROM,
               to,
               subject: text.subject,
-              html: emailHtml(brief, unsub),
-              text: [
-                `StormSync Daily Brief: ${brief.place}`,
-                "",
-                ...text.lines,
-                "",
-                `Open your brief: ${SITE}/daily-brief`,
-                `Unsubscribe: ${unsub}`,
-              ].join("\n"),
+              html: emailHtml(brief, {
+                site: SITE,
+                unsub,
+                national: mail![0],
+                colors: mail![1],
+              }),
+              text: emailText(brief, { site: SITE, unsub, national: mail![0] }),
               headers: {
                 "List-Unsubscribe": `<${unsub}>`,
                 "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
