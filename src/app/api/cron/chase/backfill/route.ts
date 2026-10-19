@@ -4,9 +4,10 @@ import { backfillChase } from "@/lib/chase/engine";
 export const maxDuration = 60;
 
 /**
- * Every 30 minutes (pg_cron "chase-backfill"): rebuilds up to three of this year's missing
- * chase days from SPC's archived outlooks and archived model runs. Once the year is full
- * it only reads the list of days, and it refills any day a daily scan ever misses.
+ * Every 30 minutes (pg_cron "chase-backfill"): rebuilds this year's missing chase days from
+ * SPC's archived outlooks and archived model runs, three at a time for as long as the
+ * function allows. Once the year is full it only reads the list of days, and it refills any
+ * day a daily scan ever misses.
  */
 export async function GET(request: Request) {
   if (!(await cronAuthorized(request)))
