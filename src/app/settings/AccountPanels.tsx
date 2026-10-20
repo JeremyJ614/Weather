@@ -216,6 +216,7 @@ function InstallCard() {
   const [installed, setInstalled] = useState(false);
   const [prompt, setPrompt] = useState<Prompt | null>(null);
   const [ios, setIos] = useState(false);
+  const [android, setAndroid] = useState(false);
   useEffect(() => {
     queueMicrotask(() => {
       setInstalled(
@@ -224,6 +225,7 @@ function InstallCard() {
             true,
       );
       setIos(/iphone|ipad|ipod/i.test(navigator.userAgent));
+      setAndroid(/android/i.test(navigator.userAgent));
     });
     const take = (e: Event) => {
       e.preventDefault();
@@ -267,6 +269,15 @@ function InstallCard() {
         <p className={s.note}>
           Open your browser&rsquo;s menu and choose <b>Install app</b> or{" "}
           <b>Add to Home screen</b>.
+        </p>
+      )}
+      {!installed && android && (
+        <p className={s.note}>
+          Or{" "}
+          <a href="/downloads/stormsync-weather.apk" download>
+            download the Android app
+          </a>{" "}
+          (2.3 MB). Allow installs from your browser when Android asks.
         </p>
       )}
     </section>

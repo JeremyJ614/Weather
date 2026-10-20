@@ -1,0 +1,47 @@
+{
+  "packageId": "space.sswx.weather",
+  "host": "weather.sswx.space",
+  "name": "StormSync Weather",
+  "launcherName": "StormSync",
+  "display": "standalone",
+  "themeColor": "#0b0c14",
+  "themeColorDark": "#0b0c14",
+  "navigationColor": "#0b0c14",
+  "navigationColorDark": "#0b0c14",
+  "navigationDividerColor": "#262838",
+  "navigationDividerColorDark": "#262838",
+  "backgroundColor": "#0b0c14",
+  "enableNotifications": true,
+  "startUrl": "/",
+  "iconUrl": "https://weather.sswx.space/icons/icon-512.png",
+  "maskableIconUrl": "https://weather.sswx.space/icons/maskable-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": { "path": "./android.keystore", "alias": "stormsync" },
+  "appVersion": "1.0.0",
+  "appVersionCode": 1,
+  "shortcuts": [
+    {
+      "name": "Radar & Model Runs",
+      "shortName": "Radar",
+      "url": "/radar-model-runs",
+      "chosenIconUrl": "https://weather.sswx.space/icons/icon-192.png"
+    },
+    {
+      "name": "Warnings & Reports",
+      "shortName": "Warnings",
+      "url": "/warnings-reports",
+      "chosenIconUrl": "https://weather.sswx.space/icons/icon-192.png"
+    }
+  ],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://weather.sswx.space/manifest.webmanifest",
+  "fallbackType": "customtabs",
+  "features": {},
+  "alphaDependencies": { "enabled": false },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://weather.sswx.space/",
+  "minSdkVersion": 24,
+  "orientation": "portrait"
+}
