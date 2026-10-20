@@ -19,11 +19,13 @@ import { slideIn } from "@/features/news/HomeTabs";
 import { project } from "@/lib/map/usAlbers";
 import { pick, type Colors } from "@/lib/colors/pick";
 import type { ChaseDay, Target } from "@/lib/chase/engine";
+import { milesBetween } from "@/lib/warnings/reports";
 import {
   BANDS,
   BUST_STEPS,
   CAT_NAMES,
   CHASE_ALT,
+  MIN_SEP_MI,
   bandIndex,
   bustStep,
   plainNote,
@@ -272,8 +274,10 @@ export function ChaseView({
           {spc.layer && <Polys polys={spc.layer.polys} />}
         </UsMap>
         <p className={s.small}>
-          Shaded by SPC&apos;s Day 1 outlook. The two targets are held at least
-          250 km apart, so they&apos;re two chases, not one.
+          Shaded by SPC&apos;s Day 1 outlook.{" "}
+          {t2
+            ? `The two targets are ${Math.round(milesBetween(t1.lat, t1.lon, t2.lat, t2.lon)).toLocaleString("en-US")} miles apart (always at least ${MIN_SEP_MI}), so they're two chases, not one.`
+            : `Two targets are picked at least ${MIN_SEP_MI} miles apart; only one turned up this day.`}
         </p>
       </section>
 
