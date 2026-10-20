@@ -1,7 +1,7 @@
 import "server-only";
 import type { FeatureCollection, Geometry } from "geojson";
 import { pick, type Colors } from "@/lib/colors/pick";
-import { FIRE_RISK, containColor } from "./style";
+import { FIRE_RISK, containColor, containKey } from "./style";
 
 /**
  * Fire Weather: active wildfires and their burn perimeters (NIFC WFIGS, the interagency
@@ -98,6 +98,7 @@ export function firePoints(fires: Fire[], colors: Colors = {}): FC {
         acres: f.acres,
         r: Math.min(16, 4 + Math.log10(Math.max(10, f.acres)) * 2.4),
         color: containColor(f.contained, colors),
+        contain: containKey(f.contained),
       },
     })),
   };
