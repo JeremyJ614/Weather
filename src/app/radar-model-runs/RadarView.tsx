@@ -93,7 +93,7 @@ type Cmp = {
   }[];
 };
 
-function Compare({ colors }: { colors: Colors }) {
+export function Compare({ colors }: { colors: Colors }) {
   const { active } = usePlaces();
   const key = active ? `${active.lat},${active.lon}` : "";
   const [res, setRes] = useState<{ key: string; d: Cmp | "error" } | null>(

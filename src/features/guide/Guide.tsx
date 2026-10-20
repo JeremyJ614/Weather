@@ -17,6 +17,7 @@ import { MENU_STYLES } from "@/features/menus/styles";
 import { resolvePlacements } from "@/lib/nav/spots";
 import { KEYS } from "@/lib/prefs-keys";
 import { ALL_PAGES, MAIN_NAV, visibleNav } from "@/lib/nav/registry";
+import { ABOUT, INTERESTS } from "./about";
 import s from "./Guide.module.css";
 
 export type Mode = "tour" | "showcase";
@@ -34,7 +35,7 @@ type Step = {
   chips?: string[];
   /** Hands-on tips: things that aren't obvious until someone shows you. */
   tips?: { icon: string; title: string; text: string }[];
-  end?: "menus" | "cta";
+  end?: "menus" | "cta" | "interests";
 };
 
 /** How to use each section of the main menu (by group id). */
@@ -45,13 +46,13 @@ const HOW: Record<string, string> = {
   community:
     "Make a forecast in the daily game and get scored against what actually happens, answer trivia, vote in the weekly poll and climb the leaderboard. Points earn badges and titles.",
   severe:
-    "Start with the SSWXCon score for the big picture, then SPC's outlooks, live warnings and discussions. Tropical Outlook's Model Tracks races the models; Storm Chasing Outlook picks the day's two best targets and explains them tab by tab.",
+    "Start with the SSWXCon score for the big picture, then SPC's outlooks, live warnings and discussions. Tropical Outlook's Model Tracks races the models; Storm Chasing Outlook picks the day's two best targets, at least 125 miles apart, and explains them tab by tab.",
   tools:
     "Pick a model, a run and a field on Radar & Model Runs, then press play or drag the timeline. Tap a river gauge for its forecast crest; spin a 3D sounding with your finger.",
   specialty:
     "Tonight's sky for star gazing, the moon and planets, where the aurora could reach and live lightning strikes near you.",
   edu: "Records and averages for your place, a glossary for any word you hit on another page, and a free library of lessons.",
-  else: "Weather Patterns sums up what already happened (yesterday, the week, the month, the season) in plain words with the numbers behind it.",
+  else: "Weather Patterns sums up what already happened in plain words. Extras holds the Weather Engines, now drawn like SPC outlooks, plus the Storm Visualizer and Particle Morph. Disaster Response lists the groups that help after storms, and Donate supports StormSync.",
   account:
     "My Profile holds your places and badges; Account Settings your menus, Quick Menu, theme and this tour; Notifications which alerts reach your phone.",
 };
@@ -86,6 +87,35 @@ const TIPS: Step["tips"] = [
     icon: "House",
     title: "Home from anywhere",
     text: "The SSWX logo at the top always takes you back to the Homepage.",
+  },
+];
+
+/** What changed lately, for members who toured before. */
+const NEW: Step["tips"] = [
+  {
+    icon: "Car",
+    title: "Two chase targets, always",
+    text: "Storm Chasing Outlook now picks two targets at least 125 miles apart, so they're two different chases, and says how far apart they are.",
+  },
+  {
+    icon: "FlaskConical",
+    title: "Engines that read like SPC maps",
+    text: "ProbTor, ProbHail and the model engines in Extras draw nested, outlined areas like an SPC outlook. Rotation tracks look like MRMS's swaths.",
+  },
+  {
+    icon: "Route",
+    title: "Replay a chase",
+    text: "Draw your route in the Storm Chasing Log; it snaps to the roads, finds the storms near it and replays them on radar.",
+  },
+  {
+    icon: "HeartHandshake",
+    title: "Disaster Response",
+    text: "Groups that help after storms, what they do and where, and how to give to them or help them.",
+  },
+  {
+    icon: "HandCoins",
+    title: "Donate",
+    text: "Support StormSync with a gift of any amount, once or every month, and add your name to the supporters wall.",
   },
 ];
 
@@ -154,6 +184,20 @@ const SHOWCASE: Step[] = [
     ],
   },
   {
+    icon: "Archive",
+    kicker: "Replays",
+    title: "Relive the storms",
+    body: "Replay famous tornadoes minute by minute: radar, warnings, the damage path and every report. Or log your own chase, draw the route and replay it against the radar.",
+    chips: ["tornado-archive", "chasing-log", "severe-weather-history"],
+  },
+  {
+    icon: "FlaskConical",
+    kicker: "Extras",
+    title: "Engines with a wow",
+    body: "Weather Engines drawn like SPC outlooks (ProbTor, ProbHail, MRMS rotation tracks, snow squalls and landspouts), a 3D Storm Visualizer and a Particle Morph you can play with.",
+    chips: ["extras"],
+  },
+  {
     icon: "MapPin",
     kicker: "Made for you",
     title: "Your places, your forecast",
@@ -193,6 +237,20 @@ const SHOWCASE: Step[] = [
     chips: ["settings", "notifications", "profile"],
   },
   {
+    icon: "HeartHandshake",
+    kicker: "Give back",
+    title: "Help after the storm",
+    body: "Find the groups that help after tornadoes, floods and hurricanes, and how to give to them or help them. Or keep StormSync running with a gift of any amount.",
+    chips: ["disaster-response", "donate"],
+  },
+  {
+    icon: "Compass",
+    kicker: "Your turn",
+    title: "What brings you here?",
+    body: "Tap what you're into and see where to start. Tap any page to read what it does.",
+    end: "interests",
+  },
+  {
     icon: "Sparkles",
     kicker: "Join free",
     title: "Start free today",
@@ -208,7 +266,14 @@ function tourSteps(name: string | null): Step[] {
       icon: "Sparkles",
       kicker: "Welcome",
       title: name ? `Welcome, ${name}` : "Welcome aboard",
-      body: "Here's a quick tour of everything in StormSync Weather and how to use it. Skip any time; replay it from Account Settings.",
+      body: "Here's a quick tour of everything in StormSync Weather and how to use it. Swipe or tap Next; tap any page to see what it does. Skip any time; replay it from Account Settings.",
+    },
+    {
+      icon: "Sparkles",
+      kicker: "Just added",
+      title: "What's new",
+      body: "",
+      tips: NEW,
     },
     ...groups.map((g) => ({
       icon: g.icon,
@@ -217,6 +282,13 @@ function tourSteps(name: string | null): Step[] {
       body: HOW[g.id] ?? "",
       chips: g.pages.map((p) => p.slug),
     })),
+    {
+      icon: "Zap",
+      kicker: "Quick Menu",
+      title: "Your shortcuts",
+      body: "Your second menu is the Quick Menu: the Tornado Archive and your Storm Chasing Log, plus any page you pin in Account Settings.",
+      chips: ["tornado-archive", "chasing-log"],
+    },
     {
       icon: "Lightbulb",
       kicker: "Good to know",
@@ -234,13 +306,21 @@ function tourSteps(name: string | null): Step[] {
   ];
 }
 
-const DWELL = 5200;
+const DWELL = 6500;
 
 /** The member tour or the guest showcase: full-screen, skippable, story-style steps. */
 export function Guide({ mode, name, menus, onDone }: GuideProps) {
   const steps = mode === "tour" ? tourSteps(name) : SHOWCASE;
-  const [i, setI] = useState(0);
+  const [i, setStep] = useState(0);
   const [held, setHeld] = useState(false);
+  /** The page chip opened for its description, and the showcase's picked interests. */
+  const [sel, setSel] = useState<string | null>(null);
+  const [likes, setLikes] = useState<string[]>([]);
+  const swipe = useRef<{ x: number; y: number } | null>(null);
+  const setI = useCallback((k: number | ((k: number) => number)) => {
+    setSel(null);
+    setStep(k);
+  }, []);
   const [pick, setPick] = useState(menus);
   const next = useRef<HTMLButtonElement>(null);
   // What this device had before the tour swapped menus live, to put back on Skip.
@@ -296,7 +376,7 @@ export function Guide({ mode, name, menus, onDone }: GuideProps) {
     };
     addEventListener("keydown", key);
     return () => removeEventListener("keydown", key);
-  }, [close, steps.length]);
+  }, [close, steps.length, setI]);
 
   const finish = (save: boolean) => {
     if (!save) return close();
@@ -314,7 +394,48 @@ export function Guide({ mode, name, menus, onDone }: GuideProps) {
         ]
       : null;
   const choices = OFFERED.main.filter((id) => id !== pick.second);
-  const auto = mode === "showcase" && !last;
+  // The showcase plays itself, except on its picker and while a page's description is open.
+  const auto = mode === "showcase" && !last && !step.end;
+  const paused = held || sel !== null;
+  const liked = [
+    ...new Set(
+      INTERESTS.filter((x) => likes.includes(x.id)).flatMap((x) => x.pages),
+    ),
+  ];
+  const chips = (list: string[]) => (
+    <>
+      <ul className={s.chips}>
+        {list.map((slug, k) => {
+          const p = page(slug);
+          return p ? (
+            <li key={slug} style={{ ["--i" as string]: k }}>
+              <button
+                type="button"
+                aria-pressed={sel === slug}
+                onClick={() => setSel(sel === slug ? null : slug)}
+              >
+                <NavIcon name={p.icon} className="size-3.5" />
+                {p.label}
+              </button>
+            </li>
+          ) : null;
+        })}
+      </ul>
+      {sel !== null && list.includes(sel) && page(sel) ? (
+        <div className={s.about} aria-live="polite">
+          <p>
+            <b>{page(sel)!.label}</b>
+            {ABOUT[sel]}
+          </p>
+          <Link href={`/${sel}`} onClick={close} className={s.go}>
+            Open it <ArrowRight aria-hidden />
+          </Link>
+        </div>
+      ) : (
+        <p className={s.hint}>Tap a page to see what it does</p>
+      )}
+    </>
+  );
 
   return (
     <div
@@ -327,9 +448,25 @@ export function Guide({ mode, name, menus, onDone }: GuideProps) {
           ? "Tour of StormSync Weather"
           : "What's inside StormSync Weather"
       }
-      onPointerDown={() => auto && setHeld(true)}
-      onPointerUp={() => setHeld(false)}
-      onPointerCancel={() => setHeld(false)}
+      onPointerDown={(e) => {
+        swipe.current = { x: e.clientX, y: e.clientY };
+        if (auto) setHeld(true);
+      }}
+      onPointerUp={(e) => {
+        setHeld(false);
+        // A sideways swipe moves a step, like flipping through stories.
+        const from = swipe.current;
+        swipe.current = null;
+        if (!from || compact) return;
+        const dx = e.clientX - from.x;
+        if (Math.abs(dx) < 60 || Math.abs(e.clientY - from.y) > 50) return;
+        if (dx < 0 && !last) setI(i + 1);
+        if (dx > 0 && i > 0) setI(i - 1);
+      }}
+      onPointerCancel={() => {
+        setHeld(false);
+        swipe.current = null;
+      }}
     >
       <div className={s.sheet}>
         <div className={s.bars} aria-hidden>
@@ -339,7 +476,7 @@ export function Guide({ mode, name, menus, onDone }: GuideProps) {
                 data-state={
                   k < i ? "done" : k === i ? (auto ? "run" : "done") : "todo"
                 }
-                data-held={held || undefined}
+                data-held={paused || undefined}
                 style={{ animationDuration: `${DWELL}ms` }}
                 onAnimationEnd={() => k === i && setI(i + 1)}
               />
@@ -369,18 +506,39 @@ export function Guide({ mode, name, menus, onDone }: GuideProps) {
           <p className={s.kicker}>{step.kicker}</p>
           <h2 className={s.title}>{step.title}</h2>
           {step.body && <p className={s.text}>{step.body}</p>}
-          {step.chips && (
-            <ul className={s.chips}>
-              {step.chips.map((slug, k) => {
-                const p = page(slug);
-                return p ? (
-                  <li key={slug} style={{ ["--i" as string]: k }}>
-                    <NavIcon name={p.icon} className="size-3.5" />
-                    {p.label}
-                  </li>
-                ) : null;
-              })}
-            </ul>
+          {step.chips && chips(step.chips)}
+          {step.end === "interests" && (
+            <>
+              <fieldset className={s.pick}>
+                <legend>Pick one or more</legend>
+                <div>
+                  {INTERESTS.map((x) => (
+                    <button
+                      key={x.id}
+                      type="button"
+                      aria-pressed={likes.includes(x.id)}
+                      onClick={() => {
+                        setSel(null);
+                        setLikes((l) =>
+                          l.includes(x.id)
+                            ? l.filter((y) => y !== x.id)
+                            : [...l, x.id],
+                        );
+                      }}
+                    >
+                      <NavIcon name={x.icon} />
+                      {x.label}
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+              {liked.length > 0 && (
+                <div className={s.made}>
+                  <p className={s.kicker}>Start here</p>
+                  {chips(liked)}
+                </div>
+              )}
+            </>
           )}
           {step.tips && (
             <ul className={s.tips}>

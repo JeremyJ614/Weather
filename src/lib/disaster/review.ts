@@ -7,37 +7,21 @@ import type { Status } from "./data";
 const FROM = "StormSync Media <no-reply@send.sswx.space>";
 const ID = /^[0-9a-f-]{36}$/;
 
-/** Tells whoever signed up that they were approved. Never throws: the decision is saved. */
-async function tellApproved(
-  kind: "org" | "volunteer",
-  to: { name: string; email: string },
-  what: string,
-) {
+/** Tells the organization that signed up that it is listed. Never throws: the decision is saved. */
+async function tellApproved(to: { name: string; email: string }, what: string) {
   const key = process.env.RESEND_API_KEY;
   if (!key) return;
-  const text =
-    kind === "org"
-      ? [
-          `Hi ${to.name},`,
-          "",
-          `${what} is now listed on StormSync Disaster Response, where members and visitors can find you, donate and volunteer:`,
-          `${SITE}/disaster-response`,
-          "",
-          "To change your listing, reply to this email.",
-          "",
-          "Thank you for the work you do.",
-          "StormSync Media",
-        ]
-      : [
-          `Hi ${to.name},`,
-          "",
-          "You're on the StormSync Disaster Response volunteer roster. When a storm hits near you, we'll be in touch by email with organizations that need help.",
-          "",
-          "To change your details or leave the roster, reply to this email.",
-          "",
-          "Thank you for stepping up.",
-          "StormSync Media",
-        ];
+  const text = [
+    `Hi ${to.name},`,
+    "",
+    `${what} is now listed on StormSync Disaster Response, where members and visitors can find you, donate and volunteer:`,
+    `${SITE}/disaster-response`,
+    "",
+    "To change your listing, reply to this email.",
+    "",
+    "Thank you for the work you do.",
+    "StormSync Media",
+  ];
   await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
@@ -47,10 +31,7 @@ async function tellApproved(
     body: JSON.stringify({
       from: FROM,
       to: to.email,
-      subject:
-        kind === "org"
-          ? `${what} is listed on StormSync Disaster Response`.slice(0, 150)
-          : "You're on the StormSync volunteer roster",
+      subject: `${what} is listed on StormSync Disaster Response`.slice(0, 150),
       text: text.join("\n"),
     }),
     signal: AbortSignal.timeout(8000),
@@ -58,18 +39,17 @@ async function tellApproved(
 }
 
 /**
- * Approves, declines or unlists a sign-up (from admin → Contact inbox or admin → Disaster
- * Response). The first approval of a sign-up emails the person who sent it.
+ * Approves, declines or unlists an organization (from admin → Contact inbox or admin →
+ * Disaster Response). The first approval emails the person who signed it up.
  */
 export async function reviewSignup(
   supabase: SupabaseClient,
-  kind: "org" | "volunteer",
   id: string,
   status: Status,
 ): Promise<{ error?: string }> {
   if (!ID.test(id) || !["pending", "approved", "declined"].includes(status))
     return { error: "That sign-up couldn't be found." };
-  const table = kind === "org" ? "disaster_orgs" : "disaster_volunteers";
+  const table = "disaster_orgs";
   const { data: before } = await supabase
     .from(table)
     .select("name, status, reviewed_at, message_id")
@@ -82,7 +62,7 @@ export async function reviewSignup(
     .eq("id", id);
   if (error) return { error: "Couldn't save. Try again." };
   await supabase.rpc("log_admin", {
-    p_action: `${status === "approved" ? "approve" : status === "declined" ? "decline" : "unlist"}_disaster_${kind}`,
+    p_action: `${status === "approved" ? "approve" : status === "declined" ? "decline" : "unlist"}_disaster_org`,
     p_target: id,
     p_detail: { name: before.name },
   });
@@ -92,7 +72,7 @@ export async function reviewSignup(
       .select("name, email")
       .eq("id", before.message_id)
       .maybeSingle();
-    if (m) await tellApproved(kind, m, before.name);
+    if (m) await tellApproved(m, before.name);
   }
   if (before.message_id)
     await supabase

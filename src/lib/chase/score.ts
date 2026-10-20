@@ -183,6 +183,8 @@ export const BANDS = [
   { min: 70, label: "Worth going", color: "#ef4444" },
   { min: 85, label: "Big day", color: "#d946ef" },
 ];
+/** Two targets closer than this are one chase, not two (VIP: 200 km). */
+export const MIN_SEP_MI = 125;
 /** The second target's color (editable). */
 export const CHASE_ALT = "#a78bfa";
 export const bandIndex = (score: number) =>

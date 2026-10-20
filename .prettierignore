@@ -8,3 +8,4 @@ docs
 src/lib/geo/places.data.ts
 src/lib/library/library.json
 public/archive/
+public/samples/

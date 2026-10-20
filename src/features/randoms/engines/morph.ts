@@ -1,14 +1,23 @@
 /*
   Adapted from Techartist's "Three.js + GLSL Particle Animation" CodePen (MIT License):
   https://codepen.io/VoXelo/pen/NPbGqrx
-  Particles that form a tornado, a lightning strike, an astrolabe and a DNA helix, morphing
-  from one to the next. The tornado and the lightning are ours; the other two are the pen's.
+  Particles that form a tornado, a lightning strike, Saturn, a butterfly, an astrolabe and a
+  DNA helix, morphing from one to the next. The astrolabe and the helix are the pen's; the
+  rest are ours. Each lightning strike is a new bolt, grown in JavaScript the way real
+  lightning branches (see growBolt).
 */
 import * as THREE from "three";
 import { dprFor, loop, watchSize, type Ctx, type Scene } from "../stage";
 import { teardown } from "./util";
 
-export const SHAPES = ["Tornado", "Lightning strike", "Astrolabe", "DNA helix"];
+export const SHAPES = [
+  "Tornado",
+  "Lightning strike",
+  "Saturn",
+  "Butterfly",
+  "Astrolabe",
+  "DNA helix",
+];
 export type Morph = Scene & { next(): number };
 
 const VERT = /* glsl */ `
@@ -21,6 +30,9 @@ const VERT = /* glsl */ `
 
       attribute float aId;
       attribute vec3 aRandom;
+      // Where this particle sits in the current lightning bolt, and how bright that part is.
+      attribute vec3 aBolt;
+      attribute float aBoltB;
 
       varying vec3 vColor;
       varying float vAlpha;
@@ -109,49 +121,65 @@ const VERT = /* glsl */ `
           return pos;
       }
 
-      // The bolt's main channel, zigzagging down from cloud to ground.
-      vec3 bolt(float t) {
-          return vec3(5.0 * tri(t * 3.1 + 0.2) + 2.5 * tri(t * 7.3) + 1.2 * tri(t * 17.0),
-                      30.0 - t * 60.0,
-                      3.0 * tri(t * 2.3 + 0.6) + 1.4 * tri(t * 11.0));
+      // Saturn: a banded, slightly squashed planet and its rings (the bright B ring, the
+      // Cassini Division gap, the A ring), tilted as we usually see it.
+      vec3 getSaturn(float id, vec3 rnd) {
+          vec3 pos;
+          if (rnd.x < 0.42) {
+              float th = rnd.y * PI * 2.0 + uTime * 0.12;
+              float cz = rnd.z * 2.0 - 1.0;
+              float s = sqrt(max(1.0 - cz * cz, 0.0));
+              pos = vec3(s * cos(th), cz * 0.9, s * sin(th)) * 13.0;
+          } else {
+              float u = rnd.y;
+              float r = 17.0 + u * 14.0;
+              // nothing in the Cassini Division: those particles move to its edges
+              if (r > 25.2 && r < 26.4) r = r < 25.8 ? 25.2 : 26.4;
+              float a = rnd.z * PI * 2.0 + uTime * 0.35 / sqrt(r / 17.0);
+              pos = vec3(cos(a) * r, (fract(id * 913.0) - 0.5) * 0.3, sin(a) * r);
+          }
+          float tilt = 0.42;
+          pos.yz = mat2(cos(tilt), -sin(tilt), sin(tilt), cos(tilt)) * pos.yz;
+          pos.xy = mat2(cos(0.18), -sin(0.18), sin(0.18), cos(0.18)) * pos.xy;
+          return pos * 0.82;
       }
 
-      // A cloud-to-ground strike: the channel, four branches, the cloud it leaves and the
-      // flash where it lands.
-      vec3 getLightning(float id, vec3 rnd) {
-          vec3 pos;
-          float jit = fract(id * 733.0);
-          vec3 off = (vec3(fract(id * 91.0), fract(id * 57.0), fract(id * 23.0)) - 0.5);
-          if (rnd.x < 0.5) {
-              pos = bolt(rnd.y) + off * (jit < 0.7 ? 0.8 : 3.0);
-          } else if (rnd.x < 0.75) {
-              float b = floor(rnd.z * 4.0);
-              float side = mod(b, 2.0) < 1.0 ? 1.0 : -1.0;
-              float t0 = 0.12 + b * 0.17;
-              float L = 20.0 - b * 3.0;
-              float sx = rnd.y;
-              vec3 start = bolt(t0);
-              pos = start + vec3(side * sx * L * 0.7 + 1.5 * tri(sx * 5.0 + b),
-                                 -sx * L * 0.8,
-                                 (b - 1.5) * sx * 4.0 + tri(sx * 7.0)) + off * 0.8;
-          } else if (rnd.x < 0.92) {
-              float r = sqrt(rnd.y) * 36.0;
-              float a = rnd.z * PI * 2.0 + uTime * 0.15;
-              pos = vec3(cos(a) * r, 31.0 + (jit - 0.5) * 5.0 * (1.0 - r / 40.0), sin(a) * r);
-          } else {
-              float r = rnd.y * 9.0;
-              float a = rnd.z * PI * 2.0;
-              vec3 g = bolt(1.0);
-              pos = vec3(g.x + cos(a) * r, -30.0 + (1.0 - rnd.y) * jit * 2.0, g.z + sin(a) * r);
+      // Temple Fay's butterfly curve, filled in to make the wings, flapping on its body.
+      float fay(float t) {
+          return exp(cos(t)) - 2.0 * cos(4.0 * t) - pow(sin(t / 12.0), 5.0);
+      }
+      vec3 getButterfly(float id, vec3 rnd) {
+          float flap = 0.25 + 0.6 * (0.5 + 0.5 * sin(uTime * 2.6));
+          if (rnd.x < 0.9) {
+              float t = rnd.y * 12.0 * PI;
+              float fill = pow(rnd.z, 0.45);
+              vec2 p = vec2(sin(t), cos(t)) * fay(t) * fill * 7.0;
+              float side = p.x < 0.0 ? -1.0 : 1.0;
+              float x = abs(p.x);
+              return vec3(side * x * cos(flap), p.y - 6.0, x * sin(flap));
           }
-          return pos;
+          if (rnd.x < 0.95) {
+              // the body: head, thorax and a long abdomen
+              float k = (rnd.x - 0.9) / 0.05;
+              float y = mix(-15.0, 9.0, k);
+              float r = (0.6 + 1.1 * sin(k * PI)) * (k > 0.88 ? 1.5 : 1.0);
+              float a = rnd.z * PI * 2.0;
+              return vec3(cos(a) * r, y, sin(a) * r);
+          }
+          // antennae, clubbed at the tips
+          float side = rnd.y < 0.5 ? -1.0 : 1.0;
+          float k = fract(rnd.y * 2.0);
+          vec3 tip = vec3(side * (k * 6.0 + k * k * 2.0), 9.5 + k * 11.0, k * 2.0);
+          return tip + (fract(vec3(id * 37.0, id * 59.0, id * 83.0)) - 0.5) * (k > 0.9 ? 1.6 : 0.35);
       }
 
       vec3 getShapePosition(int shape, float id, vec3 rnd) {
           if (shape == 0) return getTornado(id, rnd);
-          if (shape == 1) return getLightning(id, rnd);
-          if (shape == 2) return getAstrolabe(id, rnd);
-          if (shape == 3) return getDNA(id, rnd);
+          if (shape == 1) return aBolt;
+          if (shape == 2) return getSaturn(id, rnd);
+          if (shape == 3) return getButterfly(id, rnd);
+          if (shape == 4) return getAstrolabe(id, rnd);
+          if (shape == 5) return getDNA(id, rnd);
           return vec3(0.0);
       }
 
@@ -162,15 +190,50 @@ const VERT = /* glsl */ `
               return vec3(0.6, 0.45, 0.32);
           }
           if (shape == 1) {
-              // Strikes, then restrikes, every few seconds.
+              // Strikes, then a restrike, then the channel glows down until the next bolt.
               float f = fract(uTime * 0.3);
-              float flash = 0.35 + 0.65 * max(step(f, 0.05), step(abs(f - 0.1), 0.02));
-              if (rnd.x < 0.75) return mix(vec3(0.55, 0.45, 1.0), vec3(0.95, 0.95, 1.0), step(fract(id * 733.0), 0.7)) * flash;
-              if (rnd.x < 0.92) return vec3(0.2, 0.2, 0.35) * (0.6 + flash);
-              return vec3(0.75, 0.7, 1.0) * flash;
+              float flash = 0.25 + 0.75 * max(max(step(f, 0.04), step(abs(f - 0.09), 0.02)), exp(-f * 9.0));
+              // the hot white core of each channel, violet at its glowing edge, dimmer down
+              // the branches; the cloud base lit from inside
+              vec3 core = mix(vec3(0.5, 0.42, 1.0), vec3(1.0, 0.98, 1.0), smoothstep(0.35, 0.9, aBoltB));
+              if (aBoltB > 0.0) return core * (0.35 + aBoltB) * flash;
+              return vec3(0.22, 0.2, 0.36) * (0.5 + 1.4 * flash);
           }
-          if (shape == 2) return palette(id + uTime*0.05, vec3(0.5, 0.5, 0.6), vec3(0.3, 0.3, 0.4), vec3(1.0, 1.0, 1.0), vec3(0.0, 0.33, 0.67));
+          if (shape == 2) {
+              // Saturn's pale gold bands, lit from one side; its rings cream and grey
+              if (rnd.x < 0.42) {
+                  float cz = rnd.z * 2.0 - 1.0;
+                  float band = 0.5 + 0.5 * sin(cz * 19.0 + 0.6 * sin(cz * 7.0));
+                  vec3 c = mix(vec3(0.62, 0.46, 0.3), vec3(0.96, 0.86, 0.62), band);
+                  c = mix(c, vec3(0.75, 0.68, 0.55), smoothstep(0.85, 1.0, abs(cz)));
+                  float th = rnd.y * PI * 2.0 + uTime * 0.12;
+                  float s = sqrt(max(1.0 - cz * cz, 0.0));
+                  float lit = max(dot(vec3(s * cos(th), cz, s * sin(th)), normalize(vec3(-0.8, 0.35, 0.6))), 0.0);
+                  return c * (0.22 + 0.9 * lit);
+              }
+              float u = rnd.y;
+              float rings = mix(0.45, 1.0, smoothstep(0.15, 0.3, u)) * mix(1.0, 0.62, step(0.62, u));
+              float fine = 0.8 + 0.2 * sin(u * 140.0);
+              return mix(vec3(0.55, 0.5, 0.45), vec3(0.95, 0.88, 0.72), rings) * rings * fine;
+          }
           if (shape == 3) {
+              // iridescent wings: teal to violet, a bright rim, dark veins and two eyespots
+              if (rnd.x < 0.9) {
+                  float t = rnd.y * 12.0 * PI;
+                  float fill = pow(rnd.z, 0.45);
+                  vec2 p = vec2(sin(t), cos(t)) * fay(t) * fill * 7.0;
+                  vec3 c = palette(fill * 0.7 + p.y * 0.012 + uTime * 0.04, vec3(0.45, 0.5, 0.7), vec3(0.35, 0.35, 0.3), vec3(1.0, 1.0, 1.0), vec3(0.55, 0.65, 0.8));
+                  c *= 0.75 + 0.25 * step(0.08, abs(fract(t * 1.6) - 0.5));
+                  c = mix(c, vec3(0.95, 0.98, 1.0), smoothstep(0.93, 1.0, fill));
+                  float eye = length(vec2(abs(p.x), p.y) - vec2(11.0, 9.0));
+                  c = mix(c, vec3(1.0, 0.55, 0.15), 1.0 - smoothstep(1.8, 2.6, eye));
+                  c = mix(c, vec3(0.05, 0.03, 0.08), 1.0 - smoothstep(0.9, 1.4, eye));
+                  return c;
+              }
+              return vec3(0.24, 0.2, 0.3);
+          }
+          if (shape == 4) return palette(id + uTime*0.05, vec3(0.5, 0.5, 0.6), vec3(0.3, 0.3, 0.4), vec3(1.0, 1.0, 1.0), vec3(0.0, 0.33, 0.67));
+          if (shape == 5) {
               float h = (id - 0.5) * 60.0; 
               float rungZone = fract(h * 0.5);
               if(rungZone < 0.15 && rnd.y > 0.4) return vec3(0.0, 0.9, 0.4);
@@ -240,6 +303,135 @@ const FRAG = /* glsl */ `
       }
     `;
 
+type V3 = [number, number, number];
+export type Seg = { a: V3; b: V3; w: number };
+const GROUND = -30;
+
+/**
+ * One cloud-to-ground bolt, grown the way a stepped leader is: a tortuous channel stepping
+ * down from the cloud base, kinking at every step, with branches forking off it (and off
+ * them), each fainter than its parent; plus crawlers spreading through the cloud base. `w`
+ * is each segment's brightness: 1 for the main channel.
+ */
+export function growBolt(rand: () => number = Math.random): Seg[] {
+  const segs: Seg[] = [];
+  const walk = (
+    start: V3,
+    drift: number,
+    len: number,
+    w: number,
+    depth: number,
+  ) => {
+    let p = start;
+    let vx = drift;
+    let vz = (rand() - 0.5) * 1.2;
+    let gone = 0;
+    while (gone < len && p[1] > GROUND) {
+      const dy = 0.7 + rand() * 1.9;
+      vx = vx * 0.55 + drift * 0.25 - p[0] * 0.035 + (rand() - 0.5) * 2.8;
+      vz = vz * 0.55 + (rand() - 0.5) * 2.2;
+      const q: V3 = [p[0] + vx, Math.max(GROUND, p[1] - dy), p[2] + vz];
+      segs.push({ a: p, b: q, w });
+      gone += Math.hypot(vx, dy, vz);
+      if (depth < 2 && q[1] > GROUND + 8 && rand() < (depth ? 0.08 : 0.15)) {
+        const side = rand() < 0.5 ? -1 : 1;
+        walk(
+          q,
+          side * (0.9 + rand() * 1.3),
+          (depth ? 6 : 10) + rand() * (depth ? 8 : 20),
+          w * (depth ? 0.42 : 0.5),
+          depth + 1,
+        );
+      }
+      p = q;
+    }
+  };
+  const top: V3 = [(rand() - 0.5) * 10, 26, (rand() - 0.5) * 4];
+  walk(top, (rand() - 0.5) * 0.8, Infinity, 1, 0);
+  // crawlers: faint channels running out through the cloud base from the top of the bolt
+  for (let c = 0; c < 4; c++) {
+    let p = top;
+    const dir = rand() * Math.PI * 2;
+    for (let k = 0; k < 9 + rand() * 9; k++) {
+      const q: V3 = [
+        p[0] + Math.cos(dir) * 2.4 + (rand() - 0.5) * 2.2,
+        26 + (rand() - 0.5) * 2,
+        p[2] + Math.sin(dir) * 2.4 + (rand() - 0.5) * 2.2,
+      ];
+      segs.push({ a: p, b: q, w: 0.22 });
+      p = q;
+    }
+  }
+  return segs;
+}
+
+/** Lays the particles on a bolt: most on its channels (a tight core and a soft glow), some in the cloud base it lights, the rest in the flash where it lands. */
+function fillBolt(
+  segs: Seg[],
+  rnd: Float32Array,
+  pos: Float32Array,
+  glow: Float32Array,
+) {
+  const cum: number[] = [];
+  let total = 0;
+  for (const s of segs) {
+    total +=
+      Math.hypot(s.b[0] - s.a[0], s.b[1] - s.a[1], s.b[2] - s.a[2]) *
+      (0.25 + s.w);
+    cum.push(total);
+  }
+  const main = segs.filter((s) => s.w === 1);
+  const land = main[main.length - 1]?.b ?? [0, GROUND, 0];
+  const top = segs[0]?.a ?? [0, 26, 0];
+  const n = glow.length;
+  for (let i = 0; i < n; i++) {
+    const x = rnd[3 * i];
+    let p: V3;
+    let b = 0;
+    if (x < 0.6) {
+      const u = Math.random() * total;
+      let lo = 0;
+      let hi = cum.length - 1;
+      while (lo < hi) {
+        const m = (lo + hi) >> 1;
+        if (cum[m] < u) lo = m + 1;
+        else hi = m;
+      }
+      const s = segs[lo];
+      const f = Math.random();
+      const halo = Math.random() < 0.22;
+      const j = halo ? 0.5 + Math.random() * 1.1 : 0.1;
+      p = [
+        s.a[0] + (s.b[0] - s.a[0]) * f + (Math.random() - 0.5) * j,
+        s.a[1] + (s.b[1] - s.a[1]) * f + (Math.random() - 0.5) * j,
+        s.a[2] + (s.b[2] - s.a[2]) * f + (Math.random() - 0.5) * j,
+      ];
+      b = s.w * (halo ? 0.45 : 1);
+    } else if (x < 0.93) {
+      const r = Math.sqrt(Math.random()) * 40;
+      const a = Math.random() * Math.PI * 2;
+      p = [
+        top[0] * 0.5 + Math.cos(a) * r,
+        28 + (Math.random() - 0.5) * 4 * (1 - r / 44),
+        top[2] * 0.5 + Math.sin(a) * r,
+      ];
+    } else {
+      const r = Math.random() * 7;
+      const a = Math.random() * Math.PI * 2;
+      p = [
+        land[0] + Math.cos(a) * r,
+        GROUND + Math.random() * (1 - r / 7) * 2,
+        land[2] + Math.sin(a) * r,
+      ];
+      b = 0.6 * (1 - r / 7) + 0.05;
+    }
+    pos[3 * i] = p[0];
+    pos[3 * i + 1] = p[1];
+    pos[3 * i + 2] = p[2];
+    glow[i] = b;
+  }
+}
+
 export async function mount(
   el: HTMLElement,
   { tier, reduced }: Ctx,
@@ -269,6 +461,23 @@ export async function mount(
   );
   g.setAttribute("aId", new THREE.BufferAttribute(ids, 1));
   g.setAttribute("aRandom", new THREE.BufferAttribute(rnd, 3));
+  const boltPos = new THREE.BufferAttribute(new Float32Array(count * 3), 3);
+  const boltGlow = new THREE.BufferAttribute(new Float32Array(count), 1);
+  boltPos.setUsage(THREE.DynamicDrawUsage);
+  boltGlow.setUsage(THREE.DynamicDrawUsage);
+  g.setAttribute("aBolt", boltPos);
+  g.setAttribute("aBoltB", boltGlow);
+  const strike = () => {
+    fillBolt(
+      growBolt(),
+      rnd,
+      boltPos.array as Float32Array,
+      boltGlow.array as Float32Array,
+    );
+    boltPos.needsUpdate = true;
+    boltGlow.needsUpdate = true;
+  };
+  strike();
   g.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 80);
   const uniforms = {
     uTime: { value: 0 },
@@ -314,7 +523,14 @@ export async function mount(
   let morph = 0;
   let moving = false;
   const speed = reduced ? 0.3 : 1;
+  let bolt = 0;
   const l = loop((t, dt) => {
+    // A new bolt for every strike (the shader flashes once per 1 / 0.3 s of its clock).
+    const n = Math.floor(t * speed * 0.3);
+    if (n !== bolt) {
+      bolt = n;
+      if (from === 1 || to === 1) strike();
+    }
     mouse.x += (target.x - mouse.x) * dt * 2;
     mouse.y += (target.y - mouse.y) * dt * 2;
     if (moving) {

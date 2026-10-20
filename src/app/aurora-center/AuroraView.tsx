@@ -48,7 +48,7 @@ type Wind = {
   v: number | null;
   n: number | null;
 }[];
-type Now = {
+export type Now = {
   ovation: Ovation | null;
   kp: {
     now: { at: string; kp: number; minute: number | null } | null;
@@ -292,7 +292,13 @@ const runs = (pts: [number, number][]) =>
     }, [])
     .filter((r) => r.length > 1);
 
-function OvalMap({ o, a }: { o: Ovation | null; a: (k: string) => string }) {
+export function OvalMap({
+  o,
+  a,
+}: {
+  o: Ovation | null;
+  a: (k: string) => string;
+}) {
   const { active } = usePlaces();
   const map = useRef<MaplibreMap | null>(null);
   const [ready, setReady] = useState(false);
@@ -456,7 +462,13 @@ function OvalImage() {
   );
 }
 
-function KpPanel({ k, kc }: { k: Now["kp"]; kc: (k: string) => string }) {
+export function KpPanel({
+  k,
+  kc,
+}: {
+  k: Now["kp"];
+  kc: (k: string) => string;
+}) {
   if (!k?.bars.length)
     return (
       <p className={s.muted}>The Kp forecast isn&apos;t answering right now.</p>

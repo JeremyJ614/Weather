@@ -24,6 +24,7 @@ export const ALWAYS = new Set([
   "",
   "news",
   "disaster-response",
+  "donate",
   "profile",
   "settings",
   "notifications",

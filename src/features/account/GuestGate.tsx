@@ -9,7 +9,7 @@ import { useViewer } from "./useViewer";
 import s from "./GuestGate.module.css";
 
 const SEEN = "sswx-gate-seen";
-const QUIET = /^\/(login|signup|welcome|auth|join|privacy)(\/|$)/;
+const QUIET = /^\/(login|signup|welcome|auth|join|privacy|donate)(\/|$)/;
 
 /**
  * A guest's first visit (after the intro) and any members' page they ask for open this:

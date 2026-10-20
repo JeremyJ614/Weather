@@ -3,8 +3,7 @@
 import { useActionState, useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
 import { OrgFields } from "@/features/disaster/Forms";
-import type { Org, Status, Volunteer } from "@/lib/disaster/data";
-import faq from "@/app/faq/Faq.module.css";
+import type { Org, Status } from "@/lib/disaster/data";
 import { remove, saveOrg, setStatus } from "./actions";
 
 const LABEL: Record<Status, string> = {
@@ -63,14 +62,12 @@ function OrgForm({ org, onSaved }: { org?: Org; onSaved?: () => void }) {
 }
 
 function Row({
-  kind,
   id,
   status,
   children,
   title,
   sub,
 }: {
-  kind: "org" | "volunteer";
   id: string;
   status: Status;
   title: string;
@@ -84,7 +81,7 @@ function Row({
   if (gone) return null;
   const to = (v: Status) =>
     start(async () => {
-      const r = await setStatus(kind, id, v);
+      const r = await setStatus(id, v);
       if (r.error) setErr(r.error);
       else setNow(v);
     });
@@ -97,9 +94,7 @@ function Row({
             <span
               className={`ml-auto shrink-0 rounded-full border px-2 text-[10px] tracking-wider uppercase ${now === "approved" ? "border-[var(--lit-line)] text-accent" : "border-line text-muted"}`}
             >
-              {kind === "volunteer" && now === "approved"
-                ? "On the roster"
-                : LABEL[now]}
+              {LABEL[now]}
             </span>
           </span>
           <span className="block text-xs text-muted">{sub}</span>
@@ -113,10 +108,10 @@ function Row({
               className={lit}
               onClick={() => to("approved")}
             >
-              {kind === "org" ? "Approve and list" : "Approve"}
+              Approve and list
             </button>
           )}
-          {now === "approved" && kind === "org" && (
+          {now === "approved" && (
             <button
               type="button"
               disabled={pending}
@@ -143,7 +138,7 @@ function Row({
             onClick={() =>
               confirm(`Delete ${title}? This can't be undone.`) &&
               start(async () => {
-                const r = await remove(kind, id);
+                const r = await remove(id);
                 if (r.error) setErr(r.error);
                 else setGone(true);
               })
@@ -162,132 +157,34 @@ function Row({
   );
 }
 
-/** Admin → Disaster Response: every listing (edit, list, unlist, delete) and the roster. */
-export function DisasterAdmin({
-  orgs,
-  volunteers,
-}: {
-  orgs: Org[];
-  volunteers: Volunteer[];
-}) {
-  const [tab, setTab] = useState<"orgs" | "volunteers">("orgs");
+/** Admin → Disaster Response: every listing (add, edit, list, unlist, delete). */
+export function DisasterAdmin({ orgs }: { orgs: Org[] }) {
   const [adding, setAdding] = useState(false);
-  const [show, setShow] = useState<Status>("approved");
-  const names = new Map(orgs.map((o) => [o.id, o.name]));
-  const count = (s: Status) => volunteers.filter((v) => v.status === s).length;
-  const shown = volunteers.filter((v) => v.status === show);
-
   return (
     <div className="grid gap-3">
-      <div className={faq.tabs} role="tablist" aria-label="Disaster Response">
-        {(
-          [
-            ["orgs", `Organizations (${orgs.length})`],
-            ["volunteers", `Volunteers (${volunteers.length})`],
-          ] as const
-        ).map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            role="tab"
-            aria-selected={tab === id}
-            onClick={() => setTab(id)}
+      <details
+        className={box}
+        open={adding}
+        onToggle={(e) => setAdding(e.currentTarget.open)}
+      >
+        <summary className="cursor-pointer font-bold text-accent">
+          Add an organization
+        </summary>
+        {adding && <OrgForm onSaved={() => setAdding(false)} />}
+      </details>
+      <ul className="grid gap-2">
+        {orgs.map((o) => (
+          <Row
+            key={o.id}
+            id={o.id}
+            status={o.status}
+            title={o.name}
+            sub={o.areas}
           >
-            {label}
-          </button>
+            <OrgForm org={o} />
+          </Row>
         ))}
-      </div>
-
-      {tab === "orgs" && (
-        <>
-          <details
-            className={box}
-            open={adding}
-            onToggle={(e) => setAdding(e.currentTarget.open)}
-          >
-            <summary className="cursor-pointer font-bold text-accent">
-              Add an organization
-            </summary>
-            {adding && <OrgForm onSaved={() => setAdding(false)} />}
-          </details>
-          <ul className="grid gap-2">
-            {orgs.map((o) => (
-              <Row
-                key={o.id}
-                kind="org"
-                id={o.id}
-                status={o.status}
-                title={o.name}
-                sub={o.areas}
-              >
-                <OrgForm org={o} />
-              </Row>
-            ))}
-          </ul>
-        </>
-      )}
-
-      {tab === "volunteers" && (
-        <>
-          <div className={faq.tabs} role="tablist" aria-label="Show">
-            {(["approved", "pending", "declined"] as const).map((s) => (
-              <button
-                key={s}
-                type="button"
-                role="tab"
-                aria-selected={show === s}
-                onClick={() => setShow(s)}
-              >
-                {s === "approved" ? "On the roster" : LABEL[s]} ({count(s)})
-              </button>
-            ))}
-          </div>
-          {!shown.length ? (
-            <p className="text-sm text-muted">Nobody here yet.</p>
-          ) : (
-            <ul className="grid gap-2">
-              {shown.map((v) => (
-                <Row
-                  key={v.id}
-                  kind="volunteer"
-                  id={v.id}
-                  status={v.status}
-                  title={v.name}
-                  sub={`${v.base} · ${v.availability}`}
-                >
-                  <dl className="mt-3 grid gap-1 text-sm">
-                    <dd>
-                      <a
-                        href={`mailto:${v.email}`}
-                        className="text-accent underline"
-                      >
-                        {v.email}
-                      </a>
-                      {v.phone && <> · {v.phone}</>}
-                    </dd>
-                    <dd className="text-muted">
-                      Travels: {v.travel.toLowerCase()} · Wants to help:{" "}
-                      {(v.org_id && names.get(v.org_id)) || "wherever needed"}
-                    </dd>
-                    <dd>{v.skills.join(", ")}</dd>
-                    {v.note && (
-                      <dd className="whitespace-pre-wrap text-muted">
-                        {v.note}
-                      </dd>
-                    )}
-                    <dd className="text-xs text-muted">
-                      Signed up{" "}
-                      {new Date(v.created_at).toLocaleDateString("en-US", {
-                        dateStyle: "medium",
-                      })}
-                    </dd>
-                  </dl>
-                </Row>
-              ))}
-            </ul>
-          )}
-        </>
-      )}
+      </ul>
     </div>
   );
 }

@@ -1,4 +1,3 @@
-import { getColors } from "@/lib/colors/server";
 import { fieldEngine } from "@/lib/engines/fields";
 import type { FieldId } from "@/lib/engines/colors";
 
@@ -11,7 +10,7 @@ export async function GET(req: Request) {
   const e = new URL(req.url).searchParams.get("e") as FieldId;
   if (!IDS.includes(e)) return new Response("Bad request", { status: 400 });
   try {
-    return Response.json(await fieldEngine(e, await getColors()), {
+    return Response.json(await fieldEngine(e), {
       headers: {
         "Cache-Control": "public, s-maxage=1800, stale-while-revalidate=1800",
       },

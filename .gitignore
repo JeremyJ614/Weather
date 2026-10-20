@@ -44,3 +44,10 @@ budget.json
 __pycache__/
 /public/vendor/
 scripts/archive/spc.csv
+
+# Android packaging: only the TWA config is source; the generated project, builds and the
+# signing keystore never enter the repository.
+/packaging/android/*
+!/packaging/android/twa-manifest.json
+*.keystore
+*.jks

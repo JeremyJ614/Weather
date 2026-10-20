@@ -71,3 +71,37 @@ export async function serviceLayer<P>(
   };
   return j.features ?? [];
 }
+
+/** A track (LineString or MultiLineString) as an SVG path on the national canvas. */
+export function linePath(g: Geometry | null | undefined, tol = 0.6): string {
+  if (!g) return "";
+  const lines =
+    g.type === "LineString"
+      ? [(g as { coordinates: number[][] }).coordinates]
+      : g.type === "MultiLineString"
+        ? (g as { coordinates: number[][][] }).coordinates
+        : [];
+  let d = "";
+  for (const line of lines) {
+    if (line.length < 2) continue;
+    const lobe = lobeOf(line[0][0], line[0][1]);
+    let lx = Infinity;
+    let ly = Infinity;
+    let n = 0;
+    line.forEach(([lon, lat], i) => {
+      const { x, y } = projectIn(lobe, lon, lat);
+      if (
+        i &&
+        i < line.length - 1 &&
+        Math.abs(x - lx) < tol &&
+        Math.abs(y - ly) < tol
+      )
+        return;
+      d += `${n ? "L" : "M"}${x.toFixed(1)} ${y.toFixed(1)}`;
+      lx = x;
+      ly = y;
+      n++;
+    });
+  }
+  return d;
+}

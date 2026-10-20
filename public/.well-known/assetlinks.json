@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "space.sswx.weather",
+      "sha256_cert_fingerprints": [
+        "23:70:EE:8D:91:50:A1:DD:0B:03:98:8E:A2:6F:7A:EF:72:12:5A:21:66:5F:00:86:D2:B5:33:89:16:B6:BE:7D"
+      ]
+    }
+  }
+]

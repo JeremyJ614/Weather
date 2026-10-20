@@ -1,7 +1,10 @@
 import "server-only";
 import { PLACES } from "@/lib/geo/places.data";
 import { nearestPlace, parsePlaces } from "@/lib/geo/search";
+import { pathAreas, type Segment } from "./areas";
+import { TOR_BINS } from "./colors";
 import {
+  ahead,
   cone,
   hailBand,
   motion,
@@ -132,6 +135,8 @@ export async function probSevere() {
   rows ??= parsePlaces(PLACES);
   const tor: GeoJSON.Feature[] = [];
   const hail: GeoJSON.Feature[] = [];
+  const torPaths: Segment[] = [];
+  const hailPaths: Segment[] = [];
   const storms: EngineStorm[] = [];
   for (const c of cells(now)) {
     const o = torOutlook(c, prev.get(c.id));
@@ -164,18 +169,22 @@ export async function probSevere() {
         [40, 60, o.p60, 2],
         [20, 40, o.p40, 1],
         [0, 20, o.p20, 0],
-      ] as const)
+      ] as const) {
         tor.push({
           type: "Feature",
           properties: { id: c.id, p, step },
           geometry: { type: "Polygon", coordinates: [cone(c, from, to)] },
         });
-    if (band > 0 || c.hail >= 15)
+        torPaths.push({ a: ahead(c, from), b: ahead(c, to), value: p });
+      }
+    if (band > 0 || c.hail >= 15) {
       hail.push({
         type: "Feature",
         properties: { id: c.id, band, p: Math.round(c.hail) },
         geometry: { type: "Polygon", coordinates: [swath(c)] },
       });
+      hailPaths.push({ a: [c.lon, c.lat], b: ahead(c, 30), value: band + 1 });
+    }
   }
   storms.sort((a, b) => b.p20 - a.p20 || b.hail - a.hail);
   return {
@@ -190,5 +199,11 @@ export async function probSevere() {
       type: "FeatureCollection",
       features: hail,
     } as GeoJSON.FeatureCollection,
+    // SPC-style areas: the threat around each storm's next hour, nested by level.
+    torAreas: pathAreas(
+      torPaths,
+      TOR_BINS.map((b) => b.min),
+    ),
+    hailAreas: pathAreas(hailPaths, [0.5, 1.5, 2.5, 3.5], 6, 30),
   };
 }

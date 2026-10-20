@@ -92,7 +92,7 @@ export const ADMIN_SECTIONS: AdminSection[] = [
   {
     id: "disaster",
     group: "content",
-    desc: "Disaster Response listings and the volunteer roster",
+    desc: "Disaster Response listings",
     label: "Disaster Response",
     icon: "HeartHandshake",
     phase: "61",
@@ -280,22 +280,6 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     icon: "Palette",
     phase: "33",
     href: "/admin/colors",
-  },
-  {
-    id: "cameras",
-    group: "content",
-    desc: "Traffic camera sources",
-    label: "Traffic cameras",
-    icon: "Cctv",
-    phase: "48",
-  },
-  {
-    id: "engines",
-    group: "system",
-    desc: "Preview the forecast engines before they go public",
-    label: "Engine preview",
-    icon: "Cpu",
-    phase: "60b",
   },
 ];
 

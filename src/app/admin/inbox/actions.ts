@@ -35,12 +35,11 @@ export async function deleteMessage(id: string) {
   return {};
 }
 
-/** Approve or decline a Disaster Response sign-up from its inbox message. */
+/** Approve or decline a Disaster Response organization from its inbox message. */
 export async function reviewFromInbox(
-  kind: "org" | "volunteer",
   id: string,
   status: "approved" | "declined",
 ) {
   const { supabase } = await requireAdmin("inbox");
-  return reviewSignup(supabase, kind, id, status);
+  return reviewSignup(supabase, id, status);
 }

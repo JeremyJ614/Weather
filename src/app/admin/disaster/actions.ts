@@ -43,25 +43,18 @@ export async function saveOrg(_: SaveState, fd: FormData): Promise<SaveState> {
   return { saved: true };
 }
 
-export async function setStatus(
-  kind: "org" | "volunteer",
-  id: string,
-  status: Status,
-) {
+export async function setStatus(id: string, status: Status) {
   const { supabase } = await requireAdmin("disaster");
-  return reviewSignup(supabase, kind, id, status);
+  return reviewSignup(supabase, id, status);
 }
 
-export async function remove(kind: "org" | "volunteer", id: string) {
+export async function remove(id: string) {
   const { supabase } = await requireAdmin("disaster");
   if (!ID.test(id)) return { error: "That entry couldn't be found." };
-  const { error } = await supabase
-    .from(kind === "org" ? "disaster_orgs" : "disaster_volunteers")
-    .delete()
-    .eq("id", id);
+  const { error } = await supabase.from("disaster_orgs").delete().eq("id", id);
   if (error) return { error: "Couldn't delete. Try again." };
   await supabase.rpc("log_admin", {
-    p_action: `delete_disaster_${kind}`,
+    p_action: "delete_disaster_org",
     p_target: id,
     p_detail: {},
   });

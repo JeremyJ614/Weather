@@ -5,7 +5,7 @@ import { RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import type { Group } from "@/lib/colors/registry";
 import { saveGroup } from "./actions";
-import { Preview, previewSource } from "./Preview";
+import { Preview, hasPreview } from "./Preview";
 import s from "./Colors.module.css";
 
 const HEX = /^#[0-9a-f]{6}$/i;
@@ -52,7 +52,7 @@ export function GroupForm({
         <input type="hidden" name="group" value={group.id} />
         {group.note && <p className={s.note}>{group.note}</p>}
         {open &&
-          (previewSource(group.id) ? (
+          (hasPreview(group.id) ? (
             <Preview group={group} vals={vals} saved={current} />
           ) : (
             <p className={s.note}>

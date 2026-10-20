@@ -464,7 +464,7 @@ function View3D({
   );
 }
 
-function SkewPanel({
+export function SkewPanel({
   a,
   parcel,
   c,
@@ -488,7 +488,7 @@ function SkewPanel({
   );
 }
 
-function HodoPanel({ a, c }: { a: Analysis; c: (k: string) => string }) {
+export function HodoPanel({ a, c }: { a: Analysis; c: (k: string) => string }) {
   const dir = (p: { u: number; v: number }) =>
     Math.round(((Math.atan2(-p.u, -p.v) * 180) / Math.PI + 360) % 360);
   return (

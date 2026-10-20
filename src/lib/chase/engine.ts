@@ -21,13 +21,16 @@ import {
   type Hour,
   type Mode,
   type Spc,
+  MIN_SEP_MI,
 } from "./score";
 
 /**
  * The Storm Chasing engine. Once a day it reads SPC's Day 1 outlook, scans a 1° grid of
  * points inside the risk areas (or, on a quiet day, the Plains towns chasers watch),
  * scores every afternoon hour at each from Open-Meteo, picks the two best targets at least
- * 250 km apart, and saves the day in `chase_days`. Everyone reads the same row.
+ * MIN_SEP_MI apart (VIP's rule), and saves the day in `chase_days`. Everyone reads the same
+ * row. Plains towns just outside the risk area join the scan, so a small risk area still
+ * yields a second target far enough away to be its own chase.
  */
 const UA = { "User-Agent": "StormSync Weather (https://weather.sswx.space)" };
 const QUIET: [number, number][] = [
@@ -103,6 +106,18 @@ const km = (
       Math.sin(((b.lon - a.lon) * r) / 2) ** 2;
   return 12742 * Math.asin(Math.sqrt(h));
 };
+/** The best target, then the best one at least `minKm` from it (the next best if none is). */
+export function pickTwo<T extends { lat: number; lon: number }>(
+  ranked: T[],
+  minKm = MIN_SEP_MI * 1.609344,
+): T[] {
+  const first = ranked[0];
+  if (!first) return [];
+  const second =
+    ranked.find((x) => x !== first && km(x, first) >= minKm) ?? ranked[1];
+  return second ? [first, second] : [first];
+}
+
 export const chaseDay = (d = new Date()) =>
   d.toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
 
@@ -210,6 +225,18 @@ export async function runChase(
   points = points
     .sort((a, b) => b.spc.cat - a.spc.cat || b.spc.torn - a.spc.torn)
     .slice(0, past ? 16 : 60);
+  if (!quiet) {
+    // Towns outside the risk area, nearest first, so there is always a second chase.
+    const gap = (t: { lat: number; lon: number }) =>
+      Math.min(...points.map((p) => km(p, t)));
+    points.push(
+      ...QUIET.map(([lat, lon]) => ({ lat, lon }))
+        .filter((t) => gap(t) >= 100)
+        .sort((a, b) => gap(a) - gap(b))
+        .slice(0, past ? 6 : 12)
+        .map((t) => ({ ...t, spc: spcAt(t.lat, t.lon) })),
+    );
+  }
 
   const levels = ["10m", "925hPa", "850hPa", "700hPa", "500hPa"];
   const vars = [
@@ -363,9 +390,7 @@ export async function runChase(
     return best ? [{ ...p, ...best }] : [];
   });
   scored.sort((a, b) => b.score - a.score);
-  const picks = scored.slice(0, 1);
-  const second = scored.find((x) => picks[0] && km(x, picks[0]) > 250);
-  if (second) picks.push(second);
+  const picks = pickTwo(scored);
 
   const targets = await Promise.all(
     picks.map(async (x, i) => {

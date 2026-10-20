@@ -1,0 +1,543 @@
+.page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+  max-width: 42rem;
+  margin: 0 auto;
+  padding: 16px 16px 112px;
+}
+
+/* Hero: three soft aurora glows drifting behind the title (transform and opacity only). */
+.hero {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  display: grid;
+  gap: 14px;
+  padding: 28px 20px 22px;
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  background: var(--surface);
+}
+.glow {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+.glow span {
+  position: absolute;
+  width: 70%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--accent) 34%, transparent),
+    transparent 68%
+  );
+  opacity: 0.55;
+  animation: drift 14s var(--ease) infinite alternate;
+}
+.glow span:nth-child(1) {
+  top: -40%;
+  left: -20%;
+}
+.glow span:nth-child(2) {
+  top: -10%;
+  right: -35%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--accent2, var(--accent)) 30%, transparent),
+    transparent 68%
+  );
+  animation-duration: 18s;
+  animation-delay: -6s;
+}
+.glow span:nth-child(3) {
+  bottom: -55%;
+  left: 15%;
+  opacity: 0.35;
+  animation-duration: 22s;
+  animation-delay: -11s;
+}
+@keyframes drift {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(12%, 8%, 0) scale(1.18);
+  }
+}
+[data-tier="low"] .glow span {
+  animation: none;
+}
+.kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent);
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.kicker svg {
+  width: 16px;
+  height: 16px;
+}
+.title {
+  font-family: var(--font-display);
+  font-size: clamp(34px, 9vw, 52px);
+  font-weight: var(--display-weight, 800);
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+  text-transform: var(--display-case, none);
+}
+.title em {
+  font-style: normal;
+  color: var(--accent);
+  text-shadow: 0 0 28px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+.lede {
+  max-width: 34rem;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.6;
+}
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 4px;
+}
+.stats div {
+  padding: 12px 10px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--bg) 70%, transparent);
+  text-align: center;
+}
+.stats dt {
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.stats dd {
+  margin-top: 2px;
+  font-family: var(--font-display);
+  font-size: clamp(19px, 5.4vw, 26px);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Thank-you panel with a short burst of confetti. */
+.thanks {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 24px 20px;
+  border: 1.5px solid var(--lit-line);
+  border-radius: 24px;
+  background: var(--lit);
+  box-shadow: 0 0 40px -14px var(--accent);
+  text-align: center;
+  animation: rise var(--t-slow) var(--ease) both;
+}
+.thanks h2 {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--accent);
+}
+.thanks p {
+  max-width: 28rem;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+.thanksIcon {
+  width: 40px;
+  height: 40px;
+  color: var(--accent);
+  animation: beat 1.4s var(--ease) 2;
+}
+.confetti {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.confetti i {
+  position: absolute;
+  top: -10px;
+  left: calc(var(--i) * 3.6%);
+  width: 6px;
+  height: 12px;
+  border-radius: 2px;
+  background: var(--accent);
+  opacity: 0;
+  animation: fall 2.4s cubic-bezier(0.3, 0.6, 0.5, 1) calc(var(--i) * 45ms) 1
+    both;
+}
+.confetti i:nth-child(3n) {
+  background: var(--accent2, var(--accent));
+}
+.confetti i:nth-child(4n) {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+@keyframes fall {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) rotate(0deg);
+  }
+  12% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(calc((var(--i) - 14) * 2px), 260px, 0) rotate(540deg);
+  }
+}
+@keyframes beat {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  30% {
+    transform: scale(1.18);
+  }
+  60% {
+    transform: scale(0.96);
+  }
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 12px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* The giving card. */
+.card {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: var(--surface);
+}
+.toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--bg);
+}
+.toggle button {
+  min-height: 42px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 800;
+  transition: transform var(--t-fast) var(--ease);
+}
+.toggle button:active {
+  transform: scale(0.97);
+}
+.toggle button[aria-checked="true"] {
+  border-color: var(--lit-line);
+  background: var(--lit);
+  color: var(--accent);
+  box-shadow: 0 0 18px -8px var(--accent);
+}
+.label {
+  grid-column: 1 / -1;
+  margin-bottom: 2px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.presets {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.preset {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 14px 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--bg);
+  cursor: pointer;
+  transition: transform var(--t-fast) var(--ease);
+}
+.preset:active {
+  transform: scale(0.96);
+}
+.preset input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.preset b {
+  font-family: var(--font-display);
+  font-size: 21px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.preset small {
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.preset[data-on] {
+  border-color: var(--lit-line);
+  background: var(--lit);
+  box-shadow: 0 0 22px -10px var(--accent);
+}
+.preset[data-on] b,
+.preset[data-on] small {
+  color: var(--accent);
+}
+.preset:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.amount {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 60px;
+  padding: 0 16px;
+  border: 1.5px solid var(--lit-line);
+  border-radius: 16px;
+  background: var(--bg);
+  animation: rise var(--t-base) var(--ease) both;
+}
+.amount span {
+  color: var(--accent);
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 800;
+}
+.amount input {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  background: none;
+  border: 0;
+  outline: 0;
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.amount small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+.more summary {
+  cursor: pointer;
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 700;
+}
+.moreBody {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+.field {
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.field input,
+.field textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg);
+  font-size: 15px;
+  font-weight: 500;
+  resize: vertical;
+}
+.check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13.5px;
+}
+.check input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+.error {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: var(--text);
+  font-size: 13.5px;
+}
+.give {
+  position: relative;
+  min-height: 56px;
+  border: 1.5px solid var(--lit-line);
+  border-radius: 18px;
+  background: var(--lit);
+  color: var(--accent);
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  box-shadow: 0 0 30px -10px var(--accent);
+  transition:
+    transform var(--t-fast) var(--ease),
+    opacity var(--t-fast) var(--ease);
+}
+.give:active:not(:disabled) {
+  transform: scale(0.98);
+}
+.give:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.secure {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.5;
+  text-align: center;
+}
+.secure svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin-top: 2px;
+}
+
+/* Where gifts go. */
+.uses {
+  display: grid;
+  gap: 10px;
+}
+@media (min-width: 560px) {
+  .uses {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+.uses article {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--surface);
+}
+.uses svg {
+  width: 22px;
+  height: 22px;
+  color: var(--accent);
+  filter: drop-shadow(
+    0 0 6px color-mix(in srgb, var(--accent) 60%, transparent)
+  );
+}
+.uses h3 {
+  font-size: 15px;
+  font-weight: 800;
+}
+.uses p {
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+/* Supporters wall. */
+.wall {
+  display: grid;
+  gap: 12px;
+}
+.wall h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 800;
+}
+.wall h2 svg {
+  width: 20px;
+  height: 20px;
+  color: var(--accent);
+}
+.wall ul {
+  display: grid;
+  gap: 8px;
+}
+@media (min-width: 560px) {
+  .wall ul {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.wall li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 10px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+}
+.wall li b {
+  font-size: 14.5px;
+  font-weight: 800;
+}
+.amt {
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.wall q {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+.wall small {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 11.5px;
+}
+.empty {
+  padding: 18px;
+  border: 1px dashed var(--line);
+  border-radius: 18px;
+  color: var(--muted);
+  font-size: 14px;
+  text-align: center;
+}

@@ -37,6 +37,7 @@ import {
   type FieldId,
 } from "@/lib/engines/colors";
 import type { EngineStorm } from "@/lib/engines/probsevere";
+import type { Areas } from "@/lib/engines/areas";
 import radars from "@/lib/engines/radars.json";
 import s from "./Engines.module.css";
 
@@ -67,7 +68,7 @@ type FieldData = {
   fh: number;
   valid: string;
   bounds: number[];
-  image: string;
+  areas: Areas;
   spots: Spot[];
   fires?: Fire[];
   storms?: { name: string; lat: number; lon: number; mph: number }[];
@@ -97,6 +98,8 @@ type Data = {
   storms: EngineStorm[];
   tor: GeoJSON.FeatureCollection;
   hail: GeoJSON.FeatureCollection;
+  torAreas: Areas;
+  hailAreas: Areas;
 };
 const EMPTY: GeoJSON.FeatureCollection = {
   type: "FeatureCollection",
@@ -171,7 +174,7 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
     body: [
       "Every storm comes from NOAA and the University of Wisconsin's ProbSevere v3, which blends radar, satellite, lightning and the HRRR model into a tornado chance for each storm, updated every two minutes.",
       "ProbTor carries that chance 20 minutes forward and nudges it by what the storm is doing right now: whether its low-level rotation (radar azimuthal shear) has grown or weakened over the last 10 minutes, and whether its lightning has suddenly jumped, which often comes 10 to 20 minutes before severe weather.",
-      "Each storm is projected along its own motion as cones for 0–20, 20–40 and 40–60 minutes. The cones widen with time for track error, and the later chances only fade: past half an hour nobody can say much more.",
+      "Each storm is projected along its own motion for 0–20, 20–40 and 40–60 minutes, and the map draws the chances the way SPC draws an outlook: nested, outlined areas around each path that fade with distance, merging where storms run together. Zoom in to see each storm's own 20-minute cones. The later chances only fade: past half an hour nobody can say much more.",
       "This is an experimental guide, never a warning. Act on National Weather Service warnings.",
     ],
   },
@@ -282,6 +285,65 @@ async function blindImage(colors: Colors) {
   return c.toDataURL("image/png");
 }
 
+const merc = (lat: number) =>
+  Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360));
+
+/**
+ * MRMS's rotation-track look: every ~2 km cell painted as a pixel in its band color, so
+ * the cells join into the swaths a rotating storm leaves, on a canvas sized to the tracks.
+ */
+function rotImage(cells: RotData["cells"], color: (band: number) => string) {
+  if (!cells.length) return null;
+  const P = 0.02;
+  let [W, S, E, N] = [180, 90, -180, -90];
+  for (const c of cells) {
+    W = Math.min(W, c.lon);
+    E = Math.max(E, c.lon);
+    S = Math.min(S, c.lat);
+    N = Math.max(N, c.lat);
+  }
+  [W, S, E, N] = [W - P, S - P, E + P, N + P];
+  // Wide windows cover half the country; past ~2,400 px a pixel is two cells.
+  const px = Math.max(P, (E - W) / 2400);
+  const w = Math.ceil((E - W) / px);
+  const span = merc(N) - merc(S);
+  const h = Math.max(1, Math.ceil((span / ((px * Math.PI) / 180)) * 1));
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = h;
+  const ctx = c.getContext("2d")!;
+  const img = ctx.createImageData(w, h);
+  const rgb = ROT_BANDS.map((_, i) => {
+    const n = parseInt(color(i).replace("#", ""), 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255, 255];
+  });
+  const cell = Math.max(1, Math.round(P / px));
+  // Weakest first, so a stronger cell always paints over a weaker neighbor.
+  for (const k of [...cells].sort((a, b) => a.v - b.v)) {
+    const x0 = Math.floor((k.lon - P / 2 - W) / px);
+    const y0 = Math.floor(((merc(N) - merc(k.lat + P / 2)) / span) * h);
+    const col = rgb[rotBin(k.v)];
+    for (let y = y0; y < y0 + cell && y < h; y++)
+      for (let x = x0; x < x0 + cell && x < w; x++)
+        if (x >= 0 && y >= 0) img.data.set(col, (y * w + x) * 4);
+  }
+  ctx.putImageData(img, 0, 0);
+  return {
+    url: c.toDataURL("image/png"),
+    coordinates: [
+      [W, N],
+      [E, N],
+      [E, S],
+      [W, S],
+    ] as [
+      [number, number],
+      [number, number],
+      [number, number],
+      [number, number],
+    ],
+  };
+}
+
 const time = (iso: string) =>
   new Date(iso).toLocaleTimeString("en-US", {
     hour: "numeric",
@@ -375,10 +437,42 @@ export function EnginesTab({ colors }: { colors: Colors }) {
 
   const onReady = ({ map: any }: ReadyMap) => {
     const m = any as unknown as MaplibreMap;
+    // SPC-style areas: nested, filled and outlined per band.
+    const byBand = (color: (i: number) => string, n: number) =>
+      [
+        "match",
+        ["get", "band"],
+        ...Array.from({ length: n }, (_, i) => [i, color(i)]).flat(),
+        color(0),
+      ] as never;
+    for (const [id, color, n] of [
+      ["torA", torColor, TOR_BINS.length],
+      ["hailA", hailColor, HAIL_BANDS.length],
+      ["fieldA", (i: number) => fieldColor("llj", i), 5],
+    ] as const) {
+      m.addSource(id, { type: "geojson", data: EMPTY });
+      m.addLayer({
+        id: `${id}-fill`,
+        type: "fill",
+        source: id,
+        paint: { "fill-color": byBand(color, n), "fill-opacity": 0.45 },
+      });
+      m.addLayer({
+        id: `${id}-line`,
+        type: "line",
+        source: id,
+        paint: {
+          "line-color": byBand(color, n),
+          "line-width": 1.6,
+          "line-opacity": 0.95,
+        },
+      });
+    }
     m.addSource("tor", { type: "geojson", data: EMPTY });
     m.addSource("hail", { type: "geojson", data: EMPTY });
     m.addLayer({
       id: "tor-fill",
+      minzoom: 6.5,
       type: "fill",
       source: "tor",
       paint: {
@@ -398,6 +492,7 @@ export function EnginesTab({ colors }: { colors: Colors }) {
     });
     m.addLayer({
       id: "tor-line",
+      minzoom: 6.5,
       type: "line",
       source: "tor",
       paint: {
@@ -408,6 +503,7 @@ export function EnginesTab({ colors }: { colors: Colors }) {
     });
     m.addLayer({
       id: "hail-fill",
+      minzoom: 6.5,
       type: "fill",
       source: "hail",
       paint: {
@@ -427,35 +523,13 @@ export function EnginesTab({ colors }: { colors: Colors }) {
     });
     m.addLayer({
       id: "hail-line",
+      minzoom: 6.5,
       type: "line",
       source: "hail",
       paint: {
         "line-color": "#ffffff",
         "line-opacity": 0.4,
         "line-width": 0.8,
-      },
-    });
-    m.addSource("rot", { type: "geojson", data: EMPTY });
-    const rotStep = (): unknown[] =>
-      ROT_BANDS.flatMap((b, i) => (i ? [b.min, rotColor(i)] : [rotColor(0)]));
-    m.addLayer({
-      id: "rot-glow",
-      type: "circle",
-      source: "rot",
-      paint: {
-        "circle-color": ["step", ["get", "v"], ...rotStep()] as never,
-        "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 3, 9, 9],
-        "circle-blur": 1,
-        "circle-opacity": 0.55,
-      },
-    });
-    m.addLayer({
-      id: "rot-core",
-      type: "circle",
-      source: "rot",
-      paint: {
-        "circle-color": ["step", ["get", "v"], ...rotStep()] as never,
-        "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 1, 9, 3],
       },
     });
     m.addSource("fires", { type: "geojson", data: EMPTY });
@@ -531,48 +605,39 @@ export function EnginesTab({ colors }: { colors: Colors }) {
     const vis = (id: string, on: boolean) =>
       m.getLayer(id) &&
       m.setLayoutProperty(id, "visibility", on ? "visible" : "none");
+    vis("torA-fill", e === "tor");
+    vis("torA-line", e === "tor");
+    vis("hailA-fill", e === "hail");
+    vis("hailA-line", e === "hail");
+    vis("fieldA-fill", isField(e));
+    vis("fieldA-line", isField(e));
     vis("tor-fill", e === "tor");
     vis("tor-line", e === "tor");
     vis("hail-fill", e === "hail");
     vis("hail-line", e === "hail");
     vis("blind", e === "blind");
     vis("radars", e === "blind");
-    vis("rot-glow", e === "rot");
-    vis("rot-core", e === "rot");
+    vis("rot", e === "rot");
     vis("fires", e === "pyro");
-    vis("field", isField(e));
   };
 
   useEffect(() => {
     if (!map) return;
     const f = isField(engine) ? fields[engine] : undefined;
-    if (f && f !== "error") {
-      const [W, S, E, N] = f.bounds;
-      const coordinates: [
-        [number, number],
-        [number, number],
-        [number, number],
-        [number, number],
-      ] = [
-        [W, N],
-        [E, N],
-        [E, S],
-        [W, S],
-      ];
-      const src = map.getSource("field") as ImageSource | undefined;
-      if (src) src.updateImage({ url: f.image, coordinates });
-      else {
-        map.addSource("field", { type: "image", url: f.image, coordinates });
-        map.addLayer(
-          {
-            id: "field",
-            type: "raster",
-            source: "field",
-            paint: { "raster-opacity": 0.72, "raster-fade-duration": 0 },
-          },
-          "tor-fill",
-        );
-      }
+    if (f && f !== "error" && isField(engine)) {
+      (map.getSource("fieldA") as GeoJSONSource | undefined)?.setData(f.areas);
+      const n = FIELD_BANDS[engine].levels.length;
+      const expr = [
+        "match",
+        ["get", "band"],
+        ...Array.from({ length: n }, (_, i) => [
+          i,
+          fieldColor(engine, i),
+        ]).flat(),
+        fieldColor(engine, 0),
+      ] as never;
+      map.setPaintProperty("fieldA-fill", "fill-color", expr);
+      map.setPaintProperty("fieldA-line", "line-color", expr);
       (map.getSource("fires") as GeoJSONSource | undefined)?.setData({
         type: "FeatureCollection",
         features: (f.fires ?? []).map((x) => ({
@@ -582,21 +647,39 @@ export function EnginesTab({ colors }: { colors: Colors }) {
         })),
       });
     }
-    if (rot && rot !== "error")
-      (map.getSource("rot") as GeoJSONSource | undefined)?.setData({
-        type: "FeatureCollection",
-        features: rot.cells.map((c) => ({
-          type: "Feature",
-          properties: { v: c.v },
-          geometry: { type: "Point", coordinates: [c.lon, c.lat] },
-        })),
-      });
+    if (rot && rot !== "error") {
+      const img = rotImage(rot.cells, rotColor);
+      const src = map.getSource("rot") as ImageSource | undefined;
+      if (img && src) src.updateImage(img);
+      else if (img) {
+        map.addSource("rot", { type: "image", ...img });
+        map.addLayer(
+          {
+            id: "rot",
+            type: "raster",
+            source: "rot",
+            paint: {
+              "raster-opacity": 0.95,
+              "raster-fade-duration": 0,
+              "raster-resampling": "nearest",
+            },
+          },
+          "torA-fill",
+        );
+      } else if (src) map.setLayoutProperty("rot", "visibility", "none");
+    }
     show(map, engine);
     if (data) {
       (map.getSource("tor") as GeoJSONSource | undefined)?.setData(data.tor);
       (map.getSource("hail") as GeoJSONSource | undefined)?.setData(data.hail);
+      (map.getSource("torA") as GeoJSONSource | undefined)?.setData(
+        data.torAreas,
+      );
+      (map.getSource("hailA") as GeoJSONSource | undefined)?.setData(
+        data.hailAreas,
+      );
     }
-  }, [map, engine, data, fields, rot]);
+  }, [map, engine, data, fields, rot, colors]); // eslint-disable-line react-hooks/exhaustive-deps -- the color helpers derive from colors
 
   const storms =
     data?.storms.filter((x) =>
@@ -668,7 +751,8 @@ export function EnginesTab({ colors }: { colors: Colors }) {
       </div>
       {engine === "tor" && (
         <p className={s.small}>
-          Brightest cone: next 20 minutes. Fainter: 20–40 and 40–60 minutes.
+          Areas: the chance within about 25 miles over the next hour. Zoomed in,
+          each storm&apos;s cones show its next 20, 40 and 60 minutes.
         </p>
       )}
 

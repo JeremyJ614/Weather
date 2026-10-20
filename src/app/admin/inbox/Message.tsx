@@ -15,7 +15,7 @@ export type Msg = {
   read: boolean;
   created_at: string;
   /** A Disaster Response sign-up waiting on (or past) approval. */
-  review?: { kind: "org" | "volunteer"; id: string; status: Status };
+  review?: { id: string; status: Status };
 };
 
 const STATUS: Record<Status, string> = {
@@ -42,7 +42,7 @@ export function Message({ m }: { m: Msg }) {
   const review = (v: "approved" | "declined") =>
     m.review &&
     start(async () => {
-      const r = await reviewFromInbox(m.review!.kind, m.review!.id, v);
+      const r = await reviewFromInbox(m.review!.id, v);
       if (r.error) setErr(r.error);
       else {
         setStatus(v);
@@ -97,7 +97,7 @@ export function Message({ m }: { m: Msg }) {
                 className="ml-auto flex min-h-10 items-center gap-1 rounded-xl border border-[var(--lit-line)] bg-[var(--lit)] px-3 font-bold text-accent"
               >
                 <Check className="size-4" />
-                {m.review.kind === "org" ? "Approve and list" : "Approve"}
+                Approve and list
               </button>
             )}
             {status !== "declined" && (
