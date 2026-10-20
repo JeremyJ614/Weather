@@ -54,6 +54,7 @@ export async function GET(request: Request) {
     db.from("poll_votes").delete().lt("voted_at", day(731)),
     db.from("sswxcon_snapshots").delete().lt("at", day(30)),
     db.from("ai_usage").delete().lt("day", day(90)),
+    db.from("donations").delete().lt("created_at", day(2557)),
     db
       .from("disaster_orgs")
       .delete()

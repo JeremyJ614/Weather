@@ -115,4 +115,4 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 - [x] 69. Full walkthrough as a real user on every page (2026-10-20: 46 pages, 227 tabs and sections opened in a phone browser in Central time, no errors)
 - [x] 70. Packaging: Android .apk, iPhone Home Screen install, launch on Weather.SSWX.Space (2026-10-20: signed TWA APK `space.sswx.weather` 1.0.0 built with Bubblewrap, served at /downloads/stormsync-weather.apk, Digital Asset Links live with the merge; iPhone via Safari Add to Home Screen; the site is live on weather.sswx.space and every merge to main deploys there)
 
-Post-launch items (Personal Warnings, Affected Communities, Virtual Store, Services, Partnerships, Non-Profit Campaigns, Donations, Members Suite) go into the BuildPlan's post-launch section and stay off the menus until their work starts.
+Post-launch items (Personal Warnings, Affected Communities, Virtual Store, Services, Partnerships, Non-Profit Campaigns, Members Suite; Donations was built early at the owner's request, Fix-It List #16) go into the BuildPlan's post-launch section and stay off the menus until their work starts.

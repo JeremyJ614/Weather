@@ -133,6 +133,7 @@ describe("pages every plan includes", () => {
       "notifications",
       "news",
       "disaster-response",
+      "donate",
     ])
       expect(SELLABLE_SLUGS).not.toContain(slug);
     expect([...ALWAYS_OPEN].every((s) => !SELLABLE_SLUGS.includes(s))).toBe(

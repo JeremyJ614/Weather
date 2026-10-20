@@ -149,3 +149,58 @@ export async function cancelSubscription(id: string) {
   // Already canceled is fine: the point is that nothing bills again.
   if (!r.ok && r.status !== 404) throw new Error(`Stripe ${r.status}`);
 }
+
+/**
+ * A donation Checkout: a one-time gift, or a monthly one (a subscription). Marked
+ * `kind: donation` so the webhook records it as a gift and never as a plan.
+ */
+export async function donationCheckoutUrl(o: {
+  cents: number;
+  monthly: boolean;
+  name: string | null;
+  message: string | null;
+  wall: boolean;
+  user: string | null;
+  email?: string | null;
+  origin: string;
+}) {
+  const metadata = {
+    kind: "donation",
+    name: o.name ?? "",
+    message: o.message ?? "",
+    wall: o.wall ? "1" : "0",
+    user_id: o.user ?? "",
+  };
+  const session = await stripe<{ url: string }>("checkout/sessions", {
+    mode: o.monthly ? "subscription" : "payment",
+    ...(o.monthly ? {} : { submit_type: "donate" }),
+    ...(o.email ? { customer_email: o.email } : {}),
+    line_items: [
+      {
+        quantity: 1,
+        price_data: {
+          currency: "usd",
+          unit_amount: o.cents,
+          ...(o.monthly ? { recurring: { interval: "month" } } : {}),
+          product_data: {
+            name: o.monthly
+              ? "Monthly gift to StormSync Weather"
+              : "Gift to StormSync Weather",
+          },
+        },
+      },
+    ],
+    metadata,
+    ...(o.monthly
+      ? { subscription_data: { metadata } }
+      : {
+          payment_intent_data: {
+            metadata,
+            description: "Donation to StormSync Weather",
+          },
+        }),
+    success_url: `${o.origin}/donate?thanks=1`,
+    cancel_url: `${o.origin}/donate`,
+  });
+  return session.url;
+}

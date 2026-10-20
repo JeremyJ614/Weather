@@ -127,6 +127,7 @@ export const MAIN_NAV: NavGroup[] = [
       p("weather-patterns", "Weather Patterns", "Wind", "57"),
       p("extras", "Extras", "FlaskConical", "58–60"),
       p("disaster-response", "Disaster Response", "HeartHandshake", "61"),
+      p("donate", "Donate", "HandCoins", "Fix-It 16"),
     ],
   },
   {
@@ -170,10 +171,10 @@ export const ALL_PAGES: NavPage[] = [...MAIN_NAV, ...SECOND_NAV].flatMap(
 export const href = (page: NavPage) => `/${page.slug}`;
 
 /** Pages anyone can open without an account (everything else asks them to sign up). */
-export const GUEST_PAGES = ["", "disaster-response", "join", "login"];
+export const GUEST_PAGES = ["", "disaster-response", "donate", "join", "login"];
 /** Paths a guest may request; the proxy sends everything else to the signup gate. */
 export const GUEST_PATHS =
-  /^\/(?:$|disaster-response|join|login|signup|welcome|auth|privacy|news|offline|sswxcon|contact|faq|closed|api)(?:\/|$)/;
+  /^\/(?:$|disaster-response|donate|join|login|signup|welcome|auth|privacy|news|offline|sswxcon|contact|faq|closed|api)(?:\/|$)/;
 
 /**
  * Groups as a given viewer may see them. Signed-in members see "My Account" instead of
