@@ -96,7 +96,7 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 - [x] 59. Extras: first engines (Radar Blind Spot, ProbTor, ProbHail)
 - [x] 60. Extras: next engines (Rotation Track Persistence, Nocturnal LLJ, Landspout/Waterspout, Snow Squall, Wildfire/PyroCb, Landfalling Hurricane Tornado Risk)
 - [ ] 60b. Engine Preview: private admin-only area where post-launch engines are built and shown to the owner for approval before release
-- [ ] 61. Disaster Response directory, sign-up form and admin inbox
+- [x] 61. Disaster Response directory, sign-up form and admin inbox (Final Fix-It #19: five starting organizations, organization and volunteer sign-up, approval in the Contact inbox, admin → Disaster Response; migration `20261020010000_disaster_response.sql` waits on the owner's approval to apply)
 
 ## Account
 - [x] 62. My Profile (identity and plan, points, streaks, guesses, trivia accuracy, poll votes, badges, leaderboard titles, saved places, referral code; edit name/nickname/city/phone)
