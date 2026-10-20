@@ -3,7 +3,7 @@
 -- volunteers sign up through disaster_apply(), which also files the sign-up in admin →
 -- Contact inbox; nothing shows publicly until an admin approves it there.
 -- Retention: approved rows stay until an admin removes them; declined rows are deleted 30
--- days after the decision (job below); a volunteer's user link clears with the account.
+-- days after the decision (storage watchdog); a volunteer's user link clears with the account.
 
 -- Retention: kept while approved or pending; declined rows go 30 days after the decision.
 create table if not exists public.disaster_orgs (
@@ -117,10 +117,8 @@ $$;
 revoke execute on function public.disaster_apply(text, text, text, text, text, jsonb) from public;
 grant execute on function public.disaster_apply(text, text, text, text, text, jsonb) to anon, authenticated;
 
-select cron.schedule('disaster-prune', '23 4 * * *', $$
-  delete from public.disaster_volunteers where status = 'declined' and reviewed_at < now() - interval '30 days';
-  delete from public.disaster_orgs where status = 'declined' and reviewed_at < now() - interval '30 days';
-$$);
+-- Declined sign-ups are deleted 30 days after the decision by the daily storage watchdog
+-- (src/app/api/cron/storage-watchdog), with the other retention rules.
 
 -- The five starting organizations (the owner asked for five to be chosen): national groups
 -- that work U.S. tornado, flood and hurricane disasters. Links checked 2026-10-20.

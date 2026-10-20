@@ -281,22 +281,6 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     phase: "33",
     href: "/admin/colors",
   },
-  {
-    id: "cameras",
-    group: "content",
-    desc: "Traffic camera sources",
-    label: "Traffic cameras",
-    icon: "Cctv",
-    phase: "48",
-  },
-  {
-    id: "engines",
-    group: "system",
-    desc: "Preview the forecast engines before they go public",
-    label: "Engine preview",
-    icon: "Cpu",
-    phase: "60b",
-  },
 ];
 
 export const sectionIds = new Set(

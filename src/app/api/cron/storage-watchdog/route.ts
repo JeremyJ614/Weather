@@ -30,7 +30,8 @@ export async function GET(request: Request) {
   }
   // Retention (storage safety rule 2): snapshots 400 days, map-load months 24 months,
   // idle PIN lockout rows 30 days, audit log 1 year, error groups 30 days,
-  // story pins/hides 30 days, sent alerts 30 days.
+  // story pins/hides 30 days, sent alerts 30 days, declined Disaster Response sign-ups 30
+  // days after the decision.
   const day = (n: number) =>
     new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
   const pruned = await Promise.all([
@@ -53,6 +54,16 @@ export async function GET(request: Request) {
     db.from("poll_votes").delete().lt("voted_at", day(731)),
     db.from("sswxcon_snapshots").delete().lt("at", day(30)),
     db.from("ai_usage").delete().lt("day", day(90)),
+    db
+      .from("disaster_orgs")
+      .delete()
+      .eq("status", "declined")
+      .lt("reviewed_at", day(30)),
+    db
+      .from("disaster_volunteers")
+      .delete()
+      .eq("status", "declined")
+      .lt("reviewed_at", day(30)),
   ]);
   const pruneError = pruned.find((r) => r.error)?.error;
   if (pruneError) {
