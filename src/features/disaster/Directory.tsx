@@ -2,6 +2,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import {
   ExternalLink,
   HandHeart,
@@ -12,11 +13,18 @@ import {
 } from "lucide-react";
 import { SOCIALS, type Org } from "@/lib/disaster/data";
 import { OrgSignup } from "./Forms";
+
+// The map library loads only when the shelter tab opens.
+const ShelterMap = dynamic(
+  () => import("./ShelterMap").then((m) => m.ShelterMap),
+  { ssr: false },
+);
 import faq from "@/app/faq/Faq.module.css";
 import s from "./Disaster.module.css";
 
 const TABS = [
   { id: "orgs", label: "Organizations" },
+  { id: "shelters", label: "Storm shelters" },
   { id: "list", label: "List your organization" },
 ] as const;
 type Tab = (typeof TABS)[number]["id"];
@@ -118,13 +126,17 @@ export function Directory({
   orgs,
   initial,
   prefill,
+  shelters,
 }: {
   orgs: Org[];
   initial?: string;
   prefill: { name: string; email: string };
+  /** The shelter map's colors, or null while the admin has it switched off. */
+  shelters: { open: string; registered: string } | null;
 }) {
+  const tabs = TABS.filter((t) => t.id !== "shelters" || shelters);
   const [tab, setTab] = useState<Tab>(
-    TABS.find((t) => t.id === initial)?.id ?? "orgs",
+    tabs.find((t) => t.id === initial)?.id ?? "orgs",
   );
   const [q, setQ] = useState("");
   const [need, setNeed] = useState<string | null>(null);
@@ -146,7 +158,7 @@ export function Directory({
   return (
     <div className={faq.wrap}>
       <div className={faq.tabs} role="tablist" aria-label="Disaster Response">
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <button
             key={t.id}
             type="button"
@@ -208,6 +220,8 @@ export function Directory({
           </p>
         </section>
       )}
+
+      {tab === "shelters" && shelters && <ShelterMap colors={shelters} />}
 
       {tab === "list" && (
         <section role="tabpanel" className={s.panel}>

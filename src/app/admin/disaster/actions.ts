@@ -1,6 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
+import { SITE_DEFAULTS_TAG } from "@/lib/settings";
 import { requireAdmin } from "@/lib/auth/admin-guard";
 import { checkOrg, type Status } from "@/lib/disaster/data";
 import { reviewSignup } from "@/lib/disaster/review";
@@ -59,5 +60,32 @@ export async function remove(id: string) {
     p_detail: {},
   });
   done();
+  return {};
+}
+
+/** Turns the Storm Shelter map on Disaster Response on or off (the "shelters" switch). */
+export async function setShelterMap(on: boolean) {
+  const { supabase } = await requireAdmin("disaster");
+  const { data } = await supabase
+    .from("app_config")
+    .select("value")
+    .eq("key", "disabled_modules")
+    .maybeSingle();
+  const was = Array.isArray(data?.value) ? (data.value as string[]) : [];
+  const next = on
+    ? was.filter((m) => m !== "shelters")
+    : [...new Set([...was, "shelters"])];
+  const { error } = await supabase
+    .from("app_config")
+    .update({ value: next, updated_at: new Date().toISOString() })
+    .eq("key", "disabled_modules");
+  if (error) return { error: "Couldn't save. Try again." };
+  await supabase.rpc("log_admin", {
+    p_action: on ? "shelter_map_on" : "shelter_map_off",
+    p_target: "disaster-response",
+    p_detail: {},
+  });
+  updateTag(SITE_DEFAULTS_TAG);
+  revalidatePath("/disaster-response");
   return {};
 }

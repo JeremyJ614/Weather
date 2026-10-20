@@ -13,6 +13,7 @@ import { BANDS } from "@/lib/sswxcon/score";
 import { COLOR as WARN } from "@/lib/warnings/style";
 import { RARITY } from "@/lib/badges";
 import { GAUGE_LEVELS } from "@/lib/rivers/style";
+import { SHELTER_COLORS } from "@/lib/disaster/style";
 import { SND_BANDS, SND_LINES } from "@/lib/soundings/style";
 import { CAM_KINDS } from "@/lib/cams/style";
 import { SKY_BANDS, SKY_APERTURE } from "@/lib/sky/score";
@@ -564,6 +565,16 @@ export const GROUPS: Group[] = [
       key: `gauge:${g.key}`,
       label: g.label,
       def: g.color,
+    })),
+  },
+  {
+    id: "shelters",
+    label: "Storm shelters",
+    note: "The Storm Shelter map on Disaster Response.",
+    entries: SHELTER_COLORS.map((c) => ({
+      key: `shelter:${c.key}`,
+      label: c.label,
+      def: c.color,
     })),
   },
   {
