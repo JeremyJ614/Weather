@@ -28,7 +28,8 @@ const RouteBuilder = dynamic(
   { ssr: false },
 );
 
-type Stage = "drop" | "draw" | "read" | "finding" | "review" | "saving";
+type Stage =
+  "drop" | "draw" | "date" | "read" | "finding" | "review" | "saving";
 
 const clock = (epoch: number, tz: string) =>
   new Date(epoch * 1000).toLocaleTimeString("en-US", {
@@ -44,11 +45,14 @@ const clock = (epoch: number, tz: string) =>
  */
 export function ChaseImport({
   ef,
+  report,
   route,
   onSaved,
   onCancel,
 }: {
   ef: (k: string) => string;
+  /** Storm report colors by kind, for the day drawn under a route. */
+  report: (k: string) => string;
   /** The chaser's track color, for the route drawn by hand. */
   route: string;
   onSaved: (row: ChaseRow) => void;
@@ -218,13 +222,24 @@ export function ChaseImport({
               GPX, KML, TCX, GeoJSON, CSV, or the JSON from Google Timeline.
             </p>
           </div>
-          <button
-            type="button"
-            className={s.add}
-            onClick={() => setStage("draw")}
-          >
-            No track? Draw your route on the map
-          </button>
+          <div className={s.ways}>
+            <button
+              type="button"
+              className={s.add}
+              onClick={() => setStage("date")}
+            >
+              No track? Pick the day first
+              <small>Load that day&apos;s storms, then draw your route</small>
+            </button>
+            <button
+              type="button"
+              className={s.add}
+              onClick={() => setStage("draw")}
+            >
+              Draw your route on the map
+              <small>Then the storms near it are found</small>
+            </button>
+          </div>
           <ol className={s.how}>
             <li>
               <b>Your track is read on this phone.</b> It is thinned to the
@@ -244,9 +259,16 @@ export function ChaseImport({
         </>
       )}
 
-      {stage === "draw" && (
+      {(stage === "draw" || stage === "date") && (
         <>
-          <RouteBuilder color={route} onDone={(t) => void find(t, "draw")} />
+          <RouteBuilder
+            key={stage}
+            color={route}
+            ef={ef}
+            report={report}
+            dateFirst={stage === "date"}
+            onDone={(t) => void find(t, stage)}
+          />
           <button
             type="button"
             className={s.quiet}

@@ -803,3 +803,68 @@ async function fetchWarnings(
 
 /** What a chaser would call a stone this big — re-exported so the UI has one import. */
 export { hailName };
+
+/** What a chaser sees before drawing a route on a chosen day. */
+export interface DayStorms {
+  tracks: { ef: string; coords: [number, number][] }[];
+  reports: {
+    kind: "tornado" | "funnel" | "hail" | "wind";
+    lat: number;
+    lon: number;
+  }[];
+}
+
+/** LSR type codes a chase map shows, by what they are. */
+const DAY_KIND: Record<string, DayStorms["reports"][number]["kind"]> = {
+  T: "tornado",
+  C: "funnel",
+  H: "hail",
+  G: "wind",
+  D: "wind",
+};
+
+/**
+ * Every surveyed tornado track and storm report of one convective day (12 UTC to 12 UTC,
+ * the day SPC and chasers count), across the lower 48: the map a route is drawn over when
+ * the chaser picks the date first.
+ */
+export async function dayStorms(
+  day: string,
+  opts: { signal?: AbortSignal; fetchImpl?: typeof fetch } = {},
+): Promise<DayStorms> {
+  const f = opts.fetchImpl ?? fetch;
+  const from = new Date(`${day}T12:00:00Z`);
+  const to = new Date(from.getTime() + 86_400_000);
+  const us: Bbox = { west: -125, south: 24, east: -66, north: 50 };
+  const [lines, lsr] = await Promise.all([
+    queryLayer(
+      LAYER.lines,
+      us,
+      from,
+      to,
+      "efscale,starttime",
+      true,
+      f,
+      opts.signal,
+    ),
+    fetchLsr(from, to, f, opts.signal),
+  ]);
+  const t0 = from.getTime();
+  const t1 = to.getTime();
+  const tracks: DayStorms["tracks"] = [];
+  for (const row of lines) {
+    const start = num(row.attributes.starttime, NaN);
+    // The survey query pads a day either side; keep this day's tornadoes.
+    if (Number.isFinite(start) && (start < t0 || start >= t1)) continue;
+    const coords = ((row.geometry?.paths ?? []) as [number, number][][])
+      .flat()
+      .filter((c) => Number.isFinite(c[0]) && Number.isFinite(c[1]));
+    if (coords.length >= 2)
+      tracks.push({ ef: EF(row.attributes.efscale), coords });
+  }
+  const reports = lsr.flatMap((r) => {
+    const kind = DAY_KIND[r.type];
+    return kind ? [{ kind, lat: r.lat, lon: r.lon }] : [];
+  });
+  return { tracks, reports: reports.slice(0, 4000) };
+}
