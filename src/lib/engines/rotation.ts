@@ -200,7 +200,7 @@ const cellKey = (lat: number, lon: number) =>
   `${Math.round(lat / POOL)}:${Math.round(lon / POOL)}`;
 
 /** Fetches a one-field MRMS GRIB2 and calls `hit` for every CONUS cell at or above `min`. */
-async function scan(
+export async function scan(
   src: string,
   min: number,
   hit: (lat: number, lon: number, v: number) => void,
@@ -230,15 +230,19 @@ async function scan(
 }
 
 /** The ~2 km cells where MRMS estimated hail over the window: where a storm's updraft was. */
-async function hailSwath(win: RotWindow) {
+async function hailSwath(src: string) {
   const keys = new Set<string>();
-  await scan(meshUrl(win), MESH_MIN, (lat, lon) => keys.add(cellKey(lat, lon)));
+  await scan(src, MESH_MIN, (lat, lon) => keys.add(cellKey(lat, lon)));
   return keys;
 }
 
 let rows: ReturnType<typeof parsePlaces> | null = null;
 
-export async function rotationTracks(win: RotWindow = 60) {
+/** `archive` reads past MRMS files instead of the latest (the color editor's example). */
+export async function rotationTracks(
+  win: RotWindow = 60,
+  archive?: { rot: string; mesh: string },
+) {
   // Over two hours or less, the storms that left the tracks are still on ProbSevere's list.
   // Longer windows include storms that have since died, so there a track must instead run
   // through MRMS's hail swath for the same window: a storm's updraft really was there.
@@ -246,7 +250,7 @@ export async function rotationTracks(win: RotWindow = 60) {
   const pool = new Map<string, RotCell>();
   const [stamp, storms, hail] = await Promise.all([
     // MRMS stores rotation tracks in units of 0.001 s⁻¹, the unit ROT_MIN is in.
-    scan(url(win), ROT_MIN, (lat, lon, v) => {
+    scan(archive?.rot ?? url(win), ROT_MIN, (lat, lon, v) => {
       const k = cellKey(lat, lon);
       const had = pool.get(k);
       if (!had || had.v < v)
@@ -257,7 +261,7 @@ export async function rotationTracks(win: RotWindow = 60) {
         });
     }),
     recent ? stormCenters().catch(() => null) : null,
-    recent ? null : hailSwath(win).catch(() => null),
+    recent ? null : hailSwath(archive?.mesh ?? meshUrl(win)).catch(() => null),
   ]);
   // Rotation only counts inside a real storm: within 50 km of one ProbSevere is tracking.
   // That drops sea clutter, wind farms and other radar noise.

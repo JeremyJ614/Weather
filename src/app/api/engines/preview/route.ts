@@ -1,26 +1,47 @@
 import { probSevere } from "@/lib/engines/probsevere";
-import { pyroBin, rotBin, torBin, type FieldId } from "@/lib/engines/colors";
-import { fieldDots } from "@/lib/engines/fields";
+import { pyroBin, rotBin, type FieldId } from "@/lib/engines/colors";
+import { fieldPreview } from "@/lib/engines/fields";
 import { rotationTracks } from "@/lib/engines/rotation";
+import type { Areas } from "@/lib/engines/areas";
+import { geoPath } from "@/lib/map/geo";
+import { project } from "@/lib/map/usAlbers";
 
 export const maxDuration = 60;
 import radars from "@/lib/engines/radars.json";
 
-/** Dots for admin → Map & data colors: today's engine storms, or the blind-spot grid sampled. */
+/** An engine's band areas as key-carrying paths for the color editor's live preview. */
+const polys = (a: Areas | null | undefined, id: string) =>
+  (a?.features ?? [])
+    .map((f) => ({
+      k: `engine:${id}:${f.properties.band}`,
+      d: geoPath(f.geometry, 0.6),
+    }))
+    .filter((p) => p.d);
+
+/** Previews for admin → Map & data colors: today's engine areas, tracks, fires or grid. */
 export async function GET(req: Request) {
   const e = new URL(req.url).searchParams.get("e");
   if (e === "rot") {
-    const r = await rotationTracks(1440).catch(() => null);
+    const r = await rotationTracks(360).catch(() => null);
+    // Each ~2 km cell as a small square, one path per band: MRMS's rotation-track look.
+    const band = new Map<number, string[]>();
+    for (const c of r?.cells ?? []) {
+      const a = project(c.lon - 0.01, c.lat + 0.01);
+      const b = project(c.lon + 0.01, c.lat - 0.01);
+      const k = rotBin(c.v);
+      band.set(k, [
+        ...(band.get(k) ?? []),
+        `M${a.x.toFixed(2)} ${a.y.toFixed(2)}H${b.x.toFixed(2)}V${b.y.toFixed(2)}H${a.x.toFixed(2)}Z`,
+      ]);
+    }
     return Response.json({
-      dots: (r?.cells ?? []).map((c) => ({
-        lat: c.lat,
-        lon: c.lon,
-        key: `engine:rot:${rotBin(c.v)}`,
-      })),
+      polys: [...band.entries()]
+        .sort((x, y) => x[0] - y[0])
+        .map(([k, d]) => ({ k: `engine:rot:${k}`, d: d.join("") })),
     });
   }
   if (e === "pyrocb") {
-    const r = await fieldDots("pyro").catch(() => null);
+    const r = await fieldPreview("pyro").catch(() => null);
     return Response.json({
       dots: (r?.fires ?? []).map((f) => ({
         lat: f.lat,
@@ -29,10 +50,10 @@ export async function GET(req: Request) {
       })),
     });
   }
-  if (e && ["llj", "snsq", "nst", "pyro", "tctor"].includes(e))
-    return Response.json(
-      await fieldDots(e as FieldId).catch(() => ({ dots: [] })),
-    );
+  if (e && ["llj", "snsq", "nst", "pyro", "tctor"].includes(e)) {
+    const r = await fieldPreview(e as FieldId).catch(() => null);
+    return Response.json({ polys: polys(r?.areas, e) });
+  }
   if (e === "blind") {
     const buf = new Uint8Array(
       await (
@@ -59,16 +80,11 @@ export async function GET(req: Request) {
   }
   try {
     const d = await probSevere();
-    const dots = d.storms
-      .filter((s) => (e === "tor" ? s.p20 >= 3 : s.band > 0 || s.hail >= 15))
-      .map((s) => ({
-        lat: s.lat,
-        lon: s.lon,
-        key:
-          e === "tor" ? `engine:tor:${torBin(s.p20)}` : `engine:hail:${s.band}`,
-      }));
-    return Response.json({ dots });
+    return Response.json({
+      polys:
+        e === "tor" ? polys(d.torAreas, "tor") : polys(d.hailAreas, "hail"),
+    });
   } catch {
-    return Response.json({ dots: [] });
+    return Response.json({ polys: [] });
   }
 }

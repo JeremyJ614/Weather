@@ -196,3 +196,5 @@ Personal Warnings & Alerts, Affected Communities Outlook, FairWeather Tracking, 
 | 106 | Whole site | An address with no page (or a page the viewer may not open) showed Next's plain white 404 | A dark 404 page in the app's look, with the Homepage, FAQ and Contact us |
 | 107 | Donate · amount | Choosing **Other** let the amount box's natural width stretch the whole page past a phone screen, cutting off the right edge | The page column is `minmax(0, 1fr)` and the amount input fills its row instead of sizing itself |
 | 108 | Donate · first visit | A guest arriving from a donation link (or back from Stripe) got the Sign Up / Log In gate on top of the page | `/donate` joins the gate's quiet pages, like Plans & Pricing |
+| 109 | CI · format check | The color-preview sample files in `public/samples/` are data, but Prettier checked them and failed the format step on the first preview push | `public/samples/` joins `.prettierignore` with the other data folders |
+| 110 | Admin colors · live engine preview | Waterspout areas offshore were clipped to the land outline and the preview looked empty | Engine areas draw above the states, unclipped and outlined |

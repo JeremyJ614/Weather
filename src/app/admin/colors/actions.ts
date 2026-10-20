@@ -4,6 +4,8 @@ import { revalidatePath, updateTag } from "next/cache";
 import { requireAdmin } from "@/lib/auth/admin-guard";
 import { GROUPS, HEX, cleanColors } from "@/lib/colors/registry";
 import { COLORS_TAG } from "@/lib/colors/server";
+import type { ChaseDay } from "@/lib/chase/engine";
+import type { Ledger } from "@/app/storm-chasing-outlook/ChaseParts";
 
 export type ColorState = { ok?: string; error?: string } | null;
 
@@ -40,4 +42,26 @@ export async function saveGroup(
   updateTag(COLORS_TAG);
   revalidatePath("/", "layout");
   return { ok: "Saved. Maps pick it up on their next load." };
+}
+
+/** Today's Storm Chasing Outlook (and the year so far) for the Chase score preview. */
+export async function chasePreview() {
+  const { supabase } = await requireAdmin("colors");
+  const [{ data: row }, { data: year }] = await Promise.all([
+    supabase
+      .from("chase_days")
+      .select("data")
+      .order("day", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("chase_days")
+      .select("day, top_score, spc_cat, tornado_pct, place, generated_at")
+      .gte("day", `${new Date().getUTCFullYear()}-01-01`)
+      .order("day"),
+  ]);
+  return {
+    day: (row?.data as ChaseDay | undefined) ?? null,
+    ledger: (year ?? []) as Ledger,
+  };
 }

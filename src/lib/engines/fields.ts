@@ -1,17 +1,11 @@
 import "server-only";
-import { pick, type Colors } from "@/lib/colors/pick";
 import { PLACES } from "@/lib/geo/places.data";
 import { nearestPlace, parsePlaces } from "@/lib/geo/search";
 import { gridSize, locator, type Field } from "@/lib/models/grib2";
-import {
-  MODELS,
-  REGIONS,
-  latestCycle,
-  paint,
-  record,
-} from "@/lib/models/render";
+import { MODELS, REGIONS, latestCycle, record } from "@/lib/models/render";
 import { activeFires } from "@/lib/fire/data";
 import { getOutlook } from "@/lib/tropical/nhc";
+import { latticeAreas, soften } from "./areas";
 import { FIELD_BANDS, type FieldId } from "./colors";
 
 /**
@@ -505,27 +499,47 @@ function spots(c: Computed, min: number, n = 6): Spot[] {
   return pickd;
 }
 
-/** One engine's map (a PNG data URL over CONUS) and what to list beside it. */
-export async function fieldEngine(id: FieldId, colors: Colors) {
+const STEP = 0.1;
+
+/**
+ * The field as nested band areas, SPC-style: sampled on a 0.1° lattice (outside `keep`
+ * counts as nothing), softened once so the edges read as areas, then contoured per band.
+ */
+function areasOf(c: Computed, levels: number[]) {
+  const [W, S, E, N] = CONUS;
+  const loc = locator(c.field.grid);
+  const [gw, gh] = gridSize(c.field.grid);
+  const w = Math.round((E - W) / STEP) + 1;
+  const h = Math.round((N - S) / STEP) + 1;
+  const v = new Float32Array(w * h).fill(NaN);
+  for (let j = 0; j < h; j++)
+    for (let i = 0; i < w; i++) {
+      const lat = N - j * STEP;
+      const lon = W + i * STEP;
+      if (c.keep && !c.keep(lat, lon)) continue;
+      const [fi, fj] = loc(lat, lon);
+      const x = Math.round(fi);
+      const y = Math.round(fj);
+      if (x < 0 || y < 0 || x >= gw || y >= gh) continue;
+      const q = c.field.values[y * gw + x];
+      if (Number.isFinite(q)) v[j * w + i] = q;
+    }
+  return latticeAreas(soften(v, w, h, 1), w, h, W, N, STEP, levels);
+}
+
+/** One engine's map (nested band areas over CONUS) and what to list beside it. */
+export async function fieldEngine(id: FieldId) {
   const cycle = await latestCycle("hrrr");
   if (!cycle) throw new Error("No HRRR run is available");
   const c = await COMPUTE[id](cycle);
   const bands = FIELD_BANDS[id];
-  const { png } = paint(
-    c.field,
-    { levels: bands.levels, full: false },
-    bands.colors.map((d, i) => pick(colors, `engine:${id}:${i}`, d)),
-    CONUS,
-    1400,
-    c.keep,
-  );
   return {
     id,
     cycle,
     fh: c.fh,
     valid: new Date(cycleTime(cycle) + c.fh * 3600_000).toISOString(),
     bounds: CONUS,
-    image: `data:image/png;base64,${Buffer.from(png).toString("base64")}`,
+    areas: areasOf(c, bands.levels),
     spots: id === "pyro" ? [] : spots(c, bands.levels[0]),
     fires: (c.extra?.fires as unknown[]) ?? undefined,
     storms: (c.extra?.storms as unknown[]) ?? undefined,
@@ -533,31 +547,15 @@ export async function fieldEngine(id: FieldId, colors: Colors) {
   };
 }
 
-/** Admin color preview: the field sampled every half degree as band-keyed dots. */
-export async function fieldDots(id: FieldId) {
+/** Admin color preview: today's band areas, and the fires (PyroCb) with their chances. */
+export async function fieldPreview(id: FieldId) {
   const cycle = await latestCycle("hrrr");
-  if (!cycle) return { dots: [] };
+  if (!cycle) return { areas: null, fires: [] };
   const c = await COMPUTE[id](cycle);
-  const lv = FIELD_BANDS[id].levels;
-  const loc = locator(c.field.grid);
-  const [w, h] = gridSize(c.field.grid);
-  const [W, S, E, N] = CONUS;
-  const dots: { lat: number; lon: number; key: string }[] = [];
-  for (let lat = S; lat <= N; lat += 0.5)
-    for (let lon = W; lon <= E; lon += 0.5) {
-      if (c.keep && !c.keep(lat, lon)) continue;
-      const [fi, fj] = loc(lat, lon);
-      const i = Math.round(fi);
-      const j = Math.round(fj);
-      if (i < 0 || j < 0 || i >= w || j >= h) continue;
-      const v = c.field.values[j * w + i];
-      const band = lv.findLastIndex((l) => v >= l);
-      if (band >= 0) dots.push({ lat, lon, key: `engine:${id}:${band}` });
-    }
   const fires = (c.extra?.fires ?? []) as {
     lat: number;
     lon: number;
     chance: number;
   }[];
-  return { dots, fires };
+  return { areas: areasOf(c, FIELD_BANDS[id].levels), fires };
 }

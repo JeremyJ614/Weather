@@ -3,6 +3,7 @@ import { project } from "@/lib/map/usAlbers";
 import { PROB_STEPS } from "@/lib/colors/spc";
 import { hazardKind } from "@/lib/hazards/style";
 import { tierOf } from "@/lib/tropical/style";
+import { FIELD_BANDS, rotBin, type FieldId } from "@/lib/engines/colors";
 
 /**
  * Fixed example maps for the color editor (Fix-It List #17): real archived days, each
@@ -69,6 +70,88 @@ async function spc(kind: string): Promise<Sample> {
     view: SPC_VIEW,
     under,
     over: [],
+    dots: [],
+  };
+}
+
+/**
+ * An engine's bands drawn the way the Engines map now draws them (nested, filled and
+ * outlined), shaped by SPC's 6 May 2024 contours so every band shows.
+ */
+async function engineAreas(id: string, n: number): Promise<Sample> {
+  const j = await json<{ features: { label: string; geometry: Geometry }[] }>(
+    "/samples/spc-20240506.json",
+  );
+  const from = CAT.length - n;
+  return {
+    title: `Example areas in SPC's 6 May 2024 shapes, every band in these colors`,
+    view: SPC_VIEW,
+    under: j.features.flatMap((f) => {
+      const i = CAT.indexOf(f.label) - from;
+      const d = i >= 0 ? geoPath(f.geometry, 0.6) : "";
+      const k = `engine:${id}:${i}`;
+      return d
+        ? [
+            { k, d, o: 0.45 },
+            { k, d, w: 1.6 },
+          ]
+        : [];
+    }),
+    over: [],
+    dots: [],
+  };
+}
+
+/**
+ * MRMS rotation tracks of the 6 May 2024 outbreak over northern Oklahoma and southern
+ * Kansas: a 0.02° grid, drawn as runs of same-band cells so the swaths read as MRMS's.
+ */
+async function rotation(): Promise<Sample> {
+  const g = await json<{
+    north: number;
+    west: number;
+    step: number;
+    rows: number;
+    cols: number;
+    data: string;
+  }>("/samples/rotation-20240507.json");
+  const v = Uint8Array.from(atob(g.data), (c) => c.charCodeAt(0));
+  const bands = new Map<number, string>();
+  const h = g.step / 2;
+  for (let j = 0; j < g.rows; j++) {
+    const lat = g.north - j * g.step;
+    for (let i = 0; i < g.cols;) {
+      const q = v[j * g.cols + i];
+      if (!q) {
+        i++;
+        continue;
+      }
+      const k = rotBin(q / 4);
+      let e = i + 1;
+      while (
+        e < g.cols &&
+        v[j * g.cols + e] &&
+        rotBin(v[j * g.cols + e] / 4) === k
+      )
+        e++;
+      const a = project(g.west + i * g.step - h, lat + h);
+      const b = project(g.west + (e - 1) * g.step + h, lat - h);
+      bands.set(
+        k,
+        (bands.get(k) ?? "") +
+          `M${a.x.toFixed(2)} ${a.y.toFixed(2)}H${b.x.toFixed(2)}V${b.y.toFixed(2)}H${a.x.toFixed(2)}Z`,
+      );
+      i = e;
+    }
+  }
+  return {
+    title:
+      "MRMS rotation tracks, the 24 hours to 7 a.m. CDT 7 May 2024 (the High Risk day)",
+    view: { x: 422, y: 315, w: 135 },
+    under: [],
+    over: [...bands.entries()]
+      .sort((x, y) => x[0] - y[0])
+      .map(([k, d]) => ({ k: `engine:rot:${k}`, d, o: 1 })),
     dots: [],
   };
 }
@@ -312,6 +395,9 @@ async function tropical(): Promise<Sample> {
 
 /** The example map for a group, or null when it has none. */
 export function sampleFor(id: string): (() => Promise<Sample>) | null {
+  const field = id.slice(7) as FieldId;
+  if (id.startsWith("engine-") && field in FIELD_BANDS)
+    return () => engineAreas(field, FIELD_BANDS[field].levels.length);
   if (id.startsWith("spc-")) {
     const k = id.slice(4);
     return k in FROM ? () => spc(k) : null;
@@ -329,6 +415,11 @@ export function sampleFor(id: string): (() => Promise<Sample>) | null {
       return hazards;
     case "tropical":
       return tropical;
+    case "engine-tor":
+    case "engine-hail":
+      return () => engineAreas(id.slice(7), 4);
+    case "engine-rot":
+      return rotation;
     default:
       return null;
   }

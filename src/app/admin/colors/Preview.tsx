@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { UsMap } from "@/features/maps/UsMap";
 import { project } from "@/lib/map/usAlbers";
 import type { Group } from "@/lib/colors/registry";
 import { sampleFor, type Sample, type Shape } from "./samples";
 
-type Poly = { c: string; d: string };
+/** A live shape: drawn in a saved color `c`, or carrying its color key `k`. */
+type Poly = { c?: string; k?: string; d: string };
 type Dot = { x: number; y: number; key: string };
 type Data = { polys: Poly[]; dots: Dot[] } | "error";
 
@@ -77,11 +79,11 @@ export function previewSource(
         title: "River gauges at action stage or higher",
       };
     case "engine-tor":
-      return { url: "/api/engines/preview?e=tor", title: "ProbTor storms now" };
+      return { url: "/api/engines/preview?e=tor", title: "ProbTor areas now" };
     case "engine-hail":
       return {
         url: "/api/engines/preview?e=hail",
-        title: "ProbHail storms now",
+        title: "ProbHail areas now",
       };
     case "engine-blind":
       return {
@@ -91,7 +93,7 @@ export function previewSource(
     case "engine-rot":
       return {
         url: "/api/engines/preview?e=rot",
-        title: "Rotation tracks, last hour",
+        title: "MRMS rotation tracks, last 6 hours",
       };
     case "engine-pyrocb":
       return {
@@ -105,7 +107,7 @@ export function previewSource(
     case "engine-tctor":
       return {
         url: `/api/engines/preview?e=${id.slice(7)}`,
-        title: "The engine's latest map, every half degree",
+        title: "The engine's areas from the latest HRRR run",
       };
     case "replay":
       return {
@@ -123,9 +125,28 @@ export function previewSource(
   }
 }
 
+/** Groups previewed by the real page components (Widgets.tsx), loaded when opened. */
+const WIDGET_IDS = new Set([
+  "ingredients",
+  "timing",
+  "sswxcon",
+  "chase",
+  "runs",
+  "soundings",
+  "aurora",
+  "kp",
+  "badges",
+  "replay-radar",
+  "replay-velocity",
+  "replay-cc",
+]);
+const WidgetPreview = dynamic(() =>
+  import("./Widgets").then((m) => m.WidgetPreview),
+);
+
 /** Whether a group has any preview under its colors. */
 export const hasPreview = (id: string) =>
-  previewSource(id) !== null || sampleFor(id) !== null;
+  WIDGET_IDS.has(id) || previewSource(id) !== null || sampleFor(id) !== null;
 
 type Props = {
   group: Group;
@@ -142,6 +163,19 @@ const chip =
  */
 export function Preview(props: Props) {
   const [today, setToday] = useState(false);
+  if (WIDGET_IDS.has(props.group.id)) {
+    // Every key in the group, as edited (a half-typed hex falls back to saved, then default).
+    const colors = Object.fromEntries(
+      props.group.entries.map((e) => {
+        const v = props.vals[e.key];
+        return [
+          e.key,
+          /^#[0-9a-f]{6}$/i.test(v ?? "") ? v : (props.saved[e.key] ?? e.def),
+        ];
+      }),
+    );
+    return <WidgetPreview id={props.group.id} colors={colors} />;
+  }
   const sample = sampleFor(props.group.id);
   const live = previewSource(props.group.id) !== null;
   if (!sample) return <LivePreview {...props} />;
@@ -327,8 +361,22 @@ function LivePreview({ group, vals, saved }: Props) {
         actions={false}
         zoomable={false}
         overlay={
-          cur && cur !== "error" && cur.dots.length ? (
+          cur && cur !== "error" ? (
             <g>
+              {/* Engine areas carry keys and may lie offshore (waterspouts): unclipped, outlined. */}
+              {cur.polys
+                .filter((p) => p.k)
+                .map((p, i) => (
+                  <path
+                    key={`k${i}`}
+                    d={p.d}
+                    fill={vals[p.k!] ?? "#888"}
+                    fillOpacity={0.5}
+                    stroke={vals[p.k!] ?? "#888"}
+                    strokeWidth={1.2}
+                    vectorEffect="non-scaling-stroke"
+                  />
+                ))}
               {cur.dots.map((d, i) => (
                 <circle
                   key={i}
@@ -345,7 +393,11 @@ function LivePreview({ group, vals, saved }: Props) {
         }
       >
         {cur && cur !== "error"
-          ? cur.polys.map((p, i) => <path key={i} d={p.d} fill={paint(p.c)} />)
+          ? cur.polys
+              .filter((p) => !p.k)
+              .map((p, i) => (
+                <path key={i} d={p.d} fill={paint(p.c ?? "#888")} />
+              ))
           : null}
       </UsMap>
       {status === "empty" && (
