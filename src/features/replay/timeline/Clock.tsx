@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { readingAt } from "@/features/replay/core/timezone";
+import { dateFormat } from "@/features/replay/core/intl";
 
 interface ClockProps {
   /** Epoch seconds of the chase start. */
@@ -58,7 +59,7 @@ export function Clock({
 
   const parts = useMemo(() => {
     try {
-      const fmt = new Intl.DateTimeFormat("en-US", {
+      const fmt = dateFormat("en-US", {
         timeZone: zone.zone,
         hour: "numeric",
         minute: "2-digit",

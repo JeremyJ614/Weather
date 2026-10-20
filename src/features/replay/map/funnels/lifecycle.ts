@@ -149,11 +149,18 @@ const TOUCHDOWN_FLASH_SECONDS = 2.5;
  * to how they behave and is the reason a replay reads as weather rather than
  * as a line growing.
  */
+/**
+ * @param clock what the mature funnel's breathing and lean are timed by. The
+ *   layers pass real time, so a funnel breathes at the same pace at 1x and at
+ *   750x instead of jittering in width at the fast speeds (#8); it defaults to
+ *   `at` for anything that wants a still picture of one moment.
+ */
 export function lifeAt(
   start: number,
   end: number,
   at: number,
   ch: Character,
+  clock = at,
 ): LifeState {
   const formStart = start - ch.formingSeconds;
   const ropeStart = Math.max(start, end - ch.ropingSeconds);
@@ -223,15 +230,15 @@ export function lifeAt(
 
   // Mature. Still breathing rather than static: a real one pulses.
   const matureFor = at - start;
-  const breathe =
-    1 + 0.06 * Math.sin(matureFor / 9) + 0.03 * Math.sin(matureFor / 3.3);
+  const beat = clock === at ? matureFor : clock;
+  const breathe = 1 + 0.06 * Math.sin(beat / 9) + 0.03 * Math.sin(beat / 3.3);
   return {
     phase: "mature",
     progress,
     intensity: 1,
     // Widens over the first half-minute rather than arriving at full size.
     widthScale: Math.min(1, 0.55 + matureFor / 45) * breathe,
-    tilt: 0.06 * Math.sin(matureFor / 13),
+    tilt: 0.06 * Math.sin(beat / 13),
     flash,
     reach: 1,
   };

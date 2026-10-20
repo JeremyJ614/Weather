@@ -37,7 +37,13 @@ export interface ArchiveTornado {
   fat: number;
   state: string;
   /** How the path was arrived at — shown, never hidden. */
-  geometry: "endpoints" | "point" | "reconstructed" | "surveyed";
+  geometry:
+    | "endpoints"
+    | "point"
+    | "reconstructed"
+    | "surveyed"
+    | "digitized"
+    | "segments";
   /** The survey's own account, where one was published. */
   comments?: string;
   /** The office that surveyed it. */
@@ -46,6 +52,64 @@ export interface ArchiveTornado {
   maxwind?: number;
   timing: string;
   waypoints?: { name: string; at: number }[];
+  /** Damage width at each vertex, yards — the path expanding and contracting. */
+  widths?: number[];
+  /** Seconds from T0 at each vertex, where the path was timed along its length. */
+  times?: number[];
+  /** Rating at each vertex, where the survey rated the path in segments. */
+  ratings?: string[];
+  /** What the research says happened along this track, in order. */
+  story?: string;
+  /** Where each part of this track came from. */
+  sources?: string[];
+  /**
+   * The county-by-county record (NOAA Storm Events): each county the
+   * tornado crossed, with its own rating, width, length and clock.
+   */
+  segments?: {
+    county: string;
+    state: string;
+    ef: string;
+    width: number;
+    miles: number;
+    from: number;
+    to: number;
+    deaths: number;
+    inj: number;
+  }[];
+}
+
+/**
+ * A wind field wider than the damage.
+ *
+ * Mobile radar sees the wind, not the damage, and the two are not the same
+ * size. The Mulhall tornado's damage path was about a mile wide at its worst,
+ * but Doppler on Wheels measured tornado-strength wind across 4.4 miles of it
+ * at peak. That is a separate claim from the damage survey and is drawn
+ * separately — fainter, and only while the tornado was at the strength the
+ * radar measured.
+ */
+export interface WindField {
+  /** Which tornado (index into `torn`). */
+  t: number;
+  /** When it applies, seconds from T0. */
+  from: number;
+  to: number;
+  /** Outer ring, [lon, lat]. */
+  ring: [number, number][];
+  label: string;
+  /** Width across, miles. */
+  widthMi: number;
+  note: string;
+  source: string;
+}
+
+/** A reference the event's research drew on. */
+export interface ArchiveSource {
+  title: string;
+  url?: string;
+  /** What it contributed: "track geometry", "damage points", "timing"... */
+  used: string;
 }
 
 export interface ArchiveEvent {
@@ -74,6 +138,16 @@ export interface ArchiveEvent {
   dpts?: DamagePoint[];
   hail?: HailReport[];
   warns?: WarningPolygonInput[];
+  /** Wind fields measured wider than the damage (Mulhall). */
+  fields?: WindField[];
+  /** The research behind the event. */
+  sources?: ArchiveSource[];
+  /** The day, told properly — shown on the event's page. */
+  story?: string[];
+  /** Short figures for the event page: "302 mph", "measured by DOW"... */
+  facts?: { label: string; value: string; note?: string }[];
+  /** The forecast offices' own accounts of the day (Storm Events episodes). */
+  episodes?: { wfo: string; text: string }[];
 }
 
 /**
@@ -90,7 +164,11 @@ export function ratingLabel(ef: string, scale: "F" | "EF"): string {
 /** Plain-language note for how a track was arrived at. */
 export function fidelityNote(t: ArchiveTornado): string | null {
   if (t.geometry === "reconstructed")
-    return "Reconstructed from documented waypoints";
+    return "Reconstructed from documented damage and waypoints";
+  if (t.geometry === "digitized")
+    return "Digitised from the published survey map";
+  if (t.geometry === "segments")
+    return "Rebuilt through the county records' county-line crossings";
   if (t.geometry === "point")
     return "Touchdown point only — path direction inferred";
   if (t.geometry === "surveyed") return null;

@@ -7,21 +7,41 @@ import type {
 // types are imported rather than assumed to be ambient.
 import type { Feature, FeatureCollection } from "geojson";
 import type { PreparedTornado } from "@/features/replay/core/chase";
-import { hailName, tornadoPositionAt } from "@/features/replay/core/chase";
+import {
+  hailName,
+  tornadoPositionAt,
+  widthAt,
+} from "@/features/replay/core/chase";
 import { PAL, rgba } from "@/features/replay/palette";
 import { EF_ORDER } from "@/features/replay/core/chase";
 import { haversine } from "@/features/replay/core/geo";
 import { proximityOf } from "./funnels/lifecycle";
 import { lookAt } from "./warnings";
+import { Reveal } from "./reveal";
 import type { Replayable } from "./replayable";
 
 /**
  * The data layers over the basemap.
  *
- * Every source is GeoJSON updated in place rather than removed and re-added:
- * swapping a source makes MapLibre tear down and rebuild the layers that use
- * it, which flickers and loses the paint state. `setData` on an existing
- * source is what keeps a sixty-frame replay smooth.
+ * Three kinds of work, kept strictly apart because mixing them is what broke
+ * the map (#22, #8):
+ *
+ *   `ensureLayers`  creates sources and layers that are missing. It never
+ *                   touches the data in a source that already exists.
+ *   `ReplayLayers.attach`  sets the data that belongs to a whole replay —
+ *                   paths, swaths, contours, every damage point, every hail
+ *                   report, every warning — once, when the replay opens or a
+ *                   basemap swap has thrown the sources away.
+ *   `ReplayLayers.frame`  runs per frame and moves only what moves: the
+ *                   chaser, the funnels' ground marks, the trail. Things that
+ *                   appear on the clock are revealed through feature state,
+ *                   which re-tiles nothing.
+ *
+ * The old code did all three on every frame. Its "create or refresh" helper
+ * set each dynamic source back to an empty collection and then refilled it,
+ * so the worker spent every frame re-tiling a thousand damage points that
+ * were then thrown away — on a phone they never appeared at all, and hail and
+ * warnings blinked as each rebuild landed.
  */
 
 export const SRC = {
@@ -38,9 +58,17 @@ export const SRC = {
   damage: "damage-points",
   hail: "hail-reports",
   photos: "chase-photos",
+  fields: "wind-fields",
 } as const;
 
 const empty = () => ({ type: "FeatureCollection" as const, features: [] });
+
+/** The screen's pixel density, capped at 2 — and 1 where there is no screen. */
+const pixelRatio = () =>
+  Math.min(
+    2,
+    (globalThis as { devicePixelRatio?: number }).devicePixelRatio || 1,
+  );
 
 /** Metres of one degree of longitude at a latitude — for drawing width to scale. */
 const metresPerDegreeLon = (lat: number) =>
@@ -48,25 +76,30 @@ const metresPerDegreeLon = (lat: number) =>
 const METRES_PER_YARD = 0.9144;
 
 /**
- * The damage swath as a polygon, to scale.
+ * The damage swath as polygons, to scale.
  *
  * A tornado's width is survey data and belongs on the map at its real size —
  * a 1,760-yard wedge and a 50-yard rope are not the same object, and drawing
- * both as a line says they are. The polygon is the centreline offset either
- * side by half the surveyed width.
+ * both as a line says they are. And it is not one width: where the research
+ * gives the width vertex by vertex, the swath expands and contracts with it,
+ * so El Reno balloons to 2.6 miles and back and Jarrell's path widens as it
+ * slows. Where the survey rated the path in segments, each segment is its own
+ * polygon in its own rating's colour — Jarrell's EF1 start is not its EF5 end.
  */
-function swathFor(t: PreparedTornado): Feature | null {
-  if (t.coords.length < 2 || t.widthYd <= 0) return null;
-  const halfM = (t.widthYd * METRES_PER_YARD) / 2;
+function swathFor(t: PreparedTornado): Feature[] {
+  const n = t.coords.length;
+  if (n < 2) return [];
+  const widths = t.widths && t.widths.length === n ? t.widths : null;
+  if (!widths && t.widthYd <= 0) return [];
 
   const left: [number, number][] = [];
   const right: [number, number][] = [];
-
-  for (let i = 0; i < t.coords.length; i += 1) {
+  for (let i = 0; i < n; i += 1) {
     const [lon, lat] = t.coords[i]!;
+    const halfM = ((widths ? widths[i]! : t.widthYd) * METRES_PER_YARD) / 2;
     // Perpendicular to the local heading, which is what a swath follows.
     const prev = t.coords[Math.max(0, i - 1)]!;
-    const next = t.coords[Math.min(t.coords.length - 1, i + 1)]!;
+    const next = t.coords[Math.min(n - 1, i + 1)]!;
     const dx = (next[0] - prev[0]) * metresPerDegreeLon(lat);
     const dy = (next[1] - prev[1]) * 110_574;
     const len = Math.hypot(dx, dy) || 1;
@@ -78,18 +111,36 @@ function swathFor(t: PreparedTornado): Feature | null {
     right.push([lon - dLon, lat - dLat]);
   }
 
-  return {
-    type: "Feature",
-    properties: {
-      ef: t.ef,
-      name: t.name,
-      colour: PAL.ef[t.ef] ?? PAL.ef.EFU,
-    },
-    geometry: {
-      type: "Polygon",
-      coordinates: [[...left, ...right.reverse(), left[0]!]],
-    },
-  };
+  // Runs of one rating. Without per-vertex ratings the whole path is one run.
+  const ratings = t.ratings && t.ratings.length === n ? t.ratings : null;
+  const runs: [number, number, string][] = [];
+  let from = 0;
+  for (let i = 1; i <= n; i += 1) {
+    const here = ratings ? ratings[from]! : t.ef;
+    if (i === n || (ratings && ratings[i] !== here)) {
+      // Share the boundary vertex so neighbouring segments meet with no gap.
+      runs.push([from, Math.min(i, n - 1), here]);
+      from = i;
+    }
+  }
+
+  const out: Feature[] = [];
+  for (const [a, b, ef] of runs) {
+    if (b <= a) continue;
+    const l = left.slice(a, b + 1);
+    const r = right.slice(a, b + 1).reverse();
+    out.push({
+      type: "Feature",
+      properties: {
+        ef,
+        name: t.name,
+        colour: PAL.ef[ef] ?? PAL.ef[t.ef] ?? PAL.ef.EFU,
+        rank: EF_ORDER[ef] ?? -1,
+      },
+      geometry: { type: "Polygon", coordinates: [[...l, ...r, l[0]!]] },
+    });
+  }
+  return out;
 }
 
 export function pathsGeoJson(r: Replayable): FeatureCollection {
@@ -124,8 +175,7 @@ export function swathsGeoJson(r: Replayable): FeatureCollection {
     type: "FeatureCollection",
     features: r.tornadoes
       .filter((t) => !surveyed.has(t.index))
-      .map(swathFor)
-      .filter((f): f is Feature => f !== null),
+      .flatMap(swathFor),
   };
 }
 
@@ -156,60 +206,100 @@ export function contoursGeoJson(r: Replayable): FeatureCollection {
 }
 
 /**
- * The survey's damage points, revealed as the tornado reaches them.
+ * When a tornado reached a point, in replay seconds.
  *
- * A point appears when the tornado that caused it has passed its position, so
- * the damage accumulates behind the funnel rather than being laid out in
- * advance. Watching the ratings climb as it crosses a town is the whole reason
- * to draw them on a clock at all.
+ * The point is projected onto the surveyed centreline and the distance along
+ * it converted to time the same way the funnel is moved — by distance, at the
+ * tornado's surveyed average speed — so a damage point appears exactly as the
+ * funnel's centre passes abeam of it, not when the nearest vertex does. On an
+ * archive track with a vertex every few miles, nearest-vertex was minutes out.
  */
-export function damageGeoJson(r: Replayable, at: number): FeatureCollection {
-  if (r.damage.length === 0) return empty();
-  const features: Feature[] = [];
+export function reachedAt(
+  t: PreparedTornado,
+  lon: number,
+  lat: number,
+): number {
+  const span = Math.max(1, t.end - t.start);
+  if (t.coords.length < 2 || t.lengthM <= 0) return t.start;
+  // Local equirectangular frame: exact enough over one tornado's length, and
+  // the only thing it decides is which segment is nearest.
+  const kx = Math.cos((lat * Math.PI) / 180);
+  let bestD = Infinity;
+  let bestAlong = 0;
+  for (let i = 1; i < t.coords.length; i += 1) {
+    const [ax, ay] = t.coords[i - 1]!;
+    const [bx, by] = t.coords[i]!;
+    const dx = (bx - ax) * kx;
+    const dy = by - ay;
+    const px = (lon - ax) * kx;
+    const py = lat - ay;
+    const len2 = dx * dx + dy * dy;
+    const g =
+      len2 > 0 ? Math.max(0, Math.min(1, (px * dx + py * dy) / len2)) : 0;
+    const ex = px - g * dx;
+    const ey = py - g * dy;
+    const d = ex * ex + ey * ey;
+    if (d < bestD) {
+      bestD = d;
+      const segM = (t.cum[i] ?? 0) - (t.cum[i - 1] ?? 0);
+      bestAlong = (t.cum[i - 1] ?? 0) + g * segM;
+    }
+  }
+  return t.start + (bestAlong / t.lengthM) * span;
+}
 
+/**
+ * Every damage point of the survey, each with the moment it appears.
+ *
+ * The whole survey goes into the source once. Which points are showing is
+ * decided per frame by feature state (see `Reveal`), because re-tiling a
+ * thousand points sixty times a second is what made them never appear.
+ * The feature id is the index into `reveal`, which is what feature state keys on.
+ */
+export function damageCollection(r: Replayable): {
+  fc: FeatureCollection;
+  reveal: number[];
+} {
+  const features: Feature[] = [];
+  const reveal: number[] = [];
   for (const [lat, lon, ef, wind, what, degree, ti] of r.damage) {
     const t = r.tornadoes[ti];
-    // With no tornado to tie it to, show it once the chase reaches its time.
-    if (!t) continue;
-    if (at < t.start) continue;
-
-    /*
-     * When did the tornado reach this point?
-     *
-     * Interpolating along the surveyed centreline by nearest vertex is
-     * accurate enough: these tracks carry a vertex every half mile or so, and
-     * the alternative — revealing every point the moment the tornado starts —
-     * throws away the thing that makes this worth animating.
-     */
-    let best = 0;
-    let bestD = Infinity;
-    for (let i = 0; i < t.coords.length; i += 1) {
-      const c = t.coords[i]!;
-      const d = (c[0] - lon) ** 2 + (c[1] - lat) ** 2;
-      if (d < bestD) {
-        bestD = d;
-        best = i;
-      }
-    }
-    const f = t.coords.length > 1 ? best / (t.coords.length - 1) : 0;
-    const reached = t.start + f * Math.max(1, t.end - t.start);
-    if (at < reached) continue;
-
+    const id = features.length;
+    // With no tornado to tie it to, show it from the start: it is still a
+    // surveyed point, and hiding it would say it is not.
+    reveal.push(t ? reachedAt(t, lon, lat) : Number.NEGATIVE_INFINITY);
     features.push({
       type: "Feature",
+      id,
       properties: {
         ef,
         wind,
         what,
         degree,
+        t: ti,
         colour: PAL.ef[ef] ?? PAL.ef.EFU,
-        // Fades up over a minute so a town does not arrive as a wall of dots.
-        age: Math.min(1, (at - reached) / 60),
+        // Surveyed wind carries the size, so an EF3 point reads louder than
+        // an EF0 one at any zoom — the rating is the finding.
+        rank: EF_ORDER[ef] ?? -1,
       },
       geometry: { type: "Point", coordinates: [lon, lat] },
     });
   }
-  return { type: "FeatureCollection", features };
+  return { fc: { type: "FeatureCollection", features }, reveal };
+}
+
+/**
+ * The damage points as they stand at one instant — the brute-force answer.
+ *
+ * Not used to draw: the map reveals the collection above through feature
+ * state. Kept because it is the definition the reveal is tested against.
+ */
+export function damageGeoJson(r: Replayable, at: number): FeatureCollection {
+  const { fc, reveal } = damageCollection(r);
+  return {
+    type: "FeatureCollection",
+    features: fc.features.filter((_, i) => at >= reveal[i]!),
+  };
 }
 
 /**
@@ -243,15 +333,22 @@ export function damageGeoJson(r: Replayable, at: number): FeatureCollection {
  * They do not expire. A hailstone that fell an hour ago is still on the ground
  * an hour later, and — more to the point — the accumulated line is the shape
  * of the storm's path, which is the thing worth seeing.
+ *
+ * Like the damage points, the whole day goes into the source once and the
+ * clock reveals it through feature state.
  */
-export function hailGeoJson(r: Replayable, at: number): FeatureCollection {
-  if (r.hail.length === 0) return empty();
+export function hailCollection(r: Replayable): {
+  fc: FeatureCollection;
+  reveal: number[];
+} {
   const features: Feature[] = [];
-
+  const reveal: number[] = [];
   for (const [t, lat, lon, inches, place, source, remark] of r.hail) {
-    if (at < t) continue;
+    const id = features.length;
+    reveal.push(t);
     features.push({
       type: "Feature",
+      id,
       properties: {
         in: inches,
         name: hailName(inches),
@@ -259,14 +356,27 @@ export function hailGeoJson(r: Replayable, at: number): FeatureCollection {
         source,
         remark,
         at: t,
-        // Fades up over three quarters of a minute, so a squall line's worth
-        // of reports arrives as weather rather than as a popping sound.
-        age: Math.min(1, (at - t) / 45),
       },
       geometry: { type: "Point", coordinates: [lon, lat] },
     });
   }
-  return { type: "FeatureCollection", features };
+  return { fc: { type: "FeatureCollection", features }, reveal };
+}
+
+/** The hail on the ground at one instant — the definition the reveal is tested against. */
+export function hailGeoJson(r: Replayable, at: number): FeatureCollection {
+  const { fc, reveal } = hailCollection(r);
+  return {
+    type: "FeatureCollection",
+    features: fc.features.filter((_, i) => at >= reveal[i]!),
+  };
+}
+
+export interface PhotoPin {
+  id: string;
+  at: number | null;
+  lat: number | null;
+  lon: number | null;
 }
 
 /**
@@ -277,28 +387,42 @@ export function hailGeoJson(r: Replayable, at: number): FeatureCollection {
  * than being laid out in advance. An untimed photo has no moment to wait for
  * and is shown from the start.
  */
-export function photosGeoJson(
-  pins: readonly {
-    id: string;
-    at: number | null;
-    lat: number | null;
-    lon: number | null;
-  }[],
-  at: number,
-): FeatureCollection {
+export function photosCollection(pins: readonly PhotoPin[]): {
+  fc: FeatureCollection;
+  reveal: number[];
+} {
   const features: Feature[] = [];
+  const reveal: number[] = [];
   for (const p of pins) {
     if (p.lat === null || p.lon === null) continue;
-    if (p.at !== null && at < p.at) continue;
+    const id = features.length;
+    reveal.push(p.at ?? Number.NEGATIVE_INFINITY);
     features.push({
       type: "Feature",
-      properties: {
-        id: p.id,
-        age: p.at === null ? 1 : Math.min(1, (at - p.at) / 20),
-      },
+      id,
+      properties: { id: p.id },
       geometry: { type: "Point", coordinates: [p.lon, p.lat] },
     });
   }
+  return { fc: { type: "FeatureCollection", features }, reveal };
+}
+
+/** Seconds a photo pin takes to fade up. */
+export const PHOTO_FADE = 20;
+
+/** The pins showing at one instant, with their fade — the definition the reveal is tested against. */
+export function photosGeoJson(
+  pins: readonly PhotoPin[],
+  at: number,
+): FeatureCollection {
+  const { fc, reveal } = photosCollection(pins);
+  const features: Feature[] = [];
+  fc.features.forEach((f, i) => {
+    const t = reveal[i]!;
+    if (Number.isFinite(t) && at < t) return;
+    const age = Number.isFinite(t) ? Math.min(1, (at - t) / PHOTO_FADE) : 1;
+    features.push({ ...f, properties: { ...f.properties, age } });
+  });
   return { type: "FeatureCollection", features };
 }
 
@@ -315,8 +439,9 @@ export function liveGeoJson(r: Replayable, at: number): FeatureCollection {
         name: t.name,
         index: t.index,
         colour: PAL.ef[t.ef] ?? PAL.ef.EFU,
-        // Radius in metres, so the mark can be drawn to scale.
-        radiusM: Math.max(60, (t.widthYd * METRES_PER_YARD) / 2),
+        // Radius in metres, so the mark can be drawn to scale — at the width
+        // the tornado was *here*, not the widest it ever got.
+        radiusM: Math.max(60, (widthAt(t, at) * METRES_PER_YARD) / 2),
         age: (at - t.start) / Math.max(1, t.end - t.start),
       },
       geometry: { type: "Point", coordinates: [lon, lat] },
@@ -332,7 +457,11 @@ export function liveGeoJson(r: Replayable, at: number): FeatureCollection {
  * same is decoration. Nothing to show when there is no chaser, or when
  * everything is comfortably far away.
  */
-export function proximityGeoJson(r: Replayable, at: number): FeatureCollection {
+export function proximityGeoJson(
+  r: Replayable,
+  at: number,
+  clock = at,
+): FeatureCollection {
   const here = r.track?.positionAt(at);
   if (!here) return empty();
 
@@ -349,7 +478,9 @@ export function proximityGeoJson(r: Replayable, at: number): FeatureCollection {
 
   // Faster and more insistent the closer it gets.
   const rate = level === "imminent" ? 2.6 : level === "close" ? 1.5 : 0.8;
-  const pulse = 0.45 + 0.4 * (0.5 + 0.5 * Math.sin(at * rate));
+  // Timed by `clock` — real time on the map — so it pulses at the same pace
+  // at any replay speed instead of strobing at the fast ones (#8).
+  const pulse = 0.45 + 0.4 * (0.5 + 0.5 * Math.sin(clock * rate));
 
   return {
     type: "FeatureCollection",
@@ -369,16 +500,77 @@ export function proximityGeoJson(r: Replayable, at: number): FeatureCollection {
 }
 
 /**
- * The warning polygons, dressed for this instant (Z3 #16).
+ * Wind fields wider than the damage (Mulhall's 4.4 miles).
  *
- * Every property the paint expressions read is computed here rather than in
- * the style, because the pulse depends on the replay clock and a style
- * expression has no access to it. `setData` on one source per frame is the
- * cheap way to animate a fill in MapLibre; the alternative — `setPaintProperty`
- * per polygon per frame — is a style recompile seventy times a second.
+ * Set once; whether one is showing is feature state, because it is shown only
+ * while the tornado was at the strength the radar measured.
+ */
+export function fieldsCollection(r: Replayable): FeatureCollection {
+  return {
+    type: "FeatureCollection",
+    features: (r.fields ?? []).map((f, id) => {
+      const t = r.tornadoes[f.t];
+      return {
+        type: "Feature" as const,
+        id,
+        properties: {
+          label: f.label,
+          note: f.note,
+          widthMi: f.widthMi,
+          colour: t ? (PAL.ef[t.ef] ?? "#c9b8f0") : "#c9b8f0",
+        },
+        geometry: { type: "Polygon" as const, coordinates: [f.ring] },
+      };
+    }),
+  };
+}
+
+/** Seconds a wind field takes to fade in and out at the ends of its window. */
+export const FIELD_FADE = 90;
+
+/** How strongly a wind field shows at an instant: 1 inside its window, easing at the edges. */
+export function fieldStrength(
+  f: { from: number; to: number },
+  at: number,
+): number {
+  if (at < f.from - FIELD_FADE || at > f.to + FIELD_FADE) return 0;
+  if (at < f.from) return (at - (f.from - FIELD_FADE)) / FIELD_FADE;
+  if (at > f.to) return 1 - (at - f.to) / FIELD_FADE;
+  return 1;
+}
+
+/**
+ * Every warning polygon of the replay, in one collection set once.
  *
- * Polygons that have not been issued yet are left out of the collection
- * entirely rather than drawn at zero opacity, so the map never pays for them.
+ * The breathing (Z3 #16) is per-frame, but it is a change of opacity, not of
+ * shape — so it is written as feature state on the polygons that are live,
+ * and the collection itself never moves. The colour is the kind's and never
+ * changes, so it rides along as a property.
+ */
+export function warningsCollection(r: Replayable): FeatureCollection {
+  return {
+    type: "FeatureCollection",
+    features: r.warnings.map((w, id) => ({
+      type: "Feature" as const,
+      id,
+      properties: {
+        kind: w.kind,
+        label: w.label,
+        wfo: w.wfo,
+        where: w.where ?? "",
+        colour: lookAt(w.from, w).colour,
+      },
+      geometry: { type: "Polygon" as const, coordinates: [w.ring] },
+    })),
+  };
+}
+
+/**
+ * The warning polygons as they look at one instant.
+ *
+ * Not used to draw — the map writes the same numbers as feature state — but
+ * it is the definition of what each frame should show, and what the tests
+ * pin down. Polygons that are pending or gone are left out.
  */
 export function warningsGeoJson(r: Replayable, at: number): FeatureCollection {
   const features: Feature[] = [];
@@ -477,43 +669,27 @@ export function trailGeoJson(r: Replayable, at: number): FeatureCollection {
   };
 }
 
-/** The chaser's track, split into driven and not-yet-driven. */
-export function trackGeoJson(
+/**
+ * The whole route, for the current level of detail.
+ *
+ * Drawn once and left alone: it is the "not driven yet" line, and the driven
+ * part is drawn over it. It only changes when the zoom crosses into a
+ * different level of simplification — a route never moves, so rebuilding it
+ * per frame (as the old split into driven/undriven halves did) was pure cost.
+ */
+export function trackFullGeoJson(
   r: Replayable,
-  at: number,
   zoom: number,
-): {
-  done: FeatureCollection;
-  rest: FeatureCollection;
-  here: FeatureCollection;
-} {
-  if (!r.track || r.track.n === 0) {
-    return { done: empty(), rest: empty(), here: empty() };
-  }
+): FeatureCollection {
   const track = r.track;
-  // Simplified for the current zoom: the full track is never thinned, this
-  // only decides how much of it is worth drawing.
-  const keep = track.forZoom(
-    zoom,
-    track.lat[0] ?? 0,
-    Math.min(2, devicePixelRatio || 1),
-  );
-  const cut = track.indexAt(at);
-
-  const doneCoords: [number, number][] = [];
-  const restCoords: [number, number][] = [];
+  if (!track || track.n < 2) return empty();
+  const keep = track.forZoom(zoom, track.lat[0] ?? 0, pixelRatio());
+  const coords: [number, number][] = [];
   for (let k = 0; k < keep.length; k += 1) {
     const i = keep[k]!;
-    const pair: [number, number] = [track.lon[i]!, track.lat[i]!];
-    if (i <= cut) doneCoords.push(pair);
-    else restCoords.push(pair);
+    coords.push([track.lon[i]!, track.lat[i]!]);
   }
-  // Join the two halves so there is no gap at the playhead.
-  const at_ = track.positionAt(at);
-  doneCoords.push([at_.lon, at_.lat]);
-  restCoords.unshift([at_.lon, at_.lat]);
-
-  const line = (coords: [number, number][]): FeatureCollection => ({
+  return {
     type: "FeatureCollection",
     features:
       coords.length > 1
@@ -525,83 +701,116 @@ export function trackGeoJson(
             },
           ]
         : [],
-  });
-
-  return {
-    done: line(doneCoords),
-    rest: line(restCoords),
-    here: {
-      type: "FeatureCollection",
-      features: [
-        {
-          type: "Feature",
-          properties: { heading: 0 },
-          geometry: { type: "Point", coordinates: [at_.lon, at_.lat] },
-        },
-      ],
-    },
   };
 }
 
+/** The driven part of the route, ending exactly at the chaser. */
+export function trackDoneGeoJson(
+  r: Replayable,
+  at: number,
+  zoom: number,
+): FeatureCollection {
+  const track = r.track;
+  if (!track || track.n === 0) return empty();
+  const keep = track.forZoom(zoom, track.lat[0] ?? 0, pixelRatio());
+  const cut = track.indexAt(at);
+  const coords: [number, number][] = [];
+  for (let k = 0; k < keep.length; k += 1) {
+    const i = keep[k]!;
+    if (i > cut) break;
+    coords.push([track.lon[i]!, track.lat[i]!]);
+  }
+  // End on the interpolated position so there is no gap at the playhead.
+  const here = track.positionAt(at);
+  coords.push([here.lon, here.lat]);
+  return {
+    type: "FeatureCollection",
+    features:
+      coords.length > 1
+        ? [
+            {
+              type: "Feature",
+              properties: {},
+              geometry: { type: "LineString", coordinates: coords },
+            },
+          ]
+        : [],
+  };
+}
+
+/** The chaser's dot. */
+export function chaserGeoJson(r: Replayable, at: number): FeatureCollection {
+  const track = r.track;
+  if (!track || track.n === 0) return empty();
+  const here = track.positionAt(at);
+  return {
+    type: "FeatureCollection",
+    features: [
+      {
+        type: "Feature",
+        properties: {},
+        geometry: { type: "Point", coordinates: [here.lon, here.lat] },
+      },
+    ],
+  };
+}
+
+/** Feature state, or a default when none has been written yet. */
+const state = (key: string, fallback: number) => [
+  "coalesce",
+  ["feature-state", key],
+  fallback,
+];
+
 /**
- * Add every source and layer.
+ * Create every source and layer that is missing.
  *
  * Order matters and is deliberate: swaths under paths under the track under
  * the live marks, so a tornado currently on the ground is never hidden behind
  * the ground it has already covered.
+ *
+ * This never touches the data of a source that exists. That is the whole fix
+ * for #22: the old version "refreshed" every source here and was called every
+ * frame, so each frame began by emptying the damage, hail and warning sources.
  */
-export function addLayers(map: MapLibreMap, r: Replayable): void {
-  /**
-   * Create the source, or refresh it if it is already there.
-   *
-   * The refresh is the important half and it was missing. These sources hold
-   * the parts of a replay that do not change with the clock — the tornado
-   * paths, the swaths, the surveyed contours — so they were set once at
-   * creation and never again. Opening a different chase therefore left the
-   * previous chase's tornado paths drawn over the new one, indefinitely.
-   *
-   * `setData` on an existing source is cheap and does not tear down the layers
-   * that use it, so doing it on every call costs nothing and removes the whole
-   * class of bug.
-   */
-  const add = (id: string, data: FeatureCollection) => {
-    const existing = map.getSource(id) as GeoJSONSource | undefined;
-    if (existing) existing.setData(data);
-    else map.addSource(id, { type: "geojson", data });
+export function ensureLayers(map: MapLibreMap): void {
+  const add = (id: string, lineMetrics = false) => {
+    if (map.getSource(id)) return;
+    map.addSource(id, {
+      type: "geojson",
+      data: empty(),
+      ...(lineMetrics ? { lineMetrics } : {}),
+    });
   };
 
   // Warnings go in first so they land at the bottom of the stack. They are
   // the context the storm happened in, never the subject.
-  add(SRC.warns, empty());
-  add(SRC.swaths, swathsGeoJson(r));
-  add(SRC.contours, contoursGeoJson(r));
-  add(SRC.paths, pathsGeoJson(r));
-  add(SRC.trackDone, empty());
-  add(SRC.track, empty());
-  add(SRC.live, empty());
-  add(SRC.chaser, empty());
-  add(SRC.proximity, empty());
-  add(SRC.damage, empty());
-  add(SRC.hail, empty());
-  add(SRC.photos, empty());
+  add(SRC.warns);
+  add(SRC.fields);
+  add(SRC.swaths);
+  add(SRC.contours);
+  add(SRC.paths);
+  add(SRC.trackDone);
+  add(SRC.track);
+  add(SRC.live);
+  add(SRC.chaser);
+  add(SRC.proximity);
+  add(SRC.damage);
+  add(SRC.hail);
+  add(SRC.photos);
   // `lineMetrics` is what makes `line-gradient` possible at all: without it
   // MapLibre has no line-progress to interpolate along, and the gradient is
   // silently ignored.
-  if (!map.getSource(SRC.trail)) {
-    map.addSource(SRC.trail, {
-      type: "geojson",
-      data: empty(),
-      lineMetrics: true,
-    });
-  }
+  add(SRC.trail, true);
 
   /**
    * Warning polygons that breathe (Z3 #16).
    *
-   * Both the fill and the outline read their opacity from the feature, which
-   * `updateLayers` recomputes each frame from the replay clock — so a warning
-   * in force pulses, and an expired one settles into a still outline that says
-   * the danger was here and has passed.
+   * Both the fill and the outline read their opacity from feature state,
+   * which `ReplayLayers.frame` writes from the replay clock — so a warning in
+   * force pulses, and an expired one settles into a still outline that says
+   * the danger was here and has passed. Only the live ones are written each
+   * frame; the polygons themselves never move.
    */
   if (!map.getLayer("warn-fill")) {
     map.addLayer({
@@ -610,7 +819,7 @@ export function addLayers(map: MapLibreMap, r: Replayable): void {
       source: SRC.warns,
       paint: {
         "fill-color": ["get", "colour"],
-        "fill-opacity": ["get", "fill"],
+        "fill-opacity": state("fill", 0) as never,
       },
     });
   }
@@ -622,8 +831,41 @@ export function addLayers(map: MapLibreMap, r: Replayable): void {
       layout: { "line-join": "round" },
       paint: {
         "line-color": ["get", "colour"],
-        "line-opacity": ["get", "line"],
-        "line-width": ["get", "width"],
+        "line-opacity": state("line", 0) as never,
+        "line-width": state("width", 0) as never,
+      },
+    });
+  }
+
+  /*
+   * The wind field, under the damage it is wider than.
+   *
+   * Fainter than the swath and outlined with a dash, because it is a
+   * different kind of claim — radar-measured wind, not surveyed damage — and
+   * the map should never let the two be confused.
+   */
+  if (!map.getLayer("field-fill")) {
+    map.addLayer({
+      id: "field-fill",
+      type: "fill",
+      source: SRC.fields,
+      paint: {
+        "fill-color": ["get", "colour"],
+        "fill-opacity": ["*", 0.09, state("on", 0)] as never,
+      },
+    });
+  }
+  if (!map.getLayer("field-line")) {
+    map.addLayer({
+      id: "field-line",
+      type: "line",
+      source: SRC.fields,
+      layout: { "line-join": "round" },
+      paint: {
+        "line-color": ["get", "colour"],
+        "line-opacity": ["*", 0.7, state("on", 0)] as never,
+        "line-width": ["interpolate", ["linear"], ["zoom"], 7, 1, 13, 2],
+        "line-dasharray": [3, 2],
       },
     });
   }
@@ -846,7 +1088,7 @@ export function addLayers(map: MapLibreMap, r: Replayable): void {
       source: SRC.damage,
       paint: {
         "circle-color": ["get", "colour"],
-        "circle-opacity": ["*", 0.85, ["get", "age"]],
+        "circle-opacity": ["*", 0.9, state("age", 0)] as never,
         "circle-stroke-color": "#0b0e13",
         "circle-stroke-width": [
           "interpolate",
@@ -857,17 +1099,19 @@ export function addLayers(map: MapLibreMap, r: Replayable): void {
           14,
           1,
         ],
-        "circle-stroke-opacity": ["*", 0.9, ["get", "age"]],
+        "circle-stroke-opacity": ["*", 0.9, state("age", 0)] as never,
+        // A stronger rating is a slightly bigger dot, so the EF3 core of a
+        // town reads through the EF0 scatter around it at any zoom.
         "circle-radius": [
           "interpolate",
           ["linear"],
           ["zoom"],
           8,
-          1.6,
+          ["+", 1.4, ["*", 0.25, ["max", 0, ["get", "rank"]]]],
           11,
-          3,
+          ["+", 2.6, ["*", 0.4, ["max", 0, ["get", "rank"]]]],
           15,
-          6,
+          ["+", 5, ["*", 0.7, ["max", 0, ["get", "rank"]]]],
         ],
       },
     });
@@ -893,7 +1137,7 @@ export function addLayers(map: MapLibreMap, r: Replayable): void {
       source: SRC.hail,
       paint: {
         "circle-color": "rgba(11,14,19,0.5)",
-        "circle-opacity": ["*", 0.9, ["get", "age"]],
+        "circle-opacity": ["*", 0.9, state("age", 0)] as never,
         "circle-stroke-color": [
           "interpolate",
           ["linear"],
@@ -905,7 +1149,7 @@ export function addLayers(map: MapLibreMap, r: Replayable): void {
           4.0,
           PAL.hail.big,
         ],
-        "circle-stroke-opacity": ["get", "age"],
+        "circle-stroke-opacity": state("age", 0) as never,
         "circle-stroke-width": [
           "interpolate",
           ["linear"],
@@ -997,7 +1241,7 @@ export function addLayers(map: MapLibreMap, r: Replayable): void {
         "icon-allow-overlap": true,
         "icon-ignore-placement": true,
       },
-      paint: { "icon-opacity": ["get", "age"] },
+      paint: { "icon-opacity": state("age", 0) as never },
     });
   }
 
@@ -1016,54 +1260,186 @@ export function addLayers(map: MapLibreMap, r: Replayable): void {
   }
 }
 
-/** Push the moment's data into the existing sources. */
-export function updateLayers(
-  map: MapLibreMap,
-  r: Replayable,
-  at: number,
-  /** Photo pins, when the reader has turned them on. Empty otherwise. */
-  photoPins: readonly {
-    id: string;
-    at: number | null;
-    lat: number | null;
-    lon: number | null;
-  }[] = [],
-): void {
-  const zoom = map.getZoom();
-  const { done, rest, here } = trackGeoJson(r, at, zoom);
-  (map.getSource(SRC.trackDone) as GeoJSONSource | undefined)?.setData(done);
-  (map.getSource(SRC.track) as GeoJSONSource | undefined)?.setData(rest);
-  (map.getSource(SRC.chaser) as GeoJSONSource | undefined)?.setData(here);
-  (map.getSource(SRC.live) as GeoJSONSource | undefined)?.setData(
-    liveGeoJson(r, at),
-  );
-  (map.getSource(SRC.proximity) as GeoJSONSource | undefined)?.setData(
-    proximityGeoJson(r, at),
-  );
-  (map.getSource(SRC.trail) as GeoJSONSource | undefined)?.setData(
-    trailGeoJson(r, at),
-  );
-  if (r.damage.length) {
-    (map.getSource(SRC.damage) as GeoJSONSource | undefined)?.setData(
-      damageGeoJson(r, at),
-    );
+/** Warning opacity is written in hundredths; finer is invisible. */
+const WARN_Q = 100;
+/** Seconds a damage point takes to fade up. */
+export const DAMAGE_FADE = 60;
+/** Seconds a hail report takes to fade up. */
+export const HAIL_FADE = 45;
+
+const setSource = (map: MapLibreMap, id: string, data: FeatureCollection) => {
+  (map.getSource(id) as GeoJSONSource | undefined)?.setData(data);
+};
+
+/**
+ * One replay's data on one map.
+ *
+ * Owns the split described at the top of this file: `attach` once per replay
+ * (and again after a basemap swap), `frame` per frame. It remembers what it
+ * last wrote so a frame that changes nothing costs nothing — a paused map
+ * with the clock ticking at the same instant does no map work at all.
+ */
+export class ReplayLayers {
+  private replay: Replayable | null = null;
+  private damage: Reveal | null = null;
+  private hail: Reveal | null = null;
+  private photos: Reveal | null = null;
+  private photosKey = "";
+  /** Last fill/line/width written per warning, quantised. */
+  private warnWritten: Int32Array = new Int32Array(0);
+  /** Last wind-field strength written, in hundredths. */
+  private fieldWritten: Int16Array = new Int16Array(0);
+  private lastAt = Number.NaN;
+  private lastZoom = Number.NaN;
+
+  constructor(private readonly map: MapLibreMap) {}
+
+  /** Whether the map still holds our sources — a style swap removes them. */
+  present(): boolean {
+    return Boolean(this.map.getSource(SRC.paths));
   }
-  // Skipped entirely when the replay carries no polygons, which is every
-  // archive day — an empty setData still costs a source update per frame.
-  if (photoPins.length) {
-    (map.getSource(SRC.photos) as GeoJSONSource | undefined)?.setData(
-      photosGeoJson(photoPins, at),
-    );
+
+  /**
+   * Put a whole replay on the map.
+   *
+   * Everything that does not change with the clock is set here and only here.
+   * Called when a replay opens and whenever a style swap has taken the sources
+   * away; never per frame.
+   */
+  attach(r: Replayable, pins: readonly PhotoPin[] = []): void {
+    const m = this.map;
+    ensureLayers(m);
+    this.replay = r;
+
+    setSource(m, SRC.swaths, swathsGeoJson(r));
+    setSource(m, SRC.contours, contoursGeoJson(r));
+    setSource(m, SRC.paths, pathsGeoJson(r));
+    setSource(m, SRC.warns, warningsCollection(r));
+    setSource(m, SRC.fields, fieldsCollection(r));
+    this.fieldWritten = new Int16Array((r.fields ?? []).length).fill(-1);
+
+    const damage = damageCollection(r);
+    setSource(m, SRC.damage, damage.fc);
+    this.damage = new Reveal(damage.reveal, DAMAGE_FADE);
+
+    const hail = hailCollection(r);
+    setSource(m, SRC.hail, hail.fc);
+    this.hail = new Reveal(hail.reveal, HAIL_FADE);
+
+    // Feature state belongs to the ids of the last replay; clear it so a
+    // point with the same index in this one does not inherit a stale value.
+    for (const source of [
+      SRC.warns,
+      SRC.damage,
+      SRC.hail,
+      SRC.photos,
+      SRC.fields,
+    ]) {
+      try {
+        m.removeFeatureState({ source });
+      } catch {
+        /* source mid-swap */
+      }
+    }
+    this.warnWritten = new Int32Array(r.warnings.length).fill(-1);
+
+    this.photosKey = "";
+    this.setPhotos(pins);
+
+    // Everything per-frame has to be redone against the new data.
+    this.lastAt = Number.NaN;
+    this.lastZoom = Number.NaN;
   }
-  if (r.hail.length) {
-    (map.getSource(SRC.hail) as GeoJSONSource | undefined)?.setData(
-      hailGeoJson(r, at),
-    );
+
+  private setPhotos(pins: readonly PhotoPin[]): void {
+    const key = pins.map((p) => `${p.id}:${p.at}:${p.lat}:${p.lon}`).join("|");
+    if (key === this.photosKey) return;
+    this.photosKey = key;
+    const photos = photosCollection(pins);
+    setSource(this.map, SRC.photos, photos.fc);
+    try {
+      this.map.removeFeatureState({ source: SRC.photos });
+    } catch {
+      /* mid-swap */
+    }
+    this.photos = new Reveal(photos.reveal, PHOTO_FADE);
+    this.lastAt = Number.NaN;
   }
-  if (r.warnings.length) {
-    (map.getSource(SRC.warns) as GeoJSONSource | undefined)?.setData(
-      warningsGeoJson(r, at),
-    );
+
+  /** Move the replay to one instant. Cheap when little has changed. */
+  frame(at: number, pins: readonly PhotoPin[] = []): void {
+    const r = this.replay;
+    if (!r) return;
+    const m = this.map;
+    this.setPhotos(pins);
+
+    const zoom = m.getZoom();
+    const zoomBucket = Math.round(zoom * 2) / 2;
+    const moved = at !== this.lastAt;
+    const zoomed = zoomBucket !== this.lastZoom;
+    if (!moved && !zoomed) return;
+
+    // The full route only changes with the level of detail.
+    if (zoomed) setSource(m, SRC.track, trackFullGeoJson(r, zoomBucket));
+    setSource(m, SRC.trackDone, trackDoneGeoJson(r, at, zoomBucket));
+
+    if (moved) {
+      setSource(m, SRC.chaser, chaserGeoJson(r, at));
+      setSource(m, SRC.live, liveGeoJson(r, at));
+      setSource(
+        m,
+        SRC.proximity,
+        proximityGeoJson(r, at, performance.now() / 1000),
+      );
+      setSource(m, SRC.trail, trailGeoJson(r, at));
+
+      const write = (source: string) => (id: number, age: number) => {
+        m.setFeatureState({ source, id }, { age });
+      };
+      this.damage?.step(at, write(SRC.damage));
+      this.hail?.step(at, write(SRC.hail));
+      this.photos?.step(at, write(SRC.photos));
+      this.stepWarnings(r, at);
+      this.stepFields(r, at);
+    }
+
+    this.lastAt = at;
+    this.lastZoom = zoomBucket;
+  }
+
+  /** Show each wind field only while its tornado was at the measured strength. */
+  private stepFields(r: Replayable, at: number): void {
+    const fields = r.fields ?? [];
+    for (let id = 0; id < fields.length; id += 1) {
+      const q = Math.round(fieldStrength(fields[id]!, at) * 100);
+      if (this.fieldWritten[id] === q) continue;
+      this.fieldWritten[id] = q;
+      this.map.setFeatureState({ source: SRC.fields, id }, { on: q / 100 });
+    }
+  }
+
+  /**
+   * Breathe the live warnings.
+   *
+   * Every polygon is looked at — a few dozen trig calls — but only the ones
+   * whose look changed are written, which while playing is the handful in
+   * force and while paused is none.
+   */
+  private stepWarnings(r: Replayable, at: number): void {
+    const m = this.map;
+    for (let id = 0; id < r.warnings.length; id += 1) {
+      const look = lookAt(at, r.warnings[id]!, performance.now() / 1000);
+      const q =
+        Math.round(look.fill * WARN_Q) * 1_000_000 +
+        Math.round(look.line * WARN_Q) * 1_000 +
+        Math.round(look.width * 10);
+      if (this.warnWritten[id] === q) continue;
+      this.warnWritten[id] = q;
+      m.setFeatureState(
+        { source: SRC.warns, id },
+        { fill: look.fill, line: look.line, width: look.width },
+      );
+    }
   }
 }
 

@@ -153,16 +153,21 @@ describe("the archive source", () => {
     expect(coveredByArchive(Date.UTC(2024, 4, 21, 19) / 1000)).toBe(true);
   });
 
-  it("says which products it cannot serve, and why", () => {
-    const unavailable = RADAR_PRODUCTS.filter((p) => !p.available);
-    expect(unavailable.length).toBeGreaterThan(0);
-    for (const p of unavailable) {
-      expect(
-        p.why,
-        `${p.label} is unavailable with no reason given`,
-      ).toBeTruthy();
-      expect(p.why!.length).toBeGreaterThan(30);
-    }
+  it("offers the four products, and says what each tells a chaser", () => {
+    expect(RADAR_PRODUCTS.map((p) => p.id)).toEqual([
+      "reflectivity",
+      "velocity",
+      "srv",
+      "cc",
+    ]);
+    for (const p of RADAR_PRODUCTS)
+      expect(p.blurb.length, p.label).toBeGreaterThan(40);
+    // Velocity and its kin exist only in each radar's own archive.
+    expect(RADAR_PRODUCTS.filter((p) => p.fromSite).map((p) => p.id)).toEqual([
+      "velocity",
+      "srv",
+      "cc",
+    ]);
   });
 });
 

@@ -1,28 +1,41 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  LngLat,
   Map as MapLibreMap,
+  Popup,
   getVersion,
   setWorkerUrl,
   type ErrorEvent,
+  type StyleSpecification,
 } from "maplibre-gl";
 import { tornadoPositionAt } from "@/features/replay/core/chase";
 import { bearing as bearingOf, haversine } from "@/features/replay/core/geo";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { addLayers, fitTo, updateLayers } from "./layers";
+import { ReplayLayers, fitTo } from "./layers";
+import { glide, stormBounds } from "./stormCamera";
+import { mercatorX, mercatorY } from "./funnels/mercator";
 import {
   DEFAULT_FUNNEL_SETTINGS,
   FunnelLayer,
   type FunnelSettings,
 } from "./funnels/FunnelLayer";
+import { IconLayer } from "./funnels/IconLayer";
 import { RadarLayer } from "@/features/replay/radar/RadarLayer";
-import { BASE_STYLES, type BaseStyleId } from "./styles";
+import { SiteRadarLayer } from "@/features/replay/radar/SiteRadarLayer";
+import { BASE_STYLES, STYLE_TRANSFORMS, type BaseStyleId } from "./styles";
 import { boundsOf, type Replayable } from "./replayable";
 import { mapLayersFor, type LayerId } from "./layerToggles";
 import { skyAt, solarPosition, type SkyGrade } from "./sky";
+import { pick as pickMark, TAPPABLE } from "./popups";
 
 setWorkerUrl(`/vendor/maplibre/${getVersion()}/maplibre-gl-worker.mjs`);
 
-export type CameraMode = "free" | "follow" | "fit" | "chase";
+/**
+ * `storm` is the overhead camera that follows the tornadoes on the ground
+ * (#4) — the default for archive days, where there is no chaser to follow.
+ * `chase` is the 3D camera riding behind the chaser.
+ */
+export type CameraMode = "free" | "follow" | "fit" | "storm" | "chase";
 
 interface MapCanvasProps {
   replay: Replayable | null;
@@ -37,8 +50,8 @@ interface MapCanvasProps {
   /** The graded sky for this instant, so the interface can name the light. */
   onSky?: (sky: SkyGrade) => void;
   onReady?: (map: MapLibreMap) => void;
-  /** Hands the radar layer out once, so the interface can drive it. */
-  onRadar?: (layer: RadarLayer) => void;
+  /** Hands the radar layers out once, so the interface can drive them: the national mosaic, and one radar's own scan (#7). */
+  onRadar?: (mosaic: RadarLayer, site: SiteRadarLayer) => void;
   /**
    * Photo pins to draw, or nothing.
    *
@@ -58,7 +71,47 @@ interface MapCanvasProps {
   funnels?: FunnelSettings;
   /** Which data layers the reader has left on. */
   visible?: Record<LayerId, boolean>;
+  /**
+   * How much of each edge the interface covers, in pixels, so the storm
+   * camera frames the tornadoes in the part of the map that can be seen.
+   */
+  insets?: { top: number; right: number; bottom: number; left: number };
+  /**
+   * The reader panned or zoomed while the storm camera was driving. The
+   * camera stops at once — fighting a hand on the map is the worst thing a
+   * camera can do — and the interface offers the way back.
+   */
+  onTakeover?: () => void;
+  /**
+   * Where to open, when this map replaces one that died (#6). Given, the map
+   * opens exactly there instead of fitting the replay.
+   */
+  initialView?: MapView;
+  /**
+   * The browser took the map's GPU context away — phones do this under memory
+   * pressure and when the app is backgrounded — and a map without one draws
+   * nothing, ever again. Reports the view so the page can put a fresh map in
+   * its place, looking at the same thing.
+   */
+  onContextLost?: (view: MapView) => void;
+  /** A basemap that had failed has come back. */
+  onTilesRecovered?: () => void;
 }
+
+export interface MapView {
+  center: [number, number];
+  zoom: number;
+  pitch: number;
+  bearing: number;
+}
+
+/**
+ * The storm camera's zoom range. The ceiling is what keeps a single tornado
+ * in its surroundings — a few miles of country either side — rather than
+ * filling the screen; the floor keeps a sprawling outbreak on the map.
+ */
+const STORM_MAX_ZOOM = 12.2;
+const STORM_MIN_ZOOM = 5.5;
 
 /** The steepest tilt MapLibre allows, which is what "any direction" means. */
 export const MAX_PITCH = 85;
@@ -93,6 +146,11 @@ export function MapCanvas({
   photoPins = [],
   funnels = DEFAULT_FUNNEL_SETTINGS,
   visible,
+  insets,
+  onTakeover,
+  initialView,
+  onContextLost,
+  onTilesRecovered,
 }: MapCanvasProps) {
   const host = useRef<HTMLDivElement | null>(null);
   const map = useRef<MapLibreMap | null>(null);
@@ -104,8 +162,22 @@ export function MapCanvas({
   const loadedFor = useRef<string | null>(null);
   /** Whether follow has framed the subject yet, so it zooms once and no more. */
   const framed = useRef(false);
+  /** Where the storm camera is gliding to, and what it needs to know about the moment. */
+  const stormTarget = useRef<{ center: [number, number]; zoom: number } | null>(
+    null,
+  );
+  const cameraRef = useRef(camera);
+  const takeoverRef = useRef(onTakeover);
+  const contextLostRef = useRef(onContextLost);
+  useEffect(() => {
+    cameraRef.current = camera;
+    takeoverRef.current = onTakeover;
+    contextLostRef.current = onContextLost;
+  });
   /** The instanced funnel layer, kept across style swaps. */
   const funnelLayer = useRef<FunnelLayer | null>(null);
+  /** The spinning icon on the ground under each funnel (#5), likewise. */
+  const iconLayer = useRef<IconLayer | null>(null);
   /**
    * The radar layer, kept across style swaps like the funnels.
    *
@@ -114,6 +186,7 @@ export function MapCanvas({
    * for data are different things, which is the whole point of #13.
    */
   const radarLayer = useRef<RadarLayer | null>(null);
+  const siteLayer = useRef<SiteRadarLayer | null>(null);
   /** Which replay-minute the sky was last graded for. */
   const skyBucket = useRef<number>(NaN);
   const heading = useRef<number>(NaN);
@@ -133,6 +206,10 @@ export function MapCanvas({
    * style settlements makes the sky effect re-run on the swap itself.
    */
   const [styleEpoch, setStyleEpoch] = useState(0);
+  /** The same count, readable from a timer without a stale closure. */
+  const epochRef = useRef(0);
+  /** The replay's layers on this map: data once, frames cheaply. */
+  const layers = useRef<ReplayLayers | null>(null);
   /**
    * Set when the chosen basemap could not be fetched, so the map falls back to
    * the style that needs no network. Without this the whole map is hostage to
@@ -155,8 +232,10 @@ export function MapCanvas({
       // the paths and the clock work, and the basemap upgrades in behind them
       // once it is known to be reachable.
       style: BASE_STYLES.plain,
-      center: [-97.5, 38.5],
-      zoom: 4,
+      center: initialView?.center ?? [-97.5, 38.5],
+      zoom: initialView?.zoom ?? 4,
+      pitch: initialView?.pitch ?? 0,
+      bearing: initialView?.bearing ?? 0,
       attributionControl: { compact: true },
       /**
        * Free flight.
@@ -182,35 +261,66 @@ export function MapCanvas({
       scrollZoom: true,
     });
     map.current = m;
+    // A replacement map keeps the view it was handed rather than refitting.
+    if (initialView && replay) loadedFor.current = replay.id;
 
-    // `load` is the happy path. `styledata` also fires for a style that
-    // arrived in any usable state, and is what makes the data layers appear
-    // when only the tiles are missing.
+    layers.current = new ReplayLayers(m);
+
+    /**
+     * A style has settled — the first one, or a basemap swap.
+     *
+     * This used to listen to `styledata`, which MapLibre fires after *every*
+     * change to the style: each added layer, each layout property. Every one
+     * of those counted as "a new style", re-ran the data effect and re-set
+     * every source, so the map spent its time reloading data it already had.
+     * `style.load` fires once per style, including after a diffed swap, which
+     * is the only moment the data layers actually need putting back.
+     */
     const markReady = () => {
+      epochRef.current += 1;
       setReady(true);
-      setStyleEpoch((n) => n + 1);
+      setStyleEpoch(epochRef.current);
       onReady?.(m);
     };
-    m.on("load", markReady);
-    // Fires for every style that settles, including each swap — which is what
-    // puts the data layers back after setStyle tears them down.
-    m.on("styledata", markReady);
+    m.on("style.load", markReady);
 
     // A basemap that cannot be reached is the normal condition on a chase, not
     // an error worth a console full of red — the interface says so once and
     // the data layers carry on regardless.
     let reported = false;
+    /*
+     * Tile failures are counted, not announced one by one.
+     *
+     * A single road tile that times out is routine — the next pan fetches it
+     * again — and announcing "basemap unavailable" for it put a false alarm
+     * on a map that was plainly drawing its roads. The notice goes up when
+     * the style itself cannot be had, or when tiles are failing wholesale.
+     */
+    let tileErrors = 0;
+    let tileErrorsFrom = performance.now();
     m.on("error", (e: ErrorEvent) => {
       const msg = String(e.error?.message ?? "");
-      if (!/tile|source|style|sprite|glyph|fetch|network|load/i.test(msg))
+      if (/style|sprite|glyph/i.test(msg)) {
+        if (!reported) {
+          reported = true;
+          onTilesFailed?.();
+        }
+        // A style that never arrived leaves the map with nothing to draw on,
+        // so swap to the offline one and keep the data.
+        setFellBack(true);
         return;
-      if (!reported) {
+      }
+      if (!/tile|source|fetch|network|load/i.test(msg)) return;
+      const now = performance.now();
+      if (now - tileErrorsFrom > 30_000) {
+        tileErrors = 0;
+        tileErrorsFrom = now;
+      }
+      tileErrors += 1;
+      if (tileErrors >= 25 && !reported) {
         reported = true;
         onTilesFailed?.();
       }
-      // A style that never arrived leaves the map with nothing to draw on, so
-      // swap to the offline one and keep the data.
-      if (/style|sprite|glyph/i.test(msg)) setFellBack(true);
     });
 
     /**
@@ -226,9 +336,112 @@ export function MapCanvas({
     m.on("pitchend", report);
     m.on("rotateend", report);
 
+    /*
+     * A lost GPU context (#6).
+     *
+     * One of the ways the map "disappeared out of nowhere": the browser drops
+     * the WebGL context — on a phone under memory pressure, loading a big
+     * chase, or after the app has sat in the background — and every draw
+     * after that is a no-op. Nothing errors; the canvas just stays empty
+     * until something remounts it, which is why switching pages brought it
+     * back. The page now does that itself, on the same view.
+     */
+    let lostReported = false;
+    const lost = () => {
+      // MapLibre drops its style on a lost context, but a frame it had
+      // already queued still runs and trips over the missing style. Cancel it;
+      // with no style it queues no more, and this map is being replaced.
+      const pending = m as unknown as {
+        _frameRequest?: AbortController | null;
+      };
+      pending._frameRequest?.abort();
+      pending._frameRequest = null;
+      if (lostReported) return;
+      lostReported = true;
+      const c = m.getCenter();
+      contextLostRef.current?.({
+        center: [c.lng, c.lat],
+        zoom: m.getZoom(),
+        pitch: m.getPitch(),
+        bearing: m.getBearing(),
+      });
+    };
+    m.on("webglcontextlost", lost);
+    // Back from the background: the context may have gone without saying so.
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      const gl = (
+        m as unknown as {
+          painter?: { context?: { gl?: WebGLRenderingContext } };
+        }
+      ).painter?.context?.gl;
+      if (gl?.isContextLost?.()) {
+        lost();
+        return;
+      }
+      m.resize();
+      m.triggerRepaint();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
+    // A hand on the map ends any camera that is driving (storm, follow, the 3D chase
+    // cam): the camera is always free to take, in 3D too. Only real input has an
+    // originalEvent; the camera's own moves do not, so it never takes over from
+    // itself. On the storm camera, tilting and turning are allowed — they change how
+    // the storms are seen, not which part of the map is shown.
+    const takeover = (e: { originalEvent?: unknown; type?: string }) => {
+      const c = cameraRef.current;
+      if (!e.originalEvent || c === "free" || c === "fit") return;
+      if (
+        c === "storm" &&
+        (e.type === "rotatestart" || e.type === "pitchstart")
+      )
+        return;
+      takeoverRef.current?.();
+    };
+    m.on("dragstart", takeover);
+    m.on("zoomstart", takeover);
+    m.on("rotatestart", takeover);
+    m.on("pitchstart", takeover);
+
+    // A tap on a mark says what it is (#17): a short label, never a page of detail.
+    const popup = new Popup({
+      className: "rp-pop",
+      closeButton: true,
+      closeOnClick: true,
+      maxWidth: "250px",
+      offset: 12,
+    });
+    const tappable = () => TAPPABLE.filter((id) => m.getLayer(id));
+    const onTap = (e: { point: { x: number; y: number }; lngLat: LngLat }) => {
+      const r = 14;
+      const hits = m.queryRenderedFeatures(
+        [
+          [e.point.x - r, e.point.y - r],
+          [e.point.x + r, e.point.y + r],
+        ],
+        { layers: tappable() },
+      );
+      const label = pickMark(hits);
+      if (!label) return popup.remove();
+      const el = document.createElement("div");
+      const b = document.createElement("b");
+      b.textContent = label.title;
+      el.append(b);
+      if (label.line) {
+        const sm = document.createElement("small");
+        sm.textContent = label.line;
+        el.append(sm);
+      }
+      popup.setLngLat(e.lngLat).setDOMContent(el).addTo(m);
+    };
+    m.on("click", onTap);
+
     return () => {
+      document.removeEventListener("visibilitychange", onVisible);
       m.remove();
       map.current = null;
+      layers.current = null;
       setReady(false);
     };
     // Created once on purpose; style and data changes are handled below.
@@ -236,6 +449,17 @@ export function MapCanvas({
   }, []);
 
   // --- style swaps keep the data ------------------------------------------
+  /*
+   * Fetch the chosen basemap, apply it, and make sure it arrived.
+   *
+   * A basemap that cannot be had leaves the replay on the offline Plain style
+   * — the paths, the damage and the clock carry on — and is tried again: after
+   * 15 s, 45 s, 2 and 5 minutes, and at once when the connection comes back or
+   * the app returns to the foreground. It used to give up on the first
+   * failure and stay on Plain until the page was left and re-entered, which
+   * on a slow phone connection was the map "disappearing" (#6): a style that
+   * took more than eight seconds to settle was thrown away for good.
+   */
   useEffect(() => {
     const m = map.current;
     if (!m) return undefined;
@@ -247,73 +471,134 @@ export function MapCanvas({
       return undefined;
     }
 
-    // Probe the style before handing it to MapLibre: a failed setStyle leaves
-    // the map with nothing to draw on, and there is no way back from it.
     let cancelled = false;
-    fetch(wanted, { method: "GET" })
-      .then((res) => {
-        if (cancelled || !res.ok) throw new Error(String(res.status));
-        return res.json();
-      })
-      .then((style) => {
-        if (cancelled) return;
-        setFellBack(false);
-        m.setStyle(style);
+    let failed = false;
+    let attempt = 0;
+    let retry: number | undefined;
+    let watchdog: number | undefined;
+    const BACKOFF = [15_000, 45_000, 120_000, 300_000];
 
-        /**
-         * Watchdog.
-         *
-         * Fetching the style JSON only proves the JSON is reachable. If its
-         * sprite or glyphs are not, MapLibre never finishes loading the style
-         * — and an unloaded style renders NOTHING, including layers that are
-         * entirely local. The basemap silently takes the chase down with it.
-         *
-         * So if the style has not settled shortly after the swap, go back to
-         * the one that cannot fail. The paths matter; the roads under them do
-         * not matter nearly as much.
-         */
-        window.setTimeout(() => {
-          if (cancelled || !map.current) return;
-          if (!map.current.isStyleLoaded()) {
-            map.current.setStyle(BASE_STYLES.plain);
-            setFellBack(true);
-            onTilesFailed?.();
-          }
-        }, 6000);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        // Stay on the style already showing, and say so once.
+    /**
+     * @param stuck the style was applied but never settled. An unsettled style
+     *   draws nothing at all — the data layers included — so the map goes to
+     *   the offline style. A style that could not even be fetched was never
+     *   applied, and the map keeps whatever it was already showing.
+     */
+    const fail = (stuck: boolean) => {
+      if (cancelled) return;
+      if (stuck && map.current) map.current.setStyle(BASE_STYLES.plain);
+      if (!failed) {
+        failed = true;
         setFellBack(true);
         onTilesFailed?.();
-      });
+      }
+      window.clearTimeout(retry);
+      retry = window.setTimeout(
+        load,
+        BACKOFF[Math.min(attempt, BACKOFF.length - 1)],
+      );
+      attempt += 1;
+    };
+
+    function load() {
+      if (cancelled || !map.current) return;
+      window.clearTimeout(retry);
+      fetch(wanted as string, { method: "GET" })
+        .then((res) => {
+          if (cancelled || !res.ok) throw new Error(String(res.status));
+          return res.json();
+        })
+        .then((fetched) => {
+          if (cancelled || !map.current) return;
+          const transform = STYLE_TRANSFORMS[baseStyle];
+          const style = transform
+            ? transform(fetched as StyleSpecification)
+            : fetched;
+          // Taken before the swap: a diffed swap can settle synchronously.
+          const before = epochRef.current;
+          map.current.setStyle(style);
+          /*
+           * Watchdog. Fetching the JSON only proves the JSON is reachable; a
+           * style whose sprite or glyphs never arrive never finishes loading.
+           * Judged by whether the style itself arrived — not isStyleLoaded(),
+           * which is false whenever any tile is in flight, and during playback
+           * one always is.
+           */
+          window.clearTimeout(watchdog);
+          watchdog = window.setTimeout(() => {
+            if (cancelled || !map.current) return;
+            let showing: string | undefined;
+            try {
+              showing = map.current.getStyle()?.name;
+            } catch {
+              showing = undefined;
+            }
+            const arrived =
+              epochRef.current !== before ||
+              (showing !== undefined &&
+                showing === (style as { name?: string }).name);
+            if (!arrived) {
+              fail(true);
+              return;
+            }
+            if (failed) {
+              failed = false;
+              attempt = 0;
+              setFellBack(false);
+              onTilesRecovered?.();
+            }
+          }, 15_000);
+        })
+        .catch(() => fail(false));
+    }
+
+    const now = () => {
+      if (failed && !cancelled) {
+        attempt = 0;
+        load();
+      }
+    };
+    const onVisible = () => {
+      if (document.visibilityState === "visible") now();
+    };
+    window.addEventListener("online", now);
+    document.addEventListener("visibilitychange", onVisible);
+    load();
 
     return () => {
       cancelled = true;
+      window.clearTimeout(retry);
+      window.clearTimeout(watchdog);
+      window.removeEventListener("online", now);
+      document.removeEventListener("visibilitychange", onVisible);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [baseStyle]);
 
-  // --- data ---------------------------------------------------------------
-  useEffect(() => {
-    const m = map.current;
-    if (!m || !ready || !replay) return;
-    // addLayers is idempotent, so calling it on every data tick costs a few
-    // map lookups and guarantees the layers exist after any style change.
-    addLayers(m, replay);
-
-    // The funnels sit above the swaths and paths they belong to. Re-added
-    // after a style swap like everything else.
+  /**
+   * Put the custom layers on the map and keep them in their places.
+   *
+   * The funnels float above everything the survey drew; the radar sits under
+   * all of it. A diffed basemap swap keeps custom layers but re-adds the data
+   * layers above them, which would bury the funnels under their own damage
+   * points — so the order is re-asserted every time data is attached.
+   */
+  const placeCustomLayers = (m: MapLibreMap) => {
     if (!funnelLayer.current) {
       funnelLayer.current = new FunnelLayer();
       // Dev only — see the note on the map handle in MapPage.
     }
-    if (!m.getLayer("funnels")) {
-      try {
-        m.addLayer(funnelLayer.current);
-      } catch {
-        /* a style still settling; the next tick adds it */
-      }
+    if (!iconLayer.current) iconLayer.current = new IconLayer();
+    try {
+      if (!m.getLayer("funnels")) m.addLayer(funnelLayer.current);
+      else m.moveLayer("funnels");
+      // The icon lies on the ground, so it goes directly under the funnels:
+      // a funnel stands on its own swirl.
+      if (!m.getLayer("tornado-icons"))
+        m.addLayer(iconLayer.current, "funnels");
+      else m.moveLayer("tornado-icons", "funnels");
+    } catch {
+      /* a style still settling; the next attach adds it */
     }
 
     /*
@@ -323,18 +608,65 @@ export function MapCanvas({
      * is the weather they happened in. Drawn over them it would hide the
      * damage points under the very core that caused them.
      */
-    if (!radarLayer.current) {
+    if (!radarLayer.current || !siteLayer.current) {
       radarLayer.current = new RadarLayer();
-      onRadarRef.current?.(radarLayer.current);
+      siteLayer.current = new SiteRadarLayer();
+      onRadarRef.current?.(radarLayer.current, siteLayer.current);
     }
-    if (!m.getLayer("radar")) {
+    try {
+      const under = m.getLayer("warn-fill") ? "warn-fill" : undefined;
+      if (!m.getLayer("radar")) m.addLayer(radarLayer.current, under);
+      else if (under) m.moveLayer("radar", under);
+      if (!m.getLayer("radar-site")) m.addLayer(siteLayer.current, under);
+      else if (under) m.moveLayer("radar-site", under);
+    } catch {
+      /* a style still settling; the next attach adds it */
+    }
+  };
+
+  // --- data: once per replay, and again after a basemap swap --------------
+  useEffect(() => {
+    const m = map.current;
+    const l = layers.current;
+    if (!m || !l || !ready || !replay) return;
+    try {
+      l.attach(replay, photoPins);
+    } catch {
+      // A style mid-swap; `style.load` bumps the epoch and this runs again.
+      return;
+    }
+    placeCustomLayers(m);
+
+    if (loadedFor.current !== replay.id) {
+      const b = boundsOf(replay);
+      if (b) fitTo(m, b);
+      loadedFor.current = replay.id;
+      framed.current = false;
+    }
+    l.frame(at, photoPins);
+    // `at` and the pins are deliberately absent: they are per-frame and are
+    // handled below. This effect is the expensive one and runs rarely.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, replay, styleEpoch]);
+
+  // --- data: per frame ----------------------------------------------------
+  useEffect(() => {
+    const m = map.current;
+    const l = layers.current;
+    if (!m || !l || !ready || !replay) return;
+
+    // Self-heal. If the sources have gone — a style swap that did not
+    // announce itself — put the replay back rather than drawing into nothing.
+    if (!l.present()) {
       try {
-        const under = m.getLayer("warn-fill") ? "warn-fill" : undefined;
-        m.addLayer(radarLayer.current, under);
+        l.attach(replay, photoPins);
+        placeCustomLayers(m);
       } catch {
-        /* a style still settling; the next tick adds it */
+        return;
       }
     }
+    l.frame(at, photoPins);
+
     /*
      * A hidden funnel layer is disabled, not merely invisible.
      *
@@ -344,27 +676,22 @@ export function MapCanvas({
      * the map, so turning it off has to actually turn it off.
      */
     const funnelsOn = visible?.funnels !== false;
-    funnelLayer.current.setFrame(
+    funnelLayer.current?.setFrame(
       replay.tornadoes,
       at,
       funnelsOn ? funnels : { ...funnels, enabled: false },
     );
-
-    if (loadedFor.current !== replay.id) {
-      const b = boundsOf(replay);
-      if (b) fitTo(m, b);
-      loadedFor.current = replay.id;
-      framed.current = false;
-    }
-    updateLayers(m, replay, at, photoPins);
+    iconLayer.current?.setFrame(replay.tornadoes, at, funnelsOn);
   }, [ready, replay, at, funnels, visible, photoPins]);
 
   /**
    * Apply the reader's layer choices.
    *
-   * Runs after `addLayers` so a layer added this tick is hidden on the same
-   * tick rather than flashing on for a frame. Wrapped because a style swap can
-   * remove a layer between the check and the call.
+   * Runs after the data effects so a layer added this tick is hidden on the
+   * same tick rather than flashing on for a frame. Wrapped because a style
+   * swap can remove a layer between the check and the call. Not per frame:
+   * the choices only change when the reader changes them or a swap re-adds
+   * the layers.
    */
   useEffect(() => {
     const m = map.current;
@@ -379,7 +706,7 @@ export function MapCanvas({
         }
       }
     }
-  }, [visible, ready, replay, at]);
+  }, [visible, ready, replay, styleEpoch]);
 
   // --- camera -------------------------------------------------------------
   useEffect(() => {
@@ -479,13 +806,7 @@ export function MapCanvas({
         const strongest = live.reduce((a, b) =>
           a.widthYd >= b.widthYd ? a : b,
         );
-        const span = Math.max(1, strongest.end - strongest.start);
-        const f = Math.min(1, Math.max(0, (at - strongest.start) / span));
-        const i = Math.min(
-          strongest.coords.length - 1,
-          Math.floor(f * (strongest.coords.length - 1)),
-        );
-        const [lon, lat] = strongest.coords[i]!;
+        const [lat, lon] = tornadoPositionAt(strongest, at);
         m.easeTo({
           center: [lon, lat],
           ...(zoom === undefined ? {} : { zoom }),
@@ -495,6 +816,113 @@ export function MapCanvas({
       }
     }
   }, [camera, at, ready, replay]);
+
+  // --- the storm camera (#4) ------------------------------------------------
+  /*
+   * The target, recomputed whenever the moment or the frame changes: every
+   * tornado on the ground and where it is heading, fitted inside the part of
+   * the map the interface leaves visible, never closer than STORM_MAX_ZOOM.
+   * With nothing to frame the old target stands, so the camera holds.
+   */
+  useEffect(() => {
+    const m = map.current;
+    if (!m || !ready || !replay || camera !== "storm") {
+      stormTarget.current = null;
+      return;
+    }
+    const b = stormBounds(replay.tornadoes, at);
+    if (!b) return;
+    const W = m.getCanvas().clientWidth || 1;
+    const H = m.getCanvas().clientHeight || 1;
+    const pad = insets ?? { top: 80, right: 40, bottom: 200, left: 40 };
+    // cameraForBounds gives up on padding larger than the canvas; keep it sane.
+    // Never more than leaves a usable window: at least a fifth of the height
+    // and a third of the width stay for the frame, however crowded the screen.
+    const vert =
+      Math.min(pad.top + pad.bottom + 48, H * 0.8) /
+      Math.max(1, pad.top + pad.bottom + 48);
+    const horiz =
+      Math.min(pad.left + pad.right + 48, W * 0.66) /
+      Math.max(1, pad.left + pad.right + 48);
+    const padding = {
+      top: (pad.top + 24) * vert,
+      bottom: (pad.bottom + 24) * vert,
+      left: (pad.left + 24) * horiz,
+      right: (pad.right + 24) * horiz,
+    };
+    let cam;
+    try {
+      cam = m.cameraForBounds(b, {
+        padding,
+        maxZoom: STORM_MAX_ZOOM,
+        bearing: m.getBearing(),
+      });
+    } catch {
+      cam = undefined;
+    }
+    if (!cam?.center) return;
+    const c = LngLat.convert(cam.center);
+    stormTarget.current = {
+      center: [c.lng, c.lat],
+      zoom: Math.min(
+        STORM_MAX_ZOOM,
+        Math.max(STORM_MIN_ZOOM, cam.zoom ?? m.getZoom()),
+      ),
+    };
+  }, [camera, at, ready, replay, insets]);
+
+  /*
+   * The glide: every frame, a fraction of the way to the target, by real time.
+   * Tornadoes touching down and lifting move the target in steps; this turns
+   * the steps into one continuous camera move, the same at 1x and 750x. A
+   * target more than a couple of screens away is flown to instead. It stands
+   * still while the reader is tilting or turning, so it never fights a gesture.
+   */
+  useEffect(() => {
+    const m = map.current;
+    if (!m || !ready || camera !== "storm") return undefined;
+    let raf = 0;
+    let last = performance.now();
+    const step = (now: number) => {
+      const dt = Math.min(0.1, (now - last) / 1000);
+      last = now;
+      const t = stormTarget.current;
+      if (t && !m.isMoving()) {
+        const c = m.getCenter();
+        const z = m.getZoom();
+        const x0 = mercatorX(c.lng),
+          y0 = mercatorY(c.lat);
+        const x1 = mercatorX(t.center[0]),
+          y1 = mercatorY(t.center[1]);
+        const px = Math.hypot(x1 - x0, y1 - y0) * 512 * 2 ** z;
+        const dz = t.zoom - z;
+        const W = m.getCanvas().clientWidth || 1;
+        const H = m.getCanvas().clientHeight || 1;
+        if (px > 2.5 * Math.max(W, H)) {
+          m.flyTo({
+            center: t.center,
+            zoom: t.zoom,
+            duration: 1400,
+            essential: true,
+          });
+        } else if (px > 0.25 || Math.abs(dz) > 0.002) {
+          const k = glide(dt);
+          const x = x0 + (x1 - x0) * k;
+          const y = y0 + (y1 - y0) * k;
+          m.jumpTo({
+            center: [
+              x * 360 - 180,
+              (Math.atan(Math.sinh(Math.PI * (1 - 2 * y))) * 180) / Math.PI,
+            ],
+            zoom: z + dz * k,
+          });
+        }
+      }
+      raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [camera, ready]);
 
   // --- 3D, when the camera is not driving it ------------------------------
   useEffect(() => {
@@ -575,7 +1003,7 @@ export function MapCanvas({
     // are made of, and the sun that is actually on them.
     funnelLayer.current?.setCloud(grade.cloud);
     const sun = solarPosition(replay.T0 + at, lat, lon);
-    funnelLayer.current?.setSun(sun.azimuth, sun.altitude, m.getBearing());
+    funnelLayer.current?.setSun(sun.azimuth, sun.altitude);
     onSky?.(grade);
     // `onSky` is a callback the caller may redefine each render; depending on
     // it would recompute the sky every frame for no change.

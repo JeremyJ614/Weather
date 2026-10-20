@@ -41,6 +41,8 @@ export interface ReplayClock {
   speed: number;
   seek: (to: number) => void;
   toggle: () => void;
+  play: () => void;
+  pause: () => void;
   restart: () => void;
   setSpeed: (s: number) => void;
 }
@@ -115,6 +117,8 @@ export function useClock(
     speed,
     seek,
     toggle: useCallback(() => setPlaying((p) => !p), []),
+    play: useCallback(() => setPlaying(true), []),
+    pause: useCallback(() => setPlaying(false), []),
     restart: useCallback(() => {
       setAt(from);
       setPlaying(true);

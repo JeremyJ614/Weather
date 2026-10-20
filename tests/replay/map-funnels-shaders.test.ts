@@ -71,12 +71,13 @@ describe("the funnel shaders", () => {
   });
 
   it("passes every varying the fragment shader reads", () => {
-    const outs = [...FUNNEL_VERT.matchAll(/^out\s+\w+\s+(\w+);/gm)].map(
-      (m) => m[1],
-    );
-    const ins = [...FUNNEL_FRAG.matchAll(/^in\s+\w+\s+(\w+);/gm)].map(
-      (m) => m[1],
-    );
+    const outs = [
+      ...FUNNEL_VERT.matchAll(/^(?:flat\s+)?out\s+\w+\s+(\w+);/gm),
+    ].map((m) => m[1]);
+    const ins = [
+      ...FUNNEL_FRAG.matchAll(/^(?:flat\s+)?in\s+\w+\s+(\w+);/gm),
+    ].map((m) => m[1]);
+    expect(ins.length).toBeGreaterThan(3);
     for (const name of ins) {
       expect(
         outs,
@@ -89,10 +90,10 @@ describe("the funnel shaders", () => {
     for (const a of [
       "a_corner",
       "a_pos",
-      "a_shape",
-      "a_style",
-      "a_life",
-      "a_extra",
+      "a_size",
+      "a_look",
+      "a_form",
+      "a_more",
     ]) {
       expect(
         FUNNEL_VERT.includes(a),
@@ -102,10 +103,26 @@ describe("the funnel shaders", () => {
   });
 
   it("caps the march loop at a constant, as GLSL ES requires", () => {
-    // A loop bound by a uniform will not compile on some drivers; the step
-    // count has to be a constant with an early break inside.
-    expect(FUNNEL_FRAG).toMatch(/for \(int i = 0; i < 32; i \+= 1\)/);
-    expect(FUNNEL_FRAG).toContain("if (float(i) >= steps) break;");
+    // A loop bound by a uniform will not compile on some drivers; the
+    // iteration count has to be a constant with an early break inside.
+    expect(FUNNEL_FRAG).toMatch(/for \(int i = 0; i < \d+; i \+= 1\)/);
+    expect(FUNNEL_FRAG).toContain("if (t >= t1) break;");
+  });
+
+  it("casts a real ray from the camera, so the funnel holds from any angle", () => {
+    // The billboard it replaced was a flat card turned to face the camera: it
+    // turned the wrong way on a rotated map and was a line from overhead.
+    expect(FUNNEL_VERT).toContain("u_camera");
+    expect(FUNNEL_VERT).toContain("u_inverse");
+    expect(FUNNEL_FRAG).toContain("normalize(v_dir)");
+  });
+
+  it("skips empty air instead of marching through it", () => {
+    expect(FUNNEL_FRAG).toContain("float gap = r - rm;");
+  });
+
+  it("fades out in the flat view, where the ground icon takes over", () => {
+    expect(FUNNEL_FRAG).toContain("u_fade");
   });
 
   it("terminates early once the column is opaque", () => {
@@ -122,7 +139,7 @@ describe("the funnel shaders", () => {
     // ONE / ONE_MINUS_SRC_ALPHA. Blending premultiplied colour with SRC_ALPHA
     // multiplies by coverage twice and washes the funnel out.
     expect(FUNNEL_FRAG).toMatch(
-      /fragColor = vec4\(acc \* v_intensity, alpha \* v_intensity\)/,
+      /fragColor = vec4\(acc \* intensity, alpha \* intensity\)/,
     );
   });
 });

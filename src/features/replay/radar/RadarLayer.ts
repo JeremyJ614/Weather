@@ -18,6 +18,7 @@ import type {
 } from "maplibre-gl";
 import { chaserStops, decodeTile } from "./decode";
 import { tileUrl } from "./source";
+import { reportError } from "@/features/replay/report";
 
 const VERT = `#version 300 es
 precision highp float;
@@ -420,7 +421,26 @@ export class RadarLayer implements CustomLayerInterface {
     }
   }
 
+  /** Set when drawing threw; the layer then stays off rather than taking the map's frames down with it (#6). */
+  private broken = false;
+
   render(gl: WebGL2RenderingContext, options: CustomRenderMethodInput) {
+    if (this.broken) return;
+    try {
+      this.draw(gl, options);
+    } catch (err) {
+      this.broken = true;
+      try {
+        gl.bindVertexArray(null);
+      } catch {
+        /* the context itself may be gone */
+      }
+      console.error(`${this.id}: switched off after a drawing error`, err);
+      reportError(err, { source: "layer", layer: this.id });
+    }
+  }
+
+  private draw(gl: WebGL2RenderingContext, options: CustomRenderMethodInput) {
     this.stats.renders += 1;
     this.stats.tiles = this.tiles.size;
     this.stats.ready = [...this.tiles.values()].filter(

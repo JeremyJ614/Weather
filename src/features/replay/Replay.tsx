@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { Map as MapLibreMap } from "maplibre-gl";
 import { MapCanvas, type CameraMode } from "@/features/replay/map/MapCanvas";
 import type { SkyGrade } from "@/features/replay/map/sky";
 import {
@@ -19,12 +20,10 @@ import type { Moment } from "@/features/replay/timeline/snap";
 import { SPEEDS, useClock } from "@/features/replay/map/useClock";
 import { useMeasuredHeight } from "@/features/replay/map/useMeasuredHeight";
 import { InfoCards } from "@/features/replay/map/cards/InfoCards";
+import { Legend } from "@/features/replay/map/Legend";
 import { SurveyPanel } from "@/features/replay/map/cards/SurveyPanel";
-import {
-  RadarPanel,
-  type RadarState,
-} from "@/features/replay/radar/RadarPanel";
-import type { RadarLayer } from "@/features/replay/radar/RadarLayer";
+import { RadarPanel } from "@/features/replay/radar/RadarPanel";
+import { useRadar } from "@/features/replay/radar/useRadar";
 import { readingAt } from "@/features/replay/core/timezone";
 import type { Colors } from "@/lib/colors/pick";
 import type { ReplayEntry } from "./entries";
@@ -52,6 +51,7 @@ const SKY_LABEL: Record<SkyGrade["phase"], string> = {
 };
 
 const CAMERAS: { id: CameraMode; label: string }[] = [
+  { id: "storm", label: "Storm camera" },
   { id: "follow", label: "Follow" },
   { id: "chase", label: "3D chase cam" },
   { id: "fit", label: "Whole day" },
@@ -72,6 +72,8 @@ type Props = {
   backLabel: string;
   /** Admin color overrides (Map & data colors). */
   colors: Colors;
+  /** Where the camera starts: the storm camera for archive days, Follow for a chase. */
+  startCamera?: CameraMode;
 };
 
 /**
@@ -90,32 +92,28 @@ export function Replay({
   onBack,
   backLabel,
   colors,
+  startCamera = "follow",
 }: Props) {
   // Paint colors are read when the map builds its layers, so set them first.
   useState(() => applyPalette(colors));
-  const [camera, setCamera] = useState<CameraMode>("follow");
+  // Archive days open on the overhead storm camera; a chase follows the car. Either way
+  // a hand on the map frees the camera (onTakeover).
+  const [camera, setCamera] = useState<CameraMode>(startCamera);
   const [base, setBase] = useState<BaseStyleId>("dark");
   const [pitch, setPitch] = useState(0);
   const [bearing, setBearing] = useState(0);
   const [sky, setSky] = useState<SkyGrade | null>(null);
   const [visible, setVisible] = useState(defaultLayers);
-  const [panel, setPanel] = useState<"none" | "layers" | "view" | "radar">(
-    "none",
-  );
+  const [panel, setPanel] = useState<
+    "none" | "layers" | "view" | "radar" | "legend"
+  >("none");
   const [moment, setMoment] = useState<Moment | null>(null);
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [tilesFailed, setTilesFailed] = useState(false);
   const [report, setReport] = useState<number | null>(null);
 
-  // Radar stays empty and silent until someone presses the button.
-  const radarRef = useRef<RadarLayer | null>(null);
-  const [radar, setRadar] = useState<RadarState>({
-    on: false,
-    opacity: 0.68,
-    loadedAt: null,
-    loading: false,
-    note: null,
-  });
+  // The map itself, for the radar's "near the middle of the map" when no tornado is up.
+  const mapHandle = useRef<MapLibreMap | null>(null);
 
   const [hudRef, hudH] = useMeasuredHeight(210);
   const [cardsRef, cardsH] = useMeasuredHeight(0);
@@ -140,27 +138,10 @@ export function Replay({
     return () => removeEventListener("keydown", key);
   }, [onBack, switcherOpen, toggleClock]);
 
-  const fetchRadar = async () => {
-    const layer = radarRef.current;
-    if (!layer || !current) return;
-    const when = current.T0 + clock.at;
-    setRadar((r) => ({ ...r, loading: true, note: null }));
-    const { tiles, withData } = await layer.load(when);
-    setRadar((r) => ({
-      ...r,
-      loading: false,
-      loadedAt: withData ? when : r.loadedAt,
-      note:
-        withData === 0
-          ? `Nothing came back for this moment. ${tiles} tiles were asked for and all were empty: either the archive has no scan here, or there was nothing to see.`
-          : `${withData} of ${tiles} tiles carried returns.`,
-    }));
-  };
-
-  const clearRadar = () => {
-    radarRef.current?.clear();
-    setRadar((r) => ({ ...r, loadedAt: null, note: null }));
-  };
+  // Radar stays empty and silent until someone presses the button; then it follows the
+  // replay's clock, reading the national mosaic or one radar's own scans (velocity,
+  // storm-relative velocity, correlation).
+  const radar = useRadar({ replay: current, at: clock.at, mapRef: mapHandle });
 
   const moments = useMemo(
     () =>
@@ -228,6 +209,7 @@ export function Replay({
           "--w-severe": PAL.warn.severe,
           "--w-tornado": PAL.warn.tornado,
           "--w-emergency": PAL.warn.emergency,
+          "--w-hail": PAL.hail.mid,
           "--hud-h": `${hudH}px`,
           "--cards-h": `${cardsH}px`,
           "--toolrow-h": `${toolRowH}px`,
@@ -239,6 +221,7 @@ export function Replay({
         at={clock.at}
         baseStyle={base}
         camera={camera}
+        onTakeover={() => setCamera("free")}
         pitch={pitch}
         bearing={bearing}
         onTilesFailed={() => setTilesFailed(true)}
@@ -247,8 +230,9 @@ export function Replay({
           setBearing(v.bearing);
         }}
         onSky={setSky}
-        onRadar={(layer) => {
-          radarRef.current = layer;
+        onRadar={radar.attach}
+        onReady={(m) => {
+          mapHandle.current = m;
         }}
         visible={visible}
       />
@@ -347,9 +331,17 @@ export function Replay({
               onClick={() => toggle("radar")}
             >
               Radar
-              {radar.loadedAt !== null && (
+              {radar.state.loadedAt !== null && (
                 <span className="map-badge map-badge-dot" aria-hidden="true" />
               )}
+            </button>
+            <button
+              type="button"
+              data-on={panel === "legend" ? "" : undefined}
+              aria-expanded={panel === "legend"}
+              onClick={() => toggle("legend")}
+            >
+              Legend
             </button>
           </div>
           {sky && (
@@ -383,6 +375,16 @@ export function Replay({
                 the way it is moving.
               </p>
             )}
+            {camera === "storm" && (
+              <p className="map-hint">
+                Looks down on the tornadoes on the ground and keeps them in
+                frame as the day plays.
+              </p>
+            )}
+            <p className="map-hint">
+              Drag, pinch, twist or tilt the map at any time to take the camera;
+              it stays where you leave it, in 3D too.
+            </p>
 
             <h3>Basemap</h3>
             <div className="map-chips" role="group" aria-label="Basemap">
@@ -414,7 +416,8 @@ export function Replay({
               <button
                 type="button"
                 onClick={() => {
-                  if (camera === "chase") setCamera("follow");
+                  // 3D is a free camera: tilted, and yours to move.
+                  setCamera("free");
                   setPitch(PRESET_3D.pitch);
                   setBearing(PRESET_3D.bearing);
                 }}
@@ -431,16 +434,27 @@ export function Replay({
 
         {panel === "radar" && (
           <RadarPanel
-            state={radar}
+            state={radar.state}
             at={current ? current.T0 + clock.at : 0}
             zone={zoneNow}
-            onFetch={() => void fetchRadar()}
-            onClear={clearRadar}
-            onOpacity={(v) => {
-              setRadar((r) => ({ ...r, opacity: v }));
-              radarRef.current?.setSettings({ opacity: v });
-            }}
+            focus={radar.focus}
+            motion={radar.motion}
+            onFetch={() => void radar.fetch()}
+            onClear={radar.clear}
+            onOpacity={radar.setOpacity}
+            onProduct={radar.setProduct}
+            onSource={radar.setSource}
+            onSite={radar.setSite}
+            onFollow={radar.setFollow}
+            onSmooth={radar.setSmooth}
           />
+        )}
+
+        {panel === "legend" && (
+          <div className="map-panel">
+            <h3>Legend</h3>
+            <Legend chase={!!current?.track} />
+          </div>
         )}
 
         {panel === "layers" && (

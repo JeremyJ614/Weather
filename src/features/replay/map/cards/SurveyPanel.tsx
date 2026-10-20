@@ -4,14 +4,15 @@ import { ratingLabel } from "@/features/replay/archive/types";
 import { metresToMiles } from "@/features/replay/core/geo";
 import type { Replayable } from "../replayable";
 import { isNonEf, plainStructure, surveyReport } from "./survey";
+import { dateFormat } from "@/features/replay/core/intl";
 
 /** hh:mm in the chase's own timezone, which is the only one that means anything. */
 function localTime(T0: number, offset: number, tz: string): string {
-  return new Date((T0 + offset) * 1000).toLocaleTimeString("en-US", {
+  return dateFormat("en-US", {
     hour: "numeric",
     minute: "2-digit",
     timeZone: tz,
-  });
+  }).format(new Date((T0 + offset) * 1000));
 }
 
 /**
