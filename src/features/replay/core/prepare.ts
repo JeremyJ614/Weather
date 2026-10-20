@@ -20,6 +20,33 @@ import {
  * page simply froze. Here it is a pure function, so it runs in a worker, and it
  * reports progress as it goes.
  */
+/**
+ * Where each of the payload's tornadoes ends up after preparation.
+ *
+ * Preparation drops tornadoes with no usable coordinates and sorts the rest
+ * by touchdown, but damage points and contours name their tornado by its
+ * position in the *payload*. Without remapping, a payload not already in
+ * touchdown order hangs its damage on the wrong tornado. Null for a
+ * tornado that was dropped.
+ */
+export function preparedIndexOf(
+  torn: readonly { start: number; coords: [number, number][] }[],
+): (number | null)[] {
+  const kept = torn
+    .map((t, i) => ({
+      i,
+      start: t.start,
+      ok: t.coords.some((c) => Number.isFinite(c[0]) && Number.isFinite(c[1])),
+    }))
+    .filter((t) => t.ok)
+    .sort((a, b) => a.start - b.start);
+  const out: (number | null)[] = torn.map(() => null);
+  kept.forEach((t, k) => {
+    out[t.i] = k;
+  });
+  return out;
+}
+
 export function prepareChase(
   payload: ChasePayload,
   onProgress?: (fraction: number, label: string) => void,
@@ -32,11 +59,26 @@ export function prepareChase(
   step(0.2, "Measuring the tornadoes");
   const tornadoes: PreparedTornado[] = payload.torn
     .map((t, index) => {
-      const coords = t.coords.filter(
-        (c) => Number.isFinite(c[0]) && Number.isFinite(c[1]),
-      ) as [number, number][];
-      if (coords.length === 1)
+      // Which vertices survive, so the per-vertex profiles stay aligned.
+      const keep = t.coords
+        .map((c, i) =>
+          Number.isFinite(c[0]) && Number.isFinite(c[1]) ? i : -1,
+        )
+        .filter((i) => i >= 0);
+      const coords = keep.map((i) => t.coords[i]!) as [number, number][];
+      const along = <T>(xs: T[] | undefined): T[] | undefined =>
+        xs && xs.length === t.coords.length
+          ? keep.map((i) => xs[i]!)
+          : undefined;
+      let widths = along(t.widths);
+      let times = along(t.times);
+      let ratings = along(t.ratings);
+      if (coords.length === 1) {
         coords.push([coords[0]![0] + 0.00002, coords[0]![1]]);
+        widths = widths && [widths[0]!, widths[0]!];
+        times = times && [times[0]!, times[0]! + 1];
+        ratings = ratings && [ratings[0]!, ratings[0]!];
+      }
 
       const cum = cumulative(coords);
       const lengthM = cum[cum.length - 1] || 1;
@@ -66,6 +108,11 @@ export function prepareChase(
          */
         ...(t.comments ? { comments: t.comments } : {}),
         ...(t.wfo ? { wfo: t.wfo } : {}),
+        // The survey's shape along the path — width, clock and rating per
+        // vertex — carried through for the same reason.
+        ...(widths ? { widths } : {}),
+        ...(times ? { times } : {}),
+        ...(ratings ? { ratings } : {}),
       };
     })
     .filter((t) => t.coords.length >= 2)

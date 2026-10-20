@@ -90,6 +90,15 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     href: "/admin/contact-forms",
   },
   {
+    id: "disaster",
+    group: "content",
+    desc: "Disaster Response listings and the volunteer roster",
+    label: "Disaster Response",
+    icon: "HeartHandshake",
+    phase: "61",
+    href: "/admin/disaster",
+  },
+  {
     id: "faq",
     group: "content",
     desc: "The FAQ page: tabs, categories and every question and answer",
@@ -287,14 +296,6 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     label: "Engine preview",
     icon: "Cpu",
     phase: "60b",
-  },
-  {
-    id: "disaster",
-    group: "content",
-    desc: "Help requests from the Disaster Response page",
-    label: "Disaster response inbox",
-    icon: "HeartHandshake",
-    phase: "61",
   },
 ];
 

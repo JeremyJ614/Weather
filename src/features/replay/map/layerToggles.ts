@@ -43,7 +43,13 @@ export const LAYER_TOGGLES: readonly LayerToggle[] = [
     id: "contours",
     label: "Damage swath",
     on: true,
-    layers: ["contour-fill", "contour-line", "swath-fill"],
+    layers: [
+      "contour-fill",
+      "contour-line",
+      "swath-fill",
+      "field-fill",
+      "field-line",
+    ],
     blurb: "The surveyed damage contours, nested by rating.",
   },
   {

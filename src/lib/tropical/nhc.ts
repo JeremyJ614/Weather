@@ -67,6 +67,7 @@ export type Storm = {
     discussion?: string;
     graphics?: string;
     forecast?: string;
+    windProbs?: string;
   };
   points: ForecastPoint[];
   warnings: string[];
@@ -140,6 +141,7 @@ type RawStorm = {
   forecastAdvisory?: { url?: string };
   forecastDiscussion?: { url?: string };
   forecastGraphics?: { url?: string };
+  windSpeedProbabilities?: { url?: string };
 };
 
 /** The layer ids for a storm bin such as "EP1". */
@@ -300,6 +302,7 @@ export async function getOutlook(colors: Colors = {}): Promise<Outlook> {
         discussion: s.forecastDiscussion?.url,
         graphics: s.forecastGraphics?.url,
         forecast: s.forecastAdvisory?.url,
+        windProbs: s.windSpeedProbabilities?.url,
       },
       points: pts,
       warnings: [

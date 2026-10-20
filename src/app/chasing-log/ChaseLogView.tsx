@@ -8,6 +8,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { EF_COLORS } from "@/lib/colors/ef";
 import { pick, type Colors } from "@/lib/colors/pick";
 import type { ReplayEntry } from "@/features/replay/entries";
+import { DEFAULTS as REPLAY } from "@/features/replay/palette";
 import s from "./ChaseLog.module.css";
 
 const loading = () => <p className={s.small}>Loading…</p>;
@@ -99,6 +100,7 @@ export function ChaseLogView({
       {adding ? (
         <ChaseImport
           ef={ef}
+          route={pick(colors, "replay:track:done", REPLAY.track.done)}
           onCancel={() => setAdding(false)}
           onSaved={(row) => {
             setAdding(false);

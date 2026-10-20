@@ -21,6 +21,7 @@ const HZ = {
 };
 const time = (iso: string) =>
   new Date(iso).toLocaleString("en-US", {
+    timeZone: "America/Chicago",
     weekday: "short",
     hour: "numeric",
     minute: "2-digit",
@@ -64,7 +65,7 @@ function Card({ md, active, i }: { md: Md; active: boolean; i: number }) {
           <span className={s.num}>MD {md.num}</span>
           <b>{md.concerning || "Severe weather potential"}</b>
           <span className={s.when}>
-            {time(md.issue)} – {time(md.expire)}
+            {time(md.issue)} – {time(md.expire)} CT
             {!active && " · expired"}
           </span>
         </div>

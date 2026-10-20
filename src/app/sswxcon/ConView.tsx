@@ -27,9 +27,10 @@ const ICONS: Record<string, React.ReactNode> = {
 
 const time = (iso: string) =>
   new Date(iso).toLocaleTimeString("en-US", {
+    timeZone: "America/Chicago",
     hour: "numeric",
     minute: "2-digit",
-  });
+  }) + " CT";
 
 /** The live national score; refreshes every five minutes while visible. */
 export function ConView({ initial }: { initial: National }) {

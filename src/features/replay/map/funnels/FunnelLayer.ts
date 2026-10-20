@@ -5,26 +5,46 @@ import type {
 } from "maplibre-gl";
 import {
   tornadoPositionAt,
+  widthAt,
   type PreparedTornado,
 } from "@/features/replay/core/chase";
 import { characterOf, lifeAt } from "./lifecycle";
-import { metresToMercator, mercatorX, mercatorY } from "./mercator";
+import {
+  EARTH_CIRCUMFERENCE,
+  metresToMercator,
+  mercatorX,
+  mercatorY,
+} from "./mercator";
 import { EF_SPIN, FUNNEL_FRAG, FUNNEL_VERT } from "./shaders";
 import { buildNoise3D, NOISE_SIZE } from "./noise3d";
+import { reportError } from "@/features/replay/report";
 
 /**
- * Every tornado on the ground, in one draw call (Z2 #09).
+ * Every tornado on the ground, in one draw call.
  *
- * Instancing is the change that makes the rest affordable. 27 April 2011 puts
- * more than thirty tornadoes on the ground at once and the archive holds 207
- * across the day; a marker or a sprite each means a draw call each, and the
- * budget is gone before any of them look like anything. One quad, one buffer
- * upload per frame, one `drawArraysInstanced` — after which the per-funnel
- * cost is a few floats, and everything spent on making them look right is
- * spent in the fragment shader where it belongs.
+ * Instancing is what makes the volume affordable. 27 April 2011 puts more
+ * than thirty tornadoes on the ground at once; a canvas or a draw call each —
+ * which is how the old app did it, and why it lagged — spends the budget
+ * before any of them look like anything. Here the per-funnel cost is sixteen
+ * floats, and everything spent on the look is spent in the fragment shader.
  */
 
-const FLOATS_PER_INSTANCE = 16; // pos(2) shape(4) style(4) life(4) extra(2)
+const FLOATS_PER_INSTANCE = 16; // pos(2) size(4) look(4) form(4) more(2)
+
+/**
+ * The smallest a funnel is drawn, in CSS pixels of height, and the thinnest
+ * its base. The old app did this and it was right: a 1,500 m funnel is a few
+ * pixels tall at county zoom, and a tornado you cannot see is not a
+ * rendering style. The swath on the ground still shows the true width.
+ */
+const MIN_HEIGHT_PX = 100;
+const MIN_BASE_RADIUS_PX = 2.5;
+
+/** The funnels fade in as the map tilts; flat, the ground icon takes over. */
+const FADE_PITCH: [number, number] = [14, 32];
+
+/** The rotation keeps turning while paused, at this rate. */
+const IDLE_FRAME_MS = 33;
 
 export interface FunnelSettings {
   /** Off entirely, for the performance preset. */
@@ -34,13 +54,9 @@ export interface FunnelSettings {
   /** Multiplier on the drawn height — taste, not data. */
   heightScale: number;
   /**
-   * Raymarch steps per pixel.
-   *
-   * The one honest performance dial. 24 with dithering looks like 64; 12 is
-   * visibly grainier but still volumetric, and is what the performance preset
-   * uses. Deliberately NOT a resolution reduction — the spec this was built to
-   * forbids that, and it is right to: a half-resolution funnel is blurry at
-   * every step count, while a low step count is merely grainier.
+   * Samples across the column. The one honest performance dial: 24 with
+   * dithering looks like 64, 12 is grainier but still volumetric. Never a
+   * resolution cut — a half-resolution funnel is blurry at every step count.
    */
   steps: number;
 }
@@ -64,53 +80,59 @@ export class FunnelLayer implements CustomLayerInterface {
   private instanceBuffer: WebGLBuffer | null = null;
   private uniforms: Record<string, WebGLUniformLocation | null> = {};
 
+  /** Built when the clock or the zoom moves; drawn from `upload`, sorted. */
   private instances = new Float32Array(
+    FLOATS_PER_INSTANCE * DEFAULT_FUNNEL_SETTINGS.maxFunnels,
+  );
+  private upload = new Float32Array(
     FLOATS_PER_INSTANCE * DEFAULT_FUNNEL_SETTINGS.maxFunnels,
   );
   private count = 0;
   private flash = 0;
-  /** Vertices in the bounding silhouette, set when the mesh is built. */
-  private vertexCount = 6;
+  private builtZoom = NaN;
 
   private tornadoes: readonly PreparedTornado[] = [];
   private at = 0;
   private settings: FunnelSettings = DEFAULT_FUNNEL_SETTINGS;
 
-  /**
-   * The cloud base a funnel is read against (Z3 #21).
-   *
-   * A condensation funnel has almost no colour of its own — it is the cloud
-   * base, stretched down and lit from the same sky. So the one thing that
-   * decides whether a funnel looks like it belongs in a dusk frame or a
-   * midday one is this, and it comes from the solar grade rather than being
-   * the fixed grey it started as.
-   */
+  /** The cloud base a funnel is made of, from the solar grade. */
   private cloud: [number, number, number] = [0.62, 0.64, 0.68];
-
-  /**
-   * The direction toward the sun, in the billboard's own space.
-   *
-   * x is across the billboard and y is into it, which is the plane the
-   * raymarch's surface normals live in. Fed from the same solar model the sky
-   * is graded with, so a funnel at dusk is lit from where the sun actually
-   * was rather than from a fixed studio light.
-   */
-  private sun: [number, number, number] = [-0.7071, -0.7071, 0.3];
+  /** Toward the sun, in the funnels' local space: east, up, north. */
+  private sun: [number, number, number] = [-0.6, 0.35, 0.6];
 
   private noiseTex: WebGLTexture | null = null;
+  private readonly still =
+    typeof window !== "undefined" &&
+    window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
+  private idleTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /**
+   * Adaptive quality: a multiplier on the step count that follows the frame
+   * rate. A funnel filling a phone screen is the most expensive thing the app
+   * draws; rather than lag, it gets a little grainier until the frames are
+   * back on time, and recovers slowly once they are.
+   */
+  private quality = 1;
+  private lastRender = 0;
+  private expectedMs = 1000 / 60;
+  private slow = 0;
+  private fast = 0;
 
   setCloud(rgb: readonly [number, number, number]) {
     this.cloud = [rgb[0], rgb[1], rgb[2]];
   }
 
-  /** `azimuthDeg` clockwise from north, `altitudeDeg` above the horizon. */
-  setSun(azimuthDeg: number, altitudeDeg: number, mapBearingDeg: number) {
-    // Into the billboard's frame: the quad faces the camera, so the sun's
-    // bearing relative to the camera is what decides which side is lit.
-    const rel = ((azimuthDeg - mapBearingDeg) * Math.PI) / 180;
-    const alt = (Math.max(-10, altitudeDeg) * Math.PI) / 180;
-    const horiz = Math.cos(alt);
-    this.sun = [Math.sin(rel) * horiz, -Math.cos(rel) * horiz, Math.sin(alt)];
+  /**
+   * `azimuthDeg` clockwise from north, `altitudeDeg` above the horizon. In
+   * world space, so it is right at every bearing without being refreshed
+   * when the map turns. Below the horizon the light keeps its direction —
+   * the glow is still where the sun went down.
+   */
+  setSun(azimuthDeg: number, altitudeDeg: number) {
+    const az = (azimuthDeg * Math.PI) / 180;
+    const alt = (Math.max(-4, altitudeDeg) * Math.PI) / 180;
+    const h = Math.cos(alt);
+    this.sun = [Math.sin(az) * h, Math.sin(alt), Math.cos(az) * h];
   }
 
   /** What to draw, and when. Called whenever the clock moves. */
@@ -125,6 +147,7 @@ export class FunnelLayer implements CustomLayerInterface {
       this.instances = new Float32Array(
         FLOATS_PER_INSTANCE * settings.maxFunnels,
       );
+      this.upload = new Float32Array(FLOATS_PER_INSTANCE * settings.maxFunnels);
     }
     this.settings = settings;
     this.build();
@@ -132,19 +155,20 @@ export class FunnelLayer implements CustomLayerInterface {
   }
 
   /**
-   * Fill the instance buffer for this moment.
+   * Fill the instance buffer for this moment and this zoom.
    *
-   * Kept out of `render` on purpose: render runs on MapLibre's schedule, which
-   * is every frame the map moves, while the data only changes when the clock
-   * does. Rebuilding here means panning a paused map costs nothing.
+   * Out of `render` because the data only changes when the clock or the zoom
+   * does; panning a paused map rebuilds nothing.
    */
   private build() {
+    this.builtZoom = this.map?.getZoom() ?? NaN;
     if (!this.settings.enabled) {
       this.count = 0;
       return;
     }
 
     const arr = this.instances;
+    const zoom = Number.isFinite(this.builtZoom) ? this.builtZoom : 12;
     let n = 0;
     let flash = 0;
 
@@ -156,62 +180,81 @@ export class FunnelLayer implements CustomLayerInterface {
     for (const t of candidates) {
       if (n >= this.settings.maxFunnels) break;
       const ch = characterOf(t.ef);
-      const life = lifeAt(t.start, t.end, this.at, ch);
+      const life = lifeAt(
+        t.start,
+        t.end,
+        this.at,
+        ch,
+        performance.now() / 1000,
+      );
       if (life.phase === "before" || life.phase === "after") continue;
 
-      // Where it is now. During the forming phase it has not started moving
-      // along the survey yet, so it hangs above the touchdown point.
+      // During the forming phase it hangs over the touchdown point.
       const when = Math.max(t.start, this.at);
       const [lat, lon] = tornadoPositionAt(t, when);
       const perMetre = metresToMercator(lat);
+      const mpp =
+        (EARTH_CIRCUMFERENCE * Math.cos((lat * Math.PI) / 180)) /
+        (512 * 2 ** zoom);
 
-      // The surveyed width is the truth; character scales the drawn column
-      // around it so a rating still reads when the survey is coarse.
+      // The surveyed width where it was at this moment.
       const widthM =
-        Math.max(t.widthYd * 0.9144, ch.baseWidthM * 0.35) * life.widthScale;
-
-      /*
-       * Everything the shader sees is measured in funnel heights.
-       *
-       * This is the one thing that has to be right or the funnel is visibly
-       * squashed: the billboard's x axis and y axis must share a unit. The
-       * fragment shader marches a volume where `y` runs 0..1 over the column's
-       * height, so `x` has to be in the same units — otherwise a 1500 m tall
-       * funnel drawn on a 400 m wide quad is stretched more than three times
-       * sideways, which is exactly how the first attempt looked.
-       *
-       * So: radii as fractions of height, the quad sized from those radii, and
-       * `X` handed to the shader so it can convert its own [-1,1] back into
-       * height units.
-       */
-      const heightM = ch.heightM * this.settings.heightScale;
-      const rb = Math.max(0.006, widthM / 2 / heightM);
+        Math.max(widthAt(t, when) * 0.9144, ch.baseWidthM * 0.35) *
+        life.widthScale;
+      const heightM = Math.max(
+        ch.heightM * this.settings.heightScale,
+        MIN_HEIGHT_PX * mpp,
+      );
+      // Radii in funnel heights, so x and y share a unit and nothing is squashed.
+      const rb = Math.max(
+        0.006,
+        widthM / 2 / heightM,
+        (MIN_BASE_RADIUS_PX * mpp) / heightM,
+      );
       const rt = rb * 1.3 + 0.06;
-      const rc = Math.min(rt * 1.9, rt + 0.2);
-      // Wide enough for the widest of the body, the debris bowl and the flare.
+      const rc = Math.min(rt * 2.6, rt + 0.35);
       const bend = rb < 0.06 ? 0.05 : 0;
-      const X =
-        Math.max(rt * 1.5, (rb * 2.05 + 0.02) * 1.35, rc * 1.2) + bend + 0.02;
+      const wobble = ch.wobbleM / heightM;
+      const tilt = life.tilt;
+      const bound =
+        Math.max(rt * 1.3, (rb * 1.7 + 0.035) * 1.2 * 1.4, rc * 1.55) +
+        Math.abs(tilt) * 0.9 +
+        bend +
+        wobble +
+        0.02;
+
+      // Which way it is heading: the column leans with the motion.
+      const [la2, lo2] = tornadoPositionAt(t, Math.min(t.end, when + 60));
+      const [la1, lo1] = tornadoPositionAt(t, Math.max(t.start, when - 60));
+      let lx = (lo2 - lo1) * Math.cos((lat * Math.PI) / 180);
+      let lz = la2 - la1;
+      const ll = Math.hypot(lx, lz);
+      if (ll > 1e-9) {
+        lx /= ll;
+        lz /= ll;
+      } else {
+        lx = 1;
+        lz = 0;
+      }
 
       const o = n * FLOATS_PER_INSTANCE;
       arr[o + 0] = mercatorX(lon);
       arr[o + 1] = mercatorY(lat);
-      arr[o + 2] = X * heightM * perMetre; // billboard half-width, mercator
-      arr[o + 3] = heightM * perMetre;
+      arr[o + 2] = heightM * perMetre;
+      arr[o + 3] = bound;
       arr[o + 4] = life.intensity;
-      arr[o + 5] = life.tilt;
-      arr[o + 6] = ch.opacity;
-      arr[o + 7] = ch.darkness;
-      arr[o + 8] = ch.debris;
-      arr[o + 9] = ch.wobbleM * perMetre;
-      // A stable per-tornado seed, so one does not shimmer differently each frame.
-      arr[o + 10] = ((t.index * 2654435761) % 1000) / 1000;
-      arr[o + 11] = life.reach;
-      // Rotation rate by rating — an EF5 turns nearly four times an EF0's rate.
-      arr[o + 12] = EF_SPIN[t.ef] ?? 1;
-      arr[o + 13] = rb;
-      arr[o + 14] = X;
-      arr[o + 15] = bend;
+      arr[o + 5] = life.reach;
+      arr[o + 6] = ch.darkness;
+      arr[o + 7] = ch.debris;
+      // A stable per-tornado seed, so each wanders in its own way.
+      arr[o + 8] = ((t.index * 2654435761) % 1000) / 1000;
+      arr[o + 9] = EF_SPIN[t.ef] ?? 1;
+      arr[o + 10] = rb;
+      arr[o + 11] = tilt;
+      arr[o + 12] = lx;
+      arr[o + 13] = lz;
+      arr[o + 14] = bend;
+      arr[o + 15] = wobble;
 
       flash = Math.max(flash, life.flash);
       n += 1;
@@ -230,12 +273,14 @@ export class FunnelLayer implements CustomLayerInterface {
 
     for (const u of [
       "u_matrix",
-      "u_bearing",
+      "u_inverse",
+      "u_camera",
       "u_time",
       "u_cloud",
       "u_flash",
       "u_sun",
       "u_steps",
+      "u_fade",
       "u_noise",
     ]) {
       this.uniforms[u] = gl.getUniformLocation(program, u);
@@ -244,40 +289,21 @@ export class FunnelLayer implements CustomLayerInterface {
     this.vao = gl.createVertexArray();
     gl.bindVertexArray(this.vao);
 
-    /*
-     * The bounding silhouette, as a triangle strip expanded into triangles.
-     *
-     * Not a quad. The vertex shader pulls each row in to the funnel's own
-     * rMax at that height, so the mesh traces the density boundary — which is
-     * what stops the GPU rasterising the large empty corners beside a narrow
-     * rope and then discarding them. A discarded fragment is cheap; not
-     * generating it is cheaper, and on a phone that difference is the whole
-     * budget for a volumetric effect.
-     *
-     * ROWS controls how closely the mesh follows the curve. 24 is past the
-     * point where more rows change the silhouette: the vertex cost is
-     * trivial (96 vertices per funnel) and the saving is in fragments.
-     */
-    const ROWS = 24;
-    const verts: number[] = [];
-    for (let i = 0; i < ROWS; i += 1) {
-      const y0 = i / ROWS;
-      const y1 = (i + 1) / ROWS;
-      verts.push(-1, y0, 1, y0, -1, y1);
-      verts.push(-1, y1, 1, y0, 1, y1);
-    }
-    this.vertexCount = verts.length / 2;
-
+    // One quad; the vertex shader stretches it over the funnel's screen extent.
     this.cornerBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, this.cornerBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW);
+    gl.bufferData(
+      gl.ARRAY_BUFFER,
+      new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]),
+      gl.STATIC_DRAW,
+    );
     const corner = gl.getAttribLocation(program, "a_corner");
     gl.enableVertexAttribArray(corner);
     gl.vertexAttribPointer(corner, 2, gl.FLOAT, false, 0, 0);
 
     this.instanceBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, this.instances.byteLength, gl.DYNAMIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, this.upload.byteLength, gl.DYNAMIC_DRAW);
 
     const stride = FLOATS_PER_INSTANCE * 4;
     const attrib = (name: string, size: number, offsetFloats: number) => {
@@ -295,22 +321,15 @@ export class FunnelLayer implements CustomLayerInterface {
       gl.vertexAttribDivisor(loc, 1);
     };
     attrib("a_pos", 2, 0);
-    attrib("a_shape", 4, 2);
-    attrib("a_style", 4, 6);
-    attrib("a_life", 4, 10);
-    attrib("a_extra", 2, 14);
+    attrib("a_size", 4, 2);
+    attrib("a_look", 4, 6);
+    attrib("a_form", 4, 10);
+    attrib("a_more", 2, 14);
 
     gl.bindVertexArray(null);
 
-    /*
-     * The noise volume, built once.
-     *
-     * This is the optimisation that makes a volumetric funnel affordable: the
-     * raymarch samples noise twice per step, twenty-odd steps per pixel, every
-     * frame. Computed arithmetically that is hundreds of instructions in the
-     * inner loop; as a texture lookup it is one, and the hardware's trilinear
-     * filter does the interpolation for nothing.
-     */
+    // The noise volume, built once: a texture lookup in the march's inner
+    // loop instead of hundreds of instructions of arithmetic noise.
     this.noiseTex = gl.createTexture();
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_3D, this.noiseTex);
@@ -326,8 +345,6 @@ export class FunnelLayer implements CustomLayerInterface {
       gl.UNSIGNED_BYTE,
       buildNoise3D(NOISE_SIZE),
     );
-    // REPEAT is what lets the sampling coordinate wander without bound as the
-    // column rotates and rises; the volume is built to tile so it never seams.
     for (const k of [gl.TEXTURE_WRAP_S, gl.TEXTURE_WRAP_T, gl.TEXTURE_WRAP_R]) {
       gl.texParameteri(gl.TEXTURE_3D, k, gl.REPEAT);
     }
@@ -336,6 +353,8 @@ export class FunnelLayer implements CustomLayerInterface {
   }
 
   onRemove(_map: MapLibreMap, gl: WebGL2RenderingContext) {
+    if (this.idleTimer) clearTimeout(this.idleTimer);
+    this.idleTimer = null;
     if (this.program) gl.deleteProgram(this.program);
     if (this.vao) gl.deleteVertexArray(this.vao);
     if (this.cornerBuffer) gl.deleteBuffer(this.cornerBuffer);
@@ -349,83 +368,121 @@ export class FunnelLayer implements CustomLayerInterface {
     this.map = null;
   }
 
-  /** Scratch, so the per-frame matrix conversion allocates nothing. */
+  /** Scratch, so the per-frame matrix work allocates nothing. */
   private readonly matrix = new Float32Array(16);
+  private readonly inverse = new Float32Array(16);
+  private readonly inv64 = new Float64Array(16);
+  private readonly camera: [number, number, number] = [0, 0, 0];
+  private readonly order: number[] = [];
 
   /**
-   * Where instance 0 lands in clip space, for diagnosing an invisible layer.
-   *
-   * A custom layer that draws nothing gives no error: the geometry is simply
-   * somewhere else. Being able to ask "where did it actually go" turns that
-   * into a number.
+   * Where instance 0 is and where the camera is, for diagnosing an invisible
+   * layer — a custom layer that draws nothing gives no error.
    */
   probe(): Record<string, unknown> | null {
     if (this.count === 0) return null;
-    const m = this.matrix;
-    const [x, y, hw, h] = [
-      this.instances[0]!,
-      this.instances[1]!,
-      this.instances[2]!,
-      this.instances[3]!,
-    ];
-    const proj = (px: number, py: number, pz: number) => {
-      const cx = m[0]! * px + m[4]! * py + m[8]! * pz + m[12]!;
-      const cy = m[1]! * px + m[5]! * py + m[9]! * pz + m[13]!;
-      const cw = m[3]! * px + m[7]! * py + m[11]! * pz + m[15]!;
-      return cw === 0
-        ? [NaN, NaN]
-        : [+(cx / cw).toFixed(3), +(cy / cw).toFixed(3)];
-    };
     return {
       count: this.count,
-      merc: [+x.toFixed(6), +y.toFixed(6)],
-      halfWidthMerc: hw,
-      heightMerc: h,
-      baseNDC: proj(x, y, 0),
-      topNDC: proj(x, y, h),
-      edgeNDC: proj(x + hw, y, 0),
-      matrixZeroed: m.every((v) => v === 0),
+      merc: [+this.instances[0]!.toFixed(6), +this.instances[1]!.toFixed(6)],
+      heightMerc: this.instances[2],
+      bound: this.instances[3],
+      camera: [...this.camera],
+      zoom: this.builtZoom,
+      quality: this.quality,
     };
   }
 
+  /** Set when drawing threw; the layer then stays off rather than taking the map's frames down with it (#6). */
+  private broken = false;
+
   render(gl: WebGL2RenderingContext, options: CustomRenderMethodInput) {
-    if (!this.program || !this.vao || this.count === 0) return;
+    if (this.broken) return;
+    try {
+      this.draw(gl, options);
+    } catch (err) {
+      this.broken = true;
+      try {
+        gl.bindVertexArray(null);
+      } catch {
+        /* the context itself may be gone */
+      }
+      console.error(`${this.id}: switched off after a drawing error`, err);
+      reportError(err, { source: "layer", layer: this.id });
+    }
+  }
 
-    gl.useProgram(this.program);
-    gl.bindVertexArray(this.vao);
+  private draw(gl: WebGL2RenderingContext, options: CustomRenderMethodInput) {
+    const map = this.map;
+    if (!this.program || !this.vao || !map) return;
+    this.pace();
+    // The minimum on-screen size depends on the zoom; follow it.
+    if (Math.abs(map.getZoom() - this.builtZoom) > 0.02) this.build();
+    if (this.count === 0) return;
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceBuffer);
-    gl.bufferSubData(
-      gl.ARRAY_BUFFER,
-      0,
-      this.instances.subarray(0, this.count * FLOATS_PER_INSTANCE),
-    );
+    const pitch = map.getPitch();
+    const fade = smoothstep(FADE_PITCH[0], FADE_PITCH[1], pitch);
+    if (fade <= 0) return;
 
-    /**
-     * `defaultProjectionData.mainMatrix`, not `modelViewProjectionMatrix`.
-     *
-     * The two are different spaces and only one takes mercator. MapLibre's own
-     * documentation is explicit: mainMatrix projects spherical mercator, where
-     * [0,0] is the top-left of the world and [1,1] the bottom-right, and with
-     * renderingMode '3d' the z axis is conformal — a cube in mercator units
-     * renders as a cube. That is the space every position here is built in.
-     * modelViewProjectionMatrix converts from a *world* space that is not
-     * mercator, so feeding it these coordinates puts every funnel somewhere
-     * off screen, silently.
-     *
-     * It also arrives as a 64-bit matrix. uniformMatrix4fv takes Float32Array
-     * only; a Float64Array is rejected and the uniform keeps whatever it had,
-     * which is the identity — equally silent, equally invisible.
+    /*
+     * `mainMatrix` projects spherical mercator with a conformal z — the space
+     * every position here is built in. It arrives as 64-bit; uniformMatrix4fv
+     * takes 32-bit only, and silently keeps the identity if handed the other.
      */
     const src = options.defaultProjectionData
       .mainMatrix as unknown as ArrayLike<number>;
     for (let i = 0; i < 16; i += 1) this.matrix[i] = src[i] as number;
-    gl.uniformMatrix4fv(this.uniforms.u_matrix ?? null, false, this.matrix);
-    gl.uniform1f(
-      this.uniforms.u_bearing ?? null,
-      ((this.map?.getBearing() ?? 0) * Math.PI) / 180,
+    if (!invert(src, this.inv64)) return;
+    for (let i = 0; i < 16; i += 1) this.inverse[i] = this.inv64[i]!;
+    // The camera is the point the projection sends to w = 0: clip (0,0,1,0).
+    const iv = this.inv64;
+    const cw = iv[11]!;
+    if (Math.abs(cw) < 1e-30) return;
+    this.camera[0] = iv[8]! / cw;
+    this.camera[1] = iv[9]! / cw;
+    this.camera[2] = iv[10]! / cw;
+
+    // Back to front, so overlapping funnels composite in the right order.
+    const order = this.order;
+    order.length = 0;
+    for (let i = 0; i < this.count; i += 1) order.push(i);
+    const dist = (i: number) => {
+      const o = i * FLOATS_PER_INSTANCE;
+      const dx = this.instances[o]! - this.camera[0];
+      const dy = this.instances[o + 1]! - this.camera[1];
+      const dz = this.instances[o + 2]! * 0.5 - this.camera[2];
+      return dx * dx + dy * dy + dz * dz;
+    };
+    order.sort((a, b) => dist(b) - dist(a));
+    for (let k = 0; k < order.length; k += 1) {
+      const from = order[k]! * FLOATS_PER_INSTANCE;
+      this.upload.set(
+        this.instances.subarray(from, from + FLOATS_PER_INSTANCE),
+        k * FLOATS_PER_INSTANCE,
+      );
+    }
+
+    gl.useProgram(this.program);
+    gl.bindVertexArray(this.vao);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceBuffer);
+    gl.bufferSubData(
+      gl.ARRAY_BUFFER,
+      0,
+      this.upload.subarray(0, this.count * FLOATS_PER_INSTANCE),
     );
-    gl.uniform1f(this.uniforms.u_time ?? null, this.at);
+
+    // Wall-clock time, not replay time: at 750x a funnel turning in replay
+    // seconds would strobe; it should turn the way a tornado turns.
+    const now = this.still ? 0 : (performance.now() / 1000) % 3600;
+
+    gl.uniformMatrix4fv(this.uniforms.u_matrix ?? null, false, this.matrix);
+    gl.uniformMatrix4fv(this.uniforms.u_inverse ?? null, false, this.inverse);
+    gl.uniform3f(
+      this.uniforms.u_camera ?? null,
+      this.camera[0],
+      this.camera[1],
+      this.camera[2],
+    );
+    gl.uniform1f(this.uniforms.u_time ?? null, now);
     gl.uniform1f(this.uniforms.u_flash ?? null, this.flash);
     gl.uniform3f(
       this.uniforms.u_cloud ?? null,
@@ -439,23 +496,18 @@ export class FunnelLayer implements CustomLayerInterface {
       this.sun[1],
       this.sun[2],
     );
-    gl.uniform1f(this.uniforms.u_steps ?? null, this.settings.steps);
+    gl.uniform1f(
+      this.uniforms.u_steps ?? null,
+      Math.max(10, Math.round(this.settings.steps * this.quality)),
+    );
+    gl.uniform1f(this.uniforms.u_fade ?? null, fade);
 
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_3D, this.noiseTex);
     gl.uniform1i(this.uniforms.u_noise ?? null, 0);
 
-    /*
-     * Premultiplied blending, because the raymarch emits premultiplied colour.
-     *
-     * The march accumulates colour already multiplied by coverage. Blending
-     * that with SRC_ALPHA multiplies by coverage twice, which makes the funnel
-     * both darker and more transparent than it should be at the same time.
-     * ONE / ONE_MINUS_SRC_ALPHA is the matching function.
-     *
-     * Depth writes stay off: a translucent volume must not occlude the funnel
-     * behind it.
-     */
+    // The march emits premultiplied colour. Depth writes off: a translucent
+    // volume must not hide the funnel behind it.
     gl.enable(gl.BLEND);
     gl.blendFuncSeparate(
       gl.ONE,
@@ -466,16 +518,138 @@ export class FunnelLayer implements CustomLayerInterface {
     gl.depthMask(false);
     gl.disable(gl.CULL_FACE);
 
-    gl.drawArraysInstanced(gl.TRIANGLES, 0, this.vertexCount, this.count);
+    gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, this.count);
 
     gl.bindVertexArray(null);
     gl.depthMask(true);
+
+    this.keepTurning();
+  }
+
+  /**
+   * Keep the funnels turning while the replay is paused.
+   *
+   * While it plays the map repaints every frame anyway. Paused, this asks for
+   * a repaint at ~30 fps, and only while a funnel is actually on screen, so
+   * an idle map with the tornadoes scrolled away costs nothing.
+   */
+  private keepTurning() {
+    const map = this.map;
+    if (this.still || !map || this.idleTimer || typeof document === "undefined")
+      return;
+    if (document.visibilityState !== "visible" || !this.onScreen(map)) return;
+    this.idleTimer = setTimeout(() => {
+      this.idleTimer = null;
+      this.expectedMs = IDLE_FRAME_MS + 1000 / 60;
+      this.map?.triggerRepaint();
+    }, IDLE_FRAME_MS);
+  }
+
+  /** Watch the interval between frames and move the quality with it. */
+  private pace() {
+    const now = performance.now();
+    const dt = now - this.lastRender;
+    const expected = this.expectedMs;
+    this.lastRender = now;
+    this.expectedMs = 1000 / 60;
+    // Only a continuous run of frames says anything; a gap is just idleness.
+    if (!(dt > 0 && dt < 250) || this.count === 0) return;
+    if (dt > expected * 1.45) {
+      this.slow += 1;
+      this.fast = 0;
+    } else if (dt < expected * 1.12) {
+      this.fast += 1;
+      this.slow = 0;
+    }
+    if (this.slow >= 6) {
+      this.quality = Math.max(0.42, this.quality - 0.12);
+      this.slow = 0;
+    }
+    if (this.fast >= 120) {
+      this.quality = Math.min(1, this.quality + 0.06);
+      this.fast = 0;
+    }
+  }
+
+  private onScreen(map: MapLibreMap): boolean {
+    const canvas = map.getCanvas();
+    const w = canvas.clientWidth;
+    const h = canvas.clientHeight;
+    for (let i = 0; i < this.count; i += 1) {
+      const o = i * FLOATS_PER_INSTANCE;
+      const lon = this.instances[o]! * 360 - 180;
+      const y = 180 - this.instances[o + 1]! * 360;
+      const lat =
+        (360 / Math.PI) * Math.atan(Math.exp((y * Math.PI) / 180)) - 90;
+      const p = map.project([lon, lat]);
+      if (p.x > -200 && p.x < w + 200 && p.y > -300 && p.y < h + 200)
+        return true;
+    }
+    return false;
   }
 
   /** How many funnels the last frame drew — for the performance readout. */
   get drawn(): number {
     return this.count;
   }
+}
+
+function smoothstep(a: number, b: number, x: number): number {
+  const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+}
+
+/** 4x4 inverse, column-major, in doubles. */
+export function invert(m: ArrayLike<number>, out: Float64Array): boolean {
+  const a00 = m[0]!,
+    a01 = m[1]!,
+    a02 = m[2]!,
+    a03 = m[3]!;
+  const a10 = m[4]!,
+    a11 = m[5]!,
+    a12 = m[6]!,
+    a13 = m[7]!;
+  const a20 = m[8]!,
+    a21 = m[9]!,
+    a22 = m[10]!,
+    a23 = m[11]!;
+  const a30 = m[12]!,
+    a31 = m[13]!,
+    a32 = m[14]!,
+    a33 = m[15]!;
+  const b00 = a00 * a11 - a01 * a10;
+  const b01 = a00 * a12 - a02 * a10;
+  const b02 = a00 * a13 - a03 * a10;
+  const b03 = a01 * a12 - a02 * a11;
+  const b04 = a01 * a13 - a03 * a11;
+  const b05 = a02 * a13 - a03 * a12;
+  const b06 = a20 * a31 - a21 * a30;
+  const b07 = a20 * a32 - a22 * a30;
+  const b08 = a20 * a33 - a23 * a30;
+  const b09 = a21 * a32 - a22 * a31;
+  const b10 = a21 * a33 - a23 * a31;
+  const b11 = a22 * a33 - a23 * a32;
+  let det =
+    b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06;
+  if (!det) return false;
+  det = 1 / det;
+  out[0] = (a11 * b11 - a12 * b10 + a13 * b09) * det;
+  out[1] = (a02 * b10 - a01 * b11 - a03 * b09) * det;
+  out[2] = (a31 * b05 - a32 * b04 + a33 * b03) * det;
+  out[3] = (a22 * b04 - a21 * b05 - a23 * b03) * det;
+  out[4] = (a12 * b08 - a10 * b11 - a13 * b07) * det;
+  out[5] = (a00 * b11 - a02 * b08 + a03 * b07) * det;
+  out[6] = (a32 * b02 - a30 * b05 - a33 * b01) * det;
+  out[7] = (a20 * b05 - a22 * b02 + a23 * b01) * det;
+  out[8] = (a10 * b10 - a11 * b08 + a13 * b06) * det;
+  out[9] = (a01 * b08 - a00 * b10 - a03 * b06) * det;
+  out[10] = (a30 * b04 - a31 * b02 + a33 * b00) * det;
+  out[11] = (a21 * b02 - a20 * b04 - a23 * b00) * det;
+  out[12] = (a11 * b07 - a10 * b09 - a12 * b06) * det;
+  out[13] = (a00 * b09 - a01 * b07 + a02 * b06) * det;
+  out[14] = (a31 * b01 - a30 * b03 - a32 * b00) * det;
+  out[15] = (a20 * b03 - a21 * b01 + a22 * b00) * det;
+  return true;
 }
 
 function compile(
@@ -488,8 +662,8 @@ function compile(
   gl.shaderSource(shader, src);
   gl.compileShader(shader);
   if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-    // Worth saying out loud: a silent shader failure is an invisible layer,
-    // which is indistinguishable from "the feature is off".
+    // A silent shader failure is an invisible layer, indistinguishable from
+    // "the feature is off" — so say it out loud.
     console.error(
       "Funnel shader failed to compile:",
       gl.getShaderInfoLog(shader),

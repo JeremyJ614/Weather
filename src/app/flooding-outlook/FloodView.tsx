@@ -19,6 +19,7 @@ const dayName = (d: number) =>
     : d === 2
       ? "Tomorrow"
       : new Date(Date.now() + (d - 1) * 86400000).toLocaleDateString("en-US", {
+          timeZone: "America/Chicago",
           weekday: "long",
         });
 const ends = (iso: string | null) =>

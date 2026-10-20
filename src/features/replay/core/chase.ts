@@ -29,6 +29,27 @@ export interface TornadoInput {
   comments?: string;
   /** The forecast office that surveyed it, e.g. 'LOT'. */
   wfo?: string;
+  /**
+   * The damage width at each vertex of `coords`, in yards.
+   *
+   * A tornado is not one width. The El Reno tornado of 2013 went from a few
+   * hundred yards to 2.6 miles and back inside twenty minutes, and a single
+   * number draws that as a ribbon. Where a survey gives the outline of the
+   * damage, this carries it vertex by vertex; `widthYd` stays the maximum.
+   */
+  widths?: number[];
+  /**
+   * When the tornado was at each vertex, in seconds from T0.
+   *
+   * Without it the funnel moves along the path at the average speed of the
+   * whole track, which is right for a survey that only gives a start and an
+   * end. With it — El Reno's position was logged minute by minute, the
+   * Tri-State tornado's by the clocks people stopped at — the funnel slows,
+   * stalls and turns when the real one did.
+   */
+  times?: number[];
+  /** The rating along the path at each vertex, where the survey rated it in segments. */
+  ratings?: string[];
 }
 
 /**
@@ -68,6 +89,11 @@ export interface DamageContour {
   ef: string;
   /** Outer ring, [lon, lat]. */
   ring: [number, number][];
+  /**
+   * 'survey' (absent) for a contour a surveyor drew; 'swath' for the outline
+   * the research built from a measured width profile, where no contour exists.
+   */
+  kind?: "survey" | "swath";
 }
 
 /**
@@ -200,6 +226,12 @@ export interface PreparedTornado {
   comments?: string;
   /** The forecast office that surveyed it. */
   wfo?: string;
+  /** Damage width at each vertex, yards. See `TornadoInput.widths`. */
+  widths?: number[];
+  /** Seconds from T0 at each vertex. See `TornadoInput.times`. */
+  times?: number[];
+  /** Local rating at each vertex. See `TornadoInput.ratings`. */
+  ratings?: string[];
 }
 
 export interface PreparedChase {
@@ -234,25 +266,76 @@ export interface PreparedChase {
   signature: string;
 }
 
-/** Where a tornado was at a given moment, interpolated along its centreline. */
-export function tornadoPositionAt(
-  t: PreparedTornado,
-  time: number,
-): [number, number] {
+/**
+ * Where along the centreline a tornado was at a moment: the vertex it had
+ * passed and how far it was towards the next, as [index, fraction].
+ *
+ * By the surveyed clock where there is one (`times`), otherwise by distance at
+ * the track's average speed.
+ */
+export function progressAt(t: PreparedTornado, time: number): [number, number] {
+  const n = t.coords.length;
+  if (n < 2) return [0, 0];
+
+  const times = t.times;
+  if (times && times.length === n) {
+    if (time <= times[0]!) return [0, 0];
+    if (time >= times[n - 1]!) return [n - 2, 1];
+    // Binary search: the vertex the tornado has most recently passed.
+    let lo = 0;
+    let hi = n - 1;
+    while (hi - lo > 1) {
+      const mid = (lo + hi) >>> 1;
+      if (times[mid]! <= time) lo = mid;
+      else hi = mid;
+    }
+    const span = times[hi]! - times[lo]!;
+    return [lo, span > 0 ? (time - times[lo]!) / span : 0];
+  }
+
   const span = t.end - t.start;
   const f = span <= 0 ? 0 : Math.max(0, Math.min(1, (time - t.start) / span));
   const target = f * t.lengthM;
   for (let i = 1; i < t.cum.length; i += 1) {
     if (t.cum[i]! >= target) {
       const seg = t.cum[i]! - t.cum[i - 1]! || 1;
-      const g = (target - t.cum[i - 1]!) / seg;
-      const a = t.coords[i - 1]!;
-      const b = t.coords[i]!;
-      return [a[1] + g * (b[1] - a[1]), a[0] + g * (b[0] - a[0])];
+      return [i - 1, (target - t.cum[i - 1]!) / seg];
     }
   }
-  const last = t.coords[t.coords.length - 1]!;
-  return [last[1], last[0]];
+  return [n - 2, 1];
+}
+
+/** Where a tornado was at a given moment, interpolated along its centreline, as [lat, lon]. */
+export function tornadoPositionAt(
+  t: PreparedTornado,
+  time: number,
+): [number, number] {
+  if (t.coords.length === 1) return [t.coords[0]![1], t.coords[0]![0]];
+  const [i, g] = progressAt(t, time);
+  const a = t.coords[i]!;
+  const b = t.coords[Math.min(i + 1, t.coords.length - 1)]!;
+  return [a[1] + g * (b[1] - a[1]), a[0] + g * (b[0] - a[0])];
+}
+
+/**
+ * How wide the damage was where the tornado was at a moment, in yards.
+ *
+ * The surveyed profile where there is one; otherwise the one number the
+ * survey gave for the whole track.
+ */
+export function widthAt(t: PreparedTornado, time: number): number {
+  const w = t.widths;
+  if (!w || w.length !== t.coords.length || w.length < 2) return t.widthYd;
+  const [i, g] = progressAt(t, time);
+  return w[i]! + g * (w[Math.min(i + 1, w.length - 1)]! - w[i]!);
+}
+
+/** The rating where the tornado was at a moment, where the survey rated it in segments. */
+export function ratingAt(t: PreparedTornado, time: number): string {
+  const r = t.ratings;
+  if (!r || r.length !== t.coords.length) return t.ef;
+  const [i, g] = progressAt(t, time);
+  return r[g < 0.5 ? i : Math.min(i + 1, r.length - 1)] ?? t.ef;
 }
 
 export const strongestOf = (tornadoes: { ef: string }[]): string =>

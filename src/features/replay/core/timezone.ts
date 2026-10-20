@@ -33,6 +33,8 @@
  * chase log that is the useful answer, and it is better than refusing to say.
  */
 
+import { dateFormat } from "./intl";
+
 export type Zone =
   | "America/New_York"
   | "America/Chicago"
@@ -197,14 +199,38 @@ export function nearBoundary(lat: number, lon: number, withinKm = 40): boolean {
   return false;
 }
 
-/** Short label for a zone at an instant — CDT, EST, MDT. */
+/** Each US zone's letter and its standard offset in hours, for naming the old ones. */
+const US_ZONES: Record<string, [string, number]> = {
+  "America/New_York": ["E", -5],
+  "America/Chicago": ["C", -6],
+  "America/Denver": ["M", -7],
+  "America/Phoenix": ["M", -7],
+  "America/Los_Angeles": ["P", -8],
+};
+
+/**
+ * Short label for a zone at an instant — CDT, EST, MDT.
+ *
+ * Browsers only know the names from 1970 on: the Tri-State tornado's 1925
+ * afternoon comes back as "GMT-6". For the US zones the name follows from the
+ * offset — the standard one is CST, an hour ahead of it CDT — so an archive
+ * day reads the way the survey would have written it.
+ */
 export function zoneAbbreviation(zone: string, at: Date): string {
   try {
-    const parts = new Intl.DateTimeFormat("en-US", {
+    const parts = dateFormat("en-US", {
       timeZone: zone,
       timeZoneName: "short",
     }).formatToParts(at);
-    return parts.find((p) => p.type === "timeZoneName")?.value ?? "";
+    const name = parts.find((p) => p.type === "timeZoneName")?.value ?? "";
+    const us = US_ZONES[zone];
+    const gmt = /^GMT([+-]\d{1,2})$/.exec(name);
+    if (us && gmt) {
+      const hours = Number(gmt[1]);
+      if (hours === us[1]) return `${us[0]}ST`;
+      if (hours === us[1] + 1) return `${us[0]}DT`;
+    }
+    return name;
   } catch {
     return "";
   }
@@ -215,7 +241,7 @@ export function offsetMinutes(zone: string, at: Date): number {
   try {
     // Format the instant in the zone, read it back as if it were UTC, and the
     // difference is the offset. Intl has no direct accessor for this.
-    const parts = new Intl.DateTimeFormat("en-CA", {
+    const parts = dateFormat("en-CA", {
       timeZone: zone,
       hour12: false,
       year: "numeric",

@@ -10,7 +10,7 @@
  * The difference that survives is `track`: an archive day has none, and every
  * consumer has to cope with that rather than assume a chaser exists.
  */
-import type { ArchiveEvent } from "@/features/replay/archive/types";
+import type { ArchiveEvent, WindField } from "@/features/replay/archive/types";
 import type {
   ChasePayload,
   DamageContour,
@@ -67,6 +67,8 @@ export interface Replayable {
    * day with no hail, and the map should not claim otherwise.
    */
   hail: HailReport[];
+  /** Wind fields measured wider than the damage, drawn separately and fainter. */
+  fields?: WindField[];
   /** Shown on the map so a reconstruction is never mistaken for a survey. */
   provenance?: string;
   /** 'F' for days rated on the Fujita scale. */
@@ -130,8 +132,22 @@ export function fromArchive(event: ArchiveEvent): Replayable {
       fatalities: t.fat,
       speedMs: lengthM / span,
       // Present only where the Damage Assessment Toolkit covers the event.
-      ...(t.comments ? { comments: t.comments } : {}),
+      ...(t.comments
+        ? { comments: t.comments }
+        : t.story
+          ? { comments: t.story }
+          : {}),
       ...(t.wfo ? { wfo: t.wfo } : {}),
+      // The research's shape of the path, where it has one.
+      ...(t.widths && t.widths.length === t.coords.length
+        ? { widths: t.widths }
+        : {}),
+      ...(t.times && t.times.length === t.coords.length
+        ? { times: t.times }
+        : {}),
+      ...(t.ratings && t.ratings.length === t.coords.length
+        ? { ratings: t.ratings }
+        : {}),
     };
   });
 
@@ -165,6 +181,7 @@ export function fromArchive(event: ArchiveEvent): Replayable {
     contours: event.polys ?? [],
     damage: event.dpts ?? [],
     hail: event.hail ?? [],
+    fields: event.fields ?? [],
     provenance: event.pathFidelity,
     scale: event.scale,
   };
@@ -187,12 +204,19 @@ export function boundsOf(
       n = Math.max(n, lat);
     }
   }
-  if (r.track) {
-    const [tw, ts, te, tn] = r.track.bounds();
-    w = Math.min(w, tw);
-    e = Math.max(e, te);
-    s = Math.min(s, ts);
-    n = Math.max(n, tn);
+  if (r.track && r.track.n > 0) {
+    /*
+     * `Track.bounds()` is [minLat, minLon, maxLat, maxLon] — latitude first,
+     * the order the track stores its arrays in. This used to be read as
+     * [w, s, e, n], which put the southern edge of every chase at latitude
+     * -88 and sent "fit" to the middle of the South Atlantic: the map did not
+     * disappear, the camera left (#6).
+     */
+    const [minLat, minLon, maxLat, maxLon] = r.track.bounds();
+    w = Math.min(w, minLon);
+    e = Math.max(e, maxLon);
+    s = Math.min(s, minLat);
+    n = Math.max(n, maxLat);
   }
   return Number.isFinite(w) ? [w, s, e, n] : null;
 }

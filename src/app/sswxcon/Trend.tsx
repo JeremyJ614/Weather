@@ -44,6 +44,7 @@ export function Trend({
   const hi = snaps.reduce((a, b) => (b.total > a.total ? b : a));
   const stamp = (iso: string) =>
     new Date(iso).toLocaleString("en-US", {
+      timeZone: "America/Chicago",
       weekday: "short",
       hour: "numeric",
     });

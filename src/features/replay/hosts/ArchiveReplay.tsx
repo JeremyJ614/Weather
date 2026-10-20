@@ -52,6 +52,7 @@ export default function ArchiveReplay({
   const ready = got?.id === id;
   return (
     <Replay
+      startCamera="storm"
       replay={ready ? (got.replay ?? null) : null}
       loading={!ready}
       progress={null}

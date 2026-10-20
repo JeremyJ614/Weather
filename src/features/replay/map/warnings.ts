@@ -97,9 +97,17 @@ export function warnStateAt(
  * the chase stays on the map as a trace of where the danger had been, because
  * "the warning had already expired when I got there" is itself a finding.
  */
+/**
+ * @param clock what the breathing is timed by, in seconds. The map passes real
+ *   time: timed by the replay, a warning breathing every 13 seconds breathed
+ *   57 times a second at 750x — sampled at 60 frames a second that is noise,
+ *   and it is what made the polygons look like they were flashing in and out
+ *   (#8). Defaults to `at`, which is what a still picture wants.
+ */
 export function lookAt(
   at: number,
   w: Pick<WarningPolygonInput, "from" | "to" | "kind">,
+  clock = at,
 ): WarnLook {
   const state = warnStateAt(at, w);
   const colour = WARN_COLOUR[w.kind] ?? WARN_COLOUR.severe;
@@ -112,7 +120,7 @@ export function lookAt(
     // which would read as one animation rather than twenty live objects.
     const phase = (w.from % 17) * 0.37;
     const breath =
-      0.5 + 0.5 * Math.sin(at * (RATE[w.kind] ?? RATE.severe) + phase);
+      0.5 + 0.5 * Math.sin(clock * (RATE[w.kind] ?? RATE.severe) + phase);
     return {
       state,
       fill: lo + (hi - lo) * breath,

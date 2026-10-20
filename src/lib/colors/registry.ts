@@ -33,7 +33,13 @@ import {
   TOR_BINS,
 } from "@/lib/engines/colors";
 import { PROB as WINTER_PROB } from "@/lib/winter/style";
-import { DEFAULTS as REPLAY, RADAR_STOPS } from "@/features/replay/palette";
+import {
+  CC_STOPS,
+  DEFAULTS as REPLAY,
+  FOLD,
+  RADAR_STOPS,
+  VEL_STOPS,
+} from "@/features/replay/palette";
 import { CONTAIN, FIRE_RISK } from "@/lib/fire/style";
 import { HAZ_KINDS, USDM } from "@/lib/hazards/style";
 import { ROSTER } from "@/lib/tropical/atcf";
@@ -431,6 +437,29 @@ export const GROUPS: Group[] = [
     entries: RADAR_STOPS.map(([dbz, c]) => ({
       key: `replay:radar:${dbz}`,
       label: `${dbz} dBZ`,
+      def: c,
+    })),
+  },
+  {
+    id: "replay-velocity",
+    label: "Replay radar velocity",
+    note: "Each radar's own scans in the Tornado Archive and Chase Log: radial and storm-relative velocity (m/s; negative is toward the radar).",
+    entries: [
+      ...VEL_STOPS.map(([v, c]) => ({
+        key: `replay:vel:${v}`,
+        label: `${v} m/s`,
+        def: c,
+      })),
+      { key: "replay:folded", label: "Range folded", def: FOLD.default },
+    ],
+  },
+  {
+    id: "replay-cc",
+    label: "Replay radar correlation",
+    note: "Correlation coefficient: rain near 1, hail and edges in the 0.9s, tornado debris below about 0.8.",
+    entries: CC_STOPS.map(([v, c]) => ({
+      key: `replay:cc:${v}`,
+      label: `CC ${v}`,
       def: c,
     })),
   },

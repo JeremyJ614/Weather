@@ -3,82 +3,94 @@
  *
  * The owner's requirement (#13) is that radar is optional and never automatic
  * — nothing is fetched until a button is pressed — and (#14) that it is drawn
- * from range-encoded textures decoded on the GPU rather than from somebody
- * else's pre-coloured picture, with the low values muted so a chaser reads
- * structure instead of a green wash.
+ * from measurements decoded on the GPU rather than from somebody else's
+ * pre-coloured picture, with the low values muted so a chaser reads structure
+ * instead of a green wash.
  *
- * What the public archives will support, having checked rather than assumed
- * -------------------------------------------------------------------------
- * Composite base reflectivity, and it supports it exactly. The Iowa
- * Environmental Mesonet publishes archived NEXRAD composites as 8-bit
- * paletted tiles at a five-minute cadence for any date, and the palette index
- * *is* the measurement: dBZ = -32 + 0.5 x index. The palette is injective and
- * every colour in a tile is an exact entry, so a fetched tile reverses to
- * true reflectivity in half-dBZ steps with nothing lost.
+ * Two archives, checked rather than assumed
+ * -----------------------------------------
+ * The national reflectivity mosaic. The Iowa Environmental Mesonet publishes
+ * archived NEXRAD composites as 8-bit paletted tiles at a five-minute cadence
+ * back to 2010, and the palette index *is* the measurement: dBZ = -32 + 0.5 x
+ * index. The palette is injective and every colour in a tile is an exact
+ * entry, so a fetched tile reverses to true reflectivity with nothing lost.
+ * It covers the whole country at once, which is what it is good for.
  *
- * The other three products the owner asked for are not there:
+ * Each radar's own archive — Level II (#7). Every WSR-88D writes out every
+ * scan it makes, gate by gate, and NOAA keeps the lot back to June 1991 in a
+ * public bucket that answers any origin. This is the only public source of
+ * velocity and of the dual-polarisation moments, so velocity, storm-relative
+ * velocity and correlation coefficient come from here, read from the radar
+ * nearest the storm (see level2/). It carries reflectivity too — sharper than
+ * the mosaic, and for the years the mosaic does not reach.
  *
- *   * Storm-relative velocity exists per radar site, but as a 15-colour
- *     classified image, not a range encoding — there is no continuous value
- *     to recover, so it cannot be decoded, only re-displayed in somebody
- *     else's classes.
- *   * Base velocity and correlation coefficient are not in the archive at all.
- *   * All three are in NEXRAD Level II, which is on AWS — and every request
- *     for it from here is refused with AccessDenied, listing and objects
- *     alike, with no proxy failure logged. The UCAR and NCEI THREDDS mirrors
- *     answer 404 for the same volumes.
- *
- * So reflectivity is built properly and the rest are shown as unavailable
- * with the reason, rather than as buttons that do nothing.
+ * An earlier version of this file said Level II refused every request. That
+ * was NOAA's own bucket, which now refuses anonymous reads; Unidata's mirror
+ * of it does not.
  */
 
-/** Products the interface offers, and whether this source can actually serve them. */
+import { dateFormat } from "@/features/replay/core/intl";
+
+export type RadarProductId = "reflectivity" | "velocity" | "srv" | "cc";
+
+/** Products the interface offers. */
 export interface RadarProduct {
-  id: "reflectivity" | "velocity" | "srv" | "cc";
+  id: RadarProductId;
   label: string;
+  /** For the chip. */
+  short: string;
   /** What it tells a chaser. */
   blurb: string;
-  available: boolean;
-  /** Why not, in plain words, when it is not. */
-  why?: string;
+  /** Read from a single radar (Level II) rather than the national mosaic. */
+  fromSite: boolean;
 }
 
 export const RADAR_PRODUCTS: readonly RadarProduct[] = [
   {
     id: "reflectivity",
     label: "Reflectivity",
-    available: true,
+    short: "Reflectivity",
+    fromSite: false,
     blurb:
       "How much is falling and how big it is. The hook, the core, the whole storm.",
   },
   {
     id: "velocity",
     label: "Velocity",
-    available: false,
-    blurb: "Which way the air is moving, towards the radar or away from it.",
-    why:
-      "The archive that covers past dates does not carry it. It is in NEXRAD Level II, " +
-      "which refuses every request from this app’s network.",
+    short: "Velocity",
+    fromSite: true,
+    blurb:
+      "Which way the air is moving along the beam: green towards the radar, red away. " +
+      "Bright green beside bright red is rotation.",
   },
   {
     id: "srv",
     label: "Storm-relative velocity",
-    available: false,
+    short: "Storm-relative",
+    fromSite: true,
     blurb:
-      "Velocity with the storm’s own motion removed, which is what shows rotation.",
-    why:
-      "The archive has it as a fifteen-colour classified image rather than measurements, " +
-      "so there is no value to decode — only somebody else’s colouring to copy.",
+      "Velocity with the storm\u2019s own motion taken out, so only the circulation is left. " +
+      "What chasers read for a tornado.",
   },
   {
     id: "cc",
     label: "Correlation coefficient",
-    available: false,
+    short: "Correlation",
+    fromSite: true,
     blurb:
-      "How alike the targets are. Where it drops, the tornado is carrying debris.",
-    why: "Level II only, and Level II is refused from this app’s network.",
+      "How alike the targets are. Rain is near 1; where it drops below 0.8 beside a couplet, " +
+      "the tornado is lofting debris.",
   },
 ];
+
+/** Level II begins here; the radars went in over the following six years. */
+export const LEVEL2_BEGINS = Date.UTC(1991, 5, 1) / 1000;
+
+/** The network was upgraded to dual polarisation, and so to correlation, over 2011 to 2013. */
+export const DUAL_POL_BEGINS = Date.UTC(2011, 0, 1) / 1000;
+
+export const coveredByLevel2 = (epochSeconds: number) =>
+  epochSeconds >= LEVEL2_BEGINS && epochSeconds < Date.now() / 1000;
 
 /** IEM's archived composite tiles, keyed on a five-minute timestamp. */
 const TILES = "https://mesonet.agron.iastate.edu/c/tile.py/1.0.0";
@@ -154,9 +166,9 @@ export function scanLabel(epoch: number, zone: string): string {
     timeZoneName: "short",
   };
   try {
-    return when.toLocaleString("en-US", { ...opts, timeZone: zone });
+    return dateFormat("en-US", { ...opts, timeZone: zone }).format(when);
   } catch {
     // An unknown zone is not worth an empty panel over.
-    return when.toLocaleString("en-US", { ...opts, timeZone: "UTC" });
+    return dateFormat("en-US", { ...opts, timeZone: "UTC" }).format(when);
   }
 }

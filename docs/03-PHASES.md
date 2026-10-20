@@ -62,7 +62,7 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 - [x] 34. Mesoscale Discussions (port)
 - [x] 35. Atmospheric Ingredients (port: SWTI ring, 72-hour scrubber, ingredient cards with sparklines, SWTI parts, model agreement)
 - [x] 36. Storm Timing Index (port of VIP Severe Timing: worst window with after-dark warning, tappable 72-hour ribbon with night shading, three day cards, hazard cards, chances chart, hourly table; chances held back by available instability)
-- [x] 37. Tropical Outlook (port: basin map with outlook areas, cones, tracks, forecast points, past tracks and coastal watches; storm cards with forecast table and NHC products; parsed 7-day text outlooks with chance bars; GOES GeoColor basin and storm-floater loops that decode every frame first and dissolve between frames)
+- [x] 37. Tropical Outlook (port: basin map with outlook areas, cones, tracks, forecast points, past tracks and coastal watches; storm cards with forecast table and NHC products; parsed 7-day text outlooks with chance bars; GOES GeoColor basin and storm-floater loops that decode every frame first and dissolve between frames; Final Fix-It #2: per-storm Graphics and Advisories tabs, a Worldwide tab with JTWC storms, and a Season tab from NHC best tracks since 2004)
 - [x] 38. Tropical Model Battle Royale (14-model roster from NHC ATCF a-decks incl. Google DeepMind (GDMN); newest tracks on the map with toggles and the best track; leaderboard scored against the NHC best track at 24/48/72 h with podium, wins and the CLIPER baseline)
 - [x] 38b. Tropical: Google AI Cyclone Model subtab beside the ported hurricane tracker (Google DeepMind GDMN from NHC ATCF: last 4 runs vs the NHC track and best track, rank among the roster, average miss vs NHC, distance apart, winds chart; the 50-member Weather Lab spread needs a Google sign-in, so it is linked, not embedded)
 - [x] 39. Hazards & Droughts (port, beyond VIP's static images: your-area card with Drought Monitor category, hazards over you and your state's drought trend; interactive CPC 3–7 / 8–14 day hazards map with tap details and merged list; interactive Drought Monitor map, national category bars and 13-week trend; CPC drought outlooks)
@@ -96,7 +96,7 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 - [x] 59. Extras: first engines (Radar Blind Spot, ProbTor, ProbHail)
 - [x] 60. Extras: next engines (Rotation Track Persistence, Nocturnal LLJ, Landspout/Waterspout, Snow Squall, Wildfire/PyroCb, Landfalling Hurricane Tornado Risk)
 - [ ] 60b. Engine Preview: private admin-only area where post-launch engines are built and shown to the owner for approval before release
-- [ ] 61. Disaster Response directory, sign-up form and admin inbox
+- [x] 61. Disaster Response directory, sign-up form and admin inbox (Final Fix-It #19: five starting organizations, organization and volunteer sign-up, approval in the Contact inbox, admin → Disaster Response; migration `20261020010000_disaster_response.sql` waits on the owner's approval to apply)
 
 ## Account
 - [x] 62. My Profile (identity and plan, points, streaks, guesses, trivia accuracy, poll votes, badges, leaderboard titles, saved places, referral code; edit name/nickname/city/phone)
@@ -107,12 +107,12 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 
 ## Second menu
 - [x] 65. Official Tornado Archive: data pipeline (54 famous events built from SPC + DAT, plus every NWS-surveyed tornado day added automatically every 6 hours; backfill to 2024)
-- [x] 66. Official Tornado Archive: replay experience (the Log repo's full-screen replay: GPU funnels, 7 speeds, damage points and contours, surveys, hail, warnings, archived radar, 3D chase cam)
-- [x] 67. Storm Chasing Log: logging and replay (members upload GPS tracks; tornadoes near the route found from the NWS survey; replay with a 3D chase camera)
+- [x] 66. Official Tornado Archive: replay experience (the Log repo's full-screen replay: GPU funnels, 7 speeds, damage points and contours, surveys, hail, warnings, archived radar, 3D chase cam; Final Fix-It #17: Chase Log's current funnels and spinning ground icons, storm camera, free camera on any touch and in 3D, tap labels on reports, warnings and survey points, radar that keeps up with the clock with velocity, storm-relative and correlation from each site's Level 2 scans, expandable legend, richer event files)
+- [x] 67. Storm Chasing Log: logging and replay (members upload GPS tracks, or draw the route on a map with the times they remember (Final Fix-It #18); tornadoes near the route found from the NWS survey; replay with a 3D chase camera)
 
 ## Finish
-- [ ] 68. Bug, glitch, performance and style sweep
-- [ ] 69. Full walkthrough as a real user on every page
+- [x] 68. Bug, glitch, performance and style sweep (2026-10-20: every page at phone and desktop width in UTC, Central and Eastern time; console, failed requests, overflow and stray text checked; bugs 105–106 fixed)
+- [x] 69. Full walkthrough as a real user on every page (2026-10-20: 46 pages, 227 tabs and sections opened in a phone browser in Central time, no errors)
 - [ ] 70. Packaging: Android .apk, iPhone Home Screen install, launch on Weather.SSWX.Space
 
 Post-launch items (Personal Warnings, Affected Communities, Virtual Store, Services, Partnerships, Non-Profit Campaigns, Donations, Members Suite) go into the BuildPlan's post-launch section and stay off the menus until their work starts.
