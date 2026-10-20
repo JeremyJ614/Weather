@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import {
   ExternalLink,
+  Globe2,
+  History,
   Satellite,
   ScrollText,
   Tornado,
@@ -12,8 +15,6 @@ import {
 import { HomeTabs } from "@/features/news/HomeTabs";
 import { TropicalMap, type ReconDot } from "@/features/tropical/TropicalMap";
 import { SatLoop } from "@/features/tropical/SatLoop";
-import { ModelBattle } from "@/features/tropical/ModelBattle";
-import { GoogleAi } from "@/features/tropical/GoogleAi";
 import { pick, type Colors } from "@/lib/colors/pick";
 import type { Outlook, TwoText } from "@/lib/tropical/nhc";
 import {
@@ -28,6 +29,34 @@ import {
 } from "@/lib/tropical/style";
 import { ROSTER } from "@/lib/tropical/atcf";
 import s from "./Tropical.module.css";
+
+// Loaded when their tab opens, so the page itself stays light.
+const ModelBattle = dynamic(
+  () => import("@/features/tropical/ModelBattle").then((m) => m.ModelBattle),
+  { ssr: false },
+);
+const GoogleAi = dynamic(
+  () => import("@/features/tropical/GoogleAi").then((m) => m.GoogleAi),
+  { ssr: false },
+);
+const WorldView = dynamic(
+  () => import("@/features/tropical/WorldView").then((m) => m.WorldView),
+  { ssr: false },
+);
+const SeasonView = dynamic(
+  () => import("@/features/tropical/SeasonView").then((m) => m.SeasonView),
+  { ssr: false },
+);
+const StormGraphics = dynamic(
+  () =>
+    import("@/features/tropical/StormProducts").then((m) => m.StormGraphics),
+  { ssr: false },
+);
+const StormAdvisories = dynamic(
+  () =>
+    import("@/features/tropical/StormProducts").then((m) => m.StormAdvisories),
+  { ssr: false },
+);
 
 const when = (iso: string | null) =>
   iso
@@ -165,12 +194,25 @@ export function TropicalView({
             icon: <Satellite aria-hidden />,
             panel: <BasinLoop start={busiest} />,
           },
+          {
+            id: "trop-world",
+            label: "Worldwide",
+            icon: <Globe2 aria-hidden />,
+            panel: <WorldView nhc={data.storms} colors={colors} />,
+          },
+          {
+            id: "trop-season",
+            label: "Season",
+            icon: <History aria-hidden />,
+            panel: <SeasonView colors={colors} start={busiest} />,
+          },
         ]}
       />
       <p className={s.foot}>
-        Source: NOAA National Hurricane Center (map service, advisories and
-        outlooks) and NESDIS STAR GOES imagery. Refreshed every 10 minutes.
-        Always follow your local officials during a storm.
+        Source: NOAA National Hurricane Center (map service, advisories,
+        outlooks and best tracks), the Joint Typhoon Warning Center (storms
+        outside NHC&apos;s basins) and NESDIS STAR GOES imagery. Refreshed every
+        10 minutes. Always follow your local officials during a storm.
       </p>
     </div>
   );
@@ -252,9 +294,17 @@ type Mission = {
   ob: string | null;
   active: boolean;
 };
-const SUBTABS = ["Forecast", "Satellite", "Map", "Models", "Recon"] as const;
+const SUBTABS = [
+  "Forecast",
+  "Satellite",
+  "Map",
+  "Models",
+  "Recon",
+  "Graphics",
+  "Advisories",
+] as const;
 
-/** One storm at a time, VIP's storm page: forecast, satellite, map, models and recon. */
+/** One storm at a time, VIP's storm page: forecast, satellite, map, models, recon, graphics and advisories. */
 function StormPage({
   data,
   colors,
@@ -445,6 +495,8 @@ function StormPage({
         </section>
       )}
       {tab === "Models" && <StormModels key={x.id} id={x.id} colors={colors} />}
+      {tab === "Graphics" && <StormGraphics key={x.id} storm={x} />}
+      {tab === "Advisories" && <StormAdvisories key={x.id} storm={x} />}
       {tab === "Recon" && (
         <section className={s.panel}>
           <header>
