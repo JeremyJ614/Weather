@@ -73,6 +73,12 @@ export function previewSource(
       return { url: "/api/sky/preview", title: "Stargazing tonight" };
     case "cams":
       return { url: "/api/cams/preview", title: "Every camera feed" };
+    case "shelters":
+      return {
+        url: "/api/disaster/shelters?preview=1",
+        title:
+          "Shelters open now, and registered shelters in Oklahoma and Kansas",
+      };
     case "gauges":
       return {
         url: "/api/rivers/preview",

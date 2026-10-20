@@ -9,6 +9,7 @@ import { EF_COLORS } from "@/lib/colors/ef";
 import { pick, type Colors } from "@/lib/colors/pick";
 import type { ReplayEntry } from "@/features/replay/entries";
 import { DEFAULTS as REPLAY } from "@/features/replay/palette";
+import { KIND, type ReportKind } from "@/lib/warnings/reports";
 import s from "./ChaseLog.module.css";
 
 const loading = () => <p className={s.small}>Loading…</p>;
@@ -100,6 +101,9 @@ export function ChaseLogView({
       {adding ? (
         <ChaseImport
           ef={ef}
+          report={(k) =>
+            pick(colors, `report:${k}`, KIND[k as ReportKind]?.color ?? "#888")
+          }
           route={pick(colors, "replay:track:done", REPLAY.track.done)}
           onCancel={() => setAdding(false)}
           onSaved={(row) => {

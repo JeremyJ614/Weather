@@ -68,7 +68,7 @@ export const ABOUT: Record<string, string> = {
   extras:
     "Weather Engines drawn like SPC outlooks (ProbTor, ProbHail, rotation tracks, snow squalls and more), the Storm Visualizer and Particle Morph.",
   "disaster-response":
-    "Organizations that help after storms: what they do, where, and how to give to them or help them.",
+    "Organizations that help after storms and how to give to them or help them, plus a map of emergency shelters near you.",
   donate:
     "Support StormSync with a one-time or monthly gift of any amount, and join the supporters wall.",
   profile: "Your places, your badges and your titles.",

@@ -161,3 +161,135 @@
   font-size: 14px;
   font-weight: 700;
 }
+/* Storm Shelter map. */
+.safety {
+  display: flex;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--lit-line);
+  border-radius: 14px;
+  background: var(--lit);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.safety svg {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  color: var(--accent);
+}
+.safety b {
+  color: var(--text);
+}
+.mapBox {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+}
+.mapNote {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.mapNote i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+.shelter {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--bg);
+}
+.shelter header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.shelter header b {
+  font-size: 15.5px;
+}
+.openTag {
+  padding: 2px 8px;
+  border: 1px solid var(--lit-line);
+  border-radius: 999px;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.addr {
+  color: var(--muted);
+  font-size: 13px;
+}
+.use {
+  font-size: 13px;
+  font-weight: 600;
+}
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.facts li {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 12px;
+}
+.facts svg {
+  width: 14px;
+  height: 14px;
+  color: var(--accent);
+}
+.nearList {
+  display: grid;
+  gap: 6px;
+}
+.nearList button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--bg);
+  text-align: left;
+}
+.nearList span {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+.nearList b {
+  overflow: hidden;
+  font-size: 13.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nearList small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nearList em {
+  flex: none;
+  color: var(--accent);
+  font-size: 12.5px;
+  font-style: normal;
+  font-weight: 700;
+}

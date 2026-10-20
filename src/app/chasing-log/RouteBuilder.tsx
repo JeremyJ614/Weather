@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { GeoJSONSource, Map as MaplibreMap } from "maplibre-gl";
-import { Undo2, X } from "lucide-react";
+import { CalendarDays, Undo2, X } from "lucide-react";
 import { WeatherMap, type ReadyMap } from "@/features/map/WeatherMap";
 import { zoneAt } from "@/features/replay/core/timezone";
 import {
@@ -17,6 +17,7 @@ import {
   type RouteStop,
 } from "@/features/replay/import/route";
 import type { ParsedTrack } from "@/features/replay/import/types";
+import { dayStorms, type DayStorms } from "@/features/replay/import/sources";
 import s from "./ChaseLog.module.css";
 
 const keyOf = (a: RouteStop, b: RouteStop) =>
@@ -26,22 +27,45 @@ const EMPTY: GeoJSON.FeatureCollection = {
   features: [],
 };
 const today = () => new Date().toLocaleDateString("en-CA");
+const EFS = ["EFU", "EF0", "EF1", "EF2", "EF3", "EF4", "EF5"];
+const KINDS = ["wind", "hail", "funnel", "tornado"] as const;
+const longDay = (d: string) =>
+  new Date(`${d}T12:00:00Z`).toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
 
 /**
  * Draw a chase by hand (owner #18): tap the route on the map stop by stop, give the first
  * and last stops the times the chase began and ended (and any stop between a time you
  * remember), and the drive is timed and laid on the roads. The finished route goes through
- * the same survey lookup as a recorded track.
+ * the same survey lookup as a recorded track. Whatever date is set, that day's surveyed
+ * tornado tracks and storm reports are drawn under the route (Fix-It #16): with `dateFirst`
+ * the day is picked before the map opens, so the route is drawn among that day's storms.
  */
 export function RouteBuilder({
   color,
+  ef,
+  report,
+  dateFirst = false,
   onDone,
 }: {
   /** The chaser's track color on the replay. */
   color: string;
+  /** Tornado track colors by rating, and storm report colors by kind. */
+  ef: (k: string) => string;
+  report: (k: string) => string;
+  dateFirst?: boolean;
   onDone: (track: ParsedTrack) => void;
 }) {
-  const [date, setDate] = useState(today);
+  const [date, setDate] = useState(dateFirst ? "" : today());
+  const [day, setDay] = useState<{
+    date: string;
+    v: DayStorms | "error";
+  } | null>(null);
   const [stops, setStops] = useState<RouteStop[]>([]);
   const [roads, setRoads] = useState(true);
   const [roadLegs, setRoadLegs] = useState<Record<string, RouteLeg>>({});
@@ -77,6 +101,62 @@ export function RouteBuilder({
     [stops, roadLegs, roads, date, zone],
   );
 
+  // The chosen day's storms, nationwide, once per date.
+  const valid = /^\d{4}-\d{2}-\d{2}$/.test(date) && date <= today();
+  useEffect(() => {
+    if (!valid) return;
+    const ac = new AbortController();
+    dayStorms(date, { signal: ac.signal })
+      .then((v) => setDay({ date, v }))
+      .catch((e) => {
+        if ((e as Error).name !== "AbortError") setDay({ date, v: "error" });
+      });
+    return () => ac.abort();
+  }, [date, valid]);
+  const storms = day?.date === date && day.v !== "error" ? day.v : null;
+
+  // Draw the day's storms under the route, and frame them while no route is drawn yet.
+  useEffect(() => {
+    const m = map.current;
+    if (!m || !ready) return;
+    const tracks = storms?.tracks ?? [];
+    const reports = storms?.reports ?? [];
+    (m.getSource("day-tracks") as GeoJSONSource | undefined)?.setData({
+      type: "FeatureCollection",
+      features: tracks.map((t) => ({
+        type: "Feature",
+        properties: { ef: t.ef },
+        geometry: { type: "LineString", coordinates: t.coords },
+      })),
+    });
+    (m.getSource("day-reports") as GeoJSONSource | undefined)?.setData({
+      type: "FeatureCollection",
+      features: [...reports]
+        .sort((a, b) => KINDS.indexOf(a.kind) - KINDS.indexOf(b.kind))
+        .map((r) => ({
+          type: "Feature",
+          properties: { kind: r.kind },
+          geometry: { type: "Point", coordinates: [r.lon, r.lat] },
+        })),
+    });
+    if (stops.length || !storms) return;
+    // Tornadoes first: they're where the chase was. Reports otherwise.
+    const pts = tracks.length
+      ? tracks.flatMap((t) => t.coords)
+      : reports.map((r) => [r.lon, r.lat] as [number, number]);
+    if (!pts.length) return;
+    const xs = pts.map((p) => p[0]);
+    const ys = pts.map((p) => p[1]);
+    m.fitBounds(
+      [
+        [Math.min(...xs) - 0.3, Math.min(...ys) - 0.3],
+        [Math.max(...xs) + 0.3, Math.max(...ys) + 0.3],
+      ],
+      { padding: 36, maxZoom: 8, duration: 900 },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reframe only when the day changes
+  }, [ready, storms]);
+
   // The map draws the route and its numbered stops.
   useEffect(() => {
     const m = map.current;
@@ -102,6 +182,40 @@ export function RouteBuilder({
 
   const onReady = ({ map: any, provider }: ReadyMap) => {
     const m = any as unknown as MaplibreMap;
+    m.addSource("day-tracks", { type: "geojson", data: EMPTY });
+    m.addSource("day-reports", { type: "geojson", data: EMPTY });
+    m.addLayer({
+      id: "day-reports",
+      type: "circle",
+      source: "day-reports",
+      paint: {
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 2, 9, 5],
+        "circle-color": [
+          "match",
+          ["get", "kind"],
+          ...KINDS.flatMap((k) => [k, report(k)]),
+          report("wind"),
+        ] as never,
+        "circle-opacity": 0.85,
+        "circle-stroke-color": "#000000",
+        "circle-stroke-width": 0.5,
+      },
+    });
+    m.addLayer({
+      id: "day-tracks",
+      type: "line",
+      source: "day-tracks",
+      layout: { "line-cap": "round", "line-join": "round" },
+      paint: {
+        "line-color": [
+          "match",
+          ["get", "ef"],
+          ...EFS.flatMap((k) => [k, ef(k)]),
+          ef("EFU"),
+        ] as never,
+        "line-width": ["interpolate", ["linear"], ["zoom"], 4, 2, 10, 5],
+      },
+    });
     m.addSource("rt-line", { type: "geojson", data: EMPTY });
     m.addSource("rt-stops", { type: "geojson", data: EMPTY });
     m.addLayer({
@@ -173,12 +287,45 @@ export function RouteBuilder({
   const first = route.times[0];
   const last = route.times[route.times.length - 1];
 
+  const status = !valid
+    ? null
+    : day?.date !== date
+      ? "Loading that day's storms…"
+      : day.v === "error"
+        ? "That day's storms couldn't be loaded; you can still draw the route."
+        : `${longDay(date)}: ${day.v.tracks.length} surveyed ${day.v.tracks.length === 1 ? "tornado" : "tornadoes"}, ${day.v.reports.length} storm ${day.v.reports.length === 1 ? "report" : "reports"}.`;
+
+  if (dateFirst && !valid)
+    return (
+      <div className={s.builder}>
+        <label className={s.dayPick}>
+          <CalendarDays className="size-6" aria-hidden />
+          <span>
+            <b>Pick the day you chased</b>
+            <small>
+              That day&apos;s tornado tracks and storm reports load on the map,
+              then you draw your route among them.
+            </small>
+          </span>
+          <input
+            type="date"
+            value={date}
+            max={today()}
+            min="2011-01-01"
+            onChange={(e) => setDate(e.target.value)}
+            aria-label="Chase date"
+          />
+        </label>
+      </div>
+    );
+
   return (
     <div className={s.builder}>
       <p className={s.small}>
         Tap the map where you drove, in order. Give the first stop the time you
         set off and the last the time you finished; add a time at any other stop
-        you remember one for. The rest are timed for you.
+        you remember one for. The rest are timed for you. The day&apos;s
+        surveyed tornado tracks and storm reports are drawn underneath.
       </p>
       <div className={s.builderRow}>
         <label className={s.field}>
@@ -190,6 +337,11 @@ export function RouteBuilder({
             onChange={(e) => setDate(e.target.value)}
           />
         </label>
+        {status && (
+          <p className={s.small} aria-live="polite">
+            {status}
+          </p>
+        )}
         <label className={s.check}>
           <input
             type="checkbox"

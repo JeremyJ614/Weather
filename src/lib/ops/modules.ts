@@ -38,6 +38,7 @@ export const MODULES = [
   { id: "extras", label: "Extras (Weather Engines and Randoms)" },
   { id: "archive", label: "Official Tornado Archive" },
   { id: "chaselog", label: "Storm Chasing Log" },
+  { id: "shelters", label: "Storm Shelter map (Disaster Response)" },
   { id: "notify", label: "Notifications (alert delivery)" },
   { id: "maps", label: "Maps" },
   { id: "weather-news", label: "Weather News" },

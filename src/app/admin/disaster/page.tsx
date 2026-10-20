@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { requireAdmin } from "@/lib/auth/admin-guard";
 import { ORG_COLUMNS, type Org } from "@/lib/disaster/data";
 import { DisasterAdmin } from "./DisasterAdmin";
+import { ShelterSwitch } from "./ShelterSwitch";
+import { getSiteDefaults } from "@/lib/settings";
 
 export const metadata: Metadata = {
   title: "Disaster Response · Admin · StormSync Media",
@@ -10,6 +12,7 @@ export const metadata: Metadata = {
 /** Listings on /disaster-response (Phase 61). */
 export default async function DisasterAdminPage() {
   const { supabase } = await requireAdmin("disaster");
+  const { disabled } = await getSiteDefaults();
   const { data: orgs } = await supabase
     .from("disaster_orgs")
     .select(ORG_COLUMNS)
@@ -25,6 +28,7 @@ export default async function DisasterAdminPage() {
         is emailed when they&apos;re approved. Declined sign-ups are deleted
         after 30 days.
       </p>
+      <ShelterSwitch on={!disabled.includes("shelters")} />
       <DisasterAdmin orgs={(orgs ?? []) as Org[]} />
     </main>
   );
