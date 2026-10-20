@@ -162,19 +162,80 @@
   margin-top: 4px;
 }
 .chips li {
+  display: flex;
+  list-style: none;
+  animation: rise 420ms calc(200ms + var(--i) * 45ms) var(--ease) both;
+}
+.chips button {
   display: inline-flex;
   align-items: center;
   gap: 5px;
+  min-height: 32px;
   padding: 5px 10px;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--surface2);
   font-size: 12px;
   font-weight: 600;
-  animation: rise 420ms calc(200ms + var(--i) * 45ms) var(--ease) both;
+  transition: transform var(--t-fast, 160ms) var(--ease);
 }
-.chips li svg {
+.chips button:active {
+  transform: scale(0.95);
+}
+.chips button[aria-pressed="true"] {
+  border-color: var(--lit-line);
+  box-shadow: 0 0 12px var(--glow);
   color: var(--accent);
+}
+.chips svg {
+  color: var(--accent);
+}
+/* A tapped page's one-line description, with a way straight there. */
+.about {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--lit-line);
+  border-radius: 14px;
+  background: var(--lit);
+  text-align: left;
+  animation: rise 260ms var(--ease) both;
+}
+.about p {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.about b {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--text);
+  font-size: 13.5px;
+}
+.go {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  justify-self: start;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+}
+.go svg {
+  width: 14px;
+}
+.hint {
+  color: var(--muted);
+  font-size: 11.5px;
+  opacity: 0.8;
+}
+.made {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  width: 100%;
+  animation: rise 300ms var(--ease) both;
 }
 .pick {
   display: grid;
@@ -312,6 +373,8 @@
   .title,
   .text,
   .chips li,
+  .about,
+  .made,
   .bars i[data-state="run"] {
     animation: none;
   }
