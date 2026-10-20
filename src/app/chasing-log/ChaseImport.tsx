@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import {
   parseTrack,
@@ -21,7 +22,13 @@ import { packChase } from "@/features/replay/chaselog/codec";
 import type { ChaseRow } from "./ChaseLogView";
 import s from "./ChaseLog.module.css";
 
-type Stage = "drop" | "read" | "finding" | "review" | "saving";
+// The map and road routing load only when someone chooses to draw a route.
+const RouteBuilder = dynamic(
+  () => import("./RouteBuilder").then((m) => m.RouteBuilder),
+  { ssr: false },
+);
+
+type Stage = "drop" | "draw" | "read" | "finding" | "review" | "saving";
 
 const clock = (epoch: number, tz: string) =>
   new Date(epoch * 1000).toLocaleTimeString("en-US", {
@@ -31,16 +38,19 @@ const clock = (epoch: number, tz: string) =>
   });
 
 /**
- * Add a chase (ported from the Log repo's import page): read a recorded track, find every
- * tornado the NWS surveyed near it, let the member choose which to keep, then save it to
- * their account.
+ * Add a chase (ported from the Log repo's import page): read a recorded track, or draw the
+ * route by hand with the times remembered along it, find every tornado the NWS surveyed near
+ * it, let the member choose which to keep, then save it to their account.
  */
 export function ChaseImport({
   ef,
+  route,
   onSaved,
   onCancel,
 }: {
   ef: (k: string) => string;
+  /** The chaser's track color, for the route drawn by hand. */
+  route: string;
   onSaved: (row: ChaseRow) => void;
   onCancel: () => void;
 }) {
@@ -75,17 +85,26 @@ export function ChaseImport({
       return;
     }
     setStage("read");
-    let track: ParsedTrack;
+    try {
+      await find(parseTrack(file.name, await file.text()));
+    } catch (err) {
+      fail(err);
+      setStage("drop");
+    }
+  };
+
+  /** Looks up the day for a track, from a file or drawn by hand. */
+  const find = async (track: ParsedTrack, back: Stage = "drop") => {
+    setError(null);
     let sum: TrackSummary;
     try {
-      track = parseTrack(file.name, await file.text());
       sum = summarise(track);
       setParsed(track);
       setSummary(sum);
       setStage("finding");
     } catch (err) {
       fail(err);
-      setStage("drop");
+      setStage(back);
       return;
     }
     const empty: DiscoveryBundle = {
@@ -199,6 +218,13 @@ export function ChaseImport({
               GPX, KML, TCX, GeoJSON, CSV, or the JSON from Google Timeline.
             </p>
           </div>
+          <button
+            type="button"
+            className={s.add}
+            onClick={() => setStage("draw")}
+          >
+            No track? Draw your route on the map
+          </button>
           <ol className={s.how}>
             <li>
               <b>Your track is read on this phone.</b> It is thinned to the
@@ -215,6 +241,22 @@ export function ChaseImport({
               comes back, and some of it may be a storm you never saw.
             </li>
           </ol>
+        </>
+      )}
+
+      {stage === "draw" && (
+        <>
+          <RouteBuilder color={route} onDone={(t) => void find(t, "draw")} />
+          <button
+            type="button"
+            className={s.quiet}
+            onClick={() => {
+              setError(null);
+              setStage("drop");
+            }}
+          >
+            Use a track file instead
+          </button>
         </>
       )}
 

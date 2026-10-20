@@ -108,7 +108,7 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 ## Second menu
 - [x] 65. Official Tornado Archive: data pipeline (54 famous events built from SPC + DAT, plus every NWS-surveyed tornado day added automatically every 6 hours; backfill to 2024)
 - [x] 66. Official Tornado Archive: replay experience (the Log repo's full-screen replay: GPU funnels, 7 speeds, damage points and contours, surveys, hail, warnings, archived radar, 3D chase cam; Final Fix-It #17: Chase Log's current funnels and spinning ground icons, storm camera, free camera on any touch and in 3D, tap labels on reports, warnings and survey points, radar that keeps up with the clock with velocity, storm-relative and correlation from each site's Level 2 scans, expandable legend, richer event files)
-- [x] 67. Storm Chasing Log: logging and replay (members upload GPS tracks; tornadoes near the route found from the NWS survey; replay with a 3D chase camera)
+- [x] 67. Storm Chasing Log: logging and replay (members upload GPS tracks, or draw the route on a map with the times they remember (Final Fix-It #18); tornadoes near the route found from the NWS survey; replay with a 3D chase camera)
 
 ## Finish
 - [ ] 68. Bug, glitch, performance and style sweep
