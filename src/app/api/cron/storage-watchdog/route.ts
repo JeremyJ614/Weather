@@ -60,11 +60,6 @@ export async function GET(request: Request) {
       .delete()
       .eq("status", "declined")
       .lt("reviewed_at", day(30)),
-    db
-      .from("disaster_volunteers")
-      .delete()
-      .eq("status", "declined")
-      .lt("reviewed_at", day(30)),
   ]);
   const pruneError = pruned.find((r) => r.error)?.error;
   if (pruneError) {

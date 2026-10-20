@@ -11,9 +11,8 @@ export const metadata: Metadata = {
 };
 
 /**
- * Disaster Response (Phase 61, open to guests): organizations that help after storms,
- * volunteer sign-up, and a form to list an organization. Sign-ups wait in admin → Contact
- * inbox until approved.
+ * Disaster Response (Phase 61, open to guests): organizations that help after storms and a
+ * form to list an organization. Sign-ups wait in admin → Contact inbox until approved.
  */
 export default async function DisasterResponse({
   searchParams,
@@ -41,7 +40,7 @@ export default async function DisasterResponse({
         icon={<HeartHandshake aria-hidden />}
         eyebrow={["Community"]}
         title="Disaster Response"
-        subtitle="Groups that help after storms, how to give to them, and how to volunteer."
+        subtitle="Groups that help after storms, and how to give to them or help with them."
       />
       <Directory
         orgs={(data ?? []) as Org[]}

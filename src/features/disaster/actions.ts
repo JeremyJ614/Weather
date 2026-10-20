@@ -2,13 +2,7 @@
 
 import { supabaseServer } from "@/lib/supabase/server";
 import { alertInbox } from "@/lib/help/alert";
-import {
-  checkContact,
-  checkOrg,
-  checkVolunteer,
-  orgMessage,
-  volunteerMessage,
-} from "@/lib/disaster/data";
+import { checkContact, checkOrg, orgMessage } from "@/lib/disaster/data";
 
 export type SignupState = { error?: string; sent?: boolean } | null;
 
@@ -18,14 +12,13 @@ const reader = (fd: FormData) => ({
 });
 
 async function send(
-  kind: "org" | "volunteer",
   who: { name: string; email: string },
   m: { subject: string; body: string },
   data: Record<string, unknown>,
 ): Promise<SignupState> {
   const sb = await supabaseServer();
   const { error } = await sb.rpc("disaster_apply", {
-    p_kind: kind,
+    p_kind: "org",
     p_name: who.name,
     p_email: who.email,
     p_subject: m.subject,
@@ -40,10 +33,7 @@ async function send(
           : "Your sign-up couldn't be sent. Try again.",
     };
   await alertInbox({
-    form:
-      kind === "org"
-        ? "Disaster Response: organization"
-        : "Disaster Response: volunteer",
+    form: "Disaster Response: organization",
     ...who,
     ...m,
   });
@@ -62,32 +52,5 @@ export async function applyOrg(
   if ("error" in who) return who;
   const org = checkOrg(get, all);
   if ("error" in org) return org;
-  return send("org", who, orgMessage(org), org);
-}
-
-/** A volunteer signs up; approval adds them to the roster in admin → Disaster Response. */
-export async function applyVolunteer(
-  _: SignupState,
-  fd: FormData,
-): Promise<SignupState> {
-  if (String(fd.get("website_confirm") ?? "")) return { sent: true };
-  const { get, all } = reader(fd);
-  const who = checkContact(get);
-  if ("error" in who) return who;
-  const v = checkVolunteer(get, all);
-  if ("error" in v) return v;
-  let org: string | null = null;
-  if (v.org_id) {
-    const { data } = await (
-      await supabaseServer()
-    )
-      .from("disaster_orgs")
-      .select("name")
-      .eq("id", v.org_id)
-      .eq("status", "approved")
-      .maybeSingle();
-    org = data?.name ?? null;
-    if (!org) v.org_id = null;
-  }
-  return send("volunteer", who, volunteerMessage(who.name, v, org), v);
+  return send(who, orgMessage(org), org);
 }

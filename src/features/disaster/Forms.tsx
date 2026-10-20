@@ -2,15 +2,8 @@
 
 import { useActionState } from "react";
 import { Button } from "@/components/ui/Button";
-import {
-  AVAILABILITY,
-  SERVICES,
-  SKILLS,
-  SOCIALS,
-  TRAVEL,
-  type Org,
-} from "@/lib/disaster/data";
-import { applyOrg, applyVolunteer, type SignupState } from "./actions";
+import { SERVICES, SOCIALS, type Org } from "@/lib/disaster/data";
+import { applyOrg, type SignupState } from "./actions";
 import s from "./Disaster.module.css";
 
 const field = "min-h-11 w-full rounded-xl border border-line bg-bg px-3";
@@ -75,36 +68,6 @@ function Chips({
         ))}
       </div>
     </fieldset>
-  );
-}
-
-function Pick({
-  name,
-  label,
-  options,
-}: {
-  name: string;
-  label: string;
-  options: { value: string; label: string }[] | string[];
-}) {
-  return (
-    <label className="grid gap-1 text-sm font-bold">
-      <span>{label}</span>
-      <select name={name} required defaultValue="" className={field}>
-        <option value="" disabled>
-          Choose…
-        </option>
-        {options.map((o) =>
-          typeof o === "string" ? (
-            <option key={o}>{o}</option>
-          ) : (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ),
-        )}
-      </select>
-    </label>
   );
 }
 
@@ -276,82 +239,6 @@ export function OrgSignup({
       )}
       <Button type="submit" variant="primary" disabled={pending}>
         {pending ? "Sending…" : "Send for review"}
-      </Button>
-    </form>
-  );
-}
-
-/** Volunteer sign-up: lands in the inbox; approval adds them to the roster. */
-export function VolunteerSignup({
-  prefill,
-  orgs,
-}: {
-  prefill: { name: string; email: string };
-  orgs: Pick<Org, "id" | "name">[];
-}) {
-  const [state, action, pending] = useActionState(applyVolunteer, null);
-  if (state?.sent)
-    return (
-      <Done
-        state={state}
-        text="Thanks for stepping up. We'll review your sign-up and email you."
-      />
-    );
-  return (
-    <form action={action} className="grid gap-3">
-      <Contact prefill={prefill} />
-      <Text
-        name="phone"
-        label="Phone"
-        optional
-        type="tel"
-        autoComplete="tel"
-        maxLength={30}
-      />
-      <Text
-        name="base"
-        label="Where you're based"
-        maxLength={120}
-        placeholder="City, state"
-      />
-      <Pick name="travel" label="How far you can travel" options={TRAVEL} />
-      <Pick
-        name="availability"
-        label="When you can help"
-        options={AVAILABILITY}
-      />
-      <Chips name="skills" label="How you can help" options={SKILLS} />
-      <label className="grid gap-1 text-sm font-bold">
-        <span>Who you&apos;d like to help</span>
-        <select name="org_id" defaultValue="" className={field}>
-          <option value="">Wherever I&apos;m needed</option>
-          {orgs.map((o) => (
-            <option key={o.id} value={o.id}>
-              {o.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="grid gap-1 text-sm font-bold">
-        <span>
-          Anything else
-          <small className="ml-1 font-normal text-muted">(optional)</small>
-        </span>
-        <textarea
-          name="note"
-          maxLength={1000}
-          rows={3}
-          placeholder="Certifications, equipment you can bring, languages"
-          className="rounded-xl border border-line bg-bg px-3 py-2"
-        />
-      </label>
-      {state?.error && (
-        <p role="alert" className="text-sm text-accent">
-          {state.error}
-        </p>
-      )}
-      <Button type="submit" variant="primary" disabled={pending}>
-        {pending ? "Sending…" : "Sign up to volunteer"}
       </Button>
     </form>
   );

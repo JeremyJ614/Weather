@@ -15,24 +15,17 @@ export default async function Inbox() {
     .order("created_at", { ascending: false })
     .limit(200);
   const rows = (data ?? []) as Msg[];
-  // Disaster Response sign-ups carry their approval with them.
-  const ids = rows
-    .filter((m) => m.form.startsWith("disaster-"))
-    .map((m) => m.id);
+  // Disaster Response organization sign-ups carry their approval with them.
+  const ids = rows.filter((m) => m.form === "disaster-org").map((m) => m.id);
   if (ids.length) {
-    const [orgs, vols] = await Promise.all(
-      (["disaster_orgs", "disaster_volunteers"] as const).map((t) =>
-        supabase.from(t).select("id, status, message_id").in("message_id", ids),
-      ),
-    );
-    for (const [kind, res] of [
-      ["org", orgs],
-      ["volunteer", vols],
-    ] as const)
-      for (const r of res.data ?? []) {
-        const m = rows.find((x) => x.id === r.message_id);
-        if (m) m.review = { kind, id: r.id, status: r.status };
-      }
+    const { data: orgs } = await supabase
+      .from("disaster_orgs")
+      .select("id, status, message_id")
+      .in("message_id", ids);
+    for (const r of orgs ?? []) {
+      const m = rows.find((x) => x.id === r.message_id);
+      if (m) m.review = { id: r.id, status: r.status };
+    }
   }
   const unread = rows.filter((m) => !m.read).length;
   return (

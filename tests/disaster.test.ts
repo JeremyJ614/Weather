@@ -2,10 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   checkContact,
   checkOrg,
-  checkVolunteer,
   cleanUrl,
   orgMessage,
-  volunteerMessage,
 } from "@/lib/disaster/data";
 
 const form = (v: Record<string, string | string[]>) => ({
@@ -68,35 +66,8 @@ describe("checkOrg", () => {
   });
 });
 
-describe("checkVolunteer", () => {
-  it("needs a place, travel, availability and a skill from the lists", () => {
-    const ok = form({
-      base: "Moore, OK",
-      travel: "Within 50 miles",
-      availability: "Weekends",
-      skills: ["Debris cleanup", "Juggling"],
-      org_id: "not-an-id",
-    });
-    const v = checkVolunteer(ok.get, ok.all);
-    expect(v).toMatchObject({
-      skills: ["Debris cleanup"],
-      org_id: null,
-      phone: null,
-      note: null,
-    });
-    const bad = form({
-      base: "Moore, OK",
-      travel: "Mars",
-      availability: "Weekends",
-    });
-    expect(checkVolunteer(bad.get, bad.all)).toEqual({
-      error: "Pick how far you can travel.",
-    });
-  });
-});
-
 describe("messages", () => {
-  it("checks the contact and writes the inbox messages", () => {
+  it("checks the contact and writes the inbox message", () => {
     expect(
       checkContact(form({ contact_name: "Al", contact_email: "x" }).get),
     ).toEqual({ error: "Your email needs to be real." });
@@ -107,20 +78,5 @@ describe("messages", () => {
     expect(m.subject).toBe("Organization sign-up: Prairie Relief");
     expect(m.body).toContain("Areas served: Oklahoma and southern Kansas");
     expect(m.body).not.toContain("null");
-    const v = volunteerMessage(
-      "Sam",
-      {
-        base: "Moore, OK",
-        travel: "Anywhere",
-        availability: "Weekends",
-        skills: ["Debris cleanup"],
-        phone: null,
-        org_id: null,
-        note: null,
-      },
-      null,
-    );
-    expect(v.subject).toBe("Volunteer sign-up: Sam");
-    expect(v.body).toContain("Wants to help: wherever needed");
   });
 });

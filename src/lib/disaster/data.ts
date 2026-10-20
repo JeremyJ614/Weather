@@ -1,7 +1,6 @@
 /**
- * Disaster Response (Phase 61): the organization directory and the volunteer roster.
- * Organizations and volunteers sign up on /disaster-response; each sign-up lands in admin →
- * Contact inbox and shows (organizations) or joins the roster (volunteers) once approved.
+ * Disaster Response (Phase 61): the organization directory. Organizations sign up on
+ * /disaster-response; each sign-up lands in admin → Contact inbox and shows once approved.
  */
 export type Status = "pending" | "approved" | "declined";
 
@@ -33,21 +32,6 @@ export type Org = {
 export const ORG_COLUMNS =
   "id, status, name, mission, services, areas, website, donate_url, volunteer_url, phone, email, logo_url, socials, sort";
 
-export type Volunteer = {
-  id: string;
-  status: Status;
-  name: string;
-  email: string;
-  phone: string | null;
-  base: string;
-  travel: string;
-  availability: string;
-  skills: string[];
-  org_id: string | null;
-  note: string | null;
-  created_at: string;
-};
-
 export const SERVICES = [
   "Shelter",
   "Food & water",
@@ -66,36 +50,6 @@ export const SERVICES = [
   "Transportation",
   "Donations drop-off",
 ];
-export const SKILLS = [
-  "Debris cleanup",
-  "Chainsaw (experienced)",
-  "Roof tarping",
-  "Construction or trades",
-  "Heavy equipment",
-  "Shelter support",
-  "Cooking or food service",
-  "Medical (licensed)",
-  "Mental health (licensed)",
-  "Ham radio or communications",
-  "Driving (own vehicle)",
-  "Childcare",
-  "Animal care",
-  "Translation",
-  "Phones, office or data entry",
-];
-export const AVAILABILITY = [
-  "On call: within 24 hours",
-  "Within a few days",
-  "Weekends",
-  "Remote only",
-];
-export const TRAVEL = [
-  "My town",
-  "Within 50 miles",
-  "Within my state",
-  "Anywhere",
-];
-
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const PHONE = /^[+()\-.\s\d]{7,20}$/;
 const one = (v: string, n: number) => v.replace(/\s+/g, " ").trim().slice(0, n);
@@ -179,41 +133,6 @@ export function checkOrg(get: Got, all: GotAll): OrgInput | { error: string } {
   };
 }
 
-export type VolunteerInput = Omit<
-  Volunteer,
-  "id" | "status" | "created_at" | "name" | "email"
->;
-
-/** Checks a volunteer's sign-up against the lists above. */
-export function checkVolunteer(
-  get: Got,
-  all: GotAll,
-): VolunteerInput | { error: string } {
-  const base = one(get("base"), 120);
-  if (base.length < 2) return { error: "Fill in where you're based." };
-  const travel = get("travel");
-  if (!TRAVEL.includes(travel))
-    return { error: "Pick how far you can travel." };
-  const availability = get("availability");
-  if (!AVAILABILITY.includes(availability))
-    return { error: "Pick when you can help." };
-  const skills = [...new Set(all("skills"))].filter((x) => SKILLS.includes(x));
-  if (!skills.length) return { error: "Pick at least one way you can help." };
-  const phone = one(get("phone"), 30);
-  if (phone && !PHONE.test(phone))
-    return { error: "“Phone” needs a phone number." };
-  const org = get("org_id");
-  return {
-    base,
-    travel,
-    availability,
-    skills,
-    phone: phone || null,
-    org_id: /^[0-9a-f-]{36}$/.test(org) ? org : null,
-    note: get("note").trim().slice(0, 1000) || null,
-  };
-}
-
 /** The applicant's name and email, which every sign-up needs to be answered. */
 export function checkContact(
   get: Got,
@@ -245,30 +164,6 @@ export function orgMessage(o: OrgInput): { subject: string; body: string } {
       o.mission,
       "",
       "Approve or decline it below; nothing is listed until it is approved.",
-    ]
-      .filter((x) => x !== null)
-      .join("\n")
-      .slice(0, 4000),
-  };
-}
-
-/** The inbox message for a volunteer's sign-up. */
-export function volunteerMessage(
-  name: string,
-  v: VolunteerInput,
-  org: string | null,
-): { subject: string; body: string } {
-  return {
-    subject: `Volunteer sign-up: ${name}`.slice(0, 120),
-    body: [
-      `Based in: ${v.base} (travels: ${v.travel.toLowerCase()})`,
-      `Available: ${v.availability}`,
-      `Can help with: ${v.skills.join(", ")}`,
-      v.phone && `Phone: ${v.phone}`,
-      `Wants to help: ${org ?? "wherever needed"}`,
-      ...(v.note ? ["", v.note] : []),
-      "",
-      "Approve to add them to the volunteer roster (admin → Disaster Response).",
     ]
       .filter((x) => x !== null)
       .join("\n")

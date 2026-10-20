@@ -92,7 +92,7 @@ export const ADMIN_SECTIONS: AdminSection[] = [
   {
     id: "disaster",
     group: "content",
-    desc: "Disaster Response listings and the volunteer roster",
+    desc: "Disaster Response listings",
     label: "Disaster Response",
     icon: "HeartHandshake",
     phase: "61",

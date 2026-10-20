@@ -11,13 +11,12 @@ import {
   Search,
 } from "lucide-react";
 import { SOCIALS, type Org } from "@/lib/disaster/data";
-import { OrgSignup, VolunteerSignup } from "./Forms";
+import { OrgSignup } from "./Forms";
 import faq from "@/app/faq/Faq.module.css";
 import s from "./Disaster.module.css";
 
 const TABS = [
   { id: "orgs", label: "Organizations" },
-  { id: "volunteer", label: "Volunteer" },
   { id: "list", label: "List your organization" },
 ] as const;
 type Tab = (typeof TABS)[number]["id"];
@@ -114,7 +113,7 @@ function OrgCard({ o }: { o: Org }) {
   );
 }
 
-/** The Disaster Response page: the directory, the volunteer sign-up and the listing form. */
+/** The Disaster Response page: the directory and the listing form. */
 export function Directory({
   orgs,
   initial,
@@ -207,19 +206,6 @@ export function Directory({
             Listings are reviewed by the StormSync team before they appear. In
             an emergency, call 911.
           </p>
-        </section>
-      )}
-
-      {tab === "volunteer" && (
-        <section role="tabpanel" className={s.panel}>
-          <p className="text-sm text-muted">
-            Sign up once and we&apos;ll match you with organizations working
-            near you after a storm. Your details go only to the StormSync team.
-          </p>
-          <VolunteerSignup
-            prefill={prefill}
-            orgs={orgs.map((o) => ({ id: o.id, name: o.name }))}
-          />
         </section>
       )}
 

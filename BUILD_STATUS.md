@@ -50,6 +50,7 @@ Stripe: STRIPE_SECRET_KEY set in Vercel (Production). Owner adds the webhook (ST
 - Run once in Supabase SQL editor (prunes scheduler history; the agent tool can't run deletes): `select cron.schedule('cron-history-prune', '23 6 * * *', $$delete from cron.job_run_details where end_time < now() - interval '7 days'$$);`
 - Delete test user `rls-test@example.com` in Supabase → Authentication → Users (left by an RLS test; deleting via the tool needs a confirmation that never reaches the owner). Future DB tests run inside a rolled-back transaction.
 - PIN sign-in/signup need SUPABASE_SERVICE_ROLE_KEY + PIN_PEPPER, set for production only, so they work on weather.sswx.space, not on preview URLs.
+- Run once in Supabase SQL editor (Fix-It #17, the agent tool's drops get cancelled; the function half of the migration is already applied): `drop table if exists public.disaster_volunteers;` then record `20261020060000` as applied.
 - Retired table `game_winners` (empty) and function `game_champions()` remain; drop them in the SQL editor when convenient (drops get cancelled from the agent tool).
 - Admin panel needs no step-up verification any more (owner decision, Fix-It #4).
 - Ops migration applied via execute_sql (apply_migration and any SQL containing delete/revoke get cancelled: their confirmation never reaches the owner). Keep DB writes free of those keywords; do deletes from server code.
