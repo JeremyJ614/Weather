@@ -111,8 +111,8 @@ Sources: **VIP** = `stormsync-dashboard/github-repo` (VIP Forecasts & Weather Da
 - [x] 67. Storm Chasing Log: logging and replay (members upload GPS tracks, or draw the route on a map with the times they remember (Final Fix-It #18); tornadoes near the route found from the NWS survey; replay with a 3D chase camera)
 
 ## Finish
-- [ ] 68. Bug, glitch, performance and style sweep
-- [ ] 69. Full walkthrough as a real user on every page
+- [x] 68. Bug, glitch, performance and style sweep (2026-10-20: every page at phone and desktop width in UTC, Central and Eastern time; console, failed requests, overflow and stray text checked; bugs 105–106 fixed)
+- [x] 69. Full walkthrough as a real user on every page (2026-10-20: 46 pages, 227 tabs and sections opened in a phone browser in Central time, no errors)
 - [ ] 70. Packaging: Android .apk, iPhone Home Screen install, launch on Weather.SSWX.Space
 
 Post-launch items (Personal Warnings, Affected Communities, Virtual Store, Services, Partnerships, Non-Profit Campaigns, Donations, Members Suite) go into the BuildPlan's post-launch section and stay off the menus until their work starts.

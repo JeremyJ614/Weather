@@ -70,7 +70,7 @@ const TYPES: {
 
 const until = (iso: string) =>
   iso
-    ? `until ${new Date(iso).toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit" })}`
+    ? `until ${new Date(iso).toLocaleString("en-US", { timeZone: "America/Chicago", weekday: "short", hour: "numeric", minute: "2-digit" })} CT`
     : "";
 
 function Card({ w, i, big }: { w: Warning; i: number; big?: boolean }) {

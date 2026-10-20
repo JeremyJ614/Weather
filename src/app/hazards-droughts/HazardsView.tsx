@@ -336,20 +336,25 @@ type Layer = {
   polys: { c: string; d: string }[];
   legend: { label: string; color: string }[];
 };
+/** A layer fetched in the browser, with when it arrived. */
 function useLayerJson(url: string | null) {
-  const [d, setD] = useState<{ url: string; v: Layer | "error" } | null>(null);
+  const [d, setD] = useState<{
+    url: string;
+    v: Layer | "error";
+    at: number;
+  } | null>(null);
   useEffect(() => {
     if (!url) return;
     let live = true;
     fetch(url)
       .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((v: Layer) => live && setD({ url, v }))
-      .catch(() => live && setD({ url, v: "error" }));
+      .then((v: Layer) => live && setD({ url, v, at: Date.now() }))
+      .catch(() => live && setD({ url, v: "error", at: Date.now() }));
     return () => {
       live = false;
     };
   }, [url]);
-  return url && d?.url === url ? d.v : null;
+  return url && d?.url === url ? d : null;
 }
 
 /** weather.gov's national map, drawn natively: every watch, warning and advisory by area. */
@@ -358,18 +363,23 @@ function ActiveAlerts({
 }: {
   view?: { x: number; y: number; w: number };
 }) {
-  const m = useLayerJson("/api/warnings/map");
+  const got = useLayerJson("/api/warnings/map");
+  const m = got?.v ?? null;
   const ok = m && m !== "error" ? m : null;
   return (
     <div className="grid gap-3">
       <UsMap
         title="Watches, warnings & advisories"
-        sub={new Date().toLocaleString("en-US", {
-          month: "short",
-          day: "numeric",
-          hour: "numeric",
-          minute: "2-digit",
-        })}
+        sub={
+          got
+            ? new Date(got.at).toLocaleString("en-US", {
+                month: "short",
+                day: "numeric",
+                hour: "numeric",
+                minute: "2-digit",
+              })
+            : "Loading…"
+        }
         legend={ok?.legend ?? []}
         status={!m ? "loading" : m === "error" ? "error" : "ready"}
         file="sswx-active-alerts"
