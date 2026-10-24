@@ -29,7 +29,8 @@ export const BLIND_BANDS = [
  * The model-driven engines (Extras → Weather Engines): each field's band edges, legend labels
  * and default colors, one color per band. Editable as `engine:<id>:<band>`.
  */
-export type FieldId = "llj" | "snsq" | "nst" | "pyro" | "tctor";
+export type FieldId =
+  "llj" | "snsq" | "nst" | "pyro" | "tctor" | "stp" | "scp" | "dcp" | "ltg";
 export const FIELD_BANDS: Record<
   FieldId,
   { levels: number[]; labels: string[]; colors: string[] }
@@ -58,6 +59,26 @@ export const FIELD_BANDS: Record<
     levels: [0.5, 1, 2, 4, 8],
     labels: ["Low", "Marginal", "Elevated", "High", "Very high"],
     colors: ["#1e3a8a", "#0ea5e9", "#facc15", "#f97316", "#ef4444"],
+  },
+  stp: {
+    levels: [0.5, 1, 2, 4, 8],
+    labels: ["0.5", "1 (significant)", "2", "4", "8+"],
+    colors: ["#0ea5e9", "#facc15", "#fb923c", "#f43f5e", "#e879f9"],
+  },
+  scp: {
+    levels: [1, 2, 4, 8, 16],
+    labels: ["1 (supercells)", "2", "4", "8", "16+"],
+    colors: ["#22c55e", "#facc15", "#fb923c", "#f43f5e", "#c084fc"],
+  },
+  dcp: {
+    levels: [1, 2, 4, 6, 8],
+    labels: ["1", "2 (derecho)", "4", "6", "8+"],
+    colors: ["#38bdf8", "#818cf8", "#facc15", "#f97316", "#ef4444"],
+  },
+  ltg: {
+    levels: [0.05, 0.25, 1, 2.5, 5],
+    labels: ["Isolated", "Scattered", "Frequent", "Intense", "Extreme"],
+    colors: ["#fde68a", "#facc15", "#fb923c", "#f472b6", "#f8fafc"],
   },
 };
 

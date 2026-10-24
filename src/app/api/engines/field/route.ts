@@ -3,9 +3,19 @@ import type { FieldId } from "@/lib/engines/colors";
 
 export const maxDuration = 60;
 
-const IDS: FieldId[] = ["llj", "snsq", "nst", "pyro", "tctor"];
+const IDS: FieldId[] = [
+  "llj",
+  "snsq",
+  "nst",
+  "pyro",
+  "tctor",
+  "stp",
+  "scp",
+  "dcp",
+  "ltg",
+];
 
-/** GET ?e=llj|snsq|nst|pyro|tctor: one model-driven engine's map and list, cached 30 min. */
+/** GET ?e=llj|snsq|nst|pyro|tctor|stp|scp|dcp|ltg: one model-driven engine's map and list, cached 30 min. */
 export async function GET(req: Request) {
   const e = new URL(req.url).searchParams.get("e") as FieldId;
   if (!IDS.includes(e)) return new Response("Bad request", { status: 400 });

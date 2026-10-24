@@ -111,6 +111,10 @@ export function previewSource(
     case "engine-nst":
     case "engine-pyro":
     case "engine-tctor":
+    case "engine-stp":
+    case "engine-scp":
+    case "engine-dcp":
+    case "engine-ltg":
       return {
         url: `/api/engines/preview?e=${id.slice(7)}`,
         title: "The engine's areas from the latest HRRR run",

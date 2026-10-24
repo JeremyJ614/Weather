@@ -335,6 +335,10 @@ export const GROUPS: Group[] = [
       ["nst", "Landspout & Waterspout (NST)"],
       ["pyro", "Hot-Dry-Windy Index (PyroCb)"],
       ["tctor", "Landfalling Hurricane Tornado Risk"],
+      ["stp", "Significant Tornado Parameter"],
+      ["scp", "Supercell Composite Parameter"],
+      ["dcp", "Derecho Composite Parameter"],
+      ["ltg", "Lightning Threat"],
     ] as const
   ).map(([id, label]) => ({
     id: `engine-${id}`,

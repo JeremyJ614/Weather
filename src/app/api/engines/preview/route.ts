@@ -1,5 +1,10 @@
 import { probSevere } from "@/lib/engines/probsevere";
-import { pyroBin, rotBin, type FieldId } from "@/lib/engines/colors";
+import {
+  FIELD_BANDS,
+  pyroBin,
+  rotBin,
+  type FieldId,
+} from "@/lib/engines/colors";
 import { fieldPreview } from "@/lib/engines/fields";
 import { rotationTracks } from "@/lib/engines/rotation";
 import type { Areas } from "@/lib/engines/areas";
@@ -50,7 +55,7 @@ export async function GET(req: Request) {
       })),
     });
   }
-  if (e && ["llj", "snsq", "nst", "pyro", "tctor"].includes(e)) {
+  if (e && e in FIELD_BANDS) {
     const r = await fieldPreview(e as FieldId).catch(() => null);
     return Response.json({ polys: polys(r?.areas, e) });
   }

@@ -440,12 +440,221 @@ async function tctor(cycle: string): Promise<Computed> {
   };
 }
 
+const RD = 287.05;
+/** Bulk 0–6 km shear (m/s) from its components. */
+const bulk = (u: number, v: number) => Math.hypot(u, v);
+
+/** SPC's fixed-layer Significant Tornado Parameter, at this evening's peak (00Z). */
+async function stp(cycle: string): Promise<Computed> {
+  const fh = hourFor(cycle, nextUtc(0, 1));
+  const [cape, cin, lcl, zs, srh, us, vs] = await grab(cycle, fh, [
+    ":CAPE:surface:",
+    ":CIN:surface:",
+    ":HGT:level of adiabatic condensation from sfc:",
+    ":HGT:surface:",
+    ":HLCY:1000-0 m above ground:",
+    ":VUCSH:0-6000 m above ground:",
+    ":VVCSH:0-6000 m above ground:",
+  ]);
+  const out = new Float32Array(cape.values.length);
+  for (let i = 0; i < out.length; i++) {
+    // The LCL comes as a height above sea level; the term wants it above the ground.
+    const lc = lcl.values[i] - zs.values[i];
+    const lt = lc < 1000 ? 1 : lc > 2000 ? 0 : (2000 - lc) / 1000;
+    const sh = bulk(us.values[i], vs.values[i]);
+    const st = sh < 12.5 ? 0 : sh > 30 ? 1.5 : sh / 20;
+    const ci = cin.values[i];
+    const ct = ci > -50 ? 1 : ci < -200 ? 0 : (200 + ci) / 150;
+    out[i] = Math.max(
+      0,
+      (cape.values[i] / 1500) * lt * (srh.values[i] / 150) * st * ct,
+    );
+  }
+  return { field: { grid: cape.grid, values: out }, cycle, fh };
+}
+
+/** SPC's Supercell Composite Parameter (most-unstable parcel), at this evening's peak. */
+async function scp(cycle: string): Promise<Computed> {
+  const fh = hourFor(cycle, nextUtc(0, 1));
+  const [mu, mucin, srh, us, vs] = await grab(cycle, fh, [
+    ":CAPE:255-0 mb above ground:",
+    ":CIN:255-0 mb above ground:",
+    ":HLCY:3000-0 m above ground:",
+    ":VUCSH:0-6000 m above ground:",
+    ":VVCSH:0-6000 m above ground:",
+  ]);
+  const out = new Float32Array(mu.values.length);
+  for (let i = 0; i < out.length; i++) {
+    const sh = bulk(us.values[i], vs.values[i]);
+    const st = sh < 10 ? 0 : sh > 20 ? 1 : sh / 20;
+    const c = mucin.values[i];
+    const ct = c > -40 ? 1 : -40 / c;
+    // Negative is a left-moving supercell's; the map shows right movers.
+    out[i] = Math.max(
+      0,
+      (mu.values[i] / 1000) * (srh.values[i] / 50) * st * ct,
+    );
+  }
+  return { field: { grid: mu.grid, values: out }, cycle, fh };
+}
+
+/**
+ * Moist-adiabat table: a saturated parcel's temperature (K) by its wet-bulb potential
+ * temperature (250–315 K, every 0.5 K) and pressure (300–1100 hPa, every 10 hPa), built once.
+ */
+const MOIST = (() => {
+  const t: number[][] = [];
+  for (let w = 250; w <= 315; w += 0.5) {
+    const te = thetaE(w, w, 100000);
+    const row: number[] = [];
+    for (let p = 300; p <= 1100; p += 10) {
+      let lo = 150;
+      let hi = 340;
+      for (let k = 0; k < 40; k++) {
+        const m = (lo + hi) / 2;
+        if (thetaE(m, m, p * 100) < te) lo = m;
+        else hi = m;
+      }
+      row.push((lo + hi) / 2);
+    }
+    t.push(row);
+  }
+  return t;
+})();
+function moistT(thw: number, hpa: number) {
+  const x = clamp((thw - 250) / 0.5, 0, MOIST.length - 1.001);
+  const y = clamp((hpa - 300) / 10, 0, MOIST[0].length - 1.001);
+  const i = Math.floor(x);
+  const j = Math.floor(y);
+  const fx = x - i;
+  const fy = y - j;
+  const a = MOIST[i][j] * (1 - fy) + MOIST[i][j + 1] * fy;
+  const b = MOIST[i + 1][j] * (1 - fy) + MOIST[i + 1][j + 1] * fy;
+  return a * (1 - fx) + b * fx;
+}
+
+/**
+ * Evans and Doswell's Derecho Composite Parameter at this evening's peak. DCAPE, which the
+ * HRRR doesn't carry, is a parcel let down from the drier of 700 and 500 mb at its wet-bulb
+ * temperature, moist-adiabatically, to the ground; the energy is its coldness against the
+ * environment on the way down.
+ */
+async function dcp(cycle: string): Promise<Computed> {
+  const fh = hourFor(cycle, nextUtc(0, 1));
+  const [
+    mu,
+    us,
+    vs,
+    u0,
+    v0,
+    u8,
+    v8,
+    u7,
+    v7,
+    u5,
+    v5,
+    t2,
+    t8,
+    t7,
+    d7,
+    t5,
+    d5,
+    ps,
+  ] = await grab(cycle, fh, [
+    ":CAPE:255-0 mb above ground:",
+    ":VUCSH:0-6000 m above ground:",
+    ":VVCSH:0-6000 m above ground:",
+    ":UGRD:10 m above ground:",
+    ":VGRD:10 m above ground:",
+    ":UGRD:850 mb:",
+    ":VGRD:850 mb:",
+    ":UGRD:700 mb:",
+    ":VGRD:700 mb:",
+    ":UGRD:500 mb:",
+    ":VGRD:500 mb:",
+    ":TMP:2 m above ground:",
+    ":TMP:850 mb:",
+    ":TMP:700 mb:",
+    ":DPT:700 mb:",
+    ":TMP:500 mb:",
+    ":DPT:500 mb:",
+    ":PRES:surface:",
+  ]);
+  const out = new Float32Array(mu.values.length);
+  for (let i = 0; i < out.length; i++) {
+    const p0 = ps.values[i] / 100;
+    if (p0 < 750 || mu.values[i] < 100) {
+      out[i] = p0 < 750 ? NaN : 0;
+      continue;
+    }
+    const has8 = p0 > 875;
+    // 0–6 km mean wind from the levels in between, in knots.
+    const uu = [u0.values[i], u7.values[i], u5.values[i]];
+    const vv = [v0.values[i], v7.values[i], v5.values[i]];
+    if (has8) {
+      uu.push(u8.values[i]);
+      vv.push(v8.values[i]);
+    }
+    const mean =
+      Math.hypot(
+        uu.reduce((a, b) => a + b, 0) / uu.length,
+        vv.reduce((a, b) => a + b, 0) / vv.length,
+      ) * KT;
+    const te7 = thetaE(t7.values[i], d7.values[i], 70000);
+    const te5 = thetaE(t5.values[i], d5.values[i], 50000);
+    const start = te5 < te7 ? 500 : 700;
+    const thw = thetaW(Math.min(te5, te7));
+    const lv: [number, number][] = [
+      ...(start === 500 ? ([[500, t5.values[i]]] as [number, number][]) : []),
+      [700, t7.values[i]],
+      ...(has8 ? ([[850, t8.values[i]]] as [number, number][]) : []),
+      [p0, t2.values[i]],
+    ];
+    let dcape = 0;
+    for (let k = 0; k < lv.length - 1; k++) {
+      const [pa, ea] = lv[k];
+      const [pb, eb] = lv[k + 1];
+      const da = ea - moistT(thw, pa);
+      const db = eb - moistT(thw, pb);
+      dcape += RD * ((da + db) / 2) * Math.log(pb / pa);
+    }
+    const sh = bulk(us.values[i], vs.values[i]) * KT;
+    out[i] = Math.max(
+      0,
+      (Math.max(0, dcape) / 980) *
+        (mu.values[i] / 2000) *
+        (sh / 20) *
+        (mean / 16),
+    );
+  }
+  return { field: { grid: mu.grid, values: out }, cycle, fh };
+}
+
+/** The HRRR's own lightning threat (flashes per km² per 5 minutes), the most over 3 hours. */
+async function ltg(cycle: string): Promise<Computed> {
+  const fh = hourFor(cycle, Date.now() + 3600_000);
+  const hours = [fh, fh + 1, fh + 2].filter((h) => h <= 18);
+  const runs = await Promise.all(
+    hours.map((h) => grab(cycle, h, [":LTNG:entire atmosphere:"])),
+  );
+  const first = runs[0][0];
+  const out = new Float32Array(first.values.length);
+  for (const [r] of runs)
+    for (let i = 0; i < out.length; i++)
+      if (r.values[i] > out[i]) out[i] = r.values[i];
+  return { field: { grid: first.grid, values: out }, cycle, fh };
+}
+
 const COMPUTE: Record<FieldId, (cycle: string) => Promise<Computed>> = {
   llj,
   snsq,
   nst,
   pyro,
   tctor,
+  stp,
+  scp,
+  dcp,
+  ltg,
 };
 
 export type Spot = {
