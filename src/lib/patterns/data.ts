@@ -1,6 +1,7 @@
 import "server-only";
 import { inside, spcFeatures } from "@/lib/colors/spc-server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { efRank, surveysBetween, type Survey } from "./surveys";
 
 /**
  * Weather Patterns data. Every number is counted from SPC's own daily storm-report files
@@ -20,6 +21,9 @@ export type DayReports = {
   states: Record<string, number>;
   /** Tornado reports by state (the season's "top tornado state"). */
   tornStates: Record<string, number>;
+  /** Tornadoes the NWS has surveyed that day, and the strongest of them. */
+  surveyed: number;
+  strongest: { ef: string; where: string } | null;
 };
 
 /** One SPC filtered report CSV (three sections: tornado, wind, hail) → counts. */
@@ -33,6 +37,8 @@ export function parseReports(day: string, csv: string): DayReports {
     bigGust: null,
     states: {},
     tornStates: {},
+    surveyed: 0,
+    strongest: null,
   };
   let kind: "torn" | "wind" | "hail" | null = null;
   for (const line of csv.split(/\r?\n/)) {
@@ -65,6 +71,36 @@ export function parseReports(day: string, csv: string): DayReports {
 }
 
 const ymd = (d: Date) => d.toISOString().slice(0, 10);
+
+/**
+ * Folds the NWS surveys into SPC's day: a tornado confirmed only by a later survey counts
+ * (whichever count is higher, state by state), and the strongest rating is kept.
+ */
+export function withSurvey(d: DayReports, s: Survey | undefined): DayReports {
+  if (!s?.n) return d;
+  const tornStates = { ...d.tornStates };
+  const states = { ...d.states };
+  for (const [st, n] of Object.entries(s.states)) {
+    const extra = n - (tornStates[st] ?? 0);
+    if (extra <= 0) continue;
+    tornStates[st] = n;
+    states[st] = (states[st] ?? 0) + extra;
+  }
+  return {
+    ...d,
+    torn: Math.max(d.torn, s.n),
+    tornStates,
+    states,
+    surveyed: s.n,
+    strongest: { ef: s.top, where: s.where },
+  };
+}
+
+async function surveyed(list: DayReports[]) {
+  if (!list.length) return list;
+  const map = await surveysBetween(list[0].day, list.at(-1)!.day);
+  return list.map((d) => withSurvey(d, map.get(d.day)));
+}
 export async function reportsFor(day: string): Promise<DayReports | null> {
   const age = (Date.now() - Date.parse(`${day}T12:00:00Z`)) / 86400_000;
   try {
@@ -97,7 +133,7 @@ export async function reportDays(n: number): Promise<DayReports[]> {
       }
     }),
   );
-  return out.filter((d): d is DayReports => !!d);
+  return surveyed(out.filter((d): d is DayReports => !!d));
 }
 
 /** The forecast desk's recap of a period, in our own friendly voice. */
@@ -122,6 +158,9 @@ export type Period = {
   bigGust: { mph: number; where: string; day: string } | null;
   topStates: [string, number][];
   tornadoDays: number;
+  /** NWS-surveyed tornadoes in the period and the strongest one. */
+  surveyed: number;
+  strongest: { ef: string; where: string; day: string } | null;
   series: { day: string; torn: number; hail: number; wind: number }[];
   summary: Recap | null;
 };
@@ -155,7 +194,13 @@ export function aggregate(
   let busiest: Period["busiest"] = null;
   let bigHail: Period["bigHail"] = null;
   let bigGust: Period["bigGust"] = null;
+  let strongest: Period["strongest"] = null;
   for (const d of list) {
+    if (
+      d.strongest &&
+      (!strongest || efRank(d.strongest.ef) > efRank(strongest.ef))
+    )
+      strongest = { ...d.strongest, day: d.day };
     const total = d.torn + d.hail + d.wind;
     if (!busiest || total > busiest.total) busiest = { day: d.day, total };
     if (d.bigHail && d.bigHail.in > (bigHail?.in ?? 0))
@@ -181,6 +226,8 @@ export function aggregate(
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5),
     tornadoDays: list.filter((d) => d.torn > 0).length,
+    surveyed: list.reduce((a, d) => a + (d.surveyed ?? 0), 0),
+    strongest,
     series: list.map(({ day, torn, hail, wind }) => ({
       day,
       torn,
@@ -199,6 +246,8 @@ type LedgerRow = {
   torn_states: Record<string, number>;
   big_hail: DayReports["bigHail"];
   big_gust: DayReports["bigGust"];
+  surveyed: number;
+  strongest: DayReports["strongest"];
 };
 const fromRow = (r: LedgerRow): DayReports => ({
   day: r.day,
@@ -209,13 +258,17 @@ const fromRow = (r: LedgerRow): DayReports => ({
   tornStates: r.torn_states ?? {},
   bigHail: r.big_hail,
   bigGust: r.big_gust,
+  surveyed: r.surveyed ?? 0,
+  strongest: r.strongest ?? null,
 });
 
 /** Ledger days from `since` through yesterday, oldest first. */
 export async function ledgerSince(since: string): Promise<DayReports[]> {
   const { data, error } = await supabaseAdmin()
     .from("report_days")
-    .select("day, torn, hail, wind, states, torn_states, big_hail, big_gust")
+    .select(
+      "day, torn, hail, wind, states, torn_states, big_hail, big_gust, surveyed, strongest",
+    )
     .gte("day", since)
     .lt("day", ymd(new Date()))
     .order("day")
@@ -225,8 +278,9 @@ export async function ledgerSince(since: string): Promise<DayReports[]> {
 }
 
 /**
- * Brings the ledger up to date: the last 8 days again (SPC revises recent reports) and any
- * day missing from the past 400. A first run fills the whole year in one pass.
+ * Brings the ledger up to date: the last 45 days again (SPC revises recent reports, and NWS
+ * surveys keep arriving for weeks) and any day missing from the past 400. A first run fills
+ * the whole year in one pass.
  */
 export async function syncLedger() {
   const db = supabaseAdmin();
@@ -236,28 +290,31 @@ export async function syncLedger() {
   const todo: string[] = [];
   for (let i = 400; i >= 1; i--) {
     const d = ymd(new Date(Date.now() - i * 86400_000));
-    if (i <= 8 || !have.has(d)) todo.push(d);
+    if (i <= 45 || !have.has(d)) todo.push(d);
   }
-  const rows: LedgerRow[] = [];
+  const days: DayReports[] = [];
   let next = 0;
   await Promise.all(
     Array.from({ length: 16 }, async () => {
       while (next < todo.length) {
         const r = await reportsFor(todo[next++]);
-        if (r)
-          rows.push({
-            day: r.day,
-            torn: r.torn,
-            hail: r.hail,
-            wind: r.wind,
-            states: r.states,
-            torn_states: r.tornStates,
-            big_hail: r.bigHail,
-            big_gust: r.bigGust,
-          });
+        if (r) days.push(r);
       }
     }),
   );
+  days.sort((a, b) => a.day.localeCompare(b.day));
+  const rows: LedgerRow[] = (await surveyed(days)).map((r) => ({
+    day: r.day,
+    torn: r.torn,
+    hail: r.hail,
+    wind: r.wind,
+    states: r.states,
+    torn_states: r.tornStates,
+    big_hail: r.bigHail,
+    big_gust: r.bigGust,
+    surveyed: r.surveyed,
+    strongest: r.strongest,
+  }));
   for (let i = 0; i < rows.length; i += 200) {
     const { error } = await db
       .from("report_days")
@@ -363,6 +420,7 @@ async function summarize(a: Omit<Period, "summary">): Promise<Recap | null> {
   }
   const facts = `Period: ${a.label}, ${a.from ? fmtDay(a.from) : ""} to ${a.to ? fmtDay(a.to) : ""} (${a.days} days of SPC preliminary storm reports).
 Totals: ${a.torn} tornado reports, ${a.hail} hail reports, ${a.wind} damaging wind reports; tornado reports on ${a.tornadoDays} days.
+Tornadoes confirmed by National Weather Service damage surveys: ${a.surveyed}${a.strongest ? `; strongest rated ${a.strongest.ef}${a.strongest.where ? ` near ${a.strongest.where}` : ""} on ${fmtDay(a.strongest.day)}` : ""}.
 Busiest day: ${a.busiest ? `${fmtDay(a.busiest.day)} with ${a.busiest.total} reports` : "none"}.
 Largest hail: ${a.bigHail ? `${a.bigHail.in} inches near ${a.bigHail.where} on ${fmtDay(a.bigHail.day)}` : "none"}.
 Strongest measured gust: ${a.bigGust ? `${a.bigGust.mph} mph near ${a.bigGust.where} on ${fmtDay(a.bigGust.day)}` : "none"}.
