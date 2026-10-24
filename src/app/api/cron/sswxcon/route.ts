@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import { cronAuthorized } from "@/lib/ops/cron-auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { nationalScore } from "@/lib/sswxcon/live";
@@ -17,5 +18,7 @@ export async function GET(request: Request) {
       parts: Object.fromEntries(n.components.map((c) => [c.key, c.score])),
     });
   if (error) return Response.json({ error: error.message }, { status: 500 });
+  // The page's trend chart ends at this snapshot: rebuild its edge copy now.
+  revalidatePath("/sswxcon");
   return Response.json({ at, total: n.total });
 }

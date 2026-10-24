@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import type { Colors } from "@/lib/colors/pick";
+import { pick, type Colors } from "@/lib/colors/pick";
 import type { ChaseDay } from "@/lib/chase/engine";
 import type { Ledger } from "@/app/storm-chasing-outlook/ChaseParts";
 import { ChaseView } from "@/app/storm-chasing-outlook/ChaseView";
@@ -27,6 +27,9 @@ import {
   RADAR_STOPS,
   VEL_STOPS,
 } from "@/features/replay/palette";
+import { Board } from "@/app/wx-games/WeatherdleView";
+import { RecordList } from "@/app/climate-extremes/ExtremesView";
+import { EXTREME_COLORS } from "@/lib/extremes/colors";
 import { chasePreview } from "./actions";
 
 /**
@@ -359,6 +362,90 @@ export const WIDGETS: Record<string, W> = {
   aurora: Aurora,
   kp: Aurora,
   badges: Badges,
+  // Real records the Weather Service reported on 22–23 October 2026, one of each kind.
+  extremes: ({ colors }) => (
+    <div className="grid gap-3">
+      <div className="flex flex-wrap gap-2">
+        {EXTREME_COLORS.map((c) => {
+          const v = pick(colors, `extreme:${c.key}`, c.color);
+          return (
+            <span
+              key={c.key}
+              className="rounded-full border px-2 text-xs font-bold"
+              style={{ color: v, borderColor: v }}
+            >
+              {c.label}
+            </span>
+          );
+        })}
+      </div>
+      <RecordList
+        colors={colors}
+        records={[
+          {
+            type: "high",
+            place: "North Platte",
+            st: "NE",
+            value: "90",
+            unit: "°F",
+            old: "89",
+            oldYear: "1879",
+            tied: false,
+            day: "2026-10-22",
+            office: "North Platte",
+          },
+          {
+            type: "warmLow",
+            place: "Dickinson",
+            st: "ND",
+            value: "47",
+            unit: "°F",
+            old: "46",
+            oldYear: "1963",
+            tied: false,
+            day: "2026-10-22",
+            office: "Bismarck",
+          },
+          {
+            type: "coldHigh",
+            place: "Idyllwild",
+            st: "CA",
+            value: "50",
+            unit: "°F",
+            old: "54",
+            oldYear: "1957",
+            tied: false,
+            day: "2026-10-22",
+            office: "San Diego",
+          },
+          {
+            type: "rain",
+            place: "Flagstaff",
+            st: "AZ",
+            value: "1.01",
+            unit: "in",
+            old: "0.6",
+            oldYear: "2000",
+            tied: false,
+            day: "2026-10-22",
+            office: "Flagstaff",
+          },
+        ]}
+      />
+    </div>
+  ),
+  // An example game: every tile color in the colors being edited.
+  weatherdle: ({ colors }) => (
+    <Board
+      length={7}
+      colors={colors}
+      guesses={[
+        { word: "THUNDER", marks: "gxxgyxy" },
+        { word: "TORPEDO", marks: "gggxxgg" },
+        { word: "TORNADO", marks: "ggggggg" },
+      ]}
+    />
+  ),
   "replay-radar": radar("REF"),
   "replay-velocity": radar("VEL"),
   "replay-cc": radar("RHO"),

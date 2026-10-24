@@ -10,6 +10,8 @@ import { HAZ, HAZARDS, RISK } from "@/lib/timing/calc";
 import { KIND } from "@/lib/warnings/reports";
 import type { Colors } from "./pick";
 import { BANDS } from "@/lib/sswxcon/score";
+import { WORDLE_COLORS } from "@/lib/weatherdle/colors";
+import { EXTREME_COLORS } from "@/lib/extremes/colors";
 import { COLOR as WARN } from "@/lib/warnings/style";
 import { RARITY } from "@/lib/badges";
 import { GAUGE_LEVELS } from "@/lib/rivers/style";
@@ -335,6 +337,10 @@ export const GROUPS: Group[] = [
       ["nst", "Landspout & Waterspout (NST)"],
       ["pyro", "Hot-Dry-Windy Index (PyroCb)"],
       ["tctor", "Landfalling Hurricane Tornado Risk"],
+      ["stp", "Significant Tornado Parameter"],
+      ["scp", "Supercell Composite Parameter"],
+      ["dcp", "Derecho Composite Parameter"],
+      ["ltg", "Lightning Threat"],
     ] as const
   ).map(([id, label]) => ({
     id: `engine-${id}`,
@@ -573,6 +579,26 @@ export const GROUPS: Group[] = [
     note: "The Storm Shelter map on Disaster Response.",
     entries: SHELTER_COLORS.map((c) => ({
       key: `shelter:${c.key}`,
+      label: c.label,
+      def: c.color,
+    })),
+  },
+  {
+    id: "extremes",
+    label: "Climate Extremes",
+    note: "The extremes now, their map dots, and this week's records.",
+    entries: EXTREME_COLORS.map((c) => ({
+      key: `extreme:${c.key}`,
+      label: c.label,
+      def: c.color,
+    })),
+  },
+  {
+    id: "weatherdle",
+    label: "Weatherdle",
+    note: "The tiles and keys in WX Games → Weatherdle.",
+    entries: WORDLE_COLORS.map((c) => ({
+      key: `weatherdle:${c.key}`,
       label: c.label,
       def: c.color,
     })),

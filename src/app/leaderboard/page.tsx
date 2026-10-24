@@ -31,7 +31,7 @@ export default async function Leaderboard() {
   const head = (
     <PageHero
       icon={<Trophy aria-hidden />}
-      eyebrow={["Forecast Game", "Daily Trivia"]}
+      eyebrow={["Weatherdle", "Forecast Game", "Daily Trivia"]}
       title="Leaderboard"
       subtitle="Every WX Games point, ranked by week, month and year, and the Champions Hall of every monthly and yearly winner."
     />

@@ -51,6 +51,7 @@ const FREE = [
   "weather-glossary",
   "free-content-library",
   "disaster-response",
+  "on-this-day",
 ];
 const BASIC = [
   ...FREE,
@@ -64,6 +65,7 @@ const BASIC = [
   "flooding-outlook",
   "traffic-cameras",
   "tornado-archive",
+  "climate-extremes",
 ];
 
 export const DEFAULT_TIERS: Tier[] = [

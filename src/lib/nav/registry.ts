@@ -117,6 +117,7 @@ export const MAIN_NAV: NavGroup[] = [
       p("climatology", "Climatology", "ChartColumn", "54"),
       p("weather-glossary", "Weather Glossary", "BookA", "55"),
       p("free-content-library", "Free Content Library", "Library", "56"),
+      p("on-this-day", "On This Day", "CalendarDays", "Final List"),
     ],
   },
   {
@@ -125,6 +126,7 @@ export const MAIN_NAV: NavGroup[] = [
     icon: "Shapes",
     pages: [
       p("weather-patterns", "Weather Patterns", "Wind", "57"),
+      p("climate-extremes", "Climate Extremes", "Thermometer", "Final List"),
       p("extras", "Extras", "FlaskConical", "58–60"),
       p("disaster-response", "Disaster Response", "HeartHandshake", "61"),
       p("donate", "Donate", "HandCoins", "Fix-It 16"),

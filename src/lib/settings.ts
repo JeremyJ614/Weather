@@ -3,6 +3,7 @@ import { DEFAULT_THEME, FONT_SETS, PALETTES } from "@/lib/theme/registry";
 import { ICON_NAMES } from "@/components/NavIcon";
 import { cleanLayout, type MenuLayout } from "@/lib/nav/layout";
 import { ALL_PAGES } from "@/lib/nav/registry";
+import { cleanItems, type ExtrasStates } from "@/lib/extras/items";
 
 export const SITE_DEFAULTS_TAG = "site-defaults";
 
@@ -16,6 +17,8 @@ export type SiteDefaults = {
   banner: Banner;
   /** The owner's menu arrangement, or null for the built-in menus. */
   layout: MenuLayout | null;
+  /** Extras items switched off or hidden (admin → Extras); missing means on. */
+  extras: ExtrasStates;
 };
 
 export const FALLBACK: SiteDefaults = {
@@ -24,6 +27,7 @@ export const FALLBACK: SiteDefaults = {
   disabled: [],
   banner: { text: "", until: null },
   layout: null,
+  extras: {},
 };
 
 /** Keeps only valid, offered values; anything else falls back to the built-in default. */
@@ -61,7 +65,8 @@ export function cleanDefaults(
     new Set(ALL_PAGES.map((p) => p.slug)),
     new Set(ICON_NAMES),
   );
-  return { menus, theme: { palette, font }, disabled, banner, layout };
+  const extras = cleanItems(raw.find((r) => r.key === "extras_items")?.value);
+  return { menus, theme: { palette, font }, disabled, banner, layout, extras };
 }
 
 /**
@@ -74,7 +79,7 @@ export async function getSiteDefaults(): Promise<SiteDefaults> {
   if (!url || !key) return FALLBACK;
   try {
     const res = await fetch(
-      `${url}/rest/v1/app_config?select=key,value&key=in.(menu_defaults,theme_default,disabled_modules,banner,menu_layout)`,
+      `${url}/rest/v1/app_config?select=key,value&key=in.(menu_defaults,theme_default,disabled_modules,banner,menu_layout,extras_items)`,
       {
         headers: { apikey: key },
         next: { revalidate: 3600, tags: [SITE_DEFAULTS_TAG] },

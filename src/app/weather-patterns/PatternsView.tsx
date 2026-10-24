@@ -258,6 +258,14 @@ export function PatternsView({
                   reports
                 </li>
               )}
+              {p.strongest && (
+                <li>
+                  Strongest tornado <b>{p.strongest.ef}</b>
+                  {p.strongest.where
+                    ? ` · near ${p.strongest.where}`
+                    : ""}, {day(p.strongest.day)} (NWS survey)
+                </li>
+              )}
               {p.bigHail && (
                 <li>
                   Largest hail <b>{p.bigHail.in}″</b> · {p.bigHail.where},{" "}
@@ -288,7 +296,8 @@ export function PatternsView({
               <p className={s.muted}>No severe reports in this period.</p>
             )}
             <p className={s.small}>
-              Preliminary SPC reports: one storm can make several, and counts
+              Preliminary SPC reports, with tornadoes confirmed by NWS damage
+              surveys added: one storm can make several reports, and counts
               change as offices review them.
             </p>
           </>

@@ -19,6 +19,7 @@ import {
   SliderScene,
   StormScene,
 } from "./Scenes";
+import { stateOf, type ExtrasStates } from "@/lib/extras/items";
 import s from "./Randoms.module.css";
 
 const LIST = [
@@ -108,26 +109,40 @@ const CREDITS = [
 ] as const;
 
 /** Randoms: one visual runs at a time; the rest stay unloaded. */
-export function Randoms() {
-  const [id, setId] = useState<(typeof LIST)[number]["id"]>("storm");
-  const cur = LIST.find((x) => x.id === id)!;
+export function Randoms({ items = {} }: { items?: ExtrasStates }) {
+  const shown = LIST.filter((x) => stateOf(items, x.id) !== "hidden");
+  const usable = shown.filter((x) => stateOf(items, x.id) === "on");
+  const [id, setId] = useState<(typeof LIST)[number]["id"]>(
+    usable[0]?.id ?? "storm",
+  );
+  const cur = usable.find((x) => x.id === id);
+  if (!cur)
+    return (
+      <p className="text-sm text-muted">
+        The Randoms are switched off for now. Check back soon.
+      </p>
+    );
   return (
     <div className="grid gap-3">
       <div className={s.picker}>
-        {LIST.map((x) => (
-          <button
-            key={x.id}
-            type="button"
-            className={s.pick}
-            aria-pressed={x.id === id}
-            onClick={() => setId(x.id)}
-          >
-            <b>
-              <x.Icon aria-hidden /> {x.name}
-            </b>
-            <small>{x.blurb}</small>
-          </button>
-        ))}
+        {shown.map((x) => {
+          const off = stateOf(items, x.id) === "off";
+          return (
+            <button
+              key={x.id}
+              type="button"
+              className={s.pick}
+              aria-pressed={x.id === id}
+              disabled={off}
+              onClick={() => setId(x.id)}
+            >
+              <b>
+                <x.Icon aria-hidden /> {x.name}
+              </b>
+              <small>{off ? "Off for now" : x.blurb}</small>
+            </button>
+          );
+        })}
       </div>
       <cur.C key={cur.id} />
       <p className={s.credit}>

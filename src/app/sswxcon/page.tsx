@@ -42,6 +42,11 @@ const WEIGHTS: [string, string, number][] = [
   ["Fire", "red flag warning 0.5", 15],
 ];
 
+// Performance #5: served from the edge, rebuilt at most every two minutes and right after the
+// hourly snapshot (api/cron/sswxcon); ConView catches up on load when its copy is older.
+export const dynamic = "force-static";
+export const revalidate = 120;
+
 export default async function SswxCon() {
   const { disabled } = await getSiteDefaults();
   if (disabled.includes("sswxcon"))
@@ -50,10 +55,12 @@ export default async function SswxCon() {
         <ModuleOff label="SSWXCon" />
       </main>
     );
-  const sb = await supabaseServer();
   const [national, snaps] = await Promise.all([
     nationalScore().catch(() => null),
-    recentSnaps(sb),
+    // A build without the database (CI) renders an empty trend; the next rebuild fills it.
+    supabaseServer()
+      .then(recentSnaps)
+      .catch(() => []),
   ]);
   return (
     <main className="mx-auto max-w-2xl px-4 pt-4 pb-28">

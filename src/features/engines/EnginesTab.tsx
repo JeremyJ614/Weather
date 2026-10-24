@@ -12,6 +12,7 @@ import {
   ArrowRight,
   ArrowUpRight,
   CloudHail,
+  CloudLightning,
   Flame,
   FlaskConical,
   Radar,
@@ -24,6 +25,7 @@ import {
 } from "lucide-react";
 import { WeatherMap, type ReadyMap } from "@/features/map/WeatherMap";
 import { pick, type Colors } from "@/lib/colors/pick";
+import { stateOf, type ExtrasStates } from "@/lib/extras/items";
 import {
   BLIND_BANDS,
   FIELD_BANDS,
@@ -42,7 +44,17 @@ import radars from "@/lib/engines/radars.json";
 import s from "./Engines.module.css";
 
 type Engine = "tor" | "hail" | "blind" | "rot" | FieldId;
-const FIELDS: FieldId[] = ["llj", "nst", "snsq", "pyro", "tctor"];
+const FIELDS: FieldId[] = [
+  "llj",
+  "nst",
+  "snsq",
+  "pyro",
+  "tctor",
+  "stp",
+  "scp",
+  "dcp",
+  "ltg",
+];
 const isField = (e: Engine): e is FieldId => FIELDS.includes(e as FieldId);
 type Spot = {
   lat: number;
@@ -131,6 +143,30 @@ const ENGINES: {
     icon: <RotateCw aria-hidden />,
   },
   {
+    id: "stp",
+    name: "Significant Tornado",
+    sub: "STP, this evening",
+    icon: <Tornado aria-hidden />,
+  },
+  {
+    id: "scp",
+    name: "Supercell Composite",
+    sub: "SCP, this evening",
+    icon: <CloudLightning aria-hidden />,
+  },
+  {
+    id: "dcp",
+    name: "Derecho Composite",
+    sub: "Long-lived wind storms",
+    icon: <Wind aria-hidden />,
+  },
+  {
+    id: "ltg",
+    name: "Lightning Threat",
+    sub: "Next 3 hours",
+    icon: <Zap aria-hidden />,
+  },
+  {
     id: "llj",
     name: "Nocturnal LLJ",
     sub: "Low-level jet ramp-up tonight",
@@ -196,7 +232,7 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
   rot: {
     lead: "Observed, not a forecast: up to the last 24 hours.",
     body: [
-      "NOAA's MRMS system merges every radar's low-level rotation (0–2 km azimuthal shear) and keeps the strongest value each spot saw over the window you pick: 1, 2, 4, 6 or 24 hours. Drawn as glowing trails, a long, bright track is a storm that kept rotating.",
+      "NOAA's MRMS system merges every radar's low-level rotation (0–2 km azimuthal shear) and keeps the strongest value each spot saw over the window you pick: 1, 2, 4, 6 or 24 hours. Drawn the way MRMS draws them, cell by cell, a long, bright track is a storm that kept rotating.",
       "The list ranks tracks by length and strength. Strong straight-line wind shear, ground clutter and wind farms can leave short marks too, so short or stationary blobs are left out. Over 1 and 2 hours a track must also sit with a storm NOAA's ProbSevere is following; over longer windows, where those storms may have died, it must have travelled at least 15 km. Always check the radar and National Weather Service warnings.",
     ],
   },
@@ -228,6 +264,34 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
     body: [
       "The map is the Hot-Dry-Windy Index at the afternoon peak (about 4 p.m. Central) from the HRRR: how dry the air is (vapor pressure deficit) times the 80 m wind. Around 100 and up, fires can blow up.",
       "Each large active fire (100 acres and up, from the national incident feed) gets a pyrocumulonimbus chance: the HDWI there, a steep 700–500 mb lapse rate, enough mid-level moisture for the smoke plume to build into its own thunderstorm, the fire's size, and how much of it is still uncontained.",
+    ],
+  },
+  stp: {
+    lead: "Good for where the setup is; storms still have to form.",
+    body: [
+      "The Significant Tornado Parameter is the Storm Prediction Center's go-to ingredient blend for tornadoes rated EF2 and up. This is the fixed-layer version from the HRRR at this evening's peak (7 p.m. Central), or as far ahead as the latest run reaches: surface-based CAPE, how low the cloud base (LCL) is, 0–1 km storm-relative helicity, 0–6 km shear and how much the cap is holding storms back.",
+      "1 and up marks the environments most significant tornadoes form in; values over 4 are rare and come with the big days. A high number with no storms means nothing happens, so pair it with SPC's outlook.",
+    ],
+  },
+  scp: {
+    lead: "Good for where supercells could thrive.",
+    body: [
+      "The Supercell Composite Parameter weighs whether a storm would rotate as a supercell: most-unstable CAPE, 0–3 km storm-relative helicity and 0–6 km shear, cut down where the cap is strong. From the HRRR at this evening's peak (or as far ahead as the latest run reaches).",
+      "1 and up favors supercells, which bring most large hail and strong tornadoes; above 8 is a classic supercell day. Left-moving storms are left off.",
+    ],
+  },
+  dcp: {
+    lead: "Fair: derechos need storms to organize first.",
+    body: [
+      "The Derecho Composite Parameter (Evans and Doswell) looks for long-lived, damaging wind storms: downdraft CAPE (how hard cold air can crash down out of a storm), most-unstable CAPE, 0–6 km shear and a fast 0–6 km mean wind to carry the line along. From the HRRR at this evening's peak (or as far ahead as the latest run reaches).",
+      "The HRRR doesn't carry downdraft CAPE, so it is worked out here: a parcel let down from the drier of 700 and 500 mb at its wet-bulb temperature to the ground. 2 and up favors derecho-producing systems once a line of storms gets going.",
+    ],
+  },
+  ltg: {
+    lead: "Good for the next few hours.",
+    body: [
+      "The HRRR forecasts lightning itself: flashes per square kilometer every five minutes, from the ice and graupel moving up and down inside its storms. This is the most each spot gets over the next three hours.",
+      "Isolated means the odd strike; frequent and up means lightning every few seconds nearby. Any thunder you hear means you are close enough to be struck, so head indoors.",
     ],
   },
   tctor: {
@@ -350,8 +414,17 @@ const time = (iso: string) =>
     minute: "2-digit",
   });
 
-export function EnginesTab({ colors }: { colors: Colors }) {
-  const [engine, setEngine] = useState<Engine>("tor");
+export function EnginesTab({
+  colors,
+  items = {},
+}: {
+  colors: Colors;
+  /** The owner's switches (admin → Extras): hidden engines are left out, off ones greyed. */
+  items?: ExtrasStates;
+}) {
+  const shown = ENGINES.filter((e) => stateOf(items, e.id) !== "hidden");
+  const usable = shown.filter((e) => stateOf(items, e.id) === "on");
+  const [engine, setEngine] = useState<Engine>(usable[0]?.id ?? "tor");
   const [data, setData] = useState<Data | null>(null);
   const [failed, setFailed] = useState(false);
   const [beam, setBeam] = useState<ReturnType<typeof beamAt> | "none" | null>(
@@ -709,25 +782,36 @@ export function EnginesTab({ colors }: { colors: Colors }) {
   const focus = (x: EngineStorm) =>
     map?.flyTo({ center: [x.lon, x.lat], zoom: 8, duration: 1200 });
 
+  if (!usable.length)
+    return (
+      <p className="text-sm text-muted">
+        The Weather Engines are switched off for now. Check back soon.
+      </p>
+    );
+
   return (
     <div className="grid gap-3">
       <div className={s.picker} role="tablist" aria-label="Weather engines">
-        {ENGINES.map((e) => (
-          <button
-            key={e.id}
-            type="button"
-            role="tab"
-            aria-selected={engine === e.id}
-            onClick={() => {
-              setEngine(e.id);
-              setBeam(null);
-            }}
-          >
-            {e.icon}
-            <b>{e.name}</b>
-            <small>{e.sub}</small>
-          </button>
-        ))}
+        {shown.map((e) => {
+          const off = stateOf(items, e.id) === "off";
+          return (
+            <button
+              key={e.id}
+              type="button"
+              role="tab"
+              aria-selected={engine === e.id}
+              disabled={off}
+              onClick={() => {
+                setEngine(e.id);
+                setBeam(null);
+              }}
+            >
+              {e.icon}
+              <b>{e.name}</b>
+              <small>{off ? "Off for now" : e.sub}</small>
+            </button>
+          );
+        })}
       </div>
       <div className={s.mapBox}>
         <WeatherMap
