@@ -27,6 +27,10 @@
   font-size: 10.5px;
   line-height: 1.25;
 }
+.picker button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
 .picker button[aria-selected="true"] {
   border-color: var(--lit-line);
   background: var(--lit);

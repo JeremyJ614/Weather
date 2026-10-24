@@ -99,6 +99,15 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     href: "/admin/disaster",
   },
   {
+    id: "extras",
+    group: "content",
+    desc: "Turn each Weather Engine and Random on Extras on, off or hidden",
+    label: "Extras",
+    icon: "FlaskConical",
+    phase: "Final List",
+    href: "/admin/extras",
+  },
+  {
     id: "faq",
     group: "content",
     desc: "The FAQ page: tabs, categories and every question and answer",

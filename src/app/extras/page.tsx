@@ -9,7 +9,7 @@ import { ExtrasView } from "./ExtrasView";
 export const metadata: Metadata = { title: "Extras · StormSync Media" };
 
 export default async function Extras() {
-  const [{ disabled }, colors] = await Promise.all([
+  const [{ disabled, extras }, colors] = await Promise.all([
     getSiteDefaults(),
     getColors(),
   ]);
@@ -24,7 +24,7 @@ export default async function Extras() {
       {disabled.includes("extras") ? (
         <ModuleOff label="Extras" />
       ) : (
-        <ExtrasView colors={colors} />
+        <ExtrasView colors={colors} items={extras} />
       )}
     </main>
   );

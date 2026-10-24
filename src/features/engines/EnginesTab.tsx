@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { WeatherMap, type ReadyMap } from "@/features/map/WeatherMap";
 import { pick, type Colors } from "@/lib/colors/pick";
+import { stateOf, type ExtrasStates } from "@/lib/extras/items";
 import {
   BLIND_BANDS,
   FIELD_BANDS,
@@ -413,8 +414,17 @@ const time = (iso: string) =>
     minute: "2-digit",
   });
 
-export function EnginesTab({ colors }: { colors: Colors }) {
-  const [engine, setEngine] = useState<Engine>("tor");
+export function EnginesTab({
+  colors,
+  items = {},
+}: {
+  colors: Colors;
+  /** The owner's switches (admin → Extras): hidden engines are left out, off ones greyed. */
+  items?: ExtrasStates;
+}) {
+  const shown = ENGINES.filter((e) => stateOf(items, e.id) !== "hidden");
+  const usable = shown.filter((e) => stateOf(items, e.id) === "on");
+  const [engine, setEngine] = useState<Engine>(usable[0]?.id ?? "tor");
   const [data, setData] = useState<Data | null>(null);
   const [failed, setFailed] = useState(false);
   const [beam, setBeam] = useState<ReturnType<typeof beamAt> | "none" | null>(
@@ -772,25 +782,36 @@ export function EnginesTab({ colors }: { colors: Colors }) {
   const focus = (x: EngineStorm) =>
     map?.flyTo({ center: [x.lon, x.lat], zoom: 8, duration: 1200 });
 
+  if (!usable.length)
+    return (
+      <p className="text-sm text-muted">
+        The Weather Engines are switched off for now. Check back soon.
+      </p>
+    );
+
   return (
     <div className="grid gap-3">
       <div className={s.picker} role="tablist" aria-label="Weather engines">
-        {ENGINES.map((e) => (
-          <button
-            key={e.id}
-            type="button"
-            role="tab"
-            aria-selected={engine === e.id}
-            onClick={() => {
-              setEngine(e.id);
-              setBeam(null);
-            }}
-          >
-            {e.icon}
-            <b>{e.name}</b>
-            <small>{e.sub}</small>
-          </button>
-        ))}
+        {shown.map((e) => {
+          const off = stateOf(items, e.id) === "off";
+          return (
+            <button
+              key={e.id}
+              type="button"
+              role="tab"
+              aria-selected={engine === e.id}
+              disabled={off}
+              onClick={() => {
+                setEngine(e.id);
+                setBeam(null);
+              }}
+            >
+              {e.icon}
+              <b>{e.name}</b>
+              <small>{off ? "Off for now" : e.sub}</small>
+            </button>
+          );
+        })}
       </div>
       <div className={s.mapBox}>
         <WeatherMap
