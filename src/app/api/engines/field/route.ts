@@ -2,6 +2,7 @@ import { after } from "next/server";
 import type { FieldId } from "@/lib/engines/colors";
 import { storedField } from "@/lib/engines/stored";
 import { engineStats } from "@/lib/engines/verify";
+import { reportSummary } from "@/lib/engines/reports";
 import { stateOf } from "@/lib/extras/items";
 import { getSiteDefaults } from "@/lib/settings";
 
@@ -19,6 +20,7 @@ const IDS: FieldId[] = [
   "rwrap",
   "blizz",
   "first",
+  "sunset",
 ];
 // Engines that flag places and show their own hit rate.
 const CHECKED = new Set<FieldId>(["blizz", "first"]);
@@ -34,16 +36,20 @@ export async function GET(req: Request) {
   if (stateOf((await getSiteDefaults()).extras, e) !== "on")
     return new Response("Not found", { status: 404 });
   try {
-    const [{ map, later }, stats] = await Promise.all([
+    const [{ map, later }, stats, reports] = await Promise.all([
       storedField(e),
       CHECKED.has(e) ? engineStats(e).catch(() => null) : null,
+      e === "sunset" ? reportSummary(e).catch(() => null) : null,
     ]);
     if (later) after(later);
-    return Response.json(stats ? { ...map, stats } : map, {
-      headers: {
-        "Cache-Control": "public, s-maxage=300, stale-while-revalidate=3600",
+    return Response.json(
+      { ...map, stats, reports },
+      {
+        headers: {
+          "Cache-Control": "public, s-maxage=300, stale-while-revalidate=3600",
+        },
       },
-    });
+    );
   } catch (err) {
     return Response.json(
       { error: err instanceof Error ? err.message : "failed" },

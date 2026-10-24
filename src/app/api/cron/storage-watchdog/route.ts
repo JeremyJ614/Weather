@@ -34,7 +34,17 @@ export async function GET(request: Request) {
   // days after the decision.
   const day = (n: number) =>
     new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
+  // Members' outdoor reports keep a year; their photos go with them.
+  const old = await db
+    .from("outdoor_reports")
+    .select("photo")
+    .lt("at", day(365))
+    .not("photo", "is", null)
+    .limit(1000);
+  const photos = (old.data ?? []).map((r) => r.photo as string);
+  if (photos.length) await db.storage.from("outdoor").remove(photos);
   const pruned = await Promise.all([
+    db.from("outdoor_reports").delete().lt("at", day(365)),
     db.from("storage_snapshots").delete().lt("day", day(400)),
     db.from("map_load_months").delete().lt("month", day(731)),
     db.from("pin_attempts").delete().lt("updated_at", day(30)),

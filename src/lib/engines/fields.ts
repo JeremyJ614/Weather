@@ -15,10 +15,18 @@ import {
   record,
 } from "@/lib/models/render";
 import { activeFires } from "@/lib/fire/data";
+import { nextSunEvent, sunPosition } from "@/lib/sky/astro";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getOutlook } from "@/lib/tropical/nhc";
 import { latticeAreas, soften } from "./areas";
 import { FIELD_BANDS, type FieldId } from "./colors";
 import { logFlags, type Flag } from "./verify";
+import {
+  glowFactors,
+  glowScore,
+  type GlowInputs,
+  type Weights,
+} from "./outdoor";
 
 /**
  * The model-driven Weather Engines (Extras). Each reads a handful of HRRR fields by byte range
@@ -108,10 +116,14 @@ type Computed = {
   rough?: boolean;
   /** Places to check against the weather later (from the top spots). */
   flags?: (spots: Spot[]) => Flag[];
-  /** A line under each listed spot (when, why). */
+  /** A line under each listed spot (why), and its time (shown in the viewer's zone). */
   detail?: (lat: number, lon: number) => string | undefined;
+  when?: (lat: number, lon: number) => number | undefined;
+  altWhen?: (lat: number, lon: number) => number | undefined;
   /** Listed spots must be this close to a U.S. town (default 100 miles). */
   nearMiles?: number;
+  /** The line under each spot listed for the second map (only maps that list spots). */
+  altDetail?: (lat: number, lon: number) => string | undefined;
   /** A second map of the same engine, with its own bands (First Storms' timing). */
   alt?: { field: Field; levels: number[] };
 };
@@ -813,11 +825,6 @@ function spread(v: Float32Array, r: number, min = false) {
 
 const ymdh = (t: number) =>
   new Date(t).toISOString().slice(0, 13).replace(/[-T]/g, "");
-const clock = (t: number) =>
-  new Date(t).toLocaleTimeString("en-US", {
-    hour: "numeric",
-    timeZone: "America/Chicago",
-  });
 
 /**
  * First Storms: the chance new storms start within about 25 miles over the next 6 hours,
@@ -945,7 +952,13 @@ async function first(cycle: string): Promise<Computed> {
         factors[q] & 4 ? "little or no cap" : "",
         factors[q] & 2 ? "winds converging" : "",
       ].filter(Boolean);
-      return `First storms around ${clock(base + Math.round(whenSum[q] / whenN[q]) * 3600_000)} CT · ${votes[q]} of ${runs} runs${why.length ? ` · ${why.join(", ")}` : ""}`;
+      return `${votes[q]} of ${runs} runs${why.length ? ` · ${why.join(", ")}` : ""}`;
+    },
+    when: (lat, lon) => {
+      const q = at(lat, lon);
+      return q < 0 || !whenN[q]
+        ? undefined
+        : base + Math.round(whenSum[q] / whenN[q]) * 3600_000;
     },
     flags: (spots) =>
       spots
@@ -962,6 +975,213 @@ async function first(cycle: string): Promise<Computed> {
   };
 }
 
+/** An engine's factor weights tuned from members' reports (lib/engines/tune.ts), or none. */
+export async function tuned(id: string): Promise<Weights> {
+  const { data } = await supabaseAdmin()
+    .from("app_config")
+    .select("value")
+    .eq("key", "engine_weights")
+    .maybeSingle();
+  return ((data?.value ?? {}) as Record<string, Weights>)[id] ?? {};
+}
+
+const GLOW_FIELDS = [
+  ":LCDC:low cloud layer:",
+  ":MCDC:middle cloud layer:",
+  ":HCDC:high cloud layer:",
+  ":AOTK:entire atmosphere",
+  ":TMP:2 m above ground:",
+  ":DPT:2 m above ground:",
+];
+const PATH_KM = [60, 120, 200, 300, 400];
+
+/** A point `km` away on a compass bearing (flat-earth, fine at these distances). */
+const toward = (lat: number, lon: number, az: number, km: number) => {
+  const r = (az * Math.PI) / 180;
+  return [
+    lat + (km * Math.cos(r)) / 111.32,
+    lon + (km * Math.sin(r)) / (111.32 * Math.cos((lat * Math.PI) / 180)),
+  ];
+};
+
+/** The run (newest, or the newest 48-hour one) and hour that cover a valid time, or null. */
+async function runFor(cycle: string, at: number, long?: string | null) {
+  const fh = Math.round((at - cycleTime(cycle)) / 3600_000);
+  if (fh >= 0 && fh <= 18) return { run: cycle, fh };
+  if (!long) return null;
+  const lf = Math.round((at - cycleTime(long)) / 3600_000);
+  return lf >= 0 && lf <= 48 ? { run: long, fh: lf } : null;
+}
+
+/** The glow inputs at one place and time, from the HRRR (members' sunset ratings). */
+export async function glowAt(lat: number, lon: number, at: number) {
+  const cycle = await latestCycle("hrrr");
+  if (!cycle) return null;
+  const r = await runFor(cycle, at, await longRun(cycle));
+  if (!r) return null;
+  const [f, [pr]] = await Promise.all([
+    grab(r.run, r.fh, GLOW_FIELDS),
+    r.fh >= 2
+      ? grab(r.run, r.fh - 2, [":PRATE:surface:"])
+      : Promise.resolve([null]),
+  ]);
+  const loc = locator(f[0].grid);
+  const [w, h] = gridSize(f[0].grid);
+  const idx = (la: number, lo: number) => {
+    const [fi, fj] = loc(la, lo);
+    const x = Math.round(fi);
+    const y = Math.round(fj);
+    return x < 0 || y < 0 || x >= w || y >= h ? -1 : y * w + x;
+  };
+  const az = sunPosition(new Date(at), lat, lon).azimuth;
+  return glowInputs(f, pr, idx, lat, lon, az);
+}
+
+function glowInputs(
+  f: Field[],
+  pr: Field | null,
+  idx: (lat: number, lon: number) => number,
+  lat: number,
+  lon: number,
+  az: number,
+): GlowInputs | null {
+  const [low, mid, high, aot, t2, d2] = f;
+  const k = idx(lat, lon);
+  if (k < 0) return null;
+  const path = PATH_KM.flatMap((km) => {
+    const [la, lo] = toward(lat, lon, az, km);
+    const q = idx(la, lo);
+    return q < 0 ? [] : [Math.max(low.values[q], mid.values[q])];
+  });
+  return {
+    low: low.values[k],
+    mid: mid.values[k],
+    high: high.values[k],
+    path,
+    aot: aot.values[k],
+    rh: (100 * es(d2.values[k] - 273.15)) / es(t2.values[k] - 273.15),
+    rained: (pr?.values[k] ?? 0) * 3600 > 0.1,
+  };
+}
+
+/**
+ * Sunset (and Sunrise) Quality: at each place's own next sunset, the HRRR's clouds overhead
+ * and along the line toward the sun, smoke and humidity, scored by lib/engines/outdoor.ts.
+ * Places are grouped by the hour of their sunset; each hour's fields are read once.
+ */
+async function glowMap(
+  cycle: string,
+  kind: "sunset" | "sunrise",
+  w: Weights,
+  long: string | null,
+  deadline: number,
+) {
+  const now = Date.now() - 20 * 60_000;
+  // Each 1° cell's event time and the sun's bearing then.
+  const CW = 61;
+  const CH = 28;
+  const ev = new Float64Array(CW * CH).fill(NaN);
+  const az = new Float32Array(CW * CH);
+  for (let j = 0; j < CH; j++)
+    for (let i = 0; i < CW; i++) {
+      const lat = CONUS[1] + j;
+      const lon = CONUS[0] + i;
+      const t = nextSunEvent(kind, lat, lon, new Date(now));
+      if (!t) continue;
+      ev[j * CW + i] = t.getTime();
+      az[j * CW + i] = sunPosition(t, lat, lon).azimuth;
+    }
+  const cellOf = (lat: number, lon: number) =>
+    Math.min(CH - 1, Math.max(0, Math.round(lat - CONUS[1]))) * CW +
+    Math.min(CW - 1, Math.max(0, Math.round(lon - CONUS[0])));
+  const out = new Float32Array(LW * LH).fill(NaN);
+  const parts = new Map<number, ReturnType<typeof glowFactors>>();
+  const hours = [
+    ...new Set(
+      [...ev].filter(Number.isFinite).map((t) => Math.round(t / 3600_000)),
+    ),
+  ].sort((a, b) => a - b);
+  let done = 0;
+  for (const hr of hours) {
+    if (Date.now() > deadline) break;
+    const r = await runFor(cycle, hr * 3600_000, long);
+    if (!r) continue;
+    const [f, [pr]] = await Promise.all([
+      grab(r.run, r.fh, GLOW_FIELDS),
+      r.fh >= 2
+        ? grab(r.run, r.fh - 2, [":PRATE:surface:"])
+        : Promise.resolve([null]),
+    ]);
+    const loc = locator(f[0].grid);
+    const [gw, gh] = gridSize(f[0].grid);
+    const idx = (la: number, lo: number) => {
+      const [fi, fj] = loc(la, lo);
+      const x = Math.round(fi);
+      const y = Math.round(fj);
+      return x < 0 || y < 0 || x >= gw || y >= gh ? -1 : y * gw + x;
+    };
+    for (let j = 0; j < LH; j++)
+      for (let i = 0; i < LW; i++) {
+        const lat = CONUS[3] - j * 0.1;
+        const lon = CONUS[0] + i * 0.1;
+        const c = cellOf(lat, lon);
+        if (Math.round(ev[c] / 3600_000) !== hr) continue;
+        const x = glowInputs(f, pr, idx, lat, lon, az[c]);
+        if (!x) continue;
+        const fac = glowFactors(x);
+        out[j * LW + i] = glowScore(fac, w);
+        parts.set(j * LW + i, fac);
+      }
+    done++;
+  }
+  return { out, ev, cellOf, parts, done, of: hours.length };
+}
+
+async function sunset(cycle: string): Promise<Computed> {
+  const start = Date.now();
+  const [w, long] = await Promise.all([tuned("sunset"), longRun(cycle)]);
+  const set = await glowMap(cycle, "sunset", w, long, start + 30_000);
+  const rise = await glowMap(cycle, "sunrise", w, long, start + 42_000);
+  const say = (fac: ReturnType<typeof glowFactors> | undefined) => {
+    if (!fac) return "";
+    const bits = [
+      fac.canvas >= 0.7
+        ? "clouds overhead to catch the light"
+        : fac.canvas < 0.3
+          ? "too few clouds for color"
+          : "",
+      fac.horizon >= 0.75 ? "clear toward the sun" : "",
+      fac.smoke > 1.05 ? "a little smoke for deeper reds" : "",
+      fac.smoke < 0.8 ? "heavy smoke" : "",
+      fac.rain > 1 ? "fresh air after rain" : "",
+    ].filter(Boolean);
+    return bits.join(", ");
+  };
+  const at = (lat: number, lon: number) => {
+    const i = Math.round((lon - CONUS[0]) / 0.1);
+    const j = Math.round((CONUS[3] - lat) / 0.1);
+    return j * LW + i;
+  };
+  return {
+    field: { grid: LATTICE, values: set.out },
+    cycle,
+    fh: 1,
+    alt: {
+      field: { grid: LATTICE, values: rise.out },
+      levels: [20, 40, 60, 80],
+    },
+    nearMiles: 60,
+    note:
+      set.done < set.of || rise.done < rise.of
+        ? "Part of the country is still to come; the map fills in on the next run."
+        : undefined,
+    detail: (lat, lon) => say(set.parts.get(at(lat, lon))) || undefined,
+    when: (lat, lon) => set.ev[set.cellOf(lat, lon)] || undefined,
+    altDetail: (lat, lon) => say(rise.parts.get(at(lat, lon))) || undefined,
+    altWhen: (lat, lon) => rise.ev[rise.cellOf(lat, lon)] || undefined,
+  };
+}
+
 const COMPUTE: Record<FieldId, (cycle: string) => Promise<Computed>> = {
   llj,
   nst,
@@ -974,6 +1194,7 @@ const COMPUTE: Record<FieldId, (cycle: string) => Promise<Computed>> = {
   rwrap,
   blizz,
   first,
+  sunset,
 };
 
 export type Spot = {
@@ -983,6 +1204,7 @@ export type Spot = {
   place: string;
   water?: boolean;
   note?: string;
+  at?: number;
 };
 
 /** The strongest separate spots on a 0.25° lattice, named by the nearest town. */
@@ -1023,6 +1245,7 @@ function spots(c: Computed, min: number, n = 6): Spot[] {
       value: Math.round(s.value * 10) / 10,
       place: `${near.miles < 5 ? "" : `${Math.round(near.miles)} mi from `}${near.hit.name}, ${near.hit.st}`,
       note: c.detail?.(s.lat, s.lon),
+      at: c.when?.(s.lat, s.lon),
     });
     if (pickd.length >= n) break;
   }
@@ -1075,6 +1298,13 @@ export async function fieldEngine(id: FieldId) {
     bounds: CONUS,
     areas: areasOf(c, bands.levels),
     alt: c.alt ? areasOf({ ...c, field: c.alt.field }, c.alt.levels) : null,
+    altSpots:
+      c.alt && c.altDetail
+        ? spots(
+            { ...c, field: c.alt.field, detail: c.altDetail, when: c.altWhen },
+            c.alt.levels[0],
+          )
+        : null,
     spots: top,
     fires: (c.extra?.fires as unknown[]) ?? undefined,
     storms: (c.extra?.storms as unknown[]) ?? undefined,

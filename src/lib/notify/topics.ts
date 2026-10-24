@@ -5,6 +5,7 @@ export type TopicId =
   | "spc"
   | "engines"
   | "surge"
+  | "rainbow"
   | "news"
   | "tropical"
   | "aurora"
@@ -58,6 +59,13 @@ export const TOPICS: Topic[] = [
     group: "StormSync",
     label: "Lightning surges",
     note: "Experimental: when a storm within 25 miles of your place has a lightning jump, which often comes 10 to 20 minutes before severe weather.",
+    local: true,
+  },
+  {
+    id: "rainbow",
+    group: "Tropics & sky",
+    label: "Rainbow chances",
+    note: "Experimental: when the sun is low, rain is close by and a rainbow could be in view from your place, with which way to look.",
     local: true,
   },
   {

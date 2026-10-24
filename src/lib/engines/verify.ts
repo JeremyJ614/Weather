@@ -273,6 +273,11 @@ export async function verifyChecks() {
   const db = supabaseAdmin();
   const live = await liveBlizzard().catch(() => 0);
   const radar = await radarFirst().catch(() => 0);
+  // Once a day, refit the outdoor engines' weights from members' reports.
+  const tuned =
+    new Date().getUTCHours() === 6
+      ? await import("./tune").then((m) => m.tuneWeights()).catch(() => null)
+      : null;
   const ready = new Date(Date.now() - 3 * 3600_000).toISOString();
   const { data, error } = await db
     .from("engine_checks")
@@ -312,5 +317,5 @@ export async function verifyChecks() {
     .from("engine_checks")
     .delete()
     .lt("at", new Date(Date.now() - 120 * 86400_000).toISOString());
-  return { checked: rows.length, hits, live, radar };
+  return { checked: rows.length, hits, live, radar, tuned };
 }

@@ -86,6 +86,17 @@ export function previewSource(
       };
     case "engine-tor":
       return { url: "/api/engines/preview?e=tor", title: "ProbTor areas now" };
+    case "engine-rainbow":
+      return {
+        url: "/api/engines/preview?e=rainbow",
+        title: "Rainbow chances now, from radar and satellite",
+      };
+    case "engine-deer":
+    case "engine-fish":
+      return {
+        url: `/api/engines/preview?e=${id.slice(7)}`,
+        title: "Today's best hour around Ohio, from Open-Meteo",
+      };
     case "engine-firstT":
       return {
         url: "/api/engines/preview?e=firstT",
@@ -117,6 +128,7 @@ export function previewSource(
     case "engine-rwrap":
     case "engine-blizz":
     case "engine-first":
+    case "engine-sunset":
       return {
         url: `/api/engines/preview?e=${id.slice(7)}`,
         title: "The engine's areas from the latest HRRR run",

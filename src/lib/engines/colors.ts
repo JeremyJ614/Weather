@@ -34,7 +34,8 @@ export type FieldId =
   | "ltg"
   | "rwrap"
   | "blizz"
-  | "first";
+  | "first"
+  | "sunset";
 export const FIELD_BANDS: Record<
   FieldId,
   { levels: number[]; labels: string[]; colors: string[] }
@@ -84,6 +85,11 @@ export const FIELD_BANDS: Record<
     labels: ["Visible (LP)", "Classic", "Heavy rain (HP)", "Rain-wrapped"],
     colors: ["#a3e635", "#facc15", "#38bdf8", "#a855f7"],
   },
+  sunset: {
+    levels: [20, 40, 60, 80],
+    labels: ["Dull", "Fair", "Good", "Great"],
+    colors: ["#7c3aed", "#db2777", "#f97316", "#facc15"],
+  },
   first: {
     levels: [15, 35, 55, 75],
     labels: ["Low", "Medium", "High", "Very high"],
@@ -93,6 +99,29 @@ export const FIELD_BANDS: Record<
     levels: [1, 3, 6, 12, 24],
     labels: ["1 h", "3 h (blizzard)", "6 h", "12 h", "24 h+"],
     colors: ["#bae6fd", "#60a5fa", "#818cf8", "#c084fc", "#f0abfc"],
+  },
+};
+
+/** The place engines (Rainbow, Deer, Fishing): band edges, labels and default colors. */
+export type OutdoorId = "rainbow" | "deer" | "fish";
+export const OUTDOOR_BANDS: Record<
+  OutdoorId,
+  { levels: number[]; labels: string[]; colors: string[] }
+> = {
+  rainbow: {
+    levels: [15, 30, 50, 70],
+    labels: ["Slight", "Possible", "Good", "Likely"],
+    colors: ["#a5b4fc", "#67e8f9", "#86efac", "#fde047"],
+  },
+  deer: {
+    levels: [30, 45, 60, 75],
+    labels: ["Slow", "Fair", "Good", "Excellent"],
+    colors: ["#78716c", "#a3e635", "#f59e0b", "#ef4444"],
+  },
+  fish: {
+    levels: [35, 50, 65, 80],
+    labels: ["Slow", "Fair", "Good", "Excellent"],
+    colors: ["#475569", "#2dd4bf", "#22c55e", "#facc15"],
   },
 };
 

@@ -43,6 +43,7 @@ const ICON: Record<TopicId, string> = {
   spc: "Map",
   engines: "Gauge",
   surge: "Zap",
+  rainbow: "Rainbow",
   news: "Newspaper",
   tropical: "Orbit",
   aurora: "Sparkles",

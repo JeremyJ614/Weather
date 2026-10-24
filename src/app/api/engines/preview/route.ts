@@ -1,5 +1,7 @@
 import { probSevere } from "@/lib/engines/probsevere";
 import { surges } from "@/lib/engines/surge";
+import { rainbowNow } from "@/lib/engines/rainbow";
+import { placeMap } from "@/lib/engines/places";
 import { FIELD_BANDS, pyroBin, type FieldId } from "@/lib/engines/colors";
 import { fieldPreview } from "@/lib/engines/fields";
 import type { Areas } from "@/lib/engines/areas";
@@ -29,6 +31,14 @@ export async function GET(req: Request) {
         key: `engine:pyrocb:${pyroBin(f.chance)}`,
       })),
     });
+  }
+  if (e === "rainbow") {
+    const d = await rainbowNow().catch(() => null);
+    return Response.json({ polys: polys(d?.maps[0], "rainbow") });
+  }
+  if (e === "deer" || e === "fish") {
+    const d = await placeMap(e).catch(() => null);
+    return Response.json({ polys: polys(d?.areas, e) });
   }
   if (e === "firstT") {
     const r = await fieldPreview("first").catch(() => null);

@@ -31,6 +31,7 @@ import {
   BLIND_BANDS,
   FIELD_BANDS,
   FIRST_TIME_BANDS,
+  OUTDOOR_BANDS,
   PYRO_BINS,
   SURGE_BANDS,
   TOR_BINS,
@@ -343,6 +344,7 @@ export const GROUPS: Group[] = [
       ["rwrap", "Rain-Wrap Index"],
       ["blizz", "Blizzard Composite (hours of whiteout)"],
       ["first", "First Storms (chance)"],
+      ["sunset", "Sunset & Sunrise Quality"],
     ] as const
   ).map(([id, label]) => ({
     id: `engine-${id}`,
@@ -359,6 +361,22 @@ export const GROUPS: Group[] = [
         ? [{ key: "engine:roads", label: "Interstates", def: "#e2e8f0" }]
         : []),
     ],
+  })),
+  ...(
+    [
+      ["rainbow", "Rainbow Chance"],
+      ["deer", "Deer Activity"],
+      ["fish", "Fishing Bite"],
+    ] as const
+  ).map(([id, label]) => ({
+    id: `engine-${id}`,
+    label,
+    note: "Extras → Weather Engines map bands and charts.",
+    entries: OUTDOOR_BANDS[id].labels.map((l, i) => ({
+      key: `engine:${id}:${i}`,
+      label: l,
+      def: OUTDOOR_BANDS[id].colors[i],
+    })),
   })),
   {
     id: "engine-firstT",

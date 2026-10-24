@@ -3,7 +3,7 @@ import { project } from "@/lib/map/usAlbers";
 import { PROB_STEPS } from "@/lib/colors/spc";
 import { hazardKind } from "@/lib/hazards/style";
 import { tierOf } from "@/lib/tropical/style";
-import { FIELD_BANDS, type FieldId } from "@/lib/engines/colors";
+import { FIELD_BANDS, OUTDOOR_BANDS, type FieldId } from "@/lib/engines/colors";
 
 /**
  * Fixed example maps for the color editor (Fix-It List #17): real archived days, each
@@ -344,6 +344,12 @@ export function sampleFor(id: string): (() => Promise<Sample>) | null {
   const field = id.slice(7) as FieldId;
   if (id.startsWith("engine-") && field in FIELD_BANDS)
     return () => engineAreas(field, FIELD_BANDS[field].levels.length);
+  if (id.startsWith("engine-") && field in OUTDOOR_BANDS)
+    return () =>
+      engineAreas(
+        field,
+        OUTDOOR_BANDS[field as keyof typeof OUTDOOR_BANDS].levels.length,
+      );
   if (id.startsWith("spc-")) {
     const k = id.slice(4);
     return k in FROM ? () => spc(k) : null;

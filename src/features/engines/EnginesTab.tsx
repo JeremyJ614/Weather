@@ -12,12 +12,16 @@ import {
   ArrowRight,
   ArrowUpRight,
   CloudLightning,
+  Fish,
   Flame,
   FlaskConical,
   Radar,
+  Rainbow,
   Snowflake,
   Sprout,
+  Sunset,
   Tornado,
+  Trees,
   Umbrella,
   Waves,
   Wind,
@@ -30,20 +34,32 @@ import {
   BLIND_BANDS,
   FIELD_BANDS,
   FIRST_TIME_BANDS,
+  OUTDOOR_BANDS,
   PYRO_BINS,
   SURGE_BANDS,
   TOR_BINS,
   pyroBin,
   torBin,
   type FieldId,
+  type OutdoorId,
 } from "@/lib/engines/colors";
+import type { SpeciesId } from "@/lib/engines/outdoor";
+import { read as readPlaces } from "@/features/location/store";
+import {
+  PlacePanel,
+  ReportBox,
+  ReportSummary,
+  SpeciesPicker,
+  type PlaceData,
+  type Summary,
+} from "./OutdoorPanel";
 import type { EngineStorm, WrapStorm } from "@/lib/engines/probsevere";
 import type { SurgeStorm } from "@/lib/engines/surge";
 import type { Areas } from "@/lib/engines/areas";
 import radars from "@/lib/engines/radars.json";
 import s from "./Engines.module.css";
 
-type Engine = "tor" | "surge" | "blind" | FieldId;
+type Engine = "tor" | "surge" | "blind" | FieldId | OutdoorId;
 const FIELDS: FieldId[] = [
   "llj",
   "nst",
@@ -56,8 +72,38 @@ const FIELDS: FieldId[] = [
   "rwrap",
   "blizz",
   "first",
+  "sunset",
 ];
 const isField = (e: Engine): e is FieldId => FIELDS.includes(e as FieldId);
+const isPlace = (e: Engine): e is OutdoorId =>
+  e === "rainbow" || e === "deer" || e === "fish";
+const bandsOf = (e: FieldId | OutdoorId) =>
+  isPlace(e) ? OUTDOOR_BANDS[e] : FIELD_BANDS[e];
+/** The map's second and third views, by engine. */
+const VIEWS: Partial<Record<Engine, string[]>> = {
+  first: ["Chance", "Timing"],
+  sunset: ["Sunset", "Sunrise"],
+  rainbow: ["Now", "+30 min", "+60 min"],
+};
+type RainbowData = {
+  at: string;
+  maps: Areas[];
+  spots: {
+    lat: number;
+    lon: number;
+    value: number;
+    place: string;
+    look: string;
+    top: number;
+  }[][];
+  lowSun: boolean[];
+  reports: Summary;
+};
+type PlaceMap = {
+  areas: Areas;
+  spots: Spot[];
+  reports: Summary;
+};
 type Spot = {
   lat: number;
   lon: number;
@@ -65,6 +111,7 @@ type Spot = {
   place: string;
   water?: boolean;
   note?: string;
+  at?: number;
 };
 type Fire = {
   name: string;
@@ -90,6 +137,8 @@ type FieldData = {
   storms?: { name: string; lat: number; lon: number; mph: number }[];
   note: string | null;
   stats?: { days: number; checked: number; hits: number } | null;
+  altSpots?: Spot[] | null;
+  reports?: Summary;
 };
 type Data = {
   at: string;
@@ -188,6 +237,30 @@ const ENGINES: {
     name: "Blizzard Composite",
     sub: "Hours of whiteout, 2 days",
     icon: <Snowflake aria-hidden />,
+  },
+  {
+    id: "sunset",
+    name: "Sunset & Sunrise",
+    sub: "How colorful, tonight",
+    icon: <Sunset aria-hidden />,
+  },
+  {
+    id: "rainbow",
+    name: "Rainbow Chance",
+    sub: "Now and next hour",
+    icon: <Rainbow aria-hidden />,
+  },
+  {
+    id: "deer",
+    name: "Deer Activity",
+    sub: "Ohio and nearby, 3 days",
+    icon: <Trees aria-hidden />,
+  },
+  {
+    id: "fish",
+    name: "Fishing Bite",
+    sub: "Ohio and nearby, 3 days",
+    icon: <Fish aria-hidden />,
   },
   {
     id: "tctor",
@@ -308,6 +381,38 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
       "Each place with 3 or more hours is checked while it happens against airport reports (a quarter mile or less with 30 kt winds) and afterwards against Weather Service blizzard reports, and the hit rate shows below.",
     ],
   },
+  sunset: {
+    lead: "Right about two times in three on good vs. poor; less a day out.",
+    body: [
+      "A colorful sunset needs clouds to catch the light, but not in the way: high and middle clouds overhead (best near half cover), little low cloud, and a clear horizon toward the sun so its last light can get under them.",
+      "At each place's own next sunset (and sunrise) this reads the HRRR's low, middle and high cloud there and along the line toward the sun 60 to 400 km out, the haze and smoke (aerosol optical thickness: a little smoke deepens the reds, heavy smoke dims them), the humidity, and whether rain fell in the two hours before, which leaves the air clean.",
+      "The model is weakest at thin high clouds, which make the best sunsets, and \"good\" is a matter of taste. Rate tonight's sunset below: members' stars are compared with the score and tune how much each part counts.",
+    ],
+  },
+  rainbow: {
+    lead: "About 50–70% right with live radar; poor more than an hour ahead.",
+    body: [
+      "The physics is exact: a rainbow forms 42° around the point straight opposite the sun, so you need the sun behind you and lower than 42°, rain in front of you, and sunlight reaching that rain.",
+      "For each place this checks NOAA's national radar 5 to 20 km opposite the sun, GOES satellite for open sky toward the sun, and the sun's height. For +30 and +60 minutes the rain and cloud are carried forward on the HRRR's 700 mb wind and the sun moves on. The list says which way to look and how high the top of the bow will stand.",
+      "Showers are small and short-lived, and satellite can't always tell thin cloud from clear sky. Seen one? Tell us below; members' sightings are how this engine is checked.",
+    ],
+  },
+  deer: {
+    lead: "Points the right way; the effects are modest.",
+    body: [
+      "Deer move most at dawn and dusk, more after a cold snap, more as pressure rises behind a front, and less in strong wind or heavy rain. Studies that GPS-collared deer find these effects are real but modest; a sharp drop below recent temperatures is the best supported. The moon matters little, so it is left out.",
+      "From Open-Meteo's hourly forecast with the past week to compare, each hour gets a score: light 35%, colder than the past week 25%, pressure change 15%, wind 15%, rain 10%. The rut lifts the whole day (Ohio's runs late October to early December, peaking about November 5–20); outside it the best hour tops out at 80.",
+      "Tap the map (or use your place) for the next three days, legal shooting hours, today's season and where to sit with the wind. Season dates are kept in admin; always check the state's regulations. Log deer you see: reports tune the weights.",
+    ],
+  },
+  fish: {
+    lead: "A conditions guide built on anglers' wisdom; reports make it better.",
+    body: [
+      "The science is thin: solunar theory has little evidence and the pressure effect is mostly anglers' rule of thumb. This scores what anglers swear by, hour by hour: low light at dawn and dusk (20%), the moon's major periods (overhead and underfoot) and minor ones (rise and set) (20%), pressure (25%: slowly falling ahead of a front is best, a fast rise behind one is worst), a light chop (10%) and clouds (10%) for the species that like them, and water in the species' comfortable range (15%).",
+      "Water temperature comes from the nearest USGS gauge that measures it, or is estimated from the past week's air. Pick a species; tap the map or use your place for three days, the best times and when the next front passes.",
+      "Log your catches: they are compared with the score and tune the weights over time.",
+    ],
+  },
   tctor: {
     lead: "Good for the broad zone; band tornadoes are brief.",
     body: [
@@ -363,6 +468,22 @@ async function blindImage(colors: Colors) {
   return c.toDataURL("image/png");
 }
 
+/** What a listed spot's time means, by engine and view. */
+const whenLabel = (e: Engine, view: number) =>
+  e === "first"
+    ? "First storms around"
+    : e === "sunset"
+      ? view === 1
+        ? "Sunrise"
+        : "Sunset"
+      : "Best around";
+const when = (t: number) =>
+  new Date(t).toLocaleString("en-US", {
+    weekday: "short",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
 const time = (iso: string) =>
   new Date(iso).toLocaleTimeString("en-US", {
     hour: "numeric",
@@ -383,7 +504,27 @@ export function EnginesTab({
   const [data, setData] = useState<Data | null>(null);
   const [failed, setFailed] = useState(false);
   const [surge, setSurge] = useState<SurgeData | "error" | null>(null);
-  const [timing, setTiming] = useState(false);
+  const [view, setView] = useState(0);
+  const timing = engine === "first" && view === 1;
+  const [rainbow, setRainbow] = useState<RainbowData | "error" | null>(null);
+  const [species, setSpecies] = useState<SpeciesId>("bass");
+  const [placeMaps, setPlaceMaps] = useState<
+    Record<string, PlaceMap | "error">
+  >({});
+  const [spot, setSpot] = useState<{
+    lat: number;
+    lon: number;
+    label: string;
+  } | null>(() => {
+    try {
+      const p = readPlaces();
+      const a = p.list.find((x) => x.id === p.active) ?? p.list[0];
+      return a ? { lat: a.lat, lon: a.lon, label: a.label } : null;
+    } catch {
+      return null;
+    }
+  });
+  const [detail, setDetail] = useState<Record<string, PlaceData | "error">>({});
   const [wraps, setWraps] = useState<
     { at: string; storms: WrapStorm[] } | "error" | null
   >(null);
@@ -403,8 +544,16 @@ export function EnginesTab({
     pick(colors, `engine:tor:${i}`, TOR_BINS[i].color);
   const blindColor = (i: number) =>
     pick(colors, `engine:blind:${i}`, BLIND_BANDS[i].color);
-  const fieldColor = (id: FieldId, i: number) =>
-    pick(colors, `engine:${id}:${i}`, FIELD_BANDS[id].colors[i]);
+  const fieldColor = (id: FieldId | OutdoorId, i: number) =>
+    pick(colors, `engine:${id}:${i}`, bandsOf(id).colors[i]);
+  const bandColor = (id: FieldId | OutdoorId, v: number) =>
+    fieldColor(
+      id,
+      Math.max(
+        0,
+        bandsOf(id).levels.findLastIndex((l) => v >= l),
+      ),
+    );
   const surgeColor = (i: number) =>
     pick(colors, `engine:surge:${i}`, SURGE_BANDS[i].color);
   const timeColor = (i: number) =>
@@ -461,6 +610,65 @@ export function EnginesTab({
       clearInterval(t);
     };
   }, [engine]);
+
+  // Rainbow chances every five minutes while that engine is open.
+  useEffect(() => {
+    if (engine !== "rainbow") return;
+    let live = true;
+    const load = () =>
+      document.visibilityState === "visible" &&
+      fetch("/api/engines/rainbow")
+        .then((r) => (r.ok ? r.json() : Promise.reject()))
+        .then((d: RainbowData) => live && setRainbow(d))
+        .catch(() => live && setRainbow((x) => x ?? "error"));
+    load();
+    const t = setInterval(load, 300_000);
+    return () => {
+      live = false;
+      clearInterval(t);
+    };
+  }, [engine]);
+
+  // Deer and fishing maps once per visit (per species), and the chosen place's three days.
+  const mapKey =
+    engine === "deer" ? "deer" : engine === "fish" ? `fish:${species}` : null;
+  const needMap = mapKey && !placeMaps[mapKey] ? mapKey : null;
+  useEffect(() => {
+    if (!needMap) return;
+    let live = true;
+    const [e, sp] = needMap.split(":");
+    fetch(`/api/engines/place?e=${e}${sp ? `&sp=${sp}` : ""}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then(
+        (d: PlaceMap) => live && setPlaceMaps((m) => ({ ...m, [needMap]: d })),
+      )
+      .catch(() => live && setPlaceMaps((m) => ({ ...m, [needMap]: "error" })));
+    return () => {
+      live = false;
+    };
+  }, [needMap]);
+  const detailKey =
+    mapKey && spot
+      ? `${mapKey}@${spot.lat.toFixed(2)},${spot.lon.toFixed(2)}`
+      : null;
+  const needDetail = detailKey && !detail[detailKey] ? detailKey : null;
+  useEffect(() => {
+    if (!needDetail || !spot) return;
+    let live = true;
+    const [e, sp] = needDetail.split("@")[0].split(":");
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    fetch(
+      `/api/engines/place?e=${e}${sp ? `&sp=${sp}` : ""}&lat=${spot.lat.toFixed(3)}&lon=${spot.lon.toFixed(3)}&tz=${encodeURIComponent(tz)}`,
+    )
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then(
+        (d: PlaceData) => live && setDetail((m) => ({ ...m, [needDetail]: d })),
+      )
+      .catch(() => live && setDetail((m) => ({ ...m, [needDetail]: "error" })));
+    return () => {
+      live = false;
+    };
+  }, [needDetail, spot]);
 
   // ProbSevere every two minutes while ProbTor is open and the page is visible.
   useEffect(() => {
@@ -650,6 +858,12 @@ export function EnginesTab({
         setBeam(beamAt(e.lngLat.lat, e.lngLat.lng) ?? "none");
         return;
       }
+      if (engineRef.current === "deer" || engineRef.current === "fish")
+        setSpot({
+          lat: e.lngLat.lat,
+          lon: e.lngLat.lng,
+          label: "the spot you tapped",
+        });
     });
     show(m, engineRef.current);
     setMap(m);
@@ -661,8 +875,8 @@ export function EnginesTab({
       m.setLayoutProperty(id, "visibility", on ? "visible" : "none");
     vis("torA-fill", e === "tor");
     vis("torA-line", e === "tor");
-    vis("fieldA-fill", isField(e));
-    vis("fieldA-line", isField(e));
+    vis("fieldA-fill", isField(e) || isPlace(e));
+    vis("fieldA-line", isField(e) || isPlace(e));
     vis("tor-fill", e === "tor");
     vis("tor-line", e === "tor");
     vis("surge-fill", e === "surge");
@@ -676,15 +890,41 @@ export function EnginesTab({
   useEffect(() => {
     if (!map) return;
     const f = isField(engine) ? fields[engine] : undefined;
+    const placeAreas =
+      engine === "rainbow" && rainbow && rainbow !== "error"
+        ? rainbow.maps[view]
+        : mapKey && placeMaps[mapKey] && placeMaps[mapKey] !== "error"
+          ? (placeMaps[mapKey] as PlaceMap).areas
+          : null;
+    if (isPlace(engine) && placeAreas) {
+      (map.getSource("fieldA") as GeoJSONSource | undefined)?.setData(
+        placeAreas,
+      );
+      const n = OUTDOOR_BANDS[engine].levels.length;
+      const expr = [
+        "match",
+        ["get", "band"],
+        ...Array.from({ length: n }, (_, i) => [
+          i,
+          fieldColor(engine, i),
+        ]).flat(),
+        fieldColor(engine, 0),
+      ] as never;
+      map.setPaintProperty("fieldA-fill", "fill-color", expr);
+      map.setPaintProperty("fieldA-line", "line-color", expr);
+    } else if (isPlace(engine))
+      (map.getSource("fieldA") as GeoJSONSource | undefined)?.setData(EMPTY);
     if (f && f !== "error" && isField(engine)) {
-      const alt = engine === "first" && timing && f.alt;
+      const alt = view === 1 && f.alt;
+      const timeBands = engine === "first" && alt;
       (map.getSource("fieldA") as GeoJSONSource | undefined)?.setData(
         alt ? f.alt! : f.areas,
       );
-      const n = alt
+      const n = timeBands
         ? FIRST_TIME_BANDS.length
         : FIELD_BANDS[engine].levels.length;
-      const color = (i: number) => (alt ? timeColor(i) : fieldColor(engine, i));
+      const color = (i: number) =>
+        timeBands ? timeColor(i) : fieldColor(engine, i);
       const expr = [
         "match",
         ["get", "band"],
@@ -713,7 +953,20 @@ export function EnginesTab({
         data.torAreas,
       );
     }
-  }, [map, engine, data, surge, fields, timing, colors]); // eslint-disable-line react-hooks/exhaustive-deps -- the color helpers derive from colors
+    // The color helpers derive from colors, which is listed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    map,
+    engine,
+    data,
+    surge,
+    fields,
+    view,
+    rainbow,
+    placeMaps,
+    mapKey,
+    colors,
+  ]);
 
   const storms = data?.storms ?? [];
   const how = HOW[engine];
@@ -726,10 +979,7 @@ export function EnginesTab({
           ? FIRST_TIME_BANDS.map((b, i) => [b.label, timeColor(i)])
           : engine === "blind"
             ? BLIND_BANDS.map((b, i) => [b.label, blindColor(i)])
-            : FIELD_BANDS[engine].labels.map((l, i) => [
-                l,
-                fieldColor(engine, i),
-              ]);
+            : bandsOf(engine).labels.map((l, i) => [l, fieldColor(engine, i)]);
   const field = isField(engine) ? fields[engine] : undefined;
   const valid = (iso: string) =>
     new Date(iso).toLocaleString("en-US", {
@@ -761,6 +1011,7 @@ export function EnginesTab({
               disabled={off}
               onClick={() => {
                 setEngine(e.id);
+                setView(0);
                 setBeam(null);
               }}
             >
@@ -791,24 +1042,22 @@ export function EnginesTab({
           </span>
         ))}
       </div>
-      {engine === "first" && (
+      {VIEWS[engine] && (
         <div className={s.windows} role="group" aria-label="Map shows">
-          {(
-            [
-              [false, "Chance"],
-              [true, "Timing"],
-            ] as const
-          ).map(([v, label]) => (
+          {VIEWS[engine]!.map((label, v) => (
             <button
               key={label}
               type="button"
-              aria-pressed={timing === v}
-              onClick={() => setTiming(v)}
+              aria-pressed={view === v}
+              onClick={() => setView(v)}
             >
               {label}
             </button>
           ))}
         </div>
+      )}
+      {engine === "fish" && (
+        <SpeciesPicker value={species} onChange={setSpecies} />
       )}
       {engine === "tor" && (
         <p className={s.small}>
@@ -1029,7 +1278,10 @@ export function EnginesTab({
             )}
           {field && field !== "error" && engine !== "pyro" && (
             <ul className={s.storms}>
-              {field.spots.map((x) => (
+              {(view === 1 && field.altSpots
+                ? field.altSpots
+                : field.spots
+              ).map((x) => (
                 <li key={`${x.lat},${x.lon}`}>
                   <button
                     type="button"
@@ -1046,22 +1298,15 @@ export function EnginesTab({
                       {engine === "nst" && (
                         <small>{x.water ? "Waterspout" : "Landspout"}</small>
                       )}
+                      {x.at && (
+                        <small>
+                          {whenLabel(engine, view)} {when(x.at)}
+                        </small>
+                      )}
                       {x.note && <small>{x.note}</small>}
                     </span>
                     <span className={s.hail}>
-                      <i
-                        style={{
-                          background: fieldColor(
-                            engine,
-                            Math.max(
-                              0,
-                              FIELD_BANDS[engine].levels.findLastIndex(
-                                (l) => x.value >= l,
-                              ),
-                            ),
-                          ),
-                        }}
-                      />
+                      <i style={{ background: bandColor(engine, x.value) }} />
                       <b>{x.value}</b>
                     </span>
                   </button>
@@ -1123,6 +1368,158 @@ export function EnginesTab({
             ? `Hit rate, last ${field.stats.days} days: ${Math.round((100 * field.stats.hits) / field.stats.checked)}% of ${field.stats.checked} flagged places saw it happen.`
             : `The hit rate shows once 10 flagged places have been checked against what happened (${field.stats.checked} so far).`}
         </p>
+      )}
+
+      {engine === "sunset" && (
+        <>
+          <ReportBox kind="sunset" />
+          {field && field !== "error" && (
+            <ReportSummary kind="sunset" sum={field.reports ?? null} />
+          )}
+        </>
+      )}
+
+      {engine === "rainbow" && (
+        <section className={s.card}>
+          <header>
+            <h3>
+              Best places to look {["now", "in 30 minutes", "in an hour"][view]}
+            </h3>
+            {rainbow && rainbow !== "error" && (
+              <small>Radar and satellite {time(rainbow.at)}</small>
+            )}
+          </header>
+          {rainbow === null && (
+            <p className={s.small}>Reading radar and satellite…</p>
+          )}
+          {rainbow === "error" && (
+            <p className={s.small}>
+              Radar or satellite isn&apos;t answering right now. Trying again in
+              five minutes.
+            </p>
+          )}
+          {rainbow && rainbow !== "error" && !rainbow.lowSun[view] && (
+            <p className={s.small}>
+              The sun is down, or too high everywhere, for a rainbow. They come
+              in the early morning and late afternoon.
+            </p>
+          )}
+          {rainbow &&
+            rainbow !== "error" &&
+            rainbow.lowSun[view] &&
+            rainbow.spots[view].length === 0 && (
+              <p className={s.small}>
+                No place has rain opposite a low, open sun right now.
+              </p>
+            )}
+          {rainbow && rainbow !== "error" && (
+            <ul className={s.storms}>
+              {rainbow.spots[view].map((x) => (
+                <li key={`${x.lat},${x.lon}`}>
+                  <button type="button" onClick={() => focus(x)}>
+                    <span className={s.where}>
+                      <b>{x.place}</b>
+                      <small>
+                        Look {x.look}; the top of the bow about {x.top}° up
+                      </small>
+                    </span>
+                    <span className={s.hail}>
+                      <i
+                        style={{ background: bandColor("rainbow", x.value) }}
+                      />
+                      <b>{x.value}%</b>
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <ReportBox kind="rainbow" />
+          {rainbow && rainbow !== "error" && (
+            <ReportSummary kind="rainbow" sum={rainbow.reports} />
+          )}
+        </section>
+      )}
+
+      {(engine === "deer" || engine === "fish") && (
+        <>
+          <section className={s.card}>
+            <header>
+              <h3>
+                {engine === "deer" ? "Where deer move most" : "Best bite"} in
+                the next day
+              </h3>
+            </header>
+            {mapKey && !placeMaps[mapKey] && (
+              <p className={s.small}>Reading the forecast…</p>
+            )}
+            {mapKey && placeMaps[mapKey] === "error" && (
+              <p className={s.small}>
+                The forecast isn&apos;t answering right now. Try again in a few
+                minutes.
+              </p>
+            )}
+            {mapKey && placeMaps[mapKey] && placeMaps[mapKey] !== "error" && (
+              <ul className={s.storms}>
+                {(placeMaps[mapKey] as PlaceMap).spots.map((x) => (
+                  <li key={`${x.lat},${x.lon}`}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        focus(x);
+                        setSpot({ lat: x.lat, lon: x.lon, label: x.place });
+                      }}
+                    >
+                      <span className={s.where}>
+                        <b>{x.place}</b>
+                        {x.at && (
+                          <small>
+                            {whenLabel(engine, view)} {when(x.at)}
+                          </small>
+                        )}
+                        {x.note && <small>{x.note}</small>}
+                      </span>
+                      <span className={s.hail}>
+                        <i style={{ background: bandColor(engine, x.value) }} />
+                        <b>{x.value}</b>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+          <section className={s.card}>
+            <header>
+              <h3>Your next three days</h3>
+              {spot && <small>Near {spot.label}</small>}
+            </header>
+            {!spot && (
+              <p className={s.small}>
+                Tap the map, pick a place above, or save a place in the location
+                menu.
+              </p>
+            )}
+            {spot && detailKey && (
+              <PlacePanel
+                kind={engine}
+                label={spot.label}
+                data={detail[detailKey] ?? null}
+                color={(v) => bandColor(engine, v)}
+              />
+            )}
+          </section>
+          <ReportBox
+            kind={engine}
+            species={engine === "fish" ? species : undefined}
+          />
+          {mapKey && placeMaps[mapKey] && placeMaps[mapKey] !== "error" && (
+            <ReportSummary
+              kind={engine}
+              sum={(placeMaps[mapKey] as PlaceMap).reports}
+            />
+          )}
+        </>
       )}
 
       {engine === "rwrap" && (

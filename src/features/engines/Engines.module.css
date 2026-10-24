@@ -271,3 +271,93 @@
 .how p b {
   color: var(--text);
 }
+.chart {
+  width: 100%;
+  height: auto;
+}
+.axis {
+  fill: var(--muted);
+  font-size: 9px;
+}
+.facts {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.fine {
+  color: var(--muted);
+  font-size: 11.5px;
+}
+.ask {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 42px;
+  padding: 0 16px;
+  border: 1px solid var(--lit-line);
+  border-radius: 14px;
+  color: var(--accent);
+  font-size: 13.5px;
+  font-weight: 700;
+}
+.ask svg {
+  width: 16px;
+}
+.ask:disabled {
+  opacity: 0.6;
+}
+.stars {
+  display: flex;
+  gap: 6px;
+}
+.stars button {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: var(--muted);
+}
+.stars button[aria-pressed="true"] {
+  border-color: var(--lit-line);
+  color: var(--accent);
+}
+.stars svg {
+  width: 22px;
+}
+.field {
+  display: grid;
+  gap: 4px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.field input {
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 15px;
+}
+.photo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  color: var(--muted);
+  font-size: 13px;
+  cursor: pointer;
+}
+.photo svg {
+  width: 16px;
+}
+.photo input {
+  display: none;
+}
