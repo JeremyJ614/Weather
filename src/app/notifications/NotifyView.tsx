@@ -42,6 +42,8 @@ const ICON: Record<TopicId, string> = {
   watches: "ScanEye",
   spc: "Map",
   engines: "Gauge",
+  surge: "Zap",
+  rainbow: "Rainbow",
   news: "Newspaper",
   tropical: "Orbit",
   aurora: "Sparkles",

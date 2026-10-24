@@ -268,6 +268,64 @@ async function tropical(prefs: Pref[], notes: Note[]) {
       });
 }
 
+const miles = (a: number, b: number, c: number, d: number) => {
+  const r = Math.PI / 180;
+  const x =
+    Math.sin(((c - a) * r) / 2) ** 2 +
+    Math.cos(a * r) * Math.cos(c * r) * Math.sin(((d - b) * r) / 2) ** 2;
+  return 7918 * Math.asin(Math.sqrt(x));
+};
+
+/** Lightning jumps logged in the last 15 minutes (lib/engines/surge.ts) near each member. */
+async function surge(prefs: Pref[], notes: Note[]) {
+  const subs = prefs.filter((p) => p.topics.includes("surge") && p.lat != null);
+  if (!subs.length) return;
+  const { data } = await supabaseAdmin()
+    .from("engine_checks")
+    .select("key, lat, lon, label")
+    .eq("engine", "surge")
+    .gt("at", new Date(Date.now() - 15 * 60_000).toISOString());
+  for (const j of data ?? [])
+    for (const p of subs) {
+      const d = miles(p.lat!, p.lon!, j.lat, j.lon);
+      if (d > 25) continue;
+      notes.push({
+        user_id: p.user_id,
+        topic: "surge",
+        key: j.key.slice(0, 120),
+        title: "Lightning surge nearby",
+        body: cut(
+          `A storm ${Math.round(d)} miles from ${place(p)} just had a lightning jump: ${j.label}. Watch for warnings.`,
+          300,
+        ),
+        url: "/extras",
+      });
+    }
+}
+
+/** A rainbow chance of 50% or more at the member's place now (lib/engines/rainbow.ts). */
+async function rainbow(prefs: Pref[], notes: Note[]) {
+  const subs = prefs.filter(
+    (p) => p.topics.includes("rainbow") && p.lat != null,
+  );
+  if (!subs.length) return;
+  const { rainbowAt } = await import("@/lib/engines/rainbow");
+  const hour = new Date().toISOString().slice(0, 13);
+  for (const p of subs) {
+    const r = await rainbowAt(p.lat!, p.lon!);
+    if (!r || r.chance < 50) continue;
+    notes.push({
+      user_id: p.user_id,
+      topic: "rainbow",
+      // One a few hours at most: rainbows come in bursts as showers pass.
+      key: `${hour.slice(0, 11)}${Math.floor(Number(hour.slice(11)) / 3)}`,
+      title: "Rainbow chance now",
+      body: `A ${r.chance}% chance near ${place(p)}: look ${r.look}, with the sun behind you.`,
+      url: "/extras",
+    });
+  }
+}
+
 async function aurora(prefs: Pref[], notes: Note[]) {
   const subs = prefs.filter(
     (p) => p.topics.includes("aurora") && p.lat != null,
@@ -443,7 +501,17 @@ export async function runNotify(now = new Date()) {
   if (!prefs.length) return { members: 0 };
   const notes: Note[] = [];
   const errors: string[] = [];
-  const steps = { local, spc, engines, news, tropical, aurora, games };
+  const steps = {
+    local,
+    spc,
+    engines,
+    surge,
+    rainbow,
+    news,
+    tropical,
+    aurora,
+    games,
+  };
   await Promise.all(
     Object.entries(steps).map(([name, fn]) =>
       fn(prefs, notes).catch((e: Error) =>

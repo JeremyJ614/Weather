@@ -70,7 +70,7 @@ export const ABOUT: Record<string, string> = {
   "weather-patterns":
     "What already happened (yesterday, the week, the month, the season) in plain words with the numbers behind it.",
   extras:
-    "Weather Engines drawn like SPC outlooks (ProbTor, ProbHail, rotation tracks, snow squalls and more), the Storm Visualizer and Particle Morph.",
+    "Weather Engines drawn like SPC outlooks (ProbTor, STP, SCP, derecho, lightning and more), the Storm Visualizer and Particle Morph.",
   "disaster-response":
     "Organizations that help after storms and how to give to them or help them, plus a map of emergency shelters near you.",
   donate:

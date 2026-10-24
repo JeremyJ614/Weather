@@ -1,7 +1,7 @@
 import "server-only";
 import { latestCycle } from "@/lib/models/render";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import type { FieldId } from "./colors";
+import { FIELD_BANDS, type FieldId } from "./colors";
 import { fieldEngine } from "./fields";
 
 /**
@@ -156,7 +156,8 @@ export async function refreshWanted(hours = 3, budgetMs = 40_000) {
   for (const r of (data ?? []) as Pick<Row, "id" | "cycle">[]) {
     if (Date.now() - start > budgetMs) break;
     const id = r.id as FieldId;
-    if (!(await claim(id))) continue;
+    // A retired engine's last map stays in the table until it is pruned.
+    if (!(id in FIELD_BANDS) || !(await claim(id))) continue;
     try {
       await refreshField(id);
       refreshed.push(id);

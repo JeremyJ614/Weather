@@ -2,19 +2,29 @@ import type { Metadata } from "next";
 import { requireAdmin } from "@/lib/auth/admin-guard";
 import { cleanItems } from "@/lib/extras/items";
 import { ExtrasSwitches } from "./ExtrasSwitches";
+import { DeerSeasons } from "./DeerSeasons";
+import type { DeerSeasons as Seasons } from "./actions";
 
 export const metadata: Metadata = {
   title: "Extras · Admin · StormSync Media",
 };
 
-/** Final List #8: switch each Extras item on, off or hidden. */
+/** Final List #8: switch each Extras item on, off or hidden; Deer Activity's seasons. */
 export default async function ExtrasAdminPage() {
   const { supabase } = await requireAdmin("extras");
-  const { data } = await supabase
-    .from("app_config")
-    .select("value")
-    .eq("key", "extras_items")
-    .maybeSingle();
+  const [{ data }, { data: deer }] = await Promise.all([
+    supabase
+      .from("app_config")
+      .select("value")
+      .eq("key", "extras_items")
+      .maybeSingle(),
+    supabase
+      .from("app_config")
+      .select("value")
+      .eq("key", "deer_seasons")
+      .maybeSingle(),
+  ]);
+  const d = (deer?.value ?? {}) as Partial<Seasons>;
   return (
     <main className="mx-auto grid max-w-2xl gap-4 px-4 pt-6 pb-24">
       <h1 className="display text-3xl text-accent">Extras</h1>
@@ -26,6 +36,19 @@ export default async function ExtrasAdminPage() {
         within a few seconds.
       </p>
       <ExtrasSwitches initial={cleanItems(data?.value)} />
+      <DeerSeasons
+        initial={{
+          state: d.state ?? "Ohio",
+          seasons: d.seasons ?? [],
+          rut: {
+            pre: "10-25",
+            peak: "11-05",
+            post: "11-21",
+            end: "12-10",
+            ...(d.rut ?? {}),
+          },
+        }}
+      />
     </main>
   );
 }

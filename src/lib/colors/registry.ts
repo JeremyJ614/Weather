@@ -30,9 +30,13 @@ import { BANDS as CHASE_BANDS, CHASE_ALT } from "@/lib/chase/score";
 import {
   BLIND_BANDS,
   FIELD_BANDS,
-  HAIL_BANDS,
+  ANALOG_BANDS,
+  ANALOG_DOTS,
+  BOUND_POINTS,
+  FIRST_TIME_BANDS,
+  OUTDOOR_BANDS,
   PYRO_BINS,
-  ROT_BANDS,
+  SURGE_BANDS,
   TOR_BINS,
 } from "@/lib/engines/colors";
 import { PROB as WINTER_PROB } from "@/lib/winter/style";
@@ -311,11 +315,11 @@ export const GROUPS: Group[] = [
     })),
   },
   {
-    id: "engine-hail",
-    label: "ProbHail",
-    note: "Extras → Weather Engines: 30-minute hail swaths by size.",
-    entries: HAIL_BANDS.map((b, i) => ({
-      key: `engine:hail:${i}`,
+    id: "engine-surge",
+    label: "Lightning Surge Detector",
+    note: "Extras → Weather Engines: storm outlines by lightning trend.",
+    entries: SURGE_BANDS.map((b, i) => ({
+      key: `engine:surge:${i}`,
       label: b.label,
       def: b.color,
     })),
@@ -333,7 +337,6 @@ export const GROUPS: Group[] = [
   ...(
     [
       ["llj", "Nocturnal LLJ Ramp-Up"],
-      ["snsq", "Snow Squall Parameter"],
       ["nst", "Landspout & Waterspout (NST)"],
       ["pyro", "Hot-Dry-Windy Index (PyroCb)"],
       ["tctor", "Landfalling Hurricane Tornado Risk"],
@@ -341,23 +344,82 @@ export const GROUPS: Group[] = [
       ["scp", "Supercell Composite Parameter"],
       ["dcp", "Derecho Composite Parameter"],
       ["ltg", "Lightning Threat"],
+      ["rwrap", "Rain-Wrap Index"],
+      ["blizz", "Blizzard Composite (hours of whiteout)"],
+      ["first", "First Storms (chance)"],
+      ["sunset", "Sunset & Sunrise Quality"],
+      ["bound", "Boundary Collision Analyzer (boundaries)"],
     ] as const
   ).map(([id, label]) => ({
     id: `engine-${id}`,
     label,
     note: "Extras → Weather Engines map bands.",
-    entries: FIELD_BANDS[id].labels.map((l, i) => ({
+    entries: [
+      ...FIELD_BANDS[id].labels.map((l, i) => ({
+        key: `engine:${id}:${i}`,
+        label: l,
+        def: FIELD_BANDS[id].colors[i],
+      })),
+      // The Blizzard map also brightens the interstates crossing its areas.
+      ...(id === "blizz"
+        ? [{ key: "engine:roads", label: "Interstates", def: "#e2e8f0" }]
+        : []),
+    ],
+  })),
+  ...(
+    [
+      ["rainbow", "Rainbow Chance"],
+      ["deer", "Deer Activity"],
+      ["fish", "Fishing Bite"],
+    ] as const
+  ).map(([id, label]) => ({
+    id: `engine-${id}`,
+    label,
+    note: "Extras → Weather Engines map bands and charts.",
+    entries: OUTDOOR_BANDS[id].labels.map((l, i) => ({
       key: `engine:${id}:${i}`,
       label: l,
-      def: FIELD_BANDS[id].colors[i],
+      def: OUTDOOR_BANDS[id].colors[i],
     })),
   })),
   {
-    id: "engine-rot",
-    label: "Rotation Track Persistence",
-    note: "Extras → Weather Engines: the last hour's rotation tracks.",
-    entries: ROT_BANDS.map((b, i) => ({
-      key: `engine:rot:${i}`,
+    id: "engine-analog",
+    label: "Severe Analogs",
+    note: "Extras → Weather Engines: the share of matched days with a report within 25 miles.",
+    entries: ANALOG_BANDS.map((b, i) => ({
+      key: `engine:analog:${i}`,
+      label: b.label,
+      def: b.color,
+    })),
+  },
+  {
+    id: "engine-analogdot",
+    label: "Severe Analogs: a matched day's reports",
+    note: "Extras → Weather Engines → Severe Analogs: tap a past day to show its reports.",
+    entries: (Object.keys(ANALOG_DOTS) as (keyof typeof ANALOG_DOTS)[]).map(
+      (k) => ({
+        key: `engine:analogdot:${k}`,
+        label: ANALOG_DOTS[k].label,
+        def: ANALOG_DOTS[k].color,
+      }),
+    ),
+  },
+  {
+    id: "engine-boundpt",
+    label: "Boundary collisions (points)",
+    note: "Extras → Weather Engines → Boundary Collisions: where boundaries meet, by score.",
+    entries: BOUND_POINTS.map((b, i) => ({
+      key: `engine:boundpt:${i}`,
+      label: b.label,
+      def: b.color,
+    })),
+  },
+  {
+    id: "engine-firstT",
+    label: "First Storms (timing)",
+    note: "Extras → Weather Engines → First Storms: when the first storms start.",
+    entries: FIRST_TIME_BANDS.map((b, i) => ({
+      key: `engine:firstT:${i}`,
       label: b.label,
       def: b.color,
     })),

@@ -19,7 +19,7 @@ describe("Extras switches", () => {
 
   it("treats anything unset as on", () => {
     expect(stateOf({ stp: "off" }, "stp")).toBe("off");
-    expect(stateOf({}, "rot")).toBe("on");
+    expect(stateOf({}, "ltg")).toBe("on");
   });
 
   it("reads the switches with the site defaults", () => {

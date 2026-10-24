@@ -1,12 +1,11 @@
 /**
- * ProbTor and ProbHail (Extras engines): NOAA/CIMSS ProbSevere v3 storms, carried forward
- * along their own motion. Pure math, shared by the server route and the tests.
+ * ProbTor (Extras engine): NOAA/CIMSS ProbSevere v3 storms, carried forward along their
+ * own motion. Pure math, shared by the server route and the tests.
  *
  * ProbTor starts from ProbSevere's tornado probability and nudges the next 20 minutes by the
  * low-level rotation trend (MRMS azimuthal shear, now vs. ~10 minutes ago) and a lightning
  * jump (ProbSevere's own LJA flag or the flash rate jumping). Beyond 20 minutes it only
- * fades: skill drops off fast, and the page says so. ProbHail sweeps each storm along its
- * motion for 30 minutes and bands the swath by MESH, the radar's hail-size estimate.
+ * fades: skill drops off fast, and the page says so.
  */
 export type Cell = {
   id: string;
@@ -14,11 +13,9 @@ export type Cell = {
   lon: number;
   ring: [number, number][];
   tor: number;
-  hail: number;
   wind: number;
   severe: number;
-  /** MESH in inches, low-level azimuthal shear (s⁻¹), flash rate (per minute). */
-  meshIn: number;
+  /** Low-level azimuthal shear (s⁻¹), flash rate (per minute). */
   az: number;
   flash: number;
   jump: boolean;
@@ -109,21 +106,6 @@ export function cone(c: Cell, from: number, to: number): [number, number][] {
   return hull([
     ...circle(ahead(c, from), w(from)),
     ...circle(ahead(c, to), w(to)),
-  ]);
-}
-
-/** Hail size band from MESH: 0 none, 1 = 1"+, 2 = 1.75"+, 3 = 2.5"+. */
-export const hailBand = (inches: number) =>
-  inches >= 2.5 ? 3 : inches >= 1.75 ? 2 : inches >= 1 ? 1 : 0;
-
-/** The ground a storm's hail core covers over the next `min` minutes. */
-export function swath(c: Cell, min = 30): [number, number][] {
-  const s = min * 60;
-  const dx = (c.east * s) / (111_320 * Math.cos((c.lat * Math.PI) / 180));
-  const dy = (c.north * s) / 111_320;
-  return hull([
-    ...c.ring,
-    ...c.ring.map(([x, y]) => [x + dx, y + dy] as [number, number]),
   ]);
 }
 

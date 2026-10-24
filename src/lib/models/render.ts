@@ -71,7 +71,7 @@ const pad = (n: number) => String(n).padStart(2, "0");
 const ymdh = (d: Date) =>
   `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}${pad(d.getUTCHours())}`;
 
-async function exists(url: string) {
+export async function exists(url: string) {
   try {
     const r = await fetch(`${url}.idx`, {
       method: "HEAD",

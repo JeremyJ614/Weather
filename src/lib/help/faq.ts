@@ -131,7 +131,7 @@ export const DEFAULT_FAQ: Faq = {
         ),
         item(
           "What are the Weather Engines on Extras?",
-          'Experimental tools computed from NOAA data, like ProbTor, hail swaths, radar blind spots and multi-hour rotation tracks. Each one has a "How this works" note explaining exactly what it does and where it can be wrong. They\'re for learning and situational awareness, not for safety decisions.',
+          'Experimental tools computed from NOAA data, like ProbTor, the significant tornado and supercell composites, radar blind spots and lightning threat. Each one has a "How this works" note explaining exactly what it does and where it can be wrong. They\'re for learning and situational awareness, not for safety decisions.',
         ),
       ]),
     ]),

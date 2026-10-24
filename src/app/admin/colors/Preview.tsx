@@ -86,20 +86,46 @@ export function previewSource(
       };
     case "engine-tor":
       return { url: "/api/engines/preview?e=tor", title: "ProbTor areas now" };
-    case "engine-hail":
+    case "engine-rainbow":
       return {
-        url: "/api/engines/preview?e=hail",
-        title: "ProbHail areas now",
+        url: "/api/engines/preview?e=rainbow",
+        title: "Rainbow chances now, from radar and satellite",
+      };
+    case "engine-deer":
+    case "engine-fish":
+      return {
+        url: `/api/engines/preview?e=${id.slice(7)}`,
+        title: "Today's best hour around Ohio, from Open-Meteo",
+      };
+    case "engine-analog":
+      return {
+        url: "/api/engines/preview?e=analog",
+        title: "Today's analog outlook (15 closest past days)",
+      };
+    case "engine-analogdot":
+      return {
+        url: "/api/engines/preview?e=analogdot",
+        title: "Reports on today's closest past day",
+      };
+    case "engine-boundpt":
+      return {
+        url: "/api/engines/preview?e=boundpt",
+        title: "Where boundaries meet in the next 3 hours",
+      };
+    case "engine-firstT":
+      return {
+        url: "/api/engines/preview?e=firstT",
+        title: "When the first storms start, from the latest HRRR runs",
+      };
+    case "engine-surge":
+      return {
+        url: "/api/engines/preview?e=surge",
+        title: "Storms with rising or jumping lightning now",
       };
     case "engine-blind":
       return {
         url: "/api/engines/preview?e=blind",
         title: "Lowest radar beam, sampled every half degree",
-      };
-    case "engine-rot":
-      return {
-        url: "/api/engines/preview?e=rot",
-        title: "MRMS rotation tracks, last 6 hours",
       };
     case "engine-pyrocb":
       return {
@@ -107,7 +133,6 @@ export function previewSource(
         title: "Large fires' PyroCb chance today",
       };
     case "engine-llj":
-    case "engine-snsq":
     case "engine-nst":
     case "engine-pyro":
     case "engine-tctor":
@@ -115,6 +140,11 @@ export function previewSource(
     case "engine-scp":
     case "engine-dcp":
     case "engine-ltg":
+    case "engine-rwrap":
+    case "engine-blizz":
+    case "engine-first":
+    case "engine-sunset":
+    case "engine-bound":
       return {
         url: `/api/engines/preview?e=${id.slice(7)}`,
         title: "The engine's areas from the latest HRRR run",

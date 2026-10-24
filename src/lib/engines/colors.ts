@@ -10,12 +10,6 @@ export const torBin = (p: number) =>
     0,
     TOR_BINS.findLastIndex((b) => p >= b.min),
   );
-export const HAIL_BANDS = [
-  { label: "Severe hail possible (15%+)", color: "#38bdf8" },
-  { label: '1" (quarter) +', color: "#4ade80" },
-  { label: '1.75" (golf ball) +', color: "#facc15" },
-  { label: '2.5" (tennis ball) +', color: "#f43f5e" },
-];
 export const BLIND_BANDS = [
   { label: "Out of radar range", color: "#475569" },
   { label: "Under 2,000 ft", color: "#22c55e" },
@@ -30,7 +24,19 @@ export const BLIND_BANDS = [
  * and default colors, one color per band. Editable as `engine:<id>:<band>`.
  */
 export type FieldId =
-  "llj" | "snsq" | "nst" | "pyro" | "tctor" | "stp" | "scp" | "dcp" | "ltg";
+  | "llj"
+  | "nst"
+  | "pyro"
+  | "tctor"
+  | "stp"
+  | "scp"
+  | "dcp"
+  | "ltg"
+  | "rwrap"
+  | "blizz"
+  | "first"
+  | "sunset"
+  | "bound";
 export const FIELD_BANDS: Record<
   FieldId,
   { levels: number[]; labels: string[]; colors: string[] }
@@ -39,11 +45,6 @@ export const FIELD_BANDS: Record<
     levels: [15, 30, 45, 60, 75],
     labels: ["Some", "Moderate", "Strong", "Very strong", "Extreme"],
     colors: ["#1e3a8a", "#2563eb", "#22d3ee", "#facc15", "#f43f5e"],
-  },
-  snsq: {
-    levels: [1, 2, 4, 6, 8],
-    labels: ["Possible (1+)", "2+", "4+", "6+", "8+ whiteout"],
-    colors: ["#64748b", "#93c5fd", "#e0f2fe", "#c084fc", "#f472b6"],
   },
   nst: {
     levels: [0.5, 1, 2, 3, 5],
@@ -80,21 +81,92 @@ export const FIELD_BANDS: Record<
     labels: ["Isolated", "Scattered", "Frequent", "Intense", "Extreme"],
     colors: ["#fde68a", "#facc15", "#fb923c", "#f472b6", "#f8fafc"],
   },
+  rwrap: {
+    levels: [1, 35, 55, 75],
+    labels: ["Visible (LP)", "Classic", "Heavy rain (HP)", "Rain-wrapped"],
+    colors: ["#a3e635", "#facc15", "#38bdf8", "#a855f7"],
+  },
+  bound: {
+    levels: [0.5, 1.5, 2.5],
+    labels: ["Temperature boundary", "Moisture boundary", "Both"],
+    colors: ["#60a5fa", "#a3e635", "#f472b6"],
+  },
+  sunset: {
+    levels: [20, 40, 60, 80],
+    labels: ["Dull", "Fair", "Good", "Great"],
+    colors: ["#7c3aed", "#db2777", "#f97316", "#facc15"],
+  },
+  first: {
+    levels: [15, 35, 55, 75],
+    labels: ["Low", "Medium", "High", "Very high"],
+    colors: ["#5eead4", "#facc15", "#fb923c", "#f43f5e"],
+  },
+  blizz: {
+    levels: [1, 3, 6, 12, 24],
+    labels: ["1 h", "3 h (blizzard)", "6 h", "12 h", "24 h+"],
+    colors: ["#bae6fd", "#60a5fa", "#818cf8", "#c084fc", "#f0abfc"],
+  },
 };
 
-/** Rotation Track Persistence: 60-minute peak low-level rotation, ×10⁻³ s⁻¹. */
-export const ROT_BANDS = [
-  { min: 4, label: "Weak", color: "#38bdf8" },
-  { min: 6, label: "Moderate", color: "#facc15" },
-  { min: 8, label: "Strong", color: "#fb923c" },
-  { min: 11, label: "Intense", color: "#f43f5e" },
-  { min: 15, label: "Extreme", color: "#e879f9" },
+/** The place engines (Rainbow, Deer, Fishing): band edges, labels and default colors. */
+export type OutdoorId = "rainbow" | "deer" | "fish";
+export const OUTDOOR_BANDS: Record<
+  OutdoorId,
+  { levels: number[]; labels: string[]; colors: string[] }
+> = {
+  rainbow: {
+    levels: [15, 30, 50, 70],
+    labels: ["Slight", "Possible", "Good", "Likely"],
+    colors: ["#a5b4fc", "#67e8f9", "#86efac", "#fde047"],
+  },
+  deer: {
+    levels: [30, 45, 60, 75],
+    labels: ["Slow", "Fair", "Good", "Excellent"],
+    colors: ["#78716c", "#a3e635", "#f59e0b", "#ef4444"],
+  },
+  fish: {
+    levels: [35, 50, 65, 80],
+    labels: ["Slow", "Fair", "Good", "Excellent"],
+    colors: ["#475569", "#2dd4bf", "#22c55e", "#facc15"],
+  },
+};
+
+/** Boundary Collision Analyzer: each collision's dot, by its score. */
+export const BOUND_POINTS = [
+  { min: 0, label: "Low", color: "#94a3b8" },
+  { min: 40, label: "Possible", color: "#facc15" },
+  { min: 60, label: "Likely", color: "#fb923c" },
+  { min: 80, label: "Strong", color: "#f43f5e" },
 ];
-export const rotBin = (v: number) =>
-  Math.max(
-    0,
-    ROT_BANDS.findLastIndex((b) => v >= b.min),
-  );
+
+/** Severe Analogs: the share of matched days with a severe report within 25 miles. */
+export const ANALOG_BANDS = [
+  { min: 10, label: "10%", color: "#4ade80" },
+  { min: 20, label: "20%", color: "#facc15" },
+  { min: 35, label: "35%", color: "#fb923c" },
+  { min: 50, label: "50%+", color: "#f43f5e" },
+];
+/** Severe Analogs: one matched day's reports. */
+export const ANALOG_DOTS = {
+  torn: { label: "Tornado", color: "#ef4444" },
+  wind: { label: "Wind", color: "#60a5fa" },
+  hail: { label: "Hail", color: "#4ade80" },
+};
+
+/** First Storms' timing map: when the first storms start, latest first (nested). */
+export const FIRST_TIME_BANDS = [
+  { label: "4–6 hours", color: "#a78bfa" },
+  { label: "2–4 hours", color: "#f472b6" },
+  { label: "Within 2 hours", color: "#fde047" },
+];
+
+/** Lightning Surge Detector storm outlines: rising, jump, strong jump. */
+export const SURGE_BANDS = [
+  { label: "Lightning rising", color: "#fde047" },
+  { label: "Lightning jump", color: "#fb923c" },
+  { label: "Strong jump", color: "#f43f5e" },
+];
+
 /** PyroCb chance per fire, 0–100. */
 export const PYRO_BINS = [
   { min: 0, label: "Low", color: "#64748b" },

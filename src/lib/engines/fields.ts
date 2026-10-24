@@ -1,19 +1,40 @@
 import "server-only";
 import { PLACES } from "@/lib/geo/places.data";
 import { nearestPlace, parsePlaces } from "@/lib/geo/search";
-import { gridSize, locator, type Field } from "@/lib/models/grib2";
-import { MODELS, REGIONS, latestCycle, record } from "@/lib/models/render";
+import {
+  gridSize,
+  locator,
+  type Field,
+  type LatLonGrid,
+} from "@/lib/models/grib2";
+import {
+  MODELS,
+  REGIONS,
+  exists,
+  latestCycle,
+  record,
+} from "@/lib/models/render";
 import { activeFires } from "@/lib/fire/data";
+import { nextSunEvent, sunPosition } from "@/lib/sky/astro";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getOutlook } from "@/lib/tropical/nhc";
 import { latticeAreas, soften } from "./areas";
 import { FIELD_BANDS, type FieldId } from "./colors";
+import { logFlags, type Flag } from "./verify";
+import { bound } from "./boundary";
+import {
+  glowFactors,
+  glowScore,
+  type GlowInputs,
+  type Weights,
+} from "./outdoor";
 
 /**
  * The model-driven Weather Engines (Extras). Each reads a handful of HRRR fields by byte range
  * from NOAA's AWS archive (the same reader as the model viewer) and combines them into one
  * index, painted as a transparent map layer in the admin-editable band colors.
  */
-const CONUS = REGIONS.conus.b;
+export const CONUS = REGIONS.conus.b;
 const KT = 1.943844;
 let places: ReturnType<typeof parsePlaces> | null = null;
 
@@ -23,11 +44,11 @@ const hypot = (a: Float32Array, b: Float32Array) => {
   for (let i = 0; i < a.length; i++) o[i] = Math.hypot(a[i], b[i]);
   return o;
 };
-const cycleTime = (c: string) =>
+export const cycleTime = (c: string) =>
   Date.UTC(+c.slice(0, 4), +c.slice(4, 6) - 1, +c.slice(6, 8), +c.slice(8));
 
 /** The forecast hour of `cycle` closest to `at`, inside the HRRR's 18 hours. */
-const hourFor = (cycle: string, at: number) =>
+export const hourFor = (cycle: string, at: number) =>
   clamp(Math.round((at - cycleTime(cycle)) / 3600_000), 0, 18);
 
 /** The next time it is `hour`:00 UTC, at least `ahead` hours from now. */
@@ -38,7 +59,20 @@ function nextUtc(hour: number, ahead = 0) {
   return t.getTime();
 }
 
-async function grab(cycle: string, fh: number, matches: string[]) {
+/** The newest 48-hour HRRR run (00, 06, 12 or 18Z) at or before `cycle` with its last hour out. */
+async function longRun(cycle: string) {
+  for (let back = 0; back <= 12; back++) {
+    const t = cycleTime(cycle) - back * 3600_000;
+    const d = new Date(t);
+    if (d.getUTCHours() % 6) continue;
+    const id = d.toISOString().slice(0, 13).replace(/[-T]/g, "");
+    if (await exists(MODELS.hrrr.url(id.slice(0, 8), id.slice(8), 48)))
+      return id;
+  }
+  return null;
+}
+
+export async function grab(cycle: string, fh: number, matches: string[]) {
   const url = MODELS.hrrr.url(cycle.slice(0, 8), cycle.slice(8), fh);
   return Promise.all(matches.map((m) => record(url, m)));
 }
@@ -72,17 +106,7 @@ function thetaE(t: number, td: number, p: number) {
   return th * Math.exp((3036 / tl - 1.78) * r * (1 + 0.448 * r));
 }
 const es = (tc: number) => 6.112 * Math.exp((17.67 * tc) / (tc + 243.5));
-/** Relative humidity (%) from T and Td in K. */
-const rh = (t: number, td: number) => (100 * es(td - 273.15)) / es(t - 273.15);
-/** Stull (2011) wet-bulb (°C) from T (°C) and RH (%). */
-const wetBulb = (t: number, r: number) =>
-  t * Math.atan(0.151977 * Math.sqrt(r + 8.313659)) +
-  Math.atan(t + r) -
-  Math.atan(r - 1.676331) +
-  0.00391838 * r ** 1.5 * Math.atan(0.023101 * r) -
-  4.686035;
-
-type Computed = {
+export type Computed = {
   field: Field;
   cycle: string;
   fh: number;
@@ -91,6 +115,18 @@ type Computed = {
   note?: string;
   /** A field noisy cell to cell (terrain-driven), softened twice before contouring. */
   rough?: boolean;
+  /** Places to check against the weather later (from the top spots). */
+  flags?: (spots: Spot[]) => Flag[];
+  /** A line under each listed spot (why), and its time (shown in the viewer's zone). */
+  detail?: (lat: number, lon: number) => string | undefined;
+  when?: (lat: number, lon: number) => number | undefined;
+  altWhen?: (lat: number, lon: number) => number | undefined;
+  /** Listed spots must be this close to a U.S. town (default 100 miles). */
+  nearMiles?: number;
+  /** The line under each spot listed for the second map (only maps that list spots). */
+  altDetail?: (lat: number, lon: number) => string | undefined;
+  /** A second map of the same engine, with its own bands (First Storms' timing). */
+  alt?: { field: Field; levels: number[] };
 };
 
 /** Nocturnal LLJ Ramp-Up, valid at the coming 06Z (about 1 a.m. Central). */
@@ -145,69 +181,8 @@ async function llj(cycle: string): Promise<Computed> {
   };
 }
 
-/** SPC's Snow Squall Parameter, from the surface, 850 and 700 mb, an hour ahead. */
-async function snsq(cycle: string): Promise<Computed> {
-  const fh = hourFor(cycle, Date.now() + 3600_000);
-  const [t2, d2, t8, d8, t7, d7, u10, v10, u8, v8, u7, v7, ps] = await grab(
-    cycle,
-    fh,
-    [
-      ":TMP:2 m above ground:",
-      ":DPT:2 m above ground:",
-      ":TMP:850 mb:",
-      ":DPT:850 mb:",
-      ":TMP:700 mb:",
-      ":DPT:700 mb:",
-      ":UGRD:10 m above ground:",
-      ":VGRD:10 m above ground:",
-      ":UGRD:850 mb:",
-      ":VGRD:850 mb:",
-      ":UGRD:700 mb:",
-      ":VGRD:700 mb:",
-      ":PRES:surface:",
-    ],
-  );
-  const n = t2.values.length;
-  const out = new Float32Array(n);
-  for (let i = 0; i < n; i++) {
-    const p = ps.values[i];
-    const T = t2.values[i];
-    const r2 = rh(T, d2.values[i]);
-    // Snow squalls need snow at the ground: 2 m wet-bulb at or below 1 °C.
-    if (wetBulb(T - 273.15, r2) > 1 || p < 70000) {
-      out[i] = 0;
-      continue;
-    }
-    // The lowest ~2 km: up to 850 mb near sea level, to 700 mb on higher ground, using only
-    // levels that are above the ground there.
-    const above: number[][] = [];
-    if (p > 86000)
-      above.push([t8.values[i], d8.values[i], u8.values[i], v8.values[i]]);
-    if (p < 95000)
-      above.push([t7.values[i], d7.values[i], u7.values[i], v7.values[i]]);
-    const high = p < 95000;
-    let rs = r2;
-    let ws = Math.hypot(u10.values[i], v10.values[i]);
-    for (const [t, d, u, v] of above) {
-      rs += rh(t, d);
-      ws += Math.hypot(u, v);
-    }
-    const mRh = rs / (above.length + 1);
-    const mW = ws / (above.length + 1);
-    const [tt, tdt] = above[above.length - 1];
-    const dThw =
-      thetaW(thetaE(tt, tdt, high ? 70000 : 85000)) -
-      thetaW(thetaE(T, d2.values[i], p));
-    const a = (mRh - 60) / 15;
-    const b = (4 - dThw) / 4;
-    const c = mW / 9;
-    out[i] = a > 0 && b > 0 ? a * b * c : 0;
-  }
-  return { field: { grid: t2.grid, values: out }, cycle, fh };
-}
-
 /** Box-average a grid in place-free fashion (radius r cells), for smoothing a derivative. */
-function smooth(v: Float32Array, w: number, h: number, r: number) {
+export function smooth(v: Float32Array, w: number, h: number, r: number) {
   const sum = new Float64Array((w + 1) * (h + 1));
   for (let j = 0; j < h; j++)
     for (let i = 0; i < w; i++) {
@@ -377,7 +352,7 @@ async function pyro(cycle: string): Promise<Computed> {
 }
 
 const R = 6371;
-const distKm = (a: number, b: number, c: number, d: number) => {
+export const distKm = (a: number, b: number, c: number, d: number) => {
   const r = Math.PI / 180;
   const x =
     Math.sin(((c - a) * r) / 2) ** 2 +
@@ -648,9 +623,568 @@ async function ltg(cycle: string): Promise<Computed> {
   return { field: { grid: first.grid, values: out }, cycle, fh };
 }
 
+/**
+ * Rain-Wrap Index (0–100) where this evening's supercells could form (SCP ≥ 1): how hidden a
+ * tornado may be in rain. After Rasmussen and Straka (1998), weak storm-relative wind at anvil
+ * level (250–300 mb) keeps the rain falling around the updraft (heavy-precipitation storms);
+ * strong anvil-level flow carries it away (low-precipitation storms). Deep moisture and a low
+ * cloud base add to it. Storm motion is the HRRR's own Bunkers right mover.
+ */
+async function rwrap(cycle: string): Promise<Computed> {
+  const fh = hourFor(cycle, nextUtc(0, 1));
+  const [mu, mucin, srh, us, vs, ust, vst, u25, v25, u30, v30, pw, lcl, zs] =
+    await grab(cycle, fh, [
+      ":CAPE:255-0 mb above ground:",
+      ":CIN:255-0 mb above ground:",
+      ":HLCY:3000-0 m above ground:",
+      ":VUCSH:0-6000 m above ground:",
+      ":VVCSH:0-6000 m above ground:",
+      ":USTM:0-6000 m above ground:",
+      ":VSTM:0-6000 m above ground:",
+      ":UGRD:250 mb:",
+      ":VGRD:250 mb:",
+      ":UGRD:300 mb:",
+      ":VGRD:300 mb:",
+      ":PWAT:entire atmosphere",
+      ":HGT:level of adiabatic condensation from sfc:",
+      ":HGT:surface:",
+    ]);
+  const out = new Float32Array(mu.values.length);
+  for (let i = 0; i < out.length; i++) {
+    const sh = bulk(us.values[i], vs.values[i]);
+    const c = mucin.values[i];
+    const scp =
+      (mu.values[i] / 1000) *
+      (srh.values[i] / 50) *
+      (sh < 10 ? 0 : sh > 20 ? 1 : sh / 20) *
+      (c > -40 ? 1 : -40 / c);
+    if (!(scp >= 1)) continue;
+    const sr = Math.hypot(
+      (u25.values[i] + u30.values[i]) / 2 - ust.values[i],
+      (v25.values[i] + v30.values[i]) / 2 - vst.values[i],
+    );
+    const wind = clamp((28 - sr) / 10);
+    const wet = clamp((pw.values[i] - 20) / 20);
+    const base = clamp((1500 - (lcl.values[i] - zs.values[i])) / 1000);
+    out[i] = Math.max(1, 100 * (0.6 * wind + 0.3 * wet + 0.1 * base));
+  }
+  return { field: { grid: mu.grid, values: out }, cycle, fh };
+}
+
+/**
+ * Blizzard Composite: hours of whiteout over the next two days, by the Weather Service's
+ * blizzard test (gusts of 35 mph or more with snow cutting visibility to a quarter mile).
+ * The newest run gives every 2 hours to 18; the newest 48-hour run every 3 hours after
+ * that. Falling snow counts where the HRRR snows with visibility under half a mile; blowing
+ * snow where at least 2" of snow lies, it is −5 °C or colder (dry, loose snow) and gusts reach
+ * 40 mph. Time runs out at 35 seconds; the note then says how far it counted.
+ */
+async function blizz(cycle: string): Promise<Computed> {
+  const start = Date.now();
+  const t0 = cycleTime(cycle);
+  const long = await longRun(cycle);
+  const steps: { c: string; fh: number; at: number; dur: number }[] = [];
+  for (let fh = 1; fh <= 17; fh += 2)
+    steps.push({ c: cycle, fh, at: fh, dur: 2 });
+  if (long) {
+    const off = (t0 - cycleTime(long)) / 3600_000;
+    for (let at = 20; at + off <= 48; at += 3)
+      steps.push({ c: long, fh: at + off, at, dur: 3 });
+  }
+  const [snodNear] = await grab(cycle, 1, [":SNOD:surface:"]);
+  const n = snodNear.values.length;
+  const hours = new Float32Array(n);
+  const first = new Float32Array(n).fill(NaN);
+  const last = new Float32Array(n);
+  let snod = snodNear.values;
+  let through = 0;
+  for (let k = 0; k < steps.length; k += 3) {
+    if (Date.now() - start > 35_000) break;
+    const batch = steps.slice(k, k + 3);
+    const got = await Promise.all(
+      batch.map((st) =>
+        grab(st.c, st.fh, [
+          ":GUST:surface:",
+          ":VIS:surface:",
+          ":CSNOW:surface:",
+          ":TMP:2 m above ground:",
+          ...(st.c === long && st.at === 20 ? [":SNOD:surface:"] : []),
+        ]),
+      ),
+    );
+    batch.forEach((st, b) => {
+      const [g, v, cs, t2, sd] = got[b];
+      if (sd) snod = sd.values;
+      for (let i = 0; i < n; i++) {
+        const mph = g.values[i] * 2.237;
+        if (mph < 35) continue;
+        const falling = cs.values[i] >= 0.5 && v.values[i] <= 800;
+        const blowing = snod[i] >= 0.05 && t2.values[i] <= 268.15 && mph >= 40;
+        if (!falling && !blowing) continue;
+        hours[i] += st.dur;
+        if (!(first[i] <= st.at)) first[i] = st.at - st.dur / 2;
+        last[i] = st.at + st.dur / 2;
+      }
+      through = st.at + st.dur / 2;
+    });
+  }
+  const loc = locator(snodNear.grid);
+  const [w] = gridSize(snodNear.grid);
+  const cell = (lat: number, lon: number) => {
+    const [fi, fj] = loc(lat, lon);
+    return Math.round(fj) * w + Math.round(fi);
+  };
+  return {
+    field: { grid: snodNear.grid, values: hours },
+    cycle,
+    fh: 1,
+    note:
+      through < 47
+        ? `Counted through the next ${Math.round(through)} hours.`
+        : undefined,
+    flags: (spots) =>
+      spots
+        .filter((x) => x.value >= 3)
+        .flatMap((x) => {
+          const i = cell(x.lat, x.lon);
+          if (!Number.isFinite(first[i])) return [];
+          const at = t0 + first[i] * 3600_000;
+          return [
+            {
+              key: `${new Date(at).toISOString().slice(0, 10)}:${x.lat.toFixed(1)},${x.lon.toFixed(1)}`,
+              at,
+              lat: x.lat,
+              lon: x.lon,
+              label: `${x.place} (${x.value} h)`,
+              window_min: Math.min(
+                720,
+                Math.round((last[i] - first[i] + 3) * 60),
+              ),
+              radius_km: 40,
+            },
+          ];
+        }),
+  };
+}
+
+export const LW = Math.round((CONUS[2] - CONUS[0]) / 0.1) + 1;
+export const LH = Math.round((CONUS[3] - CONUS[1]) / 0.1) + 1;
+/** The 0.1° CONUS lattice as a grid, north row first. */
+export const LATTICE: LatLonGrid = {
+  kind: "latlon",
+  ni: LW,
+  nj: LH,
+  lat1: CONUS[3],
+  lon1: CONUS[0],
+  di: 0.1,
+  dj: 0.1,
+  southward: true,
+};
+
+/** A native field on the lattice, each cell the most of the native points within `r`. */
+export function toLattice(f: Field, r = 2) {
+  const loc = locator(f.grid);
+  const [w, h] = gridSize(f.grid);
+  const out = new Float32Array(LW * LH);
+  for (let j = 0; j < LH; j++)
+    for (let i = 0; i < LW; i++) {
+      const [fi, fj] = loc(CONUS[3] - j * 0.1, CONUS[0] + i * 0.1);
+      const x = Math.round(fi);
+      const y = Math.round(fj);
+      let m = -Infinity;
+      for (let b = Math.max(0, y - r); b <= Math.min(h - 1, y + r); b++)
+        for (let a = Math.max(0, x - r); a <= Math.min(w - 1, x + r); a++) {
+          const v = f.values[b * w + a];
+          if (v > m) m = v;
+        }
+      out[j * LW + i] = m;
+    }
+  return out;
+}
+
+/** The lattice field's maximum (or minimum) within `r` cells, separably. */
+function spread(v: Float32Array, r: number, min = false) {
+  const pick = min ? Math.min : Math.max;
+  const tmp = new Float32Array(v.length);
+  const out = new Float32Array(v.length);
+  for (let j = 0; j < LH; j++)
+    for (let i = 0; i < LW; i++) {
+      let m = v[j * LW + i];
+      for (let a = Math.max(0, i - r); a <= Math.min(LW - 1, i + r); a++)
+        m = pick(m, v[j * LW + a]);
+      tmp[j * LW + i] = m;
+    }
+  for (let j = 0; j < LH; j++)
+    for (let i = 0; i < LW; i++) {
+      let m = tmp[j * LW + i];
+      for (let b = Math.max(0, j - r); b <= Math.min(LH - 1, j + r); b++)
+        m = pick(m, tmp[b * LW + i]);
+      out[j * LW + i] = m;
+    }
+  return out;
+}
+
+const ymdh = (t: number) =>
+  new Date(t).toISOString().slice(0, 13).replace(/[-T]/g, "");
+
+/**
+ * First Storms: the chance new storms start within about 25 miles over the next 6 hours,
+ * from the last four HRRR runs together (a time-lagged ensemble). In each run a new storm is
+ * a 35 dBZ echo with none within 25 miles the hour before; the chance is the share of runs
+ * that start one nearby, weighed by whether the newest run has the cap weakening and the
+ * surface winds converging, and only where there is instability to use (MUCAPE ≥ 100).
+ */
+async function first(cycle: string): Promise<Computed> {
+  const t0 = cycleTime(cycle);
+  const base = Math.floor(Date.now() / 3600_000) * 3600_000;
+  const R = 4;
+  const n = LW * LH;
+  const votes = new Float32Array(n);
+  const whenSum = new Float32Array(n);
+  const whenN = new Float32Array(n);
+  let runs = 0;
+  for (let k = 0; k < 4; k++) {
+    const c = ymdh(t0 - k * 3600_000);
+    const hrs = Array.from({ length: 7 }, (_, h) =>
+      Math.round((base + h * 3600_000 - cycleTime(c)) / 3600_000),
+    );
+    if (hrs.some((fh) => fh < 0 || fh > 18)) continue;
+    const refl = await Promise.all(
+      hrs.map((fh) =>
+        grab(c, fh, [":REFC:entire atmosphere:"])
+          .then(([f]) => toLattice(f))
+          .catch(() => null),
+      ),
+    );
+    if (refl.some((f) => !f)) continue;
+    runs++;
+    const when = new Float32Array(n).fill(Infinity);
+    let near = spread(refl[0]!, R);
+    for (let h = 1; h < 7; h++) {
+      const f = refl[h]!;
+      for (let i = 0; i < n; i++)
+        if (f[i] >= 35 && near[i] < 35 && when[i] === Infinity) when[i] = h;
+      near = spread(f, R);
+    }
+    const soon = spread(when, R, true);
+    for (let i = 0; i < n; i++)
+      if (soon[i] < Infinity) {
+        votes[i]++;
+        whenSum[i] += soon[i];
+        whenN[i]++;
+      }
+  }
+  if (!runs) throw new Error("No HRRR runs cover the next 6 hours");
+  const fh = hourFor(cycle, base + 3 * 3600_000);
+  const [[cape, u10, v10, land], [cinNow], [cinLater]] = await Promise.all([
+    grab(cycle, fh, [
+      ":CAPE:255-0 mb above ground:",
+      ":UGRD:10 m above ground:",
+      ":VGRD:10 m above ground:",
+      ":LAND:surface:",
+    ]),
+    grab(cycle, hourFor(cycle, base + 3600_000), [
+      ":CIN:90-0 mb above ground:",
+    ]),
+    grab(cycle, hourFor(cycle, base + 4 * 3600_000), [
+      ":CIN:90-0 mb above ground:",
+    ]),
+  ]);
+  const g = cape.grid;
+  const [w, h] = gridSize(g);
+  const dx = g.kind === "lambert" ? g.dx : 3000;
+  const div = new Float32Array(w * h);
+  for (let j = 1; j < h - 1; j++)
+    for (let i = 1; i < w - 1; i++) {
+      const k = j * w + i;
+      div[k] =
+        (u10.values[k + 1] - u10.values[k - 1]) / (2 * dx) +
+        (v10.values[k + w] - v10.values[k - w]) / (2 * dx);
+    }
+  const conv = smooth(div, w, h, 6);
+  const loc = locator(g);
+  const prob = new Float32Array(n);
+  const time = new Float32Array(n);
+  const factors = new Uint8Array(n);
+  for (let j = 0; j < LH; j++)
+    for (let i = 0; i < LW; i++) {
+      const q = j * LW + i;
+      if (!votes[q]) continue;
+      const [fi, fj] = loc(CONUS[3] - j * 0.1, CONUS[0] + i * 0.1);
+      const x = Math.round(fi);
+      const y = Math.round(fj);
+      if (x < 0 || y < 0 || x >= w || y >= h) continue;
+      const k = y * w + x;
+      // Over land only: storms over open water start daily and matter to no one chasing.
+      if (!(cape.values[k] >= 100) || land.values[k] < 0.5) continue;
+      const weaker = cinLater.values[k] - cinNow.values[k] >= 10;
+      const none = cinLater.values[k] > -25;
+      const cap = weaker || none;
+      const meet = conv[k] < -1e-5;
+      factors[q] =
+        (weaker ? 1 : 0) + (meet ? 2 : 0) + (!weaker && none ? 4 : 0);
+      prob[q] =
+        100 *
+        (votes[q] / runs) *
+        (0.75 + 0.125 * (cap ? 1 : 0) + 0.125 * (meet ? 1 : 0));
+      // Earlier is higher, so the nested timing areas put the soonest on top.
+      if (prob[q] >= 15) time[q] = 7 - whenSum[q] / whenN[q];
+    }
+  const at = (lat: number, lon: number) => {
+    const i = Math.round((lon - CONUS[0]) / 0.1);
+    const j = Math.round((CONUS[3] - lat) / 0.1);
+    return i >= 0 && j >= 0 && i < LW && j < LH ? j * LW + i : -1;
+  };
+  return {
+    field: { grid: LATTICE, values: prob },
+    cycle,
+    fh,
+    alt: { field: { grid: LATTICE, values: time }, levels: [1, 3, 5] },
+    nearMiles: 40,
+    note:
+      runs < 4
+        ? `${runs} of the last 4 HRRR runs reach 6 hours ahead; the chance uses those.`
+        : undefined,
+    detail: (lat, lon) => {
+      const q = at(lat, lon);
+      if (q < 0 || !whenN[q]) return undefined;
+      const why = [
+        factors[q] & 1 ? "cap weakening" : "",
+        factors[q] & 4 ? "little or no cap" : "",
+        factors[q] & 2 ? "winds converging" : "",
+      ].filter(Boolean);
+      return `${votes[q]} of ${runs} runs${why.length ? ` · ${why.join(", ")}` : ""}`;
+    },
+    when: (lat, lon) => {
+      const q = at(lat, lon);
+      return q < 0 || !whenN[q]
+        ? undefined
+        : base + Math.round(whenSum[q] / whenN[q]) * 3600_000;
+    },
+    flags: (spots) =>
+      spots
+        .filter((x) => x.value >= 35)
+        .map((x) => ({
+          key: `${cycle}:${x.lat.toFixed(1)},${x.lon.toFixed(1)}`,
+          at: base,
+          lat: x.lat,
+          lon: x.lon,
+          label: `${x.place} (${Math.round(x.value)}%)`,
+          window_min: 360,
+          radius_km: 40,
+        })),
+  };
+}
+
+/** An engine's factor weights tuned from members' reports (lib/engines/tune.ts), or none. */
+export async function tuned(id: string): Promise<Weights> {
+  const { data } = await supabaseAdmin()
+    .from("app_config")
+    .select("value")
+    .eq("key", "engine_weights")
+    .maybeSingle();
+  return ((data?.value ?? {}) as Record<string, Weights>)[id] ?? {};
+}
+
+const GLOW_FIELDS = [
+  ":LCDC:low cloud layer:",
+  ":MCDC:middle cloud layer:",
+  ":HCDC:high cloud layer:",
+  ":AOTK:entire atmosphere",
+  ":TMP:2 m above ground:",
+  ":DPT:2 m above ground:",
+];
+const PATH_KM = [60, 120, 200, 300, 400];
+
+/** A point `km` away on a compass bearing (flat-earth, fine at these distances). */
+const toward = (lat: number, lon: number, az: number, km: number) => {
+  const r = (az * Math.PI) / 180;
+  return [
+    lat + (km * Math.cos(r)) / 111.32,
+    lon + (km * Math.sin(r)) / (111.32 * Math.cos((lat * Math.PI) / 180)),
+  ];
+};
+
+/** The run (newest, or the newest 48-hour one) and hour that cover a valid time, or null. */
+async function runFor(cycle: string, at: number, long?: string | null) {
+  const fh = Math.round((at - cycleTime(cycle)) / 3600_000);
+  if (fh >= 0 && fh <= 18) return { run: cycle, fh };
+  if (!long) return null;
+  const lf = Math.round((at - cycleTime(long)) / 3600_000);
+  return lf >= 0 && lf <= 48 ? { run: long, fh: lf } : null;
+}
+
+/** The glow inputs at one place and time, from the HRRR (members' sunset ratings). */
+export async function glowAt(lat: number, lon: number, at: number) {
+  const cycle = await latestCycle("hrrr");
+  if (!cycle) return null;
+  const r = await runFor(cycle, at, await longRun(cycle));
+  if (!r) return null;
+  const [f, [pr]] = await Promise.all([
+    grab(r.run, r.fh, GLOW_FIELDS),
+    r.fh >= 2
+      ? grab(r.run, r.fh - 2, [":PRATE:surface:"])
+      : Promise.resolve([null]),
+  ]);
+  const loc = locator(f[0].grid);
+  const [w, h] = gridSize(f[0].grid);
+  const idx = (la: number, lo: number) => {
+    const [fi, fj] = loc(la, lo);
+    const x = Math.round(fi);
+    const y = Math.round(fj);
+    return x < 0 || y < 0 || x >= w || y >= h ? -1 : y * w + x;
+  };
+  const az = sunPosition(new Date(at), lat, lon).azimuth;
+  return glowInputs(f, pr, idx, lat, lon, az);
+}
+
+function glowInputs(
+  f: Field[],
+  pr: Field | null,
+  idx: (lat: number, lon: number) => number,
+  lat: number,
+  lon: number,
+  az: number,
+): GlowInputs | null {
+  const [low, mid, high, aot, t2, d2] = f;
+  const k = idx(lat, lon);
+  if (k < 0) return null;
+  const path = PATH_KM.flatMap((km) => {
+    const [la, lo] = toward(lat, lon, az, km);
+    const q = idx(la, lo);
+    return q < 0 ? [] : [Math.max(low.values[q], mid.values[q])];
+  });
+  return {
+    low: low.values[k],
+    mid: mid.values[k],
+    high: high.values[k],
+    path,
+    aot: aot.values[k],
+    rh: (100 * es(d2.values[k] - 273.15)) / es(t2.values[k] - 273.15),
+    rained: (pr?.values[k] ?? 0) * 3600 > 0.1,
+  };
+}
+
+/**
+ * Sunset (and Sunrise) Quality: at each place's own next sunset, the HRRR's clouds overhead
+ * and along the line toward the sun, smoke and humidity, scored by lib/engines/outdoor.ts.
+ * Places are grouped by the hour of their sunset; each hour's fields are read once.
+ */
+async function glowMap(
+  cycle: string,
+  kind: "sunset" | "sunrise",
+  w: Weights,
+  long: string | null,
+  deadline: number,
+) {
+  const now = Date.now() - 20 * 60_000;
+  // Each 1° cell's event time and the sun's bearing then.
+  const CW = 61;
+  const CH = 28;
+  const ev = new Float64Array(CW * CH).fill(NaN);
+  const az = new Float32Array(CW * CH);
+  for (let j = 0; j < CH; j++)
+    for (let i = 0; i < CW; i++) {
+      const lat = CONUS[1] + j;
+      const lon = CONUS[0] + i;
+      const t = nextSunEvent(kind, lat, lon, new Date(now));
+      if (!t) continue;
+      ev[j * CW + i] = t.getTime();
+      az[j * CW + i] = sunPosition(t, lat, lon).azimuth;
+    }
+  const cellOf = (lat: number, lon: number) =>
+    Math.min(CH - 1, Math.max(0, Math.round(lat - CONUS[1]))) * CW +
+    Math.min(CW - 1, Math.max(0, Math.round(lon - CONUS[0])));
+  const out = new Float32Array(LW * LH).fill(NaN);
+  const parts = new Map<number, ReturnType<typeof glowFactors>>();
+  const hours = [
+    ...new Set(
+      [...ev].filter(Number.isFinite).map((t) => Math.round(t / 3600_000)),
+    ),
+  ].sort((a, b) => a - b);
+  let done = 0;
+  for (const hr of hours) {
+    if (Date.now() > deadline) break;
+    const r = await runFor(cycle, hr * 3600_000, long);
+    if (!r) continue;
+    const [f, [pr]] = await Promise.all([
+      grab(r.run, r.fh, GLOW_FIELDS),
+      r.fh >= 2
+        ? grab(r.run, r.fh - 2, [":PRATE:surface:"])
+        : Promise.resolve([null]),
+    ]);
+    const loc = locator(f[0].grid);
+    const [gw, gh] = gridSize(f[0].grid);
+    const idx = (la: number, lo: number) => {
+      const [fi, fj] = loc(la, lo);
+      const x = Math.round(fi);
+      const y = Math.round(fj);
+      return x < 0 || y < 0 || x >= gw || y >= gh ? -1 : y * gw + x;
+    };
+    for (let j = 0; j < LH; j++)
+      for (let i = 0; i < LW; i++) {
+        const lat = CONUS[3] - j * 0.1;
+        const lon = CONUS[0] + i * 0.1;
+        const c = cellOf(lat, lon);
+        if (Math.round(ev[c] / 3600_000) !== hr) continue;
+        const x = glowInputs(f, pr, idx, lat, lon, az[c]);
+        if (!x) continue;
+        const fac = glowFactors(x);
+        out[j * LW + i] = glowScore(fac, w);
+        parts.set(j * LW + i, fac);
+      }
+    done++;
+  }
+  return { out, ev, cellOf, parts, done, of: hours.length };
+}
+
+async function sunset(cycle: string): Promise<Computed> {
+  const start = Date.now();
+  const [w, long] = await Promise.all([tuned("sunset"), longRun(cycle)]);
+  const set = await glowMap(cycle, "sunset", w, long, start + 30_000);
+  const rise = await glowMap(cycle, "sunrise", w, long, start + 42_000);
+  const say = (fac: ReturnType<typeof glowFactors> | undefined) => {
+    if (!fac) return "";
+    const bits = [
+      fac.canvas >= 0.7
+        ? "clouds overhead to catch the light"
+        : fac.canvas < 0.3
+          ? "too few clouds for color"
+          : "",
+      fac.horizon >= 0.75 ? "clear toward the sun" : "",
+      fac.smoke > 1.05 ? "a little smoke for deeper reds" : "",
+      fac.smoke < 0.8 ? "heavy smoke" : "",
+      fac.rain > 1 ? "fresh air after rain" : "",
+    ].filter(Boolean);
+    return bits.join(", ");
+  };
+  const at = (lat: number, lon: number) => {
+    const i = Math.round((lon - CONUS[0]) / 0.1);
+    const j = Math.round((CONUS[3] - lat) / 0.1);
+    return j * LW + i;
+  };
+  return {
+    field: { grid: LATTICE, values: set.out },
+    cycle,
+    fh: 1,
+    alt: {
+      field: { grid: LATTICE, values: rise.out },
+      levels: [20, 40, 60, 80],
+    },
+    nearMiles: 60,
+    note:
+      set.done < set.of || rise.done < rise.of
+        ? "Part of the country is still to come; the map fills in on the next run."
+        : undefined,
+    detail: (lat, lon) => say(set.parts.get(at(lat, lon))) || undefined,
+    when: (lat, lon) => set.ev[set.cellOf(lat, lon)] || undefined,
+    altDetail: (lat, lon) => say(rise.parts.get(at(lat, lon))) || undefined,
+    altWhen: (lat, lon) => rise.ev[rise.cellOf(lat, lon)] || undefined,
+  };
+}
+
 const COMPUTE: Record<FieldId, (cycle: string) => Promise<Computed>> = {
   llj,
-  snsq,
   nst,
   pyro,
   tctor,
@@ -658,6 +1192,11 @@ const COMPUTE: Record<FieldId, (cycle: string) => Promise<Computed>> = {
   scp,
   dcp,
   ltg,
+  rwrap,
+  blizz,
+  first,
+  sunset,
+  bound,
 };
 
 export type Spot = {
@@ -666,6 +1205,8 @@ export type Spot = {
   value: number;
   place: string;
   water?: boolean;
+  note?: string;
+  at?: number;
 };
 
 /** The strongest separate spots on a 0.25° lattice, named by the nearest town. */
@@ -700,11 +1241,13 @@ function spots(c: Computed, min: number, n = 6): Spot[] {
     if (pickd.some((p) => distKm(p.lat, p.lon, s.lat, s.lon) < 250)) continue;
     // Over 100 miles from any U.S. town is Canada, Mexico or open sea: not listed.
     const near = nearestPlace(rows, s.lat, s.lon, 2000);
-    if (!near || near.miles > 100) continue;
+    if (!near || near.miles > (c.nearMiles ?? 100)) continue;
     pickd.push({
       ...s,
       value: Math.round(s.value * 10) / 10,
       place: `${near.miles < 5 ? "" : `${Math.round(near.miles)} mi from `}${near.hit.name}, ${near.hit.st}`,
+      note: c.detail?.(s.lat, s.lon),
+      at: c.when?.(s.lat, s.lon),
     });
     if (pickd.length >= n) break;
   }
@@ -747,6 +1290,8 @@ export async function fieldEngine(id: FieldId) {
   if (!cycle) throw new Error("No HRRR run is available");
   const c = await COMPUTE[id](cycle);
   const bands = FIELD_BANDS[id];
+  const top = id === "pyro" || id === "bound" ? [] : spots(c, bands.levels[0]);
+  if (c.flags) await logFlags(id, c.flags(top)).catch(() => {});
   return {
     id,
     cycle,
@@ -754,9 +1299,18 @@ export async function fieldEngine(id: FieldId) {
     valid: new Date(cycleTime(cycle) + c.fh * 3600_000).toISOString(),
     bounds: CONUS,
     areas: areasOf(c, bands.levels),
-    spots: id === "pyro" ? [] : spots(c, bands.levels[0]),
+    alt: c.alt ? areasOf({ ...c, field: c.alt.field }, c.alt.levels) : null,
+    altSpots:
+      c.alt && c.altDetail
+        ? spots(
+            { ...c, field: c.alt.field, detail: c.altDetail, when: c.altWhen },
+            c.alt.levels[0],
+          )
+        : null,
+    spots: top,
     fires: (c.extra?.fires as unknown[]) ?? undefined,
     storms: (c.extra?.storms as unknown[]) ?? undefined,
+    points: (c.extra?.points as unknown[]) ?? undefined,
     note: c.note ?? null,
   };
 }
@@ -771,5 +1325,14 @@ export async function fieldPreview(id: FieldId) {
     lon: number;
     chance: number;
   }[];
-  return { areas: areasOf(c, FIELD_BANDS[id].levels), fires };
+  return {
+    areas: areasOf(c, FIELD_BANDS[id].levels),
+    alt: c.alt ? areasOf({ ...c, field: c.alt.field }, c.alt.levels) : null,
+    fires,
+    points: (c.extra?.points ?? []) as {
+      lat: number;
+      lon: number;
+      score: number;
+    }[],
+  };
 }
