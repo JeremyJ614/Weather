@@ -89,6 +89,8 @@ type Computed = {
   keep?: (lat: number, lon: number) => boolean;
   extra?: Record<string, unknown>;
   note?: string;
+  /** A field noisy cell to cell (terrain-driven), softened twice before contouring. */
+  rough?: boolean;
 };
 
 /** Nocturnal LLJ Ramp-Up, valid at the coming 06Z (about 1 a.m. Central). */
@@ -370,6 +372,7 @@ async function pyro(cycle: string): Promise<Computed> {
     cycle,
     fh,
     extra: { fires: list },
+    rough: true,
   };
 }
 
@@ -733,7 +736,9 @@ function areasOf(c: Computed, levels: number[]) {
       const q = c.field.values[y * gw + x];
       if (Number.isFinite(q)) v[j * w + i] = q;
     }
-  return latticeAreas(soften(v, w, h, 1), w, h, W, N, STEP, levels);
+  // Hot-Dry-Windy follows the terrain cell by cell; a second pass keeps its areas readable.
+  const passes = c.rough ? 2 : 1;
+  return latticeAreas(soften(v, w, h, passes), w, h, W, N, STEP, levels);
 }
 
 /** One engine's map (nested band areas over CONUS) and what to list beside it. */

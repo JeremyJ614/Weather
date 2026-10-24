@@ -46,11 +46,17 @@ export function ConView({ initial }: { initial: National }) {
     }
   };
   useEffect(() => {
+    // An edge copy older than its two minutes catches up quietly.
+    if (Date.now() - Date.parse(initial.at) > 120_000)
+      fetch("/api/sswxcon")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d: National | null) => d && setN(d))
+        .catch(() => {});
     const t = setInterval(() => {
       if (document.visibilityState === "visible") refresh();
     }, 5 * 60_000);
     return () => clearInterval(t);
-  }, []);
+  }, [initial.at]);
 
   const live = n.components.filter((c) => c.score > 0);
   return (

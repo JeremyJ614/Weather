@@ -256,6 +256,47 @@ function inside(r: Ring, [x, y]: Pt) {
   return c;
 }
 
+/** Douglas–Peucker on a closed ring: drops points within `tol` cells of the line they sit on. */
+function simplify(r: Ring, tol: number): Ring {
+  if (tol <= 0 || r.length < 8) return r;
+  const keep = new Uint8Array(r.length);
+  keep[0] = keep[r.length - 1] = 1;
+  // A closed ring splits at its far point first, so the first pass has a real chord.
+  let far = 0;
+  let best = -1;
+  for (let i = 1; i < r.length - 1; i++) {
+    const d = (r[i][0] - r[0][0]) ** 2 + (r[i][1] - r[0][1]) ** 2;
+    if (d > best) [best, far] = [d, i];
+  }
+  keep[far] = 1;
+  const stack: [number, number][] = [
+    [0, far],
+    [far, r.length - 1],
+  ];
+  const t2 = tol * tol;
+  while (stack.length) {
+    const [a, b] = stack.pop()!;
+    const [ax, ay] = r[a];
+    const dx = r[b][0] - ax;
+    const dy = r[b][1] - ay;
+    const len = dx * dx + dy * dy;
+    let k = -1;
+    let m = t2;
+    for (let i = a + 1; i < b; i++) {
+      const px = r[i][0] - ax;
+      const py = r[i][1] - ay;
+      const u = len ? Math.max(0, Math.min(1, (px * dx + py * dy) / len)) : 0;
+      const d = (px - u * dx) ** 2 + (py - u * dy) ** 2;
+      if (d > m) [m, k] = [d, i];
+    }
+    if (k < 0) continue;
+    keep[k] = 1;
+    stack.push([a, k], [k, b]);
+  }
+  const out = r.filter((_, i) => keep[i]);
+  return out.length >= 4 ? out : r;
+}
+
 /** Chaikin corner cutting on a closed ring (first point repeated last). */
 function chaikin(r: Ring, n: number): Ring {
   let cur = r.slice(0, -1);
@@ -274,14 +315,15 @@ function chaikin(r: Ring, n: number): Ring {
 
 /**
  * Polygons (outer ring, then holes) where `v` ≥ `t` on a w × h grid, row-major. Rings
- * smaller than `minArea` cells are dropped; `smooth` sets the rounds of corner cutting.
+ * smaller than `minArea` cells are dropped; `smooth` sets the rounds of corner cutting and
+ * `tol` (in cells) thins points that add no visible shape before the smoothing.
  */
 export function contours(
   v: ArrayLike<number>,
   w: number,
   h: number,
   t: number,
-  { minArea = 1.5, smooth = 2 } = {},
+  { minArea = 1.5, smooth = 2, tol = 0 } = {},
 ): Ring[][] {
   const polys: Ring[][] = [];
   const holes: Ring[] = [];
@@ -289,7 +331,7 @@ export function contours(
     interpolate(r, v, w, h, t);
     const a = ringArea(r);
     if (Math.abs(a) / 2 < minArea) return;
-    const s = chaikin(r, smooth);
+    const s = chaikin(simplify(r, tol), smooth);
     if (a > 0) polys.push([s]);
     else holes.push(s);
   });

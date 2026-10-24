@@ -16,6 +16,11 @@ export const metadata: Metadata = {
   title: "Warnings & Reports · StormSync Media",
 };
 
+// Performance #5: served from the edge and rebuilt at most once a minute; the page catches up
+// on load when the copy it was served is older than that (WarningsView).
+export const dynamic = "force-static";
+export const revalidate = 60;
+
 export default async function WarningsReports() {
   const { disabled } = await getSiteDefaults();
   const [list, colors] = await Promise.all([
@@ -49,7 +54,7 @@ export default async function WarningsReports() {
               sub: "Every alert, most serious first",
               icon: <Siren aria-hidden />,
               panel: list ? (
-                <WarningsView initial={list.items} />
+                <WarningsView initial={list.items} at={list.at} />
               ) : (
                 <p className={s.empty}>
                   The National Weather Service alert feed isn&apos;t answering

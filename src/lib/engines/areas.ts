@@ -31,13 +31,14 @@ export function latticeAreas(
         properties: { band },
         geometry: {
           type: "MultiPolygon" as const,
-          coordinates: contours(vals, w, h, lv, { minArea }).map((poly) =>
-            poly.map((ring) =>
-              ring.map(([x, y]) => [
-                round(west + (x - 0.5) * step),
-                round(north - (y - 0.5) * step),
-              ]),
-            ),
+          coordinates: contours(vals, w, h, lv, { minArea, tol: 0.35 }).map(
+            (poly) =>
+              poly.map((ring) =>
+                ring.map(([x, y]) => [
+                  round(west + (x - 0.5) * step),
+                  round(north - (y - 0.5) * step),
+                ]),
+              ),
           ),
         },
       }))

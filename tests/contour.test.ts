@@ -53,3 +53,19 @@ describe("contours", () => {
     expect(contours(g.v, g.w, g.h, 0.5, { minArea: 2 })).toEqual([]);
   });
 });
+
+describe("contours tol", () => {
+  it("thins straight runs without moving the outline", () => {
+    const rows = Array.from({ length: 30 }, (_, j) =>
+      [...Array(30)]
+        .map((_, i) => (i > 3 && i < 26 && j > 3 && j < 26 ? 1 : 0))
+        .join(""),
+    );
+    const g = grid(rows);
+    const full = contours(g.v, g.w, g.h, 0.5, { smooth: 0 })[0][0];
+    const thin = contours(g.v, g.w, g.h, 0.5, { smooth: 0, tol: 0.2 })[0][0];
+    expect(thin.length).toBeLessThan(full.length / 4);
+    expect(Math.abs(ringArea(thin))).toBeCloseTo(Math.abs(ringArea(full)), 0);
+    expect(thin.at(-1)).toEqual(thin[0]);
+  });
+});

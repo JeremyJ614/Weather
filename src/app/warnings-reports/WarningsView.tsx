@@ -150,7 +150,14 @@ function Card({ w, i, big }: { w: Warning; i: number; big?: boolean }) {
 }
 
 /** Active Warnings: counters, the national map, the most serious now, and every alert. */
-export function WarningsView({ initial }: { initial: Warning[] }) {
+export function WarningsView({
+  initial,
+  at,
+}: {
+  initial: Warning[];
+  /** When the server built the list: an edge copy older than a minute is refreshed at once. */
+  at: string;
+}) {
   const [items, setItems] = useState(initial);
   const [map, setMap] = useState<MapData | null | "err">(null);
   const [state, setState] = useState("");
@@ -169,13 +176,14 @@ export function WarningsView({ initial }: { initial: Warning[] }) {
         .then(setMap)
         .catch(() => setMap("err"));
     loadMap();
+    if (Date.now() - Date.parse(at) > 60_000) load();
     const t = setInterval(() => {
       if (document.visibilityState !== "visible") return;
       load();
       loadMap();
     }, 120_000);
     return () => clearInterval(t);
-  }, []);
+  }, [at]);
 
   useEffect(() => {
     if (!active) return;
