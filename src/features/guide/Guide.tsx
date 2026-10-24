@@ -115,7 +115,7 @@ const NEW: Step["tips"] = [
   {
     icon: "FlaskConical",
     title: "Engines that read like SPC maps",
-    text: "ProbTor, ProbHail and the model engines in Extras draw nested, outlined areas like an SPC outlook. Rotation tracks look like MRMS's swaths.",
+    text: "ProbTor and the model engines in Extras draw nested, outlined areas like an SPC outlook.",
   },
   {
     icon: "Route",
@@ -209,7 +209,7 @@ const SHOWCASE: Step[] = [
     icon: "FlaskConical",
     kicker: "Extras",
     title: "Engines with a wow",
-    body: "Weather Engines drawn like SPC outlooks (ProbTor, ProbHail, MRMS rotation tracks, snow squalls and landspouts), a 3D Storm Visualizer and a Particle Morph you can play with.",
+    body: "Weather Engines drawn like SPC outlooks (ProbTor, STP, SCP, derecho, lightning and landspouts), a 3D Storm Visualizer and a Particle Morph you can play with.",
     chips: ["extras"],
   },
   {

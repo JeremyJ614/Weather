@@ -10,12 +10,6 @@ export const torBin = (p: number) =>
     0,
     TOR_BINS.findLastIndex((b) => p >= b.min),
   );
-export const HAIL_BANDS = [
-  { label: "Severe hail possible (15%+)", color: "#38bdf8" },
-  { label: '1" (quarter) +', color: "#4ade80" },
-  { label: '1.75" (golf ball) +', color: "#facc15" },
-  { label: '2.5" (tennis ball) +', color: "#f43f5e" },
-];
 export const BLIND_BANDS = [
   { label: "Out of radar range", color: "#475569" },
   { label: "Under 2,000 ft", color: "#22c55e" },
@@ -30,7 +24,7 @@ export const BLIND_BANDS = [
  * and default colors, one color per band. Editable as `engine:<id>:<band>`.
  */
 export type FieldId =
-  "llj" | "snsq" | "nst" | "pyro" | "tctor" | "stp" | "scp" | "dcp" | "ltg";
+  "llj" | "nst" | "pyro" | "tctor" | "stp" | "scp" | "dcp" | "ltg";
 export const FIELD_BANDS: Record<
   FieldId,
   { levels: number[]; labels: string[]; colors: string[] }
@@ -39,11 +33,6 @@ export const FIELD_BANDS: Record<
     levels: [15, 30, 45, 60, 75],
     labels: ["Some", "Moderate", "Strong", "Very strong", "Extreme"],
     colors: ["#1e3a8a", "#2563eb", "#22d3ee", "#facc15", "#f43f5e"],
-  },
-  snsq: {
-    levels: [1, 2, 4, 6, 8],
-    labels: ["Possible (1+)", "2+", "4+", "6+", "8+ whiteout"],
-    colors: ["#64748b", "#93c5fd", "#e0f2fe", "#c084fc", "#f472b6"],
   },
   nst: {
     levels: [0.5, 1, 2, 3, 5],
@@ -82,19 +71,6 @@ export const FIELD_BANDS: Record<
   },
 };
 
-/** Rotation Track Persistence: 60-minute peak low-level rotation, ×10⁻³ s⁻¹. */
-export const ROT_BANDS = [
-  { min: 4, label: "Weak", color: "#38bdf8" },
-  { min: 6, label: "Moderate", color: "#facc15" },
-  { min: 8, label: "Strong", color: "#fb923c" },
-  { min: 11, label: "Intense", color: "#f43f5e" },
-  { min: 15, label: "Extreme", color: "#e879f9" },
-];
-export const rotBin = (v: number) =>
-  Math.max(
-    0,
-    ROT_BANDS.findLastIndex((b) => v >= b.min),
-  );
 /** PyroCb chance per fire, 0–100. */
 export const PYRO_BINS = [
   { min: 0, label: "Low", color: "#64748b" },

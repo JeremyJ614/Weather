@@ -30,9 +30,7 @@ import { BANDS as CHASE_BANDS, CHASE_ALT } from "@/lib/chase/score";
 import {
   BLIND_BANDS,
   FIELD_BANDS,
-  HAIL_BANDS,
   PYRO_BINS,
-  ROT_BANDS,
   TOR_BINS,
 } from "@/lib/engines/colors";
 import { PROB as WINTER_PROB } from "@/lib/winter/style";
@@ -311,16 +309,6 @@ export const GROUPS: Group[] = [
     })),
   },
   {
-    id: "engine-hail",
-    label: "ProbHail",
-    note: "Extras → Weather Engines: 30-minute hail swaths by size.",
-    entries: HAIL_BANDS.map((b, i) => ({
-      key: `engine:hail:${i}`,
-      label: b.label,
-      def: b.color,
-    })),
-  },
-  {
     id: "engine-blind",
     label: "Radar Blind Spot",
     note: "Extras → Weather Engines: height of the lowest radar beam.",
@@ -333,7 +321,6 @@ export const GROUPS: Group[] = [
   ...(
     [
       ["llj", "Nocturnal LLJ Ramp-Up"],
-      ["snsq", "Snow Squall Parameter"],
       ["nst", "Landspout & Waterspout (NST)"],
       ["pyro", "Hot-Dry-Windy Index (PyroCb)"],
       ["tctor", "Landfalling Hurricane Tornado Risk"],
@@ -352,16 +339,6 @@ export const GROUPS: Group[] = [
       def: FIELD_BANDS[id].colors[i],
     })),
   })),
-  {
-    id: "engine-rot",
-    label: "Rotation Track Persistence",
-    note: "Extras → Weather Engines: the last hour's rotation tracks.",
-    entries: ROT_BANDS.map((b, i) => ({
-      key: `engine:rot:${i}`,
-      label: b.label,
-      def: b.color,
-    })),
-  },
   {
     id: "engine-pyrocb",
     label: "PyroCb chance per fire",

@@ -3,19 +3,11 @@ import { PLACES } from "@/lib/geo/places.data";
 import { nearestPlace, parsePlaces } from "@/lib/geo/search";
 import { pathAreas, type Segment } from "./areas";
 import { TOR_BINS } from "./colors";
-import {
-  ahead,
-  cone,
-  hailBand,
-  motion,
-  swath,
-  torOutlook,
-  type Cell,
-} from "./project";
+import { ahead, cone, motion, torOutlook, type Cell } from "./project";
 
 /**
  * Reads NOAA/CIMSS ProbSevere v3 (MRMS, new every 2 minutes) and turns it into the ProbTor
- * and ProbHail layers. The newest file is compared with one about 10 minutes older to get
+ * layers. The newest file is compared with one about 10 minutes older to get
  * each storm's rotation trend and lightning jump (storm IDs carry across files).
  */
 const BASE = "https://mrms.ncep.noaa.gov/ProbSevere/PROBSEVERE/";
@@ -44,10 +36,8 @@ function cells(raw: Raw): Cell[] {
         lon: num(p.MLON) || ring[0][0],
         ring,
         tor: num(p.ProbTor),
-        hail: num(p.ProbHail),
         wind: num(p.ProbWind),
         severe: num(p.ProbSevere),
-        meshIn: num(p.MESH) / 25.4,
         az: num(p.MAXLLAZ),
         flash: num(p.FLASH_RATE),
         jump: num(p.LJA) > 0,
@@ -88,28 +78,10 @@ export type EngineStorm = {
   p60: number;
   trend: string;
   jump: boolean;
-  hail: number;
-  meshIn: number;
-  band: number;
   wind: number;
   mph: number;
   toward: string;
 };
-
-/** Centers of every storm ProbSevere is tracking right now (no probability filter). */
-export async function stormCenters(): Promise<[number, number][]> {
-  const list = await fetch(BASE, {
-    headers: UA,
-    signal: AbortSignal.timeout(10000),
-    next: { revalidate: 60 },
-  }).then((r) => (r.ok ? r.text() : ""));
-  const latest = [...list.matchAll(/MRMS_PROBSEVERE_\d{8}_\d{6}\.json/g)]
-    .map((m) => m[0])
-    .sort()
-    .at(-1);
-  if (!latest) throw new Error("ProbSevere has no files");
-  return cells(await file(latest)).map((c) => [c.lat, c.lon]);
-}
 
 export async function probSevere() {
   const list = await fetch(BASE, {
@@ -134,14 +106,11 @@ export async function probSevere() {
   );
   rows ??= parsePlaces(PLACES);
   const tor: GeoJSON.Feature[] = [];
-  const hail: GeoJSON.Feature[] = [];
   const torPaths: Segment[] = [];
-  const hailPaths: Segment[] = [];
   const storms: EngineStorm[] = [];
   for (const c of cells(now)) {
     const o = torOutlook(c, prev.get(c.id));
-    const band = hailBand(c.meshIn);
-    if (o.p20 < 3 && band === 0 && c.hail < 15 && c.wind < 30) continue;
+    if (o.p20 < 3) continue;
     const near = nearestPlace(rows, c.lat, c.lon, 1000);
     const m = motion(c);
     storms.push({
@@ -157,36 +126,24 @@ export async function probSevere() {
       p60: o.p60,
       trend: o.trend,
       jump: o.jump,
-      hail: Math.round(c.hail),
-      meshIn: Math.round(c.meshIn * 100) / 100,
-      band,
       wind: Math.round(c.wind),
       mph: m.mph,
       toward: m.toward,
     });
-    if (o.p20 >= 3)
-      for (const [from, to, p, step] of [
-        [40, 60, o.p60, 2],
-        [20, 40, o.p40, 1],
-        [0, 20, o.p20, 0],
-      ] as const) {
-        tor.push({
-          type: "Feature",
-          properties: { id: c.id, p, step },
-          geometry: { type: "Polygon", coordinates: [cone(c, from, to)] },
-        });
-        torPaths.push({ a: ahead(c, from), b: ahead(c, to), value: p });
-      }
-    if (band > 0 || c.hail >= 15) {
-      hail.push({
+    for (const [from, to, p, step] of [
+      [40, 60, o.p60, 2],
+      [20, 40, o.p40, 1],
+      [0, 20, o.p20, 0],
+    ] as const) {
+      tor.push({
         type: "Feature",
-        properties: { id: c.id, band, p: Math.round(c.hail) },
-        geometry: { type: "Polygon", coordinates: [swath(c)] },
+        properties: { id: c.id, p, step },
+        geometry: { type: "Polygon", coordinates: [cone(c, from, to)] },
       });
-      hailPaths.push({ a: [c.lon, c.lat], b: ahead(c, 30), value: band + 1 });
+      torPaths.push({ a: ahead(c, from), b: ahead(c, to), value: p });
     }
   }
-  storms.sort((a, b) => b.p20 - a.p20 || b.hail - a.hail);
+  storms.sort((a, b) => b.p20 - a.p20 || b.tor - a.tor);
   return {
     at: new Date(t).toISOString(),
     total: now.features.length,
@@ -195,15 +152,10 @@ export async function probSevere() {
       type: "FeatureCollection",
       features: tor,
     } as GeoJSON.FeatureCollection,
-    hail: {
-      type: "FeatureCollection",
-      features: hail,
-    } as GeoJSON.FeatureCollection,
     // SPC-style areas: the threat around each storm's next hour, nested by level.
     torAreas: pathAreas(
       torPaths,
       TOR_BINS.map((b) => b.min),
     ),
-    hailAreas: pathAreas(hailPaths, [0.5, 1.5, 2.5, 3.5], 6, 30),
   };
 }

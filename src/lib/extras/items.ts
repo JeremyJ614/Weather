@@ -8,15 +8,12 @@ export const ITEM_STATES: ItemState[] = ["on", "off", "hidden"];
 
 export const EXTRAS_ITEMS = [
   { id: "tor", group: "engines", name: "ProbTor" },
-  { id: "hail", group: "engines", name: "ProbHail" },
-  { id: "rot", group: "engines", name: "Rotation Tracks" },
   { id: "stp", group: "engines", name: "Significant Tornado" },
   { id: "scp", group: "engines", name: "Supercell Composite" },
   { id: "dcp", group: "engines", name: "Derecho Composite" },
   { id: "ltg", group: "engines", name: "Lightning Threat" },
   { id: "llj", group: "engines", name: "Nocturnal LLJ" },
   { id: "nst", group: "engines", name: "Landspouts & Waterspouts" },
-  { id: "snsq", group: "engines", name: "Snow Squalls" },
   { id: "pyro", group: "engines", name: "Wildfire & PyroCb" },
   { id: "tctor", group: "engines", name: "Hurricane Tornadoes" },
   { id: "blind", group: "engines", name: "Radar Blind Spot" },

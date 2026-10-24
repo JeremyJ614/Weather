@@ -2,11 +2,11 @@ import { probSevere } from "@/lib/engines/probsevere";
 import { stateOf } from "@/lib/extras/items";
 import { getSiteDefaults } from "@/lib/settings";
 
-/** ProbTor and ProbHail from the newest ProbSevere file (Extras → Weather Engines). */
+/** ProbTor from the newest ProbSevere file (Extras → Weather Engines). */
 export async function GET() {
   const { extras } = await getSiteDefaults();
-  // Both storm engines switched off or hidden in admin → Extras.
-  if (stateOf(extras, "tor") !== "on" && stateOf(extras, "hail") !== "on")
+  // ProbTor switched off or hidden in admin → Extras.
+  if (stateOf(extras, "tor") !== "on")
     return new Response("Not found", { status: 404 });
   try {
     return Response.json(await probSevere(), {

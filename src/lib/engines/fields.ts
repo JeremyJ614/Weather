@@ -145,67 +145,6 @@ async function llj(cycle: string): Promise<Computed> {
   };
 }
 
-/** SPC's Snow Squall Parameter, from the surface, 850 and 700 mb, an hour ahead. */
-async function snsq(cycle: string): Promise<Computed> {
-  const fh = hourFor(cycle, Date.now() + 3600_000);
-  const [t2, d2, t8, d8, t7, d7, u10, v10, u8, v8, u7, v7, ps] = await grab(
-    cycle,
-    fh,
-    [
-      ":TMP:2 m above ground:",
-      ":DPT:2 m above ground:",
-      ":TMP:850 mb:",
-      ":DPT:850 mb:",
-      ":TMP:700 mb:",
-      ":DPT:700 mb:",
-      ":UGRD:10 m above ground:",
-      ":VGRD:10 m above ground:",
-      ":UGRD:850 mb:",
-      ":VGRD:850 mb:",
-      ":UGRD:700 mb:",
-      ":VGRD:700 mb:",
-      ":PRES:surface:",
-    ],
-  );
-  const n = t2.values.length;
-  const out = new Float32Array(n);
-  for (let i = 0; i < n; i++) {
-    const p = ps.values[i];
-    const T = t2.values[i];
-    const r2 = rh(T, d2.values[i]);
-    // Snow squalls need snow at the ground: 2 m wet-bulb at or below 1 °C.
-    if (wetBulb(T - 273.15, r2) > 1 || p < 70000) {
-      out[i] = 0;
-      continue;
-    }
-    // The lowest ~2 km: up to 850 mb near sea level, to 700 mb on higher ground, using only
-    // levels that are above the ground there.
-    const above: number[][] = [];
-    if (p > 86000)
-      above.push([t8.values[i], d8.values[i], u8.values[i], v8.values[i]]);
-    if (p < 95000)
-      above.push([t7.values[i], d7.values[i], u7.values[i], v7.values[i]]);
-    const high = p < 95000;
-    let rs = r2;
-    let ws = Math.hypot(u10.values[i], v10.values[i]);
-    for (const [t, d, u, v] of above) {
-      rs += rh(t, d);
-      ws += Math.hypot(u, v);
-    }
-    const mRh = rs / (above.length + 1);
-    const mW = ws / (above.length + 1);
-    const [tt, tdt] = above[above.length - 1];
-    const dThw =
-      thetaW(thetaE(tt, tdt, high ? 70000 : 85000)) -
-      thetaW(thetaE(T, d2.values[i], p));
-    const a = (mRh - 60) / 15;
-    const b = (4 - dThw) / 4;
-    const c = mW / 9;
-    out[i] = a > 0 && b > 0 ? a * b * c : 0;
-  }
-  return { field: { grid: t2.grid, values: out }, cycle, fh };
-}
-
 /** Box-average a grid in place-free fashion (radius r cells), for smoothing a derivative. */
 function smooth(v: Float32Array, w: number, h: number, r: number) {
   const sum = new Float64Array((w + 1) * (h + 1));
@@ -650,7 +589,6 @@ async function ltg(cycle: string): Promise<Computed> {
 
 const COMPUTE: Record<FieldId, (cycle: string) => Promise<Computed>> = {
   llj,
-  snsq,
   nst,
   pyro,
   tctor,

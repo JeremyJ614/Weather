@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import type {
   GeoJSONSource,
-  ImageSource,
   Map as MaplibreMap,
   MapMouseEvent,
 } from "maplibre-gl";
@@ -11,13 +10,10 @@ import {
   ArrowDownRight,
   ArrowRight,
   ArrowUpRight,
-  CloudHail,
   CloudLightning,
   Flame,
   FlaskConical,
   Radar,
-  RotateCw,
-  Snowflake,
   Tornado,
   Waves,
   Wind,
@@ -29,12 +25,9 @@ import { stateOf, type ExtrasStates } from "@/lib/extras/items";
 import {
   BLIND_BANDS,
   FIELD_BANDS,
-  HAIL_BANDS,
   PYRO_BINS,
-  ROT_BANDS,
   TOR_BINS,
   pyroBin,
-  rotBin,
   torBin,
   type FieldId,
 } from "@/lib/engines/colors";
@@ -43,11 +36,10 @@ import type { Areas } from "@/lib/engines/areas";
 import radars from "@/lib/engines/radars.json";
 import s from "./Engines.module.css";
 
-type Engine = "tor" | "hail" | "blind" | "rot" | FieldId;
+type Engine = "tor" | "blind" | FieldId;
 const FIELDS: FieldId[] = [
   "llj",
   "nst",
-  "snsq",
   "pyro",
   "tctor",
   "stp",
@@ -86,32 +78,12 @@ type FieldData = {
   storms?: { name: string; lat: number; lon: number; mph: number }[];
   note: string | null;
 };
-const WINDOWS = [
-  { w: 60, label: "1 h", long: "last hour" },
-  { w: 120, label: "2 h", long: "last 2 hours" },
-  { w: 240, label: "4 h", long: "last 4 hours" },
-  { w: 360, label: "6 h", long: "last 6 hours" },
-  { w: 1440, label: "24 h", long: "last 24 hours" },
-] as const;
-type RotData = {
-  at: string;
-  cells: { lat: number; lon: number; v: number }[];
-  tracks: {
-    place: string;
-    lat: number;
-    lon: number;
-    peak: number;
-    km: number;
-  }[];
-};
 type Data = {
   at: string;
   total: number;
   storms: EngineStorm[];
   tor: GeoJSON.FeatureCollection;
-  hail: GeoJSON.FeatureCollection;
   torAreas: Areas;
-  hailAreas: Areas;
 };
 const EMPTY: GeoJSON.FeatureCollection = {
   type: "FeatureCollection",
@@ -129,18 +101,6 @@ const ENGINES: {
     name: "ProbTor",
     sub: "Tornado chance, next hour",
     icon: <Tornado aria-hidden />,
-  },
-  {
-    id: "hail",
-    name: "ProbHail",
-    sub: "Hail swaths, next 30 min",
-    icon: <CloudHail aria-hidden />,
-  },
-  {
-    id: "rot",
-    name: "Rotation Tracks",
-    sub: "Storms that kept rotating",
-    icon: <RotateCw aria-hidden />,
   },
   {
     id: "stp",
@@ -179,12 +139,6 @@ const ENGINES: {
     icon: <Waves aria-hidden />,
   },
   {
-    id: "snsq",
-    name: "Snow Squalls",
-    sub: "Whiteout squalls, next hours",
-    icon: <Snowflake aria-hidden />,
-  },
-  {
     id: "pyro",
     name: "Wildfire & PyroCb",
     sub: "Blowups and fire storms",
@@ -214,26 +168,12 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
       "This is an experimental guide, never a warning. Act on National Weather Service warnings.",
     ],
   },
-  hail: {
-    lead: "Good for the next 30 minutes.",
-    body: [
-      "Each storm's hail core is swept along its motion for 30 minutes. Its size comes from MESH, the radar's estimate of the largest hailstones, and the chance of severe hail from ProbSevere.",
-      'Bands are 1" (quarter), 1.75" (golf ball) and 2.5" (tennis ball) and up. They show where hail of that size is possible, never that it will hit a given spot. MESH runs high in some storms.',
-    ],
-  },
   blind: {
     lead: "Precise: it is geometry.",
     body: [
       "Radar beams travel in a straight line while the Earth curves away underneath, so the farther a spot is from a radar, the higher the lowest beam passes over it.",
       "This shows the center of the lowest (0.5°) beam from the nearest of the 159 NWS radars, using the standard 4/3-Earth model, measured above the radar. Terrain is not included, so in the West mountains block more than this shows.",
       "Where the beam is thousands of feet up, a tornado's rotation near the ground can hide under it. Tap anywhere to see the beam height there.",
-    ],
-  },
-  rot: {
-    lead: "Observed, not a forecast: up to the last 24 hours.",
-    body: [
-      "NOAA's MRMS system merges every radar's low-level rotation (0–2 km azimuthal shear) and keeps the strongest value each spot saw over the window you pick: 1, 2, 4, 6 or 24 hours. Drawn the way MRMS draws them, cell by cell, a long, bright track is a storm that kept rotating.",
-      "The list ranks tracks by length and strength. Strong straight-line wind shear, ground clutter and wind farms can leave short marks too, so short or stationary blobs are left out. Over 1 and 2 hours a track must also sit with a storm NOAA's ProbSevere is following; over longer windows, where those storms may have died, it must have travelled at least 15 km. Always check the radar and National Weather Service warnings.",
     ],
   },
   llj: {
@@ -250,13 +190,6 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
       "Landspouts and waterspouts don't come from rotating supercells. They form when a growing storm stretches spin that already sits along a wind boundary at the ground.",
       "This is the Storm Prediction Center's Non-Supercell Tornado parameter from the HRRR for the next hour: steep low-level lapse rates, CAPE in the lowest 3 km, little inhibition, weak deep-layer shear and spin in the 10 m wind. 1 and up is favorable.",
       "Over water it is a waterspout index, counted only within about 40 miles of land. A storm still has to form on the boundary for anything to happen.",
-    ],
-  },
-  snsq: {
-    lead: "Good for the next few hours.",
-    body: [
-      "A snow squall is a short, intense burst of snow with strong wind that drops visibility to near zero in seconds, the cause of many highway pileups.",
-      "This is the Storm Prediction Center's Snow Squall Parameter from the HRRR for the next hour, built from the surface, 850 and 700 mb levels: moist air in the lowest 2 km, an unstable low-level lapse rate, and strong mean wind, only where the 2 m wet-bulb temperature is at or below 1 °C so the snow reaches the ground. 1 and up means squalls are possible.",
     ],
   },
   pyro: {
@@ -349,65 +282,6 @@ async function blindImage(colors: Colors) {
   return c.toDataURL("image/png");
 }
 
-const merc = (lat: number) =>
-  Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360));
-
-/**
- * MRMS's rotation-track look: every ~2 km cell painted as a pixel in its band color, so
- * the cells join into the swaths a rotating storm leaves, on a canvas sized to the tracks.
- */
-function rotImage(cells: RotData["cells"], color: (band: number) => string) {
-  if (!cells.length) return null;
-  const P = 0.02;
-  let [W, S, E, N] = [180, 90, -180, -90];
-  for (const c of cells) {
-    W = Math.min(W, c.lon);
-    E = Math.max(E, c.lon);
-    S = Math.min(S, c.lat);
-    N = Math.max(N, c.lat);
-  }
-  [W, S, E, N] = [W - P, S - P, E + P, N + P];
-  // Wide windows cover half the country; past ~2,400 px a pixel is two cells.
-  const px = Math.max(P, (E - W) / 2400);
-  const w = Math.ceil((E - W) / px);
-  const span = merc(N) - merc(S);
-  const h = Math.max(1, Math.ceil((span / ((px * Math.PI) / 180)) * 1));
-  const c = document.createElement("canvas");
-  c.width = w;
-  c.height = h;
-  const ctx = c.getContext("2d")!;
-  const img = ctx.createImageData(w, h);
-  const rgb = ROT_BANDS.map((_, i) => {
-    const n = parseInt(color(i).replace("#", ""), 16);
-    return [(n >> 16) & 255, (n >> 8) & 255, n & 255, 255];
-  });
-  const cell = Math.max(1, Math.round(P / px));
-  // Weakest first, so a stronger cell always paints over a weaker neighbor.
-  for (const k of [...cells].sort((a, b) => a.v - b.v)) {
-    const x0 = Math.floor((k.lon - P / 2 - W) / px);
-    const y0 = Math.floor(((merc(N) - merc(k.lat + P / 2)) / span) * h);
-    const col = rgb[rotBin(k.v)];
-    for (let y = y0; y < y0 + cell && y < h; y++)
-      for (let x = x0; x < x0 + cell && x < w; x++)
-        if (x >= 0 && y >= 0) img.data.set(col, (y * w + x) * 4);
-  }
-  ctx.putImageData(img, 0, 0);
-  return {
-    url: c.toDataURL("image/png"),
-    coordinates: [
-      [W, N],
-      [E, N],
-      [E, S],
-      [W, S],
-    ] as [
-      [number, number],
-      [number, number],
-      [number, number],
-      [number, number],
-    ],
-  };
-}
-
 const time = (iso: string) =>
   new Date(iso).toLocaleTimeString("en-US", {
     hour: "numeric",
@@ -434,8 +308,6 @@ export function EnginesTab({
   const [fields, setFields] = useState<
     Partial<Record<FieldId, FieldData | "error">>
   >({});
-  const [rot, setRot] = useState<RotData | "error" | null>(null);
-  const [win, setWin] = useState<(typeof WINDOWS)[number]["w"]>(1440);
   const engineRef = useRef(engine);
   useEffect(() => {
     engineRef.current = engine;
@@ -443,14 +315,10 @@ export function EnginesTab({
 
   const torColor = (i: number) =>
     pick(colors, `engine:tor:${i}`, TOR_BINS[i].color);
-  const hailColor = (i: number) =>
-    pick(colors, `engine:hail:${i}`, HAIL_BANDS[i].color);
   const blindColor = (i: number) =>
     pick(colors, `engine:blind:${i}`, BLIND_BANDS[i].color);
   const fieldColor = (id: FieldId, i: number) =>
     pick(colors, `engine:${id}:${i}`, FIELD_BANDS[id].colors[i]);
-  const rotColor = (i: number) =>
-    pick(colors, `engine:rot:${i}`, ROT_BANDS[i].color);
   const pyroColor = (i: number) =>
     pick(colors, `engine:pyrocb:${i}`, PYRO_BINS[i].color);
 
@@ -468,27 +336,9 @@ export function EnginesTab({
     };
   }, [want]);
 
-  // Rotation tracks every four minutes while that engine is open and the page is visible.
+  // ProbSevere every two minutes while ProbTor is open and the page is visible.
   useEffect(() => {
-    if (engine !== "rot") return;
-    let live = true;
-    const load = () =>
-      document.visibilityState === "visible" &&
-      fetch(`/api/engines/rotation?w=${win}`)
-        .then((r) => (r.ok ? r.json() : Promise.reject()))
-        .then((d: RotData) => live && setRot(d))
-        .catch(() => live && setRot((x) => x ?? "error"));
-    load();
-    const t = setInterval(load, 240_000);
-    return () => {
-      live = false;
-      clearInterval(t);
-    };
-  }, [engine, win]);
-
-  // ProbSevere every two minutes while a storm engine is open and the page is visible.
-  useEffect(() => {
-    if (engine !== "tor" && engine !== "hail") return;
+    if (engine !== "tor") return;
     let live = true;
     const load = () =>
       document.visibilityState === "visible" &&
@@ -520,7 +370,6 @@ export function EnginesTab({
       ] as never;
     for (const [id, color, n] of [
       ["torA", torColor, TOR_BINS.length],
-      ["hailA", hailColor, HAIL_BANDS.length],
       ["fieldA", (i: number) => fieldColor("llj", i), 5],
     ] as const) {
       m.addSource(id, { type: "geojson", data: EMPTY });
@@ -542,7 +391,6 @@ export function EnginesTab({
       });
     }
     m.addSource("tor", { type: "geojson", data: EMPTY });
-    m.addSource("hail", { type: "geojson", data: EMPTY });
     m.addLayer({
       id: "tor-fill",
       minzoom: 6.5,
@@ -571,37 +419,6 @@ export function EnginesTab({
       paint: {
         "line-color": "#ffffff",
         "line-opacity": 0.35,
-        "line-width": 0.8,
-      },
-    });
-    m.addLayer({
-      id: "hail-fill",
-      minzoom: 6.5,
-      type: "fill",
-      source: "hail",
-      paint: {
-        "fill-color": [
-          "match",
-          ["get", "band"],
-          1,
-          hailColor(1),
-          2,
-          hailColor(2),
-          3,
-          hailColor(3),
-          hailColor(0),
-        ],
-        "fill-opacity": 0.5,
-      },
-    });
-    m.addLayer({
-      id: "hail-line",
-      minzoom: 6.5,
-      type: "line",
-      source: "hail",
-      paint: {
-        "line-color": "#ffffff",
-        "line-opacity": 0.4,
         "line-width": 0.8,
       },
     });
@@ -680,17 +497,12 @@ export function EnginesTab({
       m.setLayoutProperty(id, "visibility", on ? "visible" : "none");
     vis("torA-fill", e === "tor");
     vis("torA-line", e === "tor");
-    vis("hailA-fill", e === "hail");
-    vis("hailA-line", e === "hail");
     vis("fieldA-fill", isField(e));
     vis("fieldA-line", isField(e));
     vis("tor-fill", e === "tor");
     vis("tor-line", e === "tor");
-    vis("hail-fill", e === "hail");
-    vis("hail-line", e === "hail");
     vis("blind", e === "blind");
     vis("radars", e === "blind");
-    vis("rot", e === "rot");
     vis("fires", e === "pyro");
   };
 
@@ -720,58 +532,23 @@ export function EnginesTab({
         })),
       });
     }
-    if (rot && rot !== "error") {
-      const img = rotImage(rot.cells, rotColor);
-      const src = map.getSource("rot") as ImageSource | undefined;
-      if (img && src) src.updateImage(img);
-      else if (img) {
-        map.addSource("rot", { type: "image", ...img });
-        map.addLayer(
-          {
-            id: "rot",
-            type: "raster",
-            source: "rot",
-            paint: {
-              "raster-opacity": 0.95,
-              "raster-fade-duration": 0,
-              "raster-resampling": "nearest",
-            },
-          },
-          "torA-fill",
-        );
-      } else if (src) map.setLayoutProperty("rot", "visibility", "none");
-    }
     show(map, engine);
     if (data) {
       (map.getSource("tor") as GeoJSONSource | undefined)?.setData(data.tor);
-      (map.getSource("hail") as GeoJSONSource | undefined)?.setData(data.hail);
       (map.getSource("torA") as GeoJSONSource | undefined)?.setData(
         data.torAreas,
       );
-      (map.getSource("hailA") as GeoJSONSource | undefined)?.setData(
-        data.hailAreas,
-      );
     }
-  }, [map, engine, data, fields, rot, colors]); // eslint-disable-line react-hooks/exhaustive-deps -- the color helpers derive from colors
+  }, [map, engine, data, fields, colors]); // eslint-disable-line react-hooks/exhaustive-deps -- the color helpers derive from colors
 
-  const storms =
-    data?.storms.filter((x) =>
-      engine === "tor" ? x.p20 >= 3 : x.band > 0 || x.hail >= 15,
-    ) ?? [];
+  const storms = data?.storms ?? [];
   const how = HOW[engine];
   const legend: [string, string][] =
     engine === "tor"
       ? TOR_BINS.map((b, i) => [b.label, torColor(i)])
-      : engine === "hail"
-        ? HAIL_BANDS.map((b, i) => [b.label, hailColor(i)])
-        : engine === "blind"
-          ? BLIND_BANDS.map((b, i) => [b.label, blindColor(i)])
-          : engine === "rot"
-            ? ROT_BANDS.map((b, i) => [`${b.label} ${b.min}+`, rotColor(i)])
-            : FIELD_BANDS[engine].labels.map((l, i) => [
-                l,
-                fieldColor(engine, i),
-              ]);
+      : engine === "blind"
+        ? BLIND_BANDS.map((b, i) => [b.label, blindColor(i)])
+        : FIELD_BANDS[engine].labels.map((l, i) => [l, fieldColor(engine, i)]);
   const field = isField(engine) ? fields[engine] : undefined;
   const valid = (iso: string) =>
     new Date(iso).toLocaleString("en-US", {
@@ -840,14 +617,10 @@ export function EnginesTab({
         </p>
       )}
 
-      {(engine === "tor" || engine === "hail") && (
+      {engine === "tor" && (
         <section className={s.card}>
           <header>
-            <h3>
-              {engine === "tor"
-                ? "Storms with tornado potential"
-                : "Hail-producing storms"}
-            </h3>
+            <h3>Storms with tornado potential</h3>
             {data && <small>ProbSevere scan {time(data.at)}</small>}
           </header>
           {failed && !data && (
@@ -861,9 +634,9 @@ export function EnginesTab({
           )}
           {data && storms.length === 0 && (
             <p className={s.small}>
-              {engine === "tor"
-                ? `No storm is showing tornado potential right now. ProbSevere is tracking ${data.total} storm${data.total === 1 ? "" : "s"} across the country.`
-                : `No storm is showing severe hail right now. ProbSevere is tracking ${data.total} storm${data.total === 1 ? "" : "s"}.`}
+              No storm is showing tornado potential right now. ProbSevere is
+              tracking {data.total} storm{data.total === 1 ? "" : "s"} across
+              the country.
             </p>
           )}
           <ul className={s.storms}>
@@ -876,126 +649,48 @@ export function EnginesTab({
                       <ArrowRight aria-hidden /> {x.toward} at {x.mph} mph
                     </small>
                   </span>
-                  {engine === "tor" ? (
-                    <span className={s.odds}>
-                      {(
-                        [
-                          ["Now", x.tor],
-                          ["20 min", x.p20],
-                          ["40", x.p40],
-                          ["60", x.p60],
-                        ] as const
-                      ).map(([k, v]) => (
-                        <span key={k}>
-                          <i
-                            style={{
-                              background: torColor(torBin(v)),
-                              transform: `scaleY(${Math.max(0.06, v / 100)})`,
-                            }}
-                          />
-                          <b>{v}%</b>
-                          <small>{k}</small>
-                        </span>
-                      ))}
-                    </span>
-                  ) : (
-                    <span className={s.hail}>
-                      <i style={{ background: hailColor(x.band) }} />
-                      <b>{x.band ? `${x.meshIn.toFixed(2)}″` : "<1″"}</b>
-                      <small>{x.hail}% severe hail</small>
+                  <span className={s.odds}>
+                    {(
+                      [
+                        ["Now", x.tor],
+                        ["20 min", x.p20],
+                        ["40", x.p40],
+                        ["60", x.p60],
+                      ] as const
+                    ).map(([k, v]) => (
+                      <span key={k}>
+                        <i
+                          style={{
+                            background: torColor(torBin(v)),
+                            transform: `scaleY(${Math.max(0.06, v / 100)})`,
+                          }}
+                        />
+                        <b>{v}%</b>
+                        <small>{k}</small>
+                      </span>
+                    ))}
+                  </span>
+                </button>
+                <p className={s.flags}>
+                  {x.trend === "rising" && (
+                    <span data-k="up">
+                      <ArrowUpRight aria-hidden /> Rotation tightening
                     </span>
                   )}
-                </button>
-                {engine === "tor" && (
-                  <p className={s.flags}>
-                    {x.trend === "rising" && (
-                      <span data-k="up">
-                        <ArrowUpRight aria-hidden /> Rotation tightening
-                      </span>
-                    )}
-                    {x.trend === "falling" && (
-                      <span>
-                        <ArrowDownRight aria-hidden /> Rotation weakening
-                      </span>
-                    )}
-                    {x.jump && (
-                      <span data-k="up">
-                        <Zap aria-hidden /> Lightning jump
-                      </span>
-                    )}
-                  </p>
-                )}
+                  {x.trend === "falling" && (
+                    <span>
+                      <ArrowDownRight aria-hidden /> Rotation weakening
+                    </span>
+                  )}
+                  {x.jump && (
+                    <span data-k="up">
+                      <Zap aria-hidden /> Lightning jump
+                    </span>
+                  )}
+                </p>
               </li>
             ))}
           </ul>
-        </section>
-      )}
-
-      {engine === "rot" && (
-        <section className={s.card}>
-          <header>
-            <h3>
-              Longest rotation tracks, {WINDOWS.find((x) => x.w === win)?.long}
-            </h3>
-            {rot && rot !== "error" && <small>MRMS {time(rot.at)}</small>}
-          </header>
-          <div className={s.windows} role="group" aria-label="Track window">
-            {WINDOWS.map((x) => (
-              <button
-                key={x.w}
-                type="button"
-                aria-pressed={x.w === win}
-                onClick={() => {
-                  if (x.w === win) return;
-                  setWin(x.w);
-                  setRot(null);
-                }}
-              >
-                {x.label}
-              </button>
-            ))}
-          </div>
-          {rot === null && <p className={s.small}>Reading MRMS…</p>}
-          {rot === "error" && (
-            <p className={s.small}>
-              MRMS isn&apos;t answering right now. Trying again in a few
-              minutes.
-            </p>
-          )}
-          {rot && rot !== "error" && rot.tracks.length === 0 && (
-            <p className={s.small}>
-              No storm has held rotation over the{" "}
-              {WINDOWS.find((x) => x.w === win)?.long}.
-            </p>
-          )}
-          {rot && rot !== "error" && (
-            <ul className={s.storms}>
-              {rot.tracks.map((t) => (
-                <li key={`${t.lat},${t.lon}`}>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      map?.flyTo({
-                        center: [t.lon, t.lat],
-                        zoom: 8,
-                        duration: 1200,
-                      })
-                    }
-                  >
-                    <span className={s.where}>
-                      <b>{t.place}</b>
-                      <small>{t.km} km track</small>
-                    </span>
-                    <span className={s.hail}>
-                      <i style={{ background: rotColor(rotBin(t.peak)) }} />
-                      <b>{t.peak}</b>
-                      <small>peak ×10⁻³/s</small>
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
         </section>
       )}
 

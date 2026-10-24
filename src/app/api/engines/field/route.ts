@@ -8,7 +8,6 @@ export const maxDuration = 60;
 
 const IDS: FieldId[] = [
   "llj",
-  "snsq",
   "nst",
   "pyro",
   "tctor",
@@ -19,7 +18,7 @@ const IDS: FieldId[] = [
 ];
 
 /**
- * GET ?e=llj|snsq|nst|pyro|tctor|stp|scp|dcp|ltg: one model-driven engine's map and list,
+ * GET ?e=llj|nst|pyro|tctor|stp|scp|dcp|ltg: one model-driven engine's map and list,
  * served from storage (lib/engines/stored.ts) and held at the edge for 5 minutes.
  */
 export async function GET(req: Request) {

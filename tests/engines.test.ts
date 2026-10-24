@@ -2,10 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   ahead,
   cone,
-  hailBand,
   hull,
   motion,
-  swath,
   torOutlook,
   type Cell,
 } from "@/lib/engines/project";
@@ -24,10 +22,8 @@ const c: Cell = {
   lon: -97.5,
   ring,
   tor: 20,
-  hail: 40,
   wind: 10,
   severe: 50,
-  meshIn: 1.8,
   az: 0.012,
   flash: 30,
   jump: false,
@@ -82,47 +78,18 @@ describe("shapes", () => {
     expect(Math.min(...lons)).toBeLessThan(c.lon);
     expect(Math.max(...lons)).toBeGreaterThan(ahead(c, 60)[0]);
   });
-  it("sweeps the hail core along the track", () => {
-    const sw = swath(c, 30);
-    const lons = sw.map((p) => p[0]);
-    expect(Math.min(...lons)).toBeCloseTo(-97.6, 5);
-    expect(Math.max(...lons)).toBeCloseTo(-97.4 + ahead(c, 30)[0] - c.lon, 5);
-  });
 });
 
 describe("bands", () => {
-  it("maps MESH to hail sizes", () => {
-    expect([0.5, 1, 1.75, 2.6].map(hailBand)).toEqual([0, 1, 2, 3]);
-  });
   it("maps tornado odds to color bins", () => {
     expect([3, 9, 10, 45, 80].map(torBin)).toEqual([0, 0, 1, 2, 3]);
   });
 });
 
-import { vi } from "vitest";
-vi.mock("server-only", () => ({}));
-import { isRotWindow, ROT_WINDOWS, tracks } from "@/lib/engines/rotation";
-import { FIELD_BANDS, pyroBin, rotBin } from "@/lib/engines/colors";
+import { FIELD_BANDS, pyroBin } from "@/lib/engines/colors";
 
-describe("rotation tracks", () => {
-  it("joins touching cells into one track and keeps distant ones apart", () => {
-    const line = Array.from({ length: 10 }, (_, i) => ({
-      lat: 35,
-      lon: -97 + i * 0.02,
-      v: 8,
-    }));
-    const far = [{ lat: 40, lon: -90, v: 5 }];
-    const g = tracks([...line, ...far]);
-    expect(g).toHaveLength(2);
-    expect(g.map((x) => x.length).sort((a, b) => a - b)).toEqual([1, 10]);
-  });
-  it("offers only the windows MRMS publishes, up to 24 hours", () => {
-    expect(ROT_WINDOWS).toEqual([60, 120, 240, 360, 1440]);
-    expect(isRotWindow(1440)).toBe(true);
-    expect(isRotWindow(90)).toBe(false);
-  });
-  it("bins rotation and PyroCb chance", () => {
-    expect([4, 6, 9, 12, 20].map(rotBin)).toEqual([0, 1, 2, 3, 4]);
+describe("model engine bands", () => {
+  it("bins PyroCb chance", () => {
     expect([5, 25, 50, 80].map(pyroBin)).toEqual([0, 1, 2, 3]);
   });
   it("has a color for every band of every model engine", () => {
