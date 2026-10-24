@@ -10,6 +10,8 @@ export const EXTRAS_ITEMS = [
   { id: "tor", group: "engines", name: "ProbTor" },
   { id: "surge", group: "engines", name: "Lightning Surge Detector" },
   { id: "first", group: "engines", name: "First Storms" },
+  { id: "analog", group: "engines", name: "Severe Analogs" },
+  { id: "bound", group: "engines", name: "Boundary Collisions" },
   { id: "stp", group: "engines", name: "Significant Tornado" },
   { id: "scp", group: "engines", name: "Supercell Composite" },
   { id: "dcp", group: "engines", name: "Derecho Composite" },

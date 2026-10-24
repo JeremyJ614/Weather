@@ -30,6 +30,9 @@ import { BANDS as CHASE_BANDS, CHASE_ALT } from "@/lib/chase/score";
 import {
   BLIND_BANDS,
   FIELD_BANDS,
+  ANALOG_BANDS,
+  ANALOG_DOTS,
+  BOUND_POINTS,
   FIRST_TIME_BANDS,
   OUTDOOR_BANDS,
   PYRO_BINS,
@@ -345,6 +348,7 @@ export const GROUPS: Group[] = [
       ["blizz", "Blizzard Composite (hours of whiteout)"],
       ["first", "First Storms (chance)"],
       ["sunset", "Sunset & Sunrise Quality"],
+      ["bound", "Boundary Collision Analyzer (boundaries)"],
     ] as const
   ).map(([id, label]) => ({
     id: `engine-${id}`,
@@ -378,6 +382,38 @@ export const GROUPS: Group[] = [
       def: OUTDOOR_BANDS[id].colors[i],
     })),
   })),
+  {
+    id: "engine-analog",
+    label: "Severe Analogs",
+    note: "Extras → Weather Engines: the share of matched days with a report within 25 miles.",
+    entries: ANALOG_BANDS.map((b, i) => ({
+      key: `engine:analog:${i}`,
+      label: b.label,
+      def: b.color,
+    })),
+  },
+  {
+    id: "engine-analogdot",
+    label: "Severe Analogs: a matched day's reports",
+    note: "Extras → Weather Engines → Severe Analogs: tap a past day to show its reports.",
+    entries: (Object.keys(ANALOG_DOTS) as (keyof typeof ANALOG_DOTS)[]).map(
+      (k) => ({
+        key: `engine:analogdot:${k}`,
+        label: ANALOG_DOTS[k].label,
+        def: ANALOG_DOTS[k].color,
+      }),
+    ),
+  },
+  {
+    id: "engine-boundpt",
+    label: "Boundary collisions (points)",
+    note: "Extras → Weather Engines → Boundary Collisions: where boundaries meet, by score.",
+    entries: BOUND_POINTS.map((b, i) => ({
+      key: `engine:boundpt:${i}`,
+      label: b.label,
+      def: b.color,
+    })),
+  },
   {
     id: "engine-firstT",
     label: "First Storms (timing)",

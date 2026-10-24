@@ -97,6 +97,21 @@ export function previewSource(
         url: `/api/engines/preview?e=${id.slice(7)}`,
         title: "Today's best hour around Ohio, from Open-Meteo",
       };
+    case "engine-analog":
+      return {
+        url: "/api/engines/preview?e=analog",
+        title: "Today's analog outlook (15 closest past days)",
+      };
+    case "engine-analogdot":
+      return {
+        url: "/api/engines/preview?e=analogdot",
+        title: "Reports on today's closest past day",
+      };
+    case "engine-boundpt":
+      return {
+        url: "/api/engines/preview?e=boundpt",
+        title: "Where boundaries meet in the next 3 hours",
+      };
     case "engine-firstT":
       return {
         url: "/api/engines/preview?e=firstT",
@@ -129,6 +144,7 @@ export function previewSource(
     case "engine-blizz":
     case "engine-first":
     case "engine-sunset":
+    case "engine-bound":
       return {
         url: `/api/engines/preview?e=${id.slice(7)}`,
         title: "The engine's areas from the latest HRRR run",

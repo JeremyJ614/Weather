@@ -15,6 +15,8 @@ import {
   Fish,
   Flame,
   FlaskConical,
+  GitMerge,
+  History,
   Radar,
   Rainbow,
   Snowflake,
@@ -31,7 +33,10 @@ import { WeatherMap, type ReadyMap } from "@/features/map/WeatherMap";
 import { pick, type Colors } from "@/lib/colors/pick";
 import { stateOf, type ExtrasStates } from "@/lib/extras/items";
 import {
+  ANALOG_BANDS,
+  ANALOG_DOTS,
   BLIND_BANDS,
+  BOUND_POINTS,
   FIELD_BANDS,
   FIRST_TIME_BANDS,
   OUTDOOR_BANDS,
@@ -59,7 +64,7 @@ import type { Areas } from "@/lib/engines/areas";
 import radars from "@/lib/engines/radars.json";
 import s from "./Engines.module.css";
 
-type Engine = "tor" | "surge" | "blind" | FieldId | OutdoorId;
+type Engine = "tor" | "surge" | "analog" | "blind" | FieldId | OutdoorId;
 const FIELDS: FieldId[] = [
   "llj",
   "nst",
@@ -73,6 +78,7 @@ const FIELDS: FieldId[] = [
   "blizz",
   "first",
   "sunset",
+  "bound",
 ];
 const isField = (e: Engine): e is FieldId => FIELDS.includes(e as FieldId);
 const isPlace = (e: Engine): e is OutdoorId =>
@@ -84,6 +90,39 @@ const VIEWS: Partial<Record<Engine, string[]>> = {
   first: ["Chance", "Timing"],
   sunset: ["Sunset", "Sunrise"],
   rainbow: ["Now", "+30 min", "+60 min"],
+  analog: ["Today", "Tomorrow"],
+  bound: ["Now", "In 3 hours"],
+};
+type Collision = {
+  lat: number;
+  lon: number;
+  place: string;
+  at: number;
+  spread: number;
+  kinds: string;
+  score: number;
+  evidence: string[];
+};
+type AnalogData = {
+  day: string;
+  ready: boolean;
+  made_at?: string;
+  cycle?: string;
+  p10?: number;
+  p25?: number;
+  p50?: number;
+  torn?: number;
+  analogs?: { day: string; dist: number; n: number; torn: number }[];
+  areas?: Areas;
+  used?: number;
+  score: {
+    days: number;
+    scored: number;
+    brier: number | null;
+    low: { n: number; hit: number };
+    mid: { n: number; hit: number };
+    high: { n: number; hit: number };
+  } | null;
 };
 type RainbowData = {
   at: string;
@@ -138,6 +177,7 @@ type FieldData = {
   note: string | null;
   stats?: { days: number; checked: number; hits: number } | null;
   altSpots?: Spot[] | null;
+  points?: Collision[];
   reports?: Summary;
 };
 type Data = {
@@ -160,6 +200,29 @@ const EMPTY: GeoJSON.FeatureCollection = {
   features: [],
 };
 
+/** The picker's sections, in order. */
+const SECTIONS: { name: string; ids: Engine[] }[] = [
+  { name: "Storms now", ids: ["tor", "surge", "bound", "first"] },
+  {
+    name: "Forecast",
+    ids: [
+      "analog",
+      "stp",
+      "scp",
+      "rwrap",
+      "dcp",
+      "ltg",
+      "llj",
+      "nst",
+      "blizz",
+      "pyro",
+      "tctor",
+    ],
+  },
+  { name: "Outdoors", ids: ["sunset", "rainbow", "deer", "fish"] },
+  { name: "Tools", ids: ["blind"] },
+];
+
 const ENGINES: {
   id: Engine;
   name: string;
@@ -179,10 +242,22 @@ const ENGINES: {
     icon: <Activity aria-hidden />,
   },
   {
+    id: "bound",
+    name: "Boundary Collisions",
+    sub: "Where boundaries meet, 3 h",
+    icon: <GitMerge aria-hidden />,
+  },
+  {
     id: "first",
     name: "First Storms",
     sub: "Where storms start, 6 h",
     icon: <Sprout aria-hidden />,
+  },
+  {
+    id: "analog",
+    name: "Severe Analogs",
+    sub: "Past days like today",
+    icon: <History aria-hidden />,
   },
   {
     id: "stp",
@@ -293,6 +368,24 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
       'It uses the "2σ" lightning jump from research by Schultz and others: the change in flash rate over each 2 minutes is compared with how much it varied over the 10 minutes before. A rise more than two standard deviations above that, in a storm flashing at least 10 times a minute, is a jump, and the storm stays flagged for 10 minutes. A jump of three or more, or one the radar backs up with tightening low-level rotation or a hail core growing by a quarter inch, is a strong jump.',
       "In research with ground-based lightning networks about 4 in 5 severe storms jumped first, with roughly a third of jumps never followed by severe weather. Ordinary storms jump too, and reports are missed where few people live. The hit rate below is this engine's own, checked every hour against the Weather Service's storm reports.",
       "This is an experimental guide, never a warning. Act on National Weather Service warnings.",
+    ],
+  },
+  bound: {
+    lead: "Fronts and drylines good; outflow fair; timing ±30–90 minutes.",
+    body: [
+      "Storms and tornadoes favor the places where two boundaries meet: a front and a dryline (the triple point), an outflow boundary running into a front or a sea breeze. This engine follows your ten-step design.",
+      "It reads the newest HRRR run hour by hour for the next three, and marks boundaries where the surface wind converges along a sharp change in temperature (fronts, outflow) or dew point (drylines). Stretches at least 50 km long are followed from hour to hour, which gives their movement; where two join, or a temperature boundary runs into a moisture boundary, is a collision, timed with an uncertainty that grows with lead time.",
+      "Each collision is checked against what is there now: airport winds converging (a least-squares fit of every station within 50 miles), dew points or temperatures splitting across it, the Weather Prediction Center's analyzed fronts, and the HRRR's CAPE, inhibition, low-level spin and shear. The score weighs that evidence; the list says which sources agree.",
+      "Strong collisions are checked afterwards against radar (did storms form within 25 miles?) and the hit rate shows below. Station spacing means a boundary can't be placed closer than 15–25 miles.",
+    ],
+  },
+  analog: {
+    lead: "Moderate skill: better than the date's averages, checked every day.",
+    body: [
+      "Forecasters have long asked what happened on days that looked like this one. After Saint Louis University's CIPS analogs, this compares today's and tomorrow's weather from the newest GFS run (daily means of 500 mb height, 850 mb temperature, 850 and 500 mb winds, precipitable water and the lifted index, on a 2.5° grid over the Lower 48) with every day since 2004 within six weeks of the same date, from NOAA's NCEP/NCAR reanalysis.",
+      "Each past day is boiled down to a 40-number fingerprint (principal components, weighted toward instability and moisture), and the 15 closest days are the analogs. The chances are the share of them that had 10, 25 or 50 or more severe reports (tornadoes, 1-inch hail, 58 mph wind or damage) in SPC's database; the map is the share with a report within 25 miles of each spot.",
+      "It runs four times a day after each GFS run. Once a day is over, it is scored against that day's real reports; the score below is the last 90 days. The reanalysis is coarse, so analogs catch the pattern, not where a storm will be.",
+      "Tap a past day to see its reports on the map.",
     ],
   },
   blind: {
@@ -507,6 +600,13 @@ export function EnginesTab({
   const [view, setView] = useState(0);
   const timing = engine === "first" && view === 1;
   const [rainbow, setRainbow] = useState<RainbowData | "error" | null>(null);
+  const [analogs, setAnalogs] = useState<Record<number, AnalogData | "error">>(
+    {},
+  );
+  const [pastDay, setPastDay] = useState<string | null>(null);
+  const [pastReports, setPastReports] = useState<
+    Record<string, { kind: string; lat: number; lon: number }[] | "error">
+  >({});
   const [species, setSpecies] = useState<SpeciesId>("bass");
   const [placeMaps, setPlaceMaps] = useState<
     Record<string, PlaceMap | "error">
@@ -610,6 +710,42 @@ export function EnginesTab({
       clearInterval(t);
     };
   }, [engine]);
+
+  // Severe Analogs: today's or tomorrow's matches once per visit, and a picked day's reports.
+  const wantAnalog = engine === "analog" && !analogs[view] ? view : null;
+  useEffect(() => {
+    if (wantAnalog == null) return;
+    let live = true;
+    fetch(`/api/engines/analogs?d=${wantAnalog + 1}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then(
+        (d: AnalogData) =>
+          live && setAnalogs((m) => ({ ...m, [wantAnalog]: d })),
+      )
+      .catch(
+        () => live && setAnalogs((m) => ({ ...m, [wantAnalog]: "error" })),
+      );
+    return () => {
+      live = false;
+    };
+  }, [wantAnalog]);
+  const wantPast = pastDay && !pastReports[pastDay] ? pastDay : null;
+  useEffect(() => {
+    if (!wantPast) return;
+    let live = true;
+    fetch(`/api/engines/analogs?a=${wantPast}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then(
+        (d: { reports: { kind: string; lat: number; lon: number }[] }) =>
+          live && setPastReports((m) => ({ ...m, [wantPast]: d.reports })),
+      )
+      .catch(
+        () => live && setPastReports((m) => ({ ...m, [wantPast]: "error" })),
+      );
+    return () => {
+      live = false;
+    };
+  }, [wantPast]);
 
   // Rainbow chances every five minutes while that engine is open.
   useEffect(() => {
@@ -794,6 +930,46 @@ export function EnginesTab({
           "line-opacity": 0.85,
         },
       });
+    m.addSource("collide", { type: "geojson", data: EMPTY });
+    m.addLayer({
+      id: "collide",
+      type: "circle",
+      source: "collide",
+      paint: {
+        "circle-color": [
+          "step",
+          ["get", "score"],
+          ...BOUND_POINTS.flatMap((b, i) =>
+            i === 0
+              ? [pick(colors, "engine:boundpt:0", b.color)]
+              : [b.min, pick(colors, `engine:boundpt:${i}`, b.color)],
+          ),
+        ] as never,
+        "circle-radius": 9,
+        "circle-stroke-color": "#000000",
+        "circle-stroke-width": 1.5,
+      },
+    });
+    m.addSource("pastday", { type: "geojson", data: EMPTY });
+    m.addLayer({
+      id: "pastday",
+      type: "circle",
+      source: "pastday",
+      paint: {
+        "circle-color": [
+          "match",
+          ["get", "kind"],
+          "torn",
+          pick(colors, "engine:analogdot:torn", ANALOG_DOTS.torn.color),
+          "hail",
+          pick(colors, "engine:analogdot:hail", ANALOG_DOTS.hail.color),
+          pick(colors, "engine:analogdot:wind", ANALOG_DOTS.wind.color),
+        ],
+        "circle-radius": 3.5,
+        "circle-stroke-color": "#000000",
+        "circle-stroke-width": 0.8,
+      },
+    });
     m.addSource("fires", { type: "geojson", data: EMPTY });
     m.addLayer({
       id: "fires",
@@ -875,8 +1051,10 @@ export function EnginesTab({
       m.setLayoutProperty(id, "visibility", on ? "visible" : "none");
     vis("torA-fill", e === "tor");
     vis("torA-line", e === "tor");
-    vis("fieldA-fill", isField(e) || isPlace(e));
-    vis("fieldA-line", isField(e) || isPlace(e));
+    vis("fieldA-fill", isField(e) || isPlace(e) || e === "analog");
+    vis("fieldA-line", isField(e) || isPlace(e) || e === "analog");
+    vis("pastday", e === "analog");
+    vis("collide", e === "bound");
     vis("tor-fill", e === "tor");
     vis("tor-line", e === "tor");
     vis("surge-fill", e === "surge");
@@ -896,6 +1074,35 @@ export function EnginesTab({
         : mapKey && placeMaps[mapKey] && placeMaps[mapKey] !== "error"
           ? (placeMaps[mapKey] as PlaceMap).areas
           : null;
+    const an = engine === "analog" ? analogs[view] : undefined;
+    if (engine === "analog") {
+      const a = an && an !== "error" && an.areas ? an.areas : EMPTY;
+      (map.getSource("fieldA") as GeoJSONSource | undefined)?.setData(a);
+      const expr = [
+        "match",
+        ["get", "band"],
+        ...ANALOG_BANDS.map((b, i) => [
+          i,
+          pick(colors, `engine:analog:${i}`, b.color),
+        ]).flat(),
+        pick(colors, "engine:analog:0", ANALOG_BANDS[0].color),
+      ] as never;
+      map.setPaintProperty("fieldA-fill", "fill-color", expr);
+      map.setPaintProperty("fieldA-line", "line-color", expr);
+      const pr = pastDay ? pastReports[pastDay] : undefined;
+      (map.getSource("pastday") as GeoJSONSource | undefined)?.setData(
+        pr && pr !== "error"
+          ? {
+              type: "FeatureCollection",
+              features: pr.map((r) => ({
+                type: "Feature",
+                properties: { kind: r.kind },
+                geometry: { type: "Point", coordinates: [r.lon, r.lat] },
+              })),
+            }
+          : EMPTY,
+      );
+    }
     if (isPlace(engine) && placeAreas) {
       (map.getSource("fieldA") as GeoJSONSource | undefined)?.setData(
         placeAreas,
@@ -914,6 +1121,15 @@ export function EnginesTab({
       map.setPaintProperty("fieldA-line", "line-color", expr);
     } else if (isPlace(engine))
       (map.getSource("fieldA") as GeoJSONSource | undefined)?.setData(EMPTY);
+    if (f && f !== "error" && engine === "bound")
+      (map.getSource("collide") as GeoJSONSource | undefined)?.setData({
+        type: "FeatureCollection",
+        features: (f.points ?? []).map((p) => ({
+          type: "Feature",
+          properties: { score: p.score },
+          geometry: { type: "Point", coordinates: [p.lon, p.lat] },
+        })),
+      });
     if (f && f !== "error" && isField(engine)) {
       const alt = view === 1 && f.alt;
       const timeBands = engine === "first" && alt;
@@ -965,6 +1181,9 @@ export function EnginesTab({
     rainbow,
     placeMaps,
     mapKey,
+    analogs,
+    pastDay,
+    pastReports,
     colors,
   ]);
 
@@ -975,11 +1194,29 @@ export function EnginesTab({
       ? TOR_BINS.map((b, i) => [b.label, torColor(i)])
       : engine === "surge"
         ? SURGE_BANDS.map((b, i) => [b.label, surgeColor(i)])
-        : engine === "first" && timing
-          ? FIRST_TIME_BANDS.map((b, i) => [b.label, timeColor(i)])
-          : engine === "blind"
-            ? BLIND_BANDS.map((b, i) => [b.label, blindColor(i)])
-            : bandsOf(engine).labels.map((l, i) => [l, fieldColor(engine, i)]);
+        : engine === "analog"
+          ? [
+              ...ANALOG_BANDS.map((b, i): [string, string] => [
+                b.label,
+                pick(colors, `engine:analog:${i}`, b.color),
+              ]),
+              ...(pastDay
+                ? (
+                    Object.keys(ANALOG_DOTS) as (keyof typeof ANALOG_DOTS)[]
+                  ).map((k): [string, string] => [
+                    ANALOG_DOTS[k].label,
+                    pick(colors, `engine:analogdot:${k}`, ANALOG_DOTS[k].color),
+                  ])
+                : []),
+            ]
+          : engine === "first" && timing
+            ? FIRST_TIME_BANDS.map((b, i) => [b.label, timeColor(i)])
+            : engine === "blind"
+              ? BLIND_BANDS.map((b, i) => [b.label, blindColor(i)])
+              : bandsOf(engine).labels.map((l, i) => [
+                  l,
+                  fieldColor(engine, i),
+                ]);
   const field = isField(engine) ? fields[engine] : undefined;
   const valid = (iso: string) =>
     new Date(iso).toLocaleString("en-US", {
@@ -999,26 +1236,39 @@ export function EnginesTab({
 
   return (
     <div className="grid gap-3">
-      <div className={s.picker} role="tablist" aria-label="Weather engines">
-        {shown.map((e) => {
-          const off = stateOf(items, e.id) === "off";
+      <div className={s.sections} role="tablist" aria-label="Weather engines">
+        {SECTIONS.map((sec) => {
+          const list = sec.ids
+            .map((id) => shown.find((e) => e.id === id))
+            .filter((e): e is (typeof shown)[number] => Boolean(e));
+          if (!list.length) return null;
           return (
-            <button
-              key={e.id}
-              type="button"
-              role="tab"
-              aria-selected={engine === e.id}
-              disabled={off}
-              onClick={() => {
-                setEngine(e.id);
-                setView(0);
-                setBeam(null);
-              }}
-            >
-              {e.icon}
-              <b>{e.name}</b>
-              <small>{off ? "Off for now" : e.sub}</small>
-            </button>
+            <div key={sec.name} className="grid gap-1.5">
+              <p className="eyebrow">{sec.name}</p>
+              <div className={s.picker}>
+                {list.map((e) => {
+                  const off = stateOf(items, e.id) === "off";
+                  return (
+                    <button
+                      key={e.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={engine === e.id}
+                      disabled={off}
+                      onClick={() => {
+                        setEngine(e.id);
+                        setView(0);
+                        setBeam(null);
+                      }}
+                    >
+                      {e.icon}
+                      <b>{e.name}</b>
+                      <small>{off ? "Off for now" : e.sub}</small>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           );
         })}
       </div>
@@ -1243,12 +1493,14 @@ export function EnginesTab({
             <h3>
               {engine === "pyro"
                 ? "Large fires, blowup and PyroCb"
-                : engine === "tctor" &&
-                    field &&
-                    field !== "error" &&
-                    field.storms?.length
-                  ? "Highest risk near the storm"
-                  : "Strongest spots"}
+                : engine === "bound"
+                  ? "Where boundaries meet"
+                  : engine === "tctor" &&
+                      field &&
+                      field !== "error" &&
+                      field.storms?.length
+                    ? "Highest risk near the storm"
+                    : "Strongest spots"}
             </h3>
             {field && field !== "error" && (
               <small>
@@ -1266,9 +1518,66 @@ export function EnginesTab({
           {field && field !== "error" && field.note && (
             <p className={s.small}>{field.note}</p>
           )}
+          {field && field !== "error" && engine === "bound" && (
+            <>
+              {!field.points?.length && (
+                <p className={s.small}>
+                  No two boundaries meet in the next three hours with enough
+                  length to follow.
+                </p>
+              )}
+              <ul className={s.storms}>
+                {(field.points ?? []).map((p) => (
+                  <li key={`${p.lat},${p.lon}`}>
+                    <button type="button" onClick={() => focus(p)}>
+                      <span className={s.where}>
+                        <b>{p.place}</b>
+                        <small>
+                          {p.kinds}, around {when(p.at)} (±{p.spread} min)
+                        </small>
+                      </span>
+                      <span className={s.hail}>
+                        <i
+                          style={{
+                            background: pick(
+                              colors,
+                              `engine:boundpt:${Math.max(
+                                0,
+                                BOUND_POINTS.findLastIndex(
+                                  (b) => p.score >= b.min,
+                                ),
+                              )}`,
+                              BOUND_POINTS[
+                                Math.max(
+                                  0,
+                                  BOUND_POINTS.findLastIndex(
+                                    (b) => p.score >= b.min,
+                                  ),
+                                )
+                              ].color,
+                            ),
+                          }}
+                        />
+                        <b>{p.score}</b>
+                        <small>score</small>
+                      </span>
+                    </button>
+                    <ul className={s.facts}>
+                      {p.evidence.map((e) => (
+                        <li key={e} className={s.fine}>
+                          {e}
+                        </li>
+                      ))}
+                    </ul>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
           {field &&
             field !== "error" &&
             engine !== "pyro" &&
+            engine !== "bound" &&
             !field.note &&
             field.spots.length === 0 && (
               <p className={s.small}>
@@ -1368,6 +1677,145 @@ export function EnginesTab({
             ? `Hit rate, last ${field.stats.days} days: ${Math.round((100 * field.stats.hits) / field.stats.checked)}% of ${field.stats.checked} flagged places saw it happen.`
             : `The hit rate shows once 10 flagged places have been checked against what happened (${field.stats.checked} so far).`}
         </p>
+      )}
+
+      {engine === "analog" && (
+        <section className={s.card}>
+          <header>
+            <h3>{view ? "Tomorrow" : "Today"}, by days like it</h3>
+            {(() => {
+              const a = analogs[view];
+              return a && a !== "error" && a.ready ? (
+                <small>GFS {a.cycle!.slice(8)}Z run</small>
+              ) : null;
+            })()}
+          </header>
+          {(() => {
+            const a = analogs[view];
+            if (!a) return <p className={s.small}>Finding the closest days…</p>;
+            if (a === "error")
+              return (
+                <p className={s.small}>
+                  The analogs aren&apos;t answering right now. Try again in a
+                  few minutes.
+                </p>
+              );
+            if (!a.ready)
+              return (
+                <p className={s.small}>
+                  This day&apos;s match is made after the next GFS run (four
+                  times a day). Check back shortly.
+                </p>
+              );
+            const pct = (x: number) => `${Math.round(x * 100)}%`;
+            return (
+              <>
+                <p className={s.small}>
+                  Chance of this many severe reports across the country:
+                </p>
+                <div className={s.odds}>
+                  {(
+                    [
+                      ["10+", a.p10!],
+                      ["25+", a.p25!],
+                      ["50+", a.p50!],
+                    ] as const
+                  ).map(([k, v]) => (
+                    <span key={k}>
+                      <i
+                        style={{
+                          background: pick(
+                            colors,
+                            `engine:analog:${Math.max(
+                              0,
+                              ANALOG_BANDS.findLastIndex(
+                                (b) => v * 100 >= b.min,
+                              ),
+                            )}`,
+                            ANALOG_BANDS[
+                              Math.max(
+                                0,
+                                ANALOG_BANDS.findLastIndex(
+                                  (b) => v * 100 >= b.min,
+                                ),
+                              )
+                            ].color,
+                          ),
+                          transform: `scaleY(${Math.max(0.06, v)})`,
+                        }}
+                      />
+                      <b>{pct(v)}</b>
+                      <small>{k}</small>
+                    </span>
+                  ))}
+                </div>
+                <p className={s.small}>
+                  The 15 closest days averaged {a.torn} tornado
+                  {a.torn === 1 ? "" : "es"}.{" "}
+                  {a.used! < 15
+                    ? `Report maps were found for ${a.used} of them.`
+                    : ""}
+                </p>
+                <ul className={s.storms}>
+                  {a.analogs!.map((x, i) => (
+                    <li key={x.day}>
+                      <button
+                        type="button"
+                        aria-pressed={pastDay === x.day}
+                        onClick={() =>
+                          setPastDay((d) => (d === x.day ? null : x.day))
+                        }
+                      >
+                        <span className={s.where}>
+                          <b>
+                            {new Date(`${x.day}T12:00:00Z`).toLocaleDateString(
+                              "en-US",
+                              {
+                                month: "long",
+                                day: "numeric",
+                                year: "numeric",
+                                timeZone: "UTC",
+                              },
+                            )}
+                          </b>
+                          <small>
+                            Match #{i + 1} · {x.torn} tornado
+                            {x.torn === 1 ? "" : "es"}
+                            {pastDay === x.day
+                              ? pastReports[x.day] === "error"
+                                ? " · no report file"
+                                : pastReports[x.day]
+                                  ? " · on the map"
+                                  : " · loading…"
+                              : ""}
+                          </small>
+                        </span>
+                        <span className={s.hail}>
+                          <b>{x.n}</b>
+                          <small>reports</small>
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                {a.score && a.score.scored >= 10 ? (
+                  <p className={s.small}>
+                    Last {a.score.days} days ({a.score.scored} scored): when we
+                    gave 50%+ for 10+ reports it happened {a.score.high.hit} of{" "}
+                    {a.score.high.n} times; under 20%, {a.score.low.hit} of{" "}
+                    {a.score.low.n}. Brier score {a.score.brier} (lower is
+                    better).
+                  </p>
+                ) : (
+                  <p className={s.small}>
+                    The score shows once 10 days have been checked against their
+                    reports ({a.score?.scored ?? 0} so far).
+                  </p>
+                )}
+              </>
+            );
+          })()}
+        </section>
       )}
 
       {engine === "sunset" && (

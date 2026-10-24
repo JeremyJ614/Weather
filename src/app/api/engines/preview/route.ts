@@ -1,8 +1,16 @@
 import { probSevere } from "@/lib/engines/probsevere";
+import { analogAreas, dayReports, type Analog } from "@/lib/analogs/analogs";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { surges } from "@/lib/engines/surge";
 import { rainbowNow } from "@/lib/engines/rainbow";
 import { placeMap } from "@/lib/engines/places";
-import { FIELD_BANDS, pyroBin, type FieldId } from "@/lib/engines/colors";
+import {
+  ANALOG_BANDS,
+  BOUND_POINTS,
+  FIELD_BANDS,
+  pyroBin,
+  type FieldId,
+} from "@/lib/engines/colors";
 import { fieldPreview } from "@/lib/engines/fields";
 import type { Areas } from "@/lib/engines/areas";
 import { geoPath } from "@/lib/map/geo";
@@ -32,6 +40,29 @@ export async function GET(req: Request) {
       })),
     });
   }
+  if (e === "analog" || e === "analogdot") {
+    const { data } = await supabaseAdmin()
+      .from("analog_days")
+      .select("analogs")
+      .eq("day", new Date().toISOString().slice(0, 10))
+      .maybeSingle();
+    const list = (data?.analogs ?? []) as Analog[];
+    if (e === "analog") {
+      const m = await analogAreas(
+        list,
+        ANALOG_BANDS.map((b) => b.min),
+      ).catch(() => null);
+      return Response.json({ polys: polys(m?.areas, "analog") });
+    }
+    const r = list[0] ? await dayReports(list[0].day) : null;
+    return Response.json({
+      dots: (r ?? []).map((x) => ({
+        lat: x.lat,
+        lon: x.lon,
+        key: `engine:analogdot:${x.kind}`,
+      })),
+    });
+  }
   if (e === "rainbow") {
     const d = await rainbowNow().catch(() => null);
     return Response.json({ polys: polys(d?.maps[0], "rainbow") });
@@ -39,6 +70,19 @@ export async function GET(req: Request) {
   if (e === "deer" || e === "fish") {
     const d = await placeMap(e).catch(() => null);
     return Response.json({ polys: polys(d?.areas, e) });
+  }
+  if (e === "boundpt") {
+    const r = await fieldPreview("bound").catch(() => null);
+    return Response.json({
+      dots: (r?.points ?? []).map((p) => ({
+        lat: p.lat,
+        lon: p.lon,
+        key: `engine:boundpt:${Math.max(
+          0,
+          BOUND_POINTS.findLastIndex((b) => p.score >= b.min),
+        )}`,
+      })),
+    });
   }
   if (e === "firstT") {
     const r = await fieldPreview("first").catch(() => null);

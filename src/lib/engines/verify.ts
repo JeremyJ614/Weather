@@ -206,7 +206,7 @@ async function radarFirst() {
   const { data } = await db
     .from("engine_checks")
     .select("id, at, lat, lon, window_min, radius_km")
-    .eq("engine", "first")
+    .in("engine", ["first", "bound"])
     .is("hit", null)
     .gt("at", new Date(now - 22 * 3600_000).toISOString())
     .order("at", { ascending: true })

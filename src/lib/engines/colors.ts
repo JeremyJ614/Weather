@@ -35,7 +35,8 @@ export type FieldId =
   | "rwrap"
   | "blizz"
   | "first"
-  | "sunset";
+  | "sunset"
+  | "bound";
 export const FIELD_BANDS: Record<
   FieldId,
   { levels: number[]; labels: string[]; colors: string[] }
@@ -85,6 +86,11 @@ export const FIELD_BANDS: Record<
     labels: ["Visible (LP)", "Classic", "Heavy rain (HP)", "Rain-wrapped"],
     colors: ["#a3e635", "#facc15", "#38bdf8", "#a855f7"],
   },
+  bound: {
+    levels: [0.5, 1.5, 2.5],
+    labels: ["Temperature boundary", "Moisture boundary", "Both"],
+    colors: ["#60a5fa", "#a3e635", "#f472b6"],
+  },
   sunset: {
     levels: [20, 40, 60, 80],
     labels: ["Dull", "Fair", "Good", "Great"],
@@ -123,6 +129,28 @@ export const OUTDOOR_BANDS: Record<
     labels: ["Slow", "Fair", "Good", "Excellent"],
     colors: ["#475569", "#2dd4bf", "#22c55e", "#facc15"],
   },
+};
+
+/** Boundary Collision Analyzer: each collision's dot, by its score. */
+export const BOUND_POINTS = [
+  { min: 0, label: "Low", color: "#94a3b8" },
+  { min: 40, label: "Possible", color: "#facc15" },
+  { min: 60, label: "Likely", color: "#fb923c" },
+  { min: 80, label: "Strong", color: "#f43f5e" },
+];
+
+/** Severe Analogs: the share of matched days with a severe report within 25 miles. */
+export const ANALOG_BANDS = [
+  { min: 10, label: "10%", color: "#4ade80" },
+  { min: 20, label: "20%", color: "#facc15" },
+  { min: 35, label: "35%", color: "#fb923c" },
+  { min: 50, label: "50%+", color: "#f43f5e" },
+];
+/** Severe Analogs: one matched day's reports. */
+export const ANALOG_DOTS = {
+  torn: { label: "Tornado", color: "#ef4444" },
+  wind: { label: "Wind", color: "#60a5fa" },
+  hail: { label: "Hail", color: "#4ade80" },
 };
 
 /** First Storms' timing map: when the first storms start, latest first (nested). */

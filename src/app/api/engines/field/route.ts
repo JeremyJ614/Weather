@@ -21,9 +21,10 @@ const IDS: FieldId[] = [
   "blizz",
   "first",
   "sunset",
+  "bound",
 ];
 // Engines that flag places and show their own hit rate.
-const CHECKED = new Set<FieldId>(["blizz", "first"]);
+const CHECKED = new Set<FieldId>(["blizz", "first", "bound"]);
 
 /**
  * GET ?e=<engine id>: one model-driven engine's map and list,

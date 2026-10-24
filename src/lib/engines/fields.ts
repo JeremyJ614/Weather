@@ -21,6 +21,7 @@ import { getOutlook } from "@/lib/tropical/nhc";
 import { latticeAreas, soften } from "./areas";
 import { FIELD_BANDS, type FieldId } from "./colors";
 import { logFlags, type Flag } from "./verify";
+import { bound } from "./boundary";
 import {
   glowFactors,
   glowScore,
@@ -33,7 +34,7 @@ import {
  * from NOAA's AWS archive (the same reader as the model viewer) and combines them into one
  * index, painted as a transparent map layer in the admin-editable band colors.
  */
-const CONUS = REGIONS.conus.b;
+export const CONUS = REGIONS.conus.b;
 const KT = 1.943844;
 let places: ReturnType<typeof parsePlaces> | null = null;
 
@@ -43,11 +44,11 @@ const hypot = (a: Float32Array, b: Float32Array) => {
   for (let i = 0; i < a.length; i++) o[i] = Math.hypot(a[i], b[i]);
   return o;
 };
-const cycleTime = (c: string) =>
+export const cycleTime = (c: string) =>
   Date.UTC(+c.slice(0, 4), +c.slice(4, 6) - 1, +c.slice(6, 8), +c.slice(8));
 
 /** The forecast hour of `cycle` closest to `at`, inside the HRRR's 18 hours. */
-const hourFor = (cycle: string, at: number) =>
+export const hourFor = (cycle: string, at: number) =>
   clamp(Math.round((at - cycleTime(cycle)) / 3600_000), 0, 18);
 
 /** The next time it is `hour`:00 UTC, at least `ahead` hours from now. */
@@ -71,7 +72,7 @@ async function longRun(cycle: string) {
   return null;
 }
 
-async function grab(cycle: string, fh: number, matches: string[]) {
+export async function grab(cycle: string, fh: number, matches: string[]) {
   const url = MODELS.hrrr.url(cycle.slice(0, 8), cycle.slice(8), fh);
   return Promise.all(matches.map((m) => record(url, m)));
 }
@@ -105,7 +106,7 @@ function thetaE(t: number, td: number, p: number) {
   return th * Math.exp((3036 / tl - 1.78) * r * (1 + 0.448 * r));
 }
 const es = (tc: number) => 6.112 * Math.exp((17.67 * tc) / (tc + 243.5));
-type Computed = {
+export type Computed = {
   field: Field;
   cycle: string;
   fh: number;
@@ -181,7 +182,7 @@ async function llj(cycle: string): Promise<Computed> {
 }
 
 /** Box-average a grid in place-free fashion (radius r cells), for smoothing a derivative. */
-function smooth(v: Float32Array, w: number, h: number, r: number) {
+export function smooth(v: Float32Array, w: number, h: number, r: number) {
   const sum = new Float64Array((w + 1) * (h + 1));
   for (let j = 0; j < h; j++)
     for (let i = 0; i < w; i++) {
@@ -351,7 +352,7 @@ async function pyro(cycle: string): Promise<Computed> {
 }
 
 const R = 6371;
-const distKm = (a: number, b: number, c: number, d: number) => {
+export const distKm = (a: number, b: number, c: number, d: number) => {
   const r = Math.PI / 180;
   const x =
     Math.sin(((c - a) * r) / 2) ** 2 +
@@ -766,10 +767,10 @@ async function blizz(cycle: string): Promise<Computed> {
   };
 }
 
-const LW = Math.round((CONUS[2] - CONUS[0]) / 0.1) + 1;
-const LH = Math.round((CONUS[3] - CONUS[1]) / 0.1) + 1;
+export const LW = Math.round((CONUS[2] - CONUS[0]) / 0.1) + 1;
+export const LH = Math.round((CONUS[3] - CONUS[1]) / 0.1) + 1;
 /** The 0.1° CONUS lattice as a grid, north row first. */
-const LATTICE: LatLonGrid = {
+export const LATTICE: LatLonGrid = {
   kind: "latlon",
   ni: LW,
   nj: LH,
@@ -781,7 +782,7 @@ const LATTICE: LatLonGrid = {
 };
 
 /** A native field on the lattice, each cell the most of the native points within `r`. */
-function toLattice(f: Field, r = 2) {
+export function toLattice(f: Field, r = 2) {
   const loc = locator(f.grid);
   const [w, h] = gridSize(f.grid);
   const out = new Float32Array(LW * LH);
@@ -1195,6 +1196,7 @@ const COMPUTE: Record<FieldId, (cycle: string) => Promise<Computed>> = {
   blizz,
   first,
   sunset,
+  bound,
 };
 
 export type Spot = {
@@ -1288,7 +1290,7 @@ export async function fieldEngine(id: FieldId) {
   if (!cycle) throw new Error("No HRRR run is available");
   const c = await COMPUTE[id](cycle);
   const bands = FIELD_BANDS[id];
-  const top = id === "pyro" ? [] : spots(c, bands.levels[0]);
+  const top = id === "pyro" || id === "bound" ? [] : spots(c, bands.levels[0]);
   if (c.flags) await logFlags(id, c.flags(top)).catch(() => {});
   return {
     id,
@@ -1308,6 +1310,7 @@ export async function fieldEngine(id: FieldId) {
     spots: top,
     fires: (c.extra?.fires as unknown[]) ?? undefined,
     storms: (c.extra?.storms as unknown[]) ?? undefined,
+    points: (c.extra?.points as unknown[]) ?? undefined,
     note: c.note ?? null,
   };
 }
@@ -1326,5 +1329,10 @@ export async function fieldPreview(id: FieldId) {
     areas: areasOf(c, FIELD_BANDS[id].levels),
     alt: c.alt ? areasOf({ ...c, field: c.alt.field }, c.alt.levels) : null,
     fires,
+    points: (c.extra?.points ?? []) as {
+      lat: number;
+      lon: number;
+      score: number;
+    }[],
   };
 }
