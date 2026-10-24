@@ -8,6 +8,7 @@ export const ITEM_STATES: ItemState[] = ["on", "off", "hidden"];
 
 export const EXTRAS_ITEMS = [
   { id: "tor", group: "engines", name: "ProbTor" },
+  { id: "surge", group: "engines", name: "Lightning Surge Detector" },
   { id: "stp", group: "engines", name: "Significant Tornado" },
   { id: "scp", group: "engines", name: "Supercell Composite" },
   { id: "dcp", group: "engines", name: "Derecho Composite" },

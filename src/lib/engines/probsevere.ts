@@ -14,7 +14,7 @@ const BASE = "https://mrms.ncep.noaa.gov/ProbSevere/PROBSEVERE/";
 const UA = { "User-Agent": "StormSync Weather (https://weather.sswx.space)" };
 let rows: ReturnType<typeof parsePlaces> | null = null;
 
-type Raw = {
+export type Raw = {
   validTime?: string;
   features: {
     geometry: { type: string; coordinates: number[][][] };
@@ -24,7 +24,7 @@ type Raw = {
 
 const num = (v: string | undefined) => Number(v) || 0;
 
-function cells(raw: Raw): Cell[] {
+export function cells(raw: Raw): Cell[] {
   return raw.features
     .filter((f) => f.geometry?.type === "Polygon")
     .map((f) => {
@@ -47,7 +47,7 @@ function cells(raw: Raw): Cell[] {
     });
 }
 
-const stamp = (f: string) => {
+export const stamp = (f: string) => {
   const m = /(\d{8})_(\d{6})/.exec(f);
   return m
     ? Date.parse(
@@ -56,7 +56,7 @@ const stamp = (f: string) => {
     : 0;
 };
 
-async function file(name: string): Promise<Raw> {
+export async function file(name: string): Promise<Raw> {
   // Each file name is a fixed time, so a fetched file never changes.
   const r = await fetch(BASE + name, {
     headers: UA,
@@ -83,16 +83,30 @@ export type EngineStorm = {
   toward: string;
 };
 
-export async function probSevere() {
+/** Every ProbSevere file on the server (about the last 25 hours), oldest first. */
+export async function fileNames() {
   const list = await fetch(BASE, {
     headers: UA,
     signal: AbortSignal.timeout(10000),
     next: { revalidate: 60 },
   }).then((r) => (r.ok ? r.text() : ""));
-  const names = [...list.matchAll(/MRMS_PROBSEVERE_\d{8}_\d{6}\.json/g)]
+  return [...list.matchAll(/MRMS_PROBSEVERE_\d{8}_\d{6}\.json/g)]
     .map((m) => m[0])
     .filter((v, i, a) => a.indexOf(v) === i)
     .sort();
+}
+
+/** The place line for a storm: "12 mi from Town, ST". */
+export function placeOf(lat: number, lon: number) {
+  rows ??= parsePlaces(PLACES);
+  const near = nearestPlace(rows, lat, lon, 1000);
+  return near
+    ? `${near.miles < 3 ? "" : `${Math.round(near.miles)} mi from `}${near.hit.name}, ${near.hit.st}`
+    : `${lat.toFixed(2)}, ${lon.toFixed(2)}`;
+}
+
+export async function probSevere() {
+  const names = await fileNames();
   const latest = names.at(-1);
   if (!latest) throw new Error("ProbSevere has no files");
   const t = stamp(latest);
@@ -104,20 +118,16 @@ export async function probSevere() {
   const prev = new Map(
     (then ? cells(then) : []).map((c) => [c.id, c] as const),
   );
-  rows ??= parsePlaces(PLACES);
   const tor: GeoJSON.Feature[] = [];
   const torPaths: Segment[] = [];
   const storms: EngineStorm[] = [];
   for (const c of cells(now)) {
     const o = torOutlook(c, prev.get(c.id));
     if (o.p20 < 3) continue;
-    const near = nearestPlace(rows, c.lat, c.lon, 1000);
     const m = motion(c);
     storms.push({
       id: c.id,
-      place: near
-        ? `${near.miles < 3 ? "" : `${Math.round(near.miles)} mi from `}${near.hit.name}, ${near.hit.st}`
-        : `${c.lat.toFixed(2)}, ${c.lon.toFixed(2)}`,
+      place: placeOf(c.lat, c.lon),
       lat: c.lat,
       lon: c.lon,
       tor: o.now,

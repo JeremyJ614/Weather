@@ -1,4 +1,5 @@
 import { probSevere } from "@/lib/engines/probsevere";
+import { surges } from "@/lib/engines/surge";
 import { FIELD_BANDS, pyroBin, type FieldId } from "@/lib/engines/colors";
 import { fieldPreview } from "@/lib/engines/fields";
 import type { Areas } from "@/lib/engines/areas";
@@ -56,6 +57,15 @@ export async function GET(req: Request) {
         dots.push({ lat, lon, key: `engine:blind:${grid[y * width + x]}` });
       }
     return Response.json({ dots });
+  }
+  if (e === "surge") {
+    const d = await surges().catch(() => null);
+    return Response.json({
+      polys: (d?.polys.features ?? []).map((f) => ({
+        k: `engine:surge:${f.properties?.band}`,
+        d: geoPath(f.geometry as never, 0.6),
+      })),
+    });
   }
   try {
     const d = await probSevere();

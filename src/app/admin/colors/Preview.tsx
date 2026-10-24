@@ -86,6 +86,11 @@ export function previewSource(
       };
     case "engine-tor":
       return { url: "/api/engines/preview?e=tor", title: "ProbTor areas now" };
+    case "engine-surge":
+      return {
+        url: "/api/engines/preview?e=surge",
+        title: "Storms with rising or jumping lightning now",
+      };
     case "engine-blind":
       return {
         url: "/api/engines/preview?e=blind",

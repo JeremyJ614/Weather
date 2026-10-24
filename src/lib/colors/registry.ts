@@ -31,6 +31,7 @@ import {
   BLIND_BANDS,
   FIELD_BANDS,
   PYRO_BINS,
+  SURGE_BANDS,
   TOR_BINS,
 } from "@/lib/engines/colors";
 import { PROB as WINTER_PROB } from "@/lib/winter/style";
@@ -304,6 +305,16 @@ export const GROUPS: Group[] = [
     note: "Extras → Weather Engines: tornado chance cones by probability.",
     entries: TOR_BINS.map((b, i) => ({
       key: `engine:tor:${i}`,
+      label: b.label,
+      def: b.color,
+    })),
+  },
+  {
+    id: "engine-surge",
+    label: "Lightning Surge Detector",
+    note: "Extras → Weather Engines: storm outlines by lightning trend.",
+    entries: SURGE_BANDS.map((b, i) => ({
+      key: `engine:surge:${i}`,
       label: b.label,
       def: b.color,
     })),

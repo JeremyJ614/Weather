@@ -71,6 +71,13 @@ export const FIELD_BANDS: Record<
   },
 };
 
+/** Lightning Surge Detector storm outlines: rising, jump, strong jump. */
+export const SURGE_BANDS = [
+  { label: "Lightning rising", color: "#fde047" },
+  { label: "Lightning jump", color: "#fb923c" },
+  { label: "Strong jump", color: "#f43f5e" },
+];
+
 /** PyroCb chance per fire, 0–100. */
 export const PYRO_BINS = [
   { min: 0, label: "Low", color: "#64748b" },

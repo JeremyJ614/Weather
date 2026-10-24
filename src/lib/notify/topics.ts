@@ -4,6 +4,7 @@ export type TopicId =
   | "watches"
   | "spc"
   | "engines"
+  | "surge"
   | "news"
   | "tropical"
   | "aurora"
@@ -51,6 +52,13 @@ export const TOPICS: Topic[] = [
     group: "StormSync",
     label: "Engine alerts",
     note: "When our SSWXCon national score reaches Significant or higher, and each step up that day.",
+  },
+  {
+    id: "surge",
+    group: "StormSync",
+    label: "Lightning surges",
+    note: "Experimental: when a storm within 25 miles of your place has a lightning jump, which often comes 10 to 20 minutes before severe weather.",
+    local: true,
   },
   {
     id: "news",

@@ -363,6 +363,8 @@ export function sampleFor(id: string): (() => Promise<Sample>) | null {
       return tropical;
     case "engine-tor":
       return () => engineAreas(id.slice(7), 4);
+    case "engine-surge":
+      return () => engineAreas(id.slice(7), 3);
     default:
       return null;
   }

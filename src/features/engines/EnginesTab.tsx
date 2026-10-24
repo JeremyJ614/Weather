@@ -7,6 +7,7 @@ import type {
   MapMouseEvent,
 } from "maplibre-gl";
 import {
+  Activity,
   ArrowDownRight,
   ArrowRight,
   ArrowUpRight,
@@ -26,17 +27,19 @@ import {
   BLIND_BANDS,
   FIELD_BANDS,
   PYRO_BINS,
+  SURGE_BANDS,
   TOR_BINS,
   pyroBin,
   torBin,
   type FieldId,
 } from "@/lib/engines/colors";
 import type { EngineStorm } from "@/lib/engines/probsevere";
+import type { SurgeStorm } from "@/lib/engines/surge";
 import type { Areas } from "@/lib/engines/areas";
 import radars from "@/lib/engines/radars.json";
 import s from "./Engines.module.css";
 
-type Engine = "tor" | "blind" | FieldId;
+type Engine = "tor" | "surge" | "blind" | FieldId;
 const FIELDS: FieldId[] = [
   "llj",
   "nst",
@@ -85,6 +88,14 @@ type Data = {
   tor: GeoJSON.FeatureCollection;
   torAreas: Areas;
 };
+type SurgeData = {
+  at: string;
+  total: number;
+  minutes: number;
+  storms: SurgeStorm[];
+  polys: GeoJSON.FeatureCollection;
+  stats: { days: number; checked: number; hits: number } | null;
+};
 const EMPTY: GeoJSON.FeatureCollection = {
   type: "FeatureCollection",
   features: [],
@@ -101,6 +112,12 @@ const ENGINES: {
     name: "ProbTor",
     sub: "Tornado chance, next hour",
     icon: <Tornado aria-hidden />,
+  },
+  {
+    id: "surge",
+    name: "Lightning Surge",
+    sub: "Lightning jumps, now",
+    icon: <Activity aria-hidden />,
   },
   {
     id: "stp",
@@ -165,6 +182,15 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
       "Every storm comes from NOAA and the University of Wisconsin's ProbSevere v3, which blends radar, satellite, lightning and the HRRR model into a tornado chance for each storm, updated every two minutes.",
       "ProbTor carries that chance 20 minutes forward and nudges it by what the storm is doing right now: whether its low-level rotation (radar azimuthal shear) has grown or weakened over the last 10 minutes, and whether its lightning has suddenly jumped, which often comes 10 to 20 minutes before severe weather.",
       "Each storm is projected along its own motion for 0–20, 20–40 and 40–60 minutes, and the map draws the chances the way SPC draws an outlook: nested, outlined areas around each path that fade with distance, merging where storms run together. Zoom in to see each storm's own 20-minute cones. The later chances only fade: past half an hour nobody can say much more.",
+      "This is an experimental guide, never a warning. Act on National Weather Service warnings.",
+    ],
+  },
+  surge: {
+    lead: "A 10 to 20 minute heads-up, with false alarms.",
+    body: [
+      "A storm's lightning often jumps just before it turns severe, as a strengthening updraft lofts more ice and charges the cloud faster. This engine follows each storm NOAA and the University of Wisconsin's ProbSevere is tracking, reading its total flash rate from every new file (one every 2 minutes) for the last 20 minutes.",
+      'It uses the "2σ" lightning jump from research by Schultz and others: the change in flash rate over each 2 minutes is compared with how much it varied over the 10 minutes before. A rise more than two standard deviations above that, in a storm flashing at least 10 times a minute, is a jump, and the storm stays flagged for 10 minutes. A jump of three or more, or one the radar backs up with tightening low-level rotation or a hail core growing by a quarter inch, is a strong jump.',
+      "In research with ground-based lightning networks about 4 in 5 severe storms jumped first, with roughly a third of jumps never followed by severe weather. Ordinary storms jump too, and reports are missed where few people live. The hit rate below is this engine's own, checked every hour against the Weather Service's storm reports.",
       "This is an experimental guide, never a warning. Act on National Weather Service warnings.",
     ],
   },
@@ -301,6 +327,7 @@ export function EnginesTab({
   const [engine, setEngine] = useState<Engine>(usable[0]?.id ?? "tor");
   const [data, setData] = useState<Data | null>(null);
   const [failed, setFailed] = useState(false);
+  const [surge, setSurge] = useState<SurgeData | "error" | null>(null);
   const [beam, setBeam] = useState<ReturnType<typeof beamAt> | "none" | null>(
     null,
   );
@@ -319,6 +346,8 @@ export function EnginesTab({
     pick(colors, `engine:blind:${i}`, BLIND_BANDS[i].color);
   const fieldColor = (id: FieldId, i: number) =>
     pick(colors, `engine:${id}:${i}`, FIELD_BANDS[id].colors[i]);
+  const surgeColor = (i: number) =>
+    pick(colors, `engine:surge:${i}`, SURGE_BANDS[i].color);
   const pyroColor = (i: number) =>
     pick(colors, `engine:pyrocb:${i}`, PYRO_BINS[i].color);
 
@@ -335,6 +364,24 @@ export function EnginesTab({
       live = false;
     };
   }, [want]);
+
+  // Lightning surges every two minutes while that engine is open and the page is visible.
+  useEffect(() => {
+    if (engine !== "surge") return;
+    let live = true;
+    const load = () =>
+      document.visibilityState === "visible" &&
+      fetch("/api/engines/surge")
+        .then((r) => (r.ok ? r.json() : Promise.reject()))
+        .then((d: SurgeData) => live && setSurge(d))
+        .catch(() => live && setSurge((x) => x ?? "error"));
+    load();
+    const t = setInterval(load, 120_000);
+    return () => {
+      live = false;
+      clearInterval(t);
+    };
+  }, [engine]);
 
   // ProbSevere every two minutes while ProbTor is open and the page is visible.
   useEffect(() => {
@@ -390,6 +437,25 @@ export function EnginesTab({
         },
       });
     }
+    m.addSource("surge", { type: "geojson", data: EMPTY });
+    m.addLayer({
+      id: "surge-fill",
+      type: "fill",
+      source: "surge",
+      paint: {
+        "fill-color": byBand(surgeColor, SURGE_BANDS.length),
+        "fill-opacity": 0.4,
+      },
+    });
+    m.addLayer({
+      id: "surge-line",
+      type: "line",
+      source: "surge",
+      paint: {
+        "line-color": byBand(surgeColor, SURGE_BANDS.length),
+        "line-width": 2,
+      },
+    });
     m.addSource("tor", { type: "geojson", data: EMPTY });
     m.addLayer({
       id: "tor-fill",
@@ -501,6 +567,8 @@ export function EnginesTab({
     vis("fieldA-line", isField(e));
     vis("tor-fill", e === "tor");
     vis("tor-line", e === "tor");
+    vis("surge-fill", e === "surge");
+    vis("surge-line", e === "surge");
     vis("blind", e === "blind");
     vis("radars", e === "blind");
     vis("fires", e === "pyro");
@@ -533,22 +601,31 @@ export function EnginesTab({
       });
     }
     show(map, engine);
+    if (surge && surge !== "error")
+      (map.getSource("surge") as GeoJSONSource | undefined)?.setData(
+        surge.polys,
+      );
     if (data) {
       (map.getSource("tor") as GeoJSONSource | undefined)?.setData(data.tor);
       (map.getSource("torA") as GeoJSONSource | undefined)?.setData(
         data.torAreas,
       );
     }
-  }, [map, engine, data, fields, colors]); // eslint-disable-line react-hooks/exhaustive-deps -- the color helpers derive from colors
+  }, [map, engine, data, surge, fields, colors]); // eslint-disable-line react-hooks/exhaustive-deps -- the color helpers derive from colors
 
   const storms = data?.storms ?? [];
   const how = HOW[engine];
   const legend: [string, string][] =
     engine === "tor"
       ? TOR_BINS.map((b, i) => [b.label, torColor(i)])
-      : engine === "blind"
-        ? BLIND_BANDS.map((b, i) => [b.label, blindColor(i)])
-        : FIELD_BANDS[engine].labels.map((l, i) => [l, fieldColor(engine, i)]);
+      : engine === "surge"
+        ? SURGE_BANDS.map((b, i) => [b.label, surgeColor(i)])
+        : engine === "blind"
+          ? BLIND_BANDS.map((b, i) => [b.label, blindColor(i)])
+          : FIELD_BANDS[engine].labels.map((l, i) => [
+              l,
+              fieldColor(engine, i),
+            ]);
   const field = isField(engine) ? fields[engine] : undefined;
   const valid = (iso: string) =>
     new Date(iso).toLocaleString("en-US", {
@@ -556,7 +633,7 @@ export function EnginesTab({
       hour: "numeric",
       minute: "2-digit",
     });
-  const focus = (x: EngineStorm) =>
+  const focus = (x: { lat: number; lon: number }) =>
     map?.flyTo({ center: [x.lon, x.lat], zoom: 8, duration: 1200 });
 
   if (!usable.length)
@@ -691,6 +768,100 @@ export function EnginesTab({
               </li>
             ))}
           </ul>
+        </section>
+      )}
+
+      {engine === "surge" && (
+        <section className={s.card}>
+          <header>
+            <h3>Storms with surging lightning</h3>
+            {surge && surge !== "error" && (
+              <small>ProbSevere scan {time(surge.at)}</small>
+            )}
+          </header>
+          {surge === null && (
+            <p className={s.small}>Reading the last 20 minutes of scans…</p>
+          )}
+          {surge === "error" && (
+            <p className={s.small}>
+              ProbSevere isn&apos;t answering right now. Trying again in two
+              minutes.
+            </p>
+          )}
+          {surge && surge !== "error" && surge.storms.length === 0 && (
+            <p className={s.small}>
+              No storm&apos;s lightning is rising or jumping right now.
+              ProbSevere is tracking {surge.total} storm
+              {surge.total === 1 ? "" : "s"}.
+            </p>
+          )}
+          {surge && surge !== "error" && (
+            <ul className={s.storms}>
+              {surge.storms.map((x) => (
+                <li key={x.id}>
+                  <button type="button" onClick={() => focus(x)}>
+                    <span className={s.where}>
+                      <b>{x.place}</b>
+                      <small>
+                        <ArrowRight aria-hidden /> {x.toward} at {x.mph} mph
+                        {x.severe ? ` · ${x.severe}% severe` : ""}
+                      </small>
+                    </span>
+                    <span className={s.hail}>
+                      <svg viewBox="0 0 60 20" className={s.spark} aria-hidden>
+                        <polyline
+                          points={x.rates
+                            .map(
+                              (v, i) =>
+                                `${(i / Math.max(1, x.rates.length - 1)) * 60},${19 - (v / Math.max(10, ...x.rates)) * 17}`,
+                            )
+                            .join(" ")}
+                          fill="none"
+                          stroke={surgeColor(x.band)}
+                          strokeWidth={1.8}
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                      <b>{x.rate}</b>
+                      <small>flashes/min</small>
+                    </span>
+                  </button>
+                  <p className={s.flags}>
+                    {x.since != null && x.since <= 10 && (
+                      <span data-k="up">
+                        <Zap aria-hidden />{" "}
+                        {x.band === 2 ? "Strong jump" : "Jump"}{" "}
+                        {x.since === 0 ? "just now" : `${x.since} min ago`} (
+                        {x.peak}σ)
+                      </span>
+                    )}
+                    {x.band === 0 && (
+                      <span>
+                        <ArrowUpRight aria-hidden /> Rising ({x.sigma}σ)
+                      </span>
+                    )}
+                    {x.rotation && (
+                      <span data-k="up">
+                        <ArrowUpRight aria-hidden /> Rotation tightening
+                      </span>
+                    )}
+                    {x.hail && (
+                      <span data-k="up">
+                        <ArrowUpRight aria-hidden /> Hail core growing
+                      </span>
+                    )}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+          {surge && surge !== "error" && surge.stats && (
+            <p className={s.small}>
+              {surge.stats.checked >= 10
+                ? `Hit rate, last ${surge.stats.days} days: ${Math.round((100 * surge.stats.hits) / surge.stats.checked)}% of ${surge.stats.checked} jumps were followed by a severe storm report within 45 minutes and 15 miles.`
+                : `The hit rate shows once 10 jumps have been checked against storm reports (${surge.stats.checked} so far).`}
+            </p>
+          )}
         </section>
       )}
 

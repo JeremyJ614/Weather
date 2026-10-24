@@ -195,6 +195,10 @@
 .hail b {
   font-size: 15px;
 }
+.spark {
+  width: 60px;
+  height: 20px;
+}
 .flags {
   display: flex;
   flex-wrap: wrap;
