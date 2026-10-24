@@ -1,5 +1,6 @@
 import "server-only";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { file, fileNames, stamp as psStamp } from "./probsevere";
 
 /**
  * Hourly (pg_cron "engine-verify"): each engine flag old enough for the storm reports to be
@@ -194,9 +195,84 @@ export function judge(c: Check, reports: Report[]) {
   );
 }
 
+/**
+ * First Storms flags are checked against radar: a hit when any storm ProbSevere tracked (its
+ * objects start at about 35 dBZ) sat within the radius during the window, sampled every 30
+ * minutes from its ~25-hour file archive.
+ */
+async function radarFirst() {
+  const db = supabaseAdmin();
+  const now = Date.now();
+  const { data } = await db
+    .from("engine_checks")
+    .select("id, at, lat, lon, window_min, radius_km")
+    .eq("engine", "first")
+    .is("hit", null)
+    .gt("at", new Date(now - 22 * 3600_000).toISOString())
+    .order("at", { ascending: true })
+    .limit(300);
+  const ready = (data ?? []).filter(
+    (r) => Date.parse(r.at) + r.window_min * 60_000 < now - 15 * 60_000,
+  );
+  if (!ready.length) return 0;
+  const names = await fileNames();
+  const times = names.map(psStamp);
+  const nearest = (t: number) => {
+    let best = -1;
+    for (let i = 0; i < times.length; i++)
+      if (best < 0 || Math.abs(times[i] - t) < Math.abs(times[best] - t))
+        best = i;
+    return best >= 0 && Math.abs(times[best] - t) < 10 * 60_000 ? best : -1;
+  };
+  const want = new Map<number, number[]>();
+  for (const r of ready) {
+    const a = Date.parse(r.at);
+    for (let t = a; t <= a + r.window_min * 60_000; t += 30 * 60_000) {
+      const i = nearest(t);
+      if (i >= 0) want.set(i, [...(want.get(i) ?? []), r.id]);
+    }
+  }
+  const centers = new Map<number, [number, number][]>();
+  for (const i of [...want.keys()].slice(0, 60)) {
+    const raw = await file(names[i]).catch(() => null);
+    if (raw)
+      centers.set(
+        i,
+        raw.features.map((f) => [
+          Number(f.properties.MLAT),
+          Number(f.properties.MLON),
+        ]),
+      );
+  }
+  const hit = new Set<number>();
+  for (const [i, ids] of want) {
+    const pts = centers.get(i);
+    if (!pts) continue;
+    for (const id of ids) {
+      const r = ready.find((x) => x.id === id)!;
+      if (pts.some(([la, lo]) => km(r.lat, r.lon, la, lo) <= r.radius_km))
+        hit.add(id);
+    }
+  }
+  const at = new Date().toISOString();
+  const yes = ready.filter((r) => hit.has(r.id)).map((r) => r.id);
+  const no = ready.filter((r) => !hit.has(r.id)).map((r) => r.id);
+  for (const [ids, h] of [
+    [yes, true],
+    [no, false],
+  ] as const)
+    for (let i = 0; i < ids.length; i += 200)
+      await db
+        .from("engine_checks")
+        .update({ hit: h, checked_at: at })
+        .in("id", ids.slice(i, i + 200));
+  return ready.length;
+}
+
 export async function verifyChecks() {
   const db = supabaseAdmin();
   const live = await liveBlizzard().catch(() => 0);
+  const radar = await radarFirst().catch(() => 0);
   const ready = new Date(Date.now() - 3 * 3600_000).toISOString();
   const { data, error } = await db
     .from("engine_checks")
@@ -236,5 +312,5 @@ export async function verifyChecks() {
     .from("engine_checks")
     .delete()
     .lt("at", new Date(Date.now() - 120 * 86400_000).toISOString());
-  return { checked: rows.length, hits, live };
+  return { checked: rows.length, hits, live, radar };
 }

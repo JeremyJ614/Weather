@@ -42,6 +42,24 @@
 .mapBox {
   position: relative;
 }
+.windows {
+  display: flex;
+  gap: 6px;
+}
+.windows button {
+  flex: 1;
+  min-height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.windows button[aria-pressed="true"] {
+  border-color: var(--lit-line);
+  background: var(--lit);
+  color: var(--accent);
+}
 .map {
   height: min(60vh, 480px);
   overflow: hidden;

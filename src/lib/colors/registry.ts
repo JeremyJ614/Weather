@@ -30,6 +30,7 @@ import { BANDS as CHASE_BANDS, CHASE_ALT } from "@/lib/chase/score";
 import {
   BLIND_BANDS,
   FIELD_BANDS,
+  FIRST_TIME_BANDS,
   PYRO_BINS,
   SURGE_BANDS,
   TOR_BINS,
@@ -341,6 +342,7 @@ export const GROUPS: Group[] = [
       ["ltg", "Lightning Threat"],
       ["rwrap", "Rain-Wrap Index"],
       ["blizz", "Blizzard Composite (hours of whiteout)"],
+      ["first", "First Storms (chance)"],
     ] as const
   ).map(([id, label]) => ({
     id: `engine-${id}`,
@@ -358,6 +360,16 @@ export const GROUPS: Group[] = [
         : []),
     ],
   })),
+  {
+    id: "engine-firstT",
+    label: "First Storms (timing)",
+    note: "Extras → Weather Engines → First Storms: when the first storms start.",
+    entries: FIRST_TIME_BANDS.map((b, i) => ({
+      key: `engine:firstT:${i}`,
+      label: b.label,
+      def: b.color,
+    })),
+  },
   {
     id: "engine-pyrocb",
     label: "PyroCb chance per fire",

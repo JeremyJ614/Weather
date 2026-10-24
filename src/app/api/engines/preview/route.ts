@@ -30,6 +30,10 @@ export async function GET(req: Request) {
       })),
     });
   }
+  if (e === "firstT") {
+    const r = await fieldPreview("first").catch(() => null);
+    return Response.json({ polys: polys(r?.alt, "firstT") });
+  }
   if (e && e in FIELD_BANDS) {
     const r = await fieldPreview(e as FieldId).catch(() => null);
     return Response.json({ polys: polys(r?.areas, e) });

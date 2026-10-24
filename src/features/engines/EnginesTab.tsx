@@ -16,6 +16,7 @@ import {
   FlaskConical,
   Radar,
   Snowflake,
+  Sprout,
   Tornado,
   Umbrella,
   Waves,
@@ -28,6 +29,7 @@ import { stateOf, type ExtrasStates } from "@/lib/extras/items";
 import {
   BLIND_BANDS,
   FIELD_BANDS,
+  FIRST_TIME_BANDS,
   PYRO_BINS,
   SURGE_BANDS,
   TOR_BINS,
@@ -53,6 +55,7 @@ const FIELDS: FieldId[] = [
   "ltg",
   "rwrap",
   "blizz",
+  "first",
 ];
 const isField = (e: Engine): e is FieldId => FIELDS.includes(e as FieldId);
 type Spot = {
@@ -61,6 +64,7 @@ type Spot = {
   value: number;
   place: string;
   water?: boolean;
+  note?: string;
 };
 type Fire = {
   name: string;
@@ -80,6 +84,7 @@ type FieldData = {
   valid: string;
   bounds: number[];
   areas: Areas;
+  alt?: Areas | null;
   spots: Spot[];
   fires?: Fire[];
   storms?: { name: string; lat: number; lon: number; mph: number }[];
@@ -123,6 +128,12 @@ const ENGINES: {
     name: "Lightning Surge",
     sub: "Lightning jumps, now",
     icon: <Activity aria-hidden />,
+  },
+  {
+    id: "first",
+    name: "First Storms",
+    sub: "Where storms start, 6 h",
+    icon: <Sprout aria-hidden />,
   },
   {
     id: "stp",
@@ -270,6 +281,15 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
       "Isolated means the odd strike; frequent and up means lightning every few seconds nearby. Any thunder you hear means you are close enough to be struck, so head indoors.",
     ],
   },
+  first: {
+    lead: "Placement within about 50 miles half the time; timing within 1–2 hours.",
+    body: [
+      "Where the first storms of the day break through the cap is one of the hardest things to forecast, and one of the most useful for chasing. This engine asks the last four HRRR runs together (a time-lagged ensemble): in each, a new storm is an echo of 35 dBZ or more with none within 25 miles the hour before. The chance is the share of runs that start a storm within 25 miles of a spot in the next 6 hours.",
+      "That share is weighed by the newest run's support: whether the cap (the inhibition, CIN) is weakening over the next three hours, and whether the surface winds are converging, which gives the air its push. Places without the instability to use (most-unstable CAPE under 100 J/kg) are left out, so winter rain bands don't count as storms.",
+      "Switch to Timing to see when the first storms start, soonest on top. Each listed spot gives the time, how many runs agree and why.",
+      "Every spot of 35% or more is checked once its 6 hours are over against radar (any storm NOAA's ProbSevere tracked within 25 miles), and the hit rate shows below.",
+    ],
+  },
   rwrap: {
     lead: "Fair to good: storm type is forecast right about two times in three.",
     body: [
@@ -363,6 +383,7 @@ export function EnginesTab({
   const [data, setData] = useState<Data | null>(null);
   const [failed, setFailed] = useState(false);
   const [surge, setSurge] = useState<SurgeData | "error" | null>(null);
+  const [timing, setTiming] = useState(false);
   const [wraps, setWraps] = useState<
     { at: string; storms: WrapStorm[] } | "error" | null
   >(null);
@@ -386,6 +407,8 @@ export function EnginesTab({
     pick(colors, `engine:${id}:${i}`, FIELD_BANDS[id].colors[i]);
   const surgeColor = (i: number) =>
     pick(colors, `engine:surge:${i}`, SURGE_BANDS[i].color);
+  const timeColor = (i: number) =>
+    pick(colors, `engine:firstT:${i}`, FIRST_TIME_BANDS[i].color);
   const pyroColor = (i: number) =>
     pick(colors, `engine:pyrocb:${i}`, PYRO_BINS[i].color);
 
@@ -654,16 +677,19 @@ export function EnginesTab({
     if (!map) return;
     const f = isField(engine) ? fields[engine] : undefined;
     if (f && f !== "error" && isField(engine)) {
-      (map.getSource("fieldA") as GeoJSONSource | undefined)?.setData(f.areas);
-      const n = FIELD_BANDS[engine].levels.length;
+      const alt = engine === "first" && timing && f.alt;
+      (map.getSource("fieldA") as GeoJSONSource | undefined)?.setData(
+        alt ? f.alt! : f.areas,
+      );
+      const n = alt
+        ? FIRST_TIME_BANDS.length
+        : FIELD_BANDS[engine].levels.length;
+      const color = (i: number) => (alt ? timeColor(i) : fieldColor(engine, i));
       const expr = [
         "match",
         ["get", "band"],
-        ...Array.from({ length: n }, (_, i) => [
-          i,
-          fieldColor(engine, i),
-        ]).flat(),
-        fieldColor(engine, 0),
+        ...Array.from({ length: n }, (_, i) => [i, color(i)]).flat(),
+        color(0),
       ] as never;
       map.setPaintProperty("fieldA-fill", "fill-color", expr);
       map.setPaintProperty("fieldA-line", "line-color", expr);
@@ -687,7 +713,7 @@ export function EnginesTab({
         data.torAreas,
       );
     }
-  }, [map, engine, data, surge, fields, colors]); // eslint-disable-line react-hooks/exhaustive-deps -- the color helpers derive from colors
+  }, [map, engine, data, surge, fields, timing, colors]); // eslint-disable-line react-hooks/exhaustive-deps -- the color helpers derive from colors
 
   const storms = data?.storms ?? [];
   const how = HOW[engine];
@@ -696,12 +722,14 @@ export function EnginesTab({
       ? TOR_BINS.map((b, i) => [b.label, torColor(i)])
       : engine === "surge"
         ? SURGE_BANDS.map((b, i) => [b.label, surgeColor(i)])
-        : engine === "blind"
-          ? BLIND_BANDS.map((b, i) => [b.label, blindColor(i)])
-          : FIELD_BANDS[engine].labels.map((l, i) => [
-              l,
-              fieldColor(engine, i),
-            ]);
+        : engine === "first" && timing
+          ? FIRST_TIME_BANDS.map((b, i) => [b.label, timeColor(i)])
+          : engine === "blind"
+            ? BLIND_BANDS.map((b, i) => [b.label, blindColor(i)])
+            : FIELD_BANDS[engine].labels.map((l, i) => [
+                l,
+                fieldColor(engine, i),
+              ]);
   const field = isField(engine) ? fields[engine] : undefined;
   const valid = (iso: string) =>
     new Date(iso).toLocaleString("en-US", {
@@ -763,6 +791,25 @@ export function EnginesTab({
           </span>
         ))}
       </div>
+      {engine === "first" && (
+        <div className={s.windows} role="group" aria-label="Map shows">
+          {(
+            [
+              [false, "Chance"],
+              [true, "Timing"],
+            ] as const
+          ).map(([v, label]) => (
+            <button
+              key={label}
+              type="button"
+              aria-pressed={timing === v}
+              onClick={() => setTiming(v)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
       {engine === "tor" && (
         <p className={s.small}>
           Areas: the chance within about 25 miles over the next hour. Zoomed in,
@@ -999,6 +1046,7 @@ export function EnginesTab({
                       {engine === "nst" && (
                         <small>{x.water ? "Waterspout" : "Landspout"}</small>
                       )}
+                      {x.note && <small>{x.note}</small>}
                     </span>
                     <span className={s.hail}>
                       <i

@@ -86,6 +86,11 @@ export function previewSource(
       };
     case "engine-tor":
       return { url: "/api/engines/preview?e=tor", title: "ProbTor areas now" };
+    case "engine-firstT":
+      return {
+        url: "/api/engines/preview?e=firstT",
+        title: "When the first storms start, from the latest HRRR runs",
+      };
     case "engine-surge":
       return {
         url: "/api/engines/preview?e=surge",
@@ -111,6 +116,7 @@ export function previewSource(
     case "engine-ltg":
     case "engine-rwrap":
     case "engine-blizz":
+    case "engine-first":
       return {
         url: `/api/engines/preview?e=${id.slice(7)}`,
         title: "The engine's areas from the latest HRRR run",

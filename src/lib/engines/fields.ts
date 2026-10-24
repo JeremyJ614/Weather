@@ -1,7 +1,12 @@
 import "server-only";
 import { PLACES } from "@/lib/geo/places.data";
 import { nearestPlace, parsePlaces } from "@/lib/geo/search";
-import { gridSize, locator, type Field } from "@/lib/models/grib2";
+import {
+  gridSize,
+  locator,
+  type Field,
+  type LatLonGrid,
+} from "@/lib/models/grib2";
 import {
   MODELS,
   REGIONS,
@@ -103,6 +108,12 @@ type Computed = {
   rough?: boolean;
   /** Places to check against the weather later (from the top spots). */
   flags?: (spots: Spot[]) => Flag[];
+  /** A line under each listed spot (when, why). */
+  detail?: (lat: number, lon: number) => string | undefined;
+  /** Listed spots must be this close to a U.S. town (default 100 miles). */
+  nearMiles?: number;
+  /** A second map of the same engine, with its own bands (First Storms' timing). */
+  alt?: { field: Field; levels: number[] };
 };
 
 /** Nocturnal LLJ Ramp-Up, valid at the coming 06Z (about 1 a.m. Central). */
@@ -743,6 +754,214 @@ async function blizz(cycle: string): Promise<Computed> {
   };
 }
 
+const LW = Math.round((CONUS[2] - CONUS[0]) / 0.1) + 1;
+const LH = Math.round((CONUS[3] - CONUS[1]) / 0.1) + 1;
+/** The 0.1° CONUS lattice as a grid, north row first. */
+const LATTICE: LatLonGrid = {
+  kind: "latlon",
+  ni: LW,
+  nj: LH,
+  lat1: CONUS[3],
+  lon1: CONUS[0],
+  di: 0.1,
+  dj: 0.1,
+  southward: true,
+};
+
+/** A native field on the lattice, each cell the most of the native points within `r`. */
+function toLattice(f: Field, r = 2) {
+  const loc = locator(f.grid);
+  const [w, h] = gridSize(f.grid);
+  const out = new Float32Array(LW * LH);
+  for (let j = 0; j < LH; j++)
+    for (let i = 0; i < LW; i++) {
+      const [fi, fj] = loc(CONUS[3] - j * 0.1, CONUS[0] + i * 0.1);
+      const x = Math.round(fi);
+      const y = Math.round(fj);
+      let m = -Infinity;
+      for (let b = Math.max(0, y - r); b <= Math.min(h - 1, y + r); b++)
+        for (let a = Math.max(0, x - r); a <= Math.min(w - 1, x + r); a++) {
+          const v = f.values[b * w + a];
+          if (v > m) m = v;
+        }
+      out[j * LW + i] = m;
+    }
+  return out;
+}
+
+/** The lattice field's maximum (or minimum) within `r` cells, separably. */
+function spread(v: Float32Array, r: number, min = false) {
+  const pick = min ? Math.min : Math.max;
+  const tmp = new Float32Array(v.length);
+  const out = new Float32Array(v.length);
+  for (let j = 0; j < LH; j++)
+    for (let i = 0; i < LW; i++) {
+      let m = v[j * LW + i];
+      for (let a = Math.max(0, i - r); a <= Math.min(LW - 1, i + r); a++)
+        m = pick(m, v[j * LW + a]);
+      tmp[j * LW + i] = m;
+    }
+  for (let j = 0; j < LH; j++)
+    for (let i = 0; i < LW; i++) {
+      let m = tmp[j * LW + i];
+      for (let b = Math.max(0, j - r); b <= Math.min(LH - 1, j + r); b++)
+        m = pick(m, tmp[b * LW + i]);
+      out[j * LW + i] = m;
+    }
+  return out;
+}
+
+const ymdh = (t: number) =>
+  new Date(t).toISOString().slice(0, 13).replace(/[-T]/g, "");
+const clock = (t: number) =>
+  new Date(t).toLocaleTimeString("en-US", {
+    hour: "numeric",
+    timeZone: "America/Chicago",
+  });
+
+/**
+ * First Storms: the chance new storms start within about 25 miles over the next 6 hours,
+ * from the last four HRRR runs together (a time-lagged ensemble). In each run a new storm is
+ * a 35 dBZ echo with none within 25 miles the hour before; the chance is the share of runs
+ * that start one nearby, weighed by whether the newest run has the cap weakening and the
+ * surface winds converging, and only where there is instability to use (MUCAPE ≥ 100).
+ */
+async function first(cycle: string): Promise<Computed> {
+  const t0 = cycleTime(cycle);
+  const base = Math.floor(Date.now() / 3600_000) * 3600_000;
+  const R = 4;
+  const n = LW * LH;
+  const votes = new Float32Array(n);
+  const whenSum = new Float32Array(n);
+  const whenN = new Float32Array(n);
+  let runs = 0;
+  for (let k = 0; k < 4; k++) {
+    const c = ymdh(t0 - k * 3600_000);
+    const hrs = Array.from({ length: 7 }, (_, h) =>
+      Math.round((base + h * 3600_000 - cycleTime(c)) / 3600_000),
+    );
+    if (hrs.some((fh) => fh < 0 || fh > 18)) continue;
+    const refl = await Promise.all(
+      hrs.map((fh) =>
+        grab(c, fh, [":REFC:entire atmosphere:"])
+          .then(([f]) => toLattice(f))
+          .catch(() => null),
+      ),
+    );
+    if (refl.some((f) => !f)) continue;
+    runs++;
+    const when = new Float32Array(n).fill(Infinity);
+    let near = spread(refl[0]!, R);
+    for (let h = 1; h < 7; h++) {
+      const f = refl[h]!;
+      for (let i = 0; i < n; i++)
+        if (f[i] >= 35 && near[i] < 35 && when[i] === Infinity) when[i] = h;
+      near = spread(f, R);
+    }
+    const soon = spread(when, R, true);
+    for (let i = 0; i < n; i++)
+      if (soon[i] < Infinity) {
+        votes[i]++;
+        whenSum[i] += soon[i];
+        whenN[i]++;
+      }
+  }
+  if (!runs) throw new Error("No HRRR runs cover the next 6 hours");
+  const fh = hourFor(cycle, base + 3 * 3600_000);
+  const [[cape, u10, v10, land], [cinNow], [cinLater]] = await Promise.all([
+    grab(cycle, fh, [
+      ":CAPE:255-0 mb above ground:",
+      ":UGRD:10 m above ground:",
+      ":VGRD:10 m above ground:",
+      ":LAND:surface:",
+    ]),
+    grab(cycle, hourFor(cycle, base + 3600_000), [
+      ":CIN:90-0 mb above ground:",
+    ]),
+    grab(cycle, hourFor(cycle, base + 4 * 3600_000), [
+      ":CIN:90-0 mb above ground:",
+    ]),
+  ]);
+  const g = cape.grid;
+  const [w, h] = gridSize(g);
+  const dx = g.kind === "lambert" ? g.dx : 3000;
+  const div = new Float32Array(w * h);
+  for (let j = 1; j < h - 1; j++)
+    for (let i = 1; i < w - 1; i++) {
+      const k = j * w + i;
+      div[k] =
+        (u10.values[k + 1] - u10.values[k - 1]) / (2 * dx) +
+        (v10.values[k + w] - v10.values[k - w]) / (2 * dx);
+    }
+  const conv = smooth(div, w, h, 6);
+  const loc = locator(g);
+  const prob = new Float32Array(n);
+  const time = new Float32Array(n);
+  const factors = new Uint8Array(n);
+  for (let j = 0; j < LH; j++)
+    for (let i = 0; i < LW; i++) {
+      const q = j * LW + i;
+      if (!votes[q]) continue;
+      const [fi, fj] = loc(CONUS[3] - j * 0.1, CONUS[0] + i * 0.1);
+      const x = Math.round(fi);
+      const y = Math.round(fj);
+      if (x < 0 || y < 0 || x >= w || y >= h) continue;
+      const k = y * w + x;
+      // Over land only: storms over open water start daily and matter to no one chasing.
+      if (!(cape.values[k] >= 100) || land.values[k] < 0.5) continue;
+      const weaker = cinLater.values[k] - cinNow.values[k] >= 10;
+      const none = cinLater.values[k] > -25;
+      const cap = weaker || none;
+      const meet = conv[k] < -1e-5;
+      factors[q] =
+        (weaker ? 1 : 0) + (meet ? 2 : 0) + (!weaker && none ? 4 : 0);
+      prob[q] =
+        100 *
+        (votes[q] / runs) *
+        (0.75 + 0.125 * (cap ? 1 : 0) + 0.125 * (meet ? 1 : 0));
+      // Earlier is higher, so the nested timing areas put the soonest on top.
+      if (prob[q] >= 15) time[q] = 7 - whenSum[q] / whenN[q];
+    }
+  const at = (lat: number, lon: number) => {
+    const i = Math.round((lon - CONUS[0]) / 0.1);
+    const j = Math.round((CONUS[3] - lat) / 0.1);
+    return i >= 0 && j >= 0 && i < LW && j < LH ? j * LW + i : -1;
+  };
+  return {
+    field: { grid: LATTICE, values: prob },
+    cycle,
+    fh,
+    alt: { field: { grid: LATTICE, values: time }, levels: [1, 3, 5] },
+    nearMiles: 40,
+    note:
+      runs < 4
+        ? `${runs} of the last 4 HRRR runs reach 6 hours ahead; the chance uses those.`
+        : undefined,
+    detail: (lat, lon) => {
+      const q = at(lat, lon);
+      if (q < 0 || !whenN[q]) return undefined;
+      const why = [
+        factors[q] & 1 ? "cap weakening" : "",
+        factors[q] & 4 ? "little or no cap" : "",
+        factors[q] & 2 ? "winds converging" : "",
+      ].filter(Boolean);
+      return `First storms around ${clock(base + Math.round(whenSum[q] / whenN[q]) * 3600_000)} CT · ${votes[q]} of ${runs} runs${why.length ? ` · ${why.join(", ")}` : ""}`;
+    },
+    flags: (spots) =>
+      spots
+        .filter((x) => x.value >= 35)
+        .map((x) => ({
+          key: `${cycle}:${x.lat.toFixed(1)},${x.lon.toFixed(1)}`,
+          at: base,
+          lat: x.lat,
+          lon: x.lon,
+          label: `${x.place} (${Math.round(x.value)}%)`,
+          window_min: 360,
+          radius_km: 40,
+        })),
+  };
+}
+
 const COMPUTE: Record<FieldId, (cycle: string) => Promise<Computed>> = {
   llj,
   nst,
@@ -754,6 +973,7 @@ const COMPUTE: Record<FieldId, (cycle: string) => Promise<Computed>> = {
   ltg,
   rwrap,
   blizz,
+  first,
 };
 
 export type Spot = {
@@ -762,6 +982,7 @@ export type Spot = {
   value: number;
   place: string;
   water?: boolean;
+  note?: string;
 };
 
 /** The strongest separate spots on a 0.25° lattice, named by the nearest town. */
@@ -796,11 +1017,12 @@ function spots(c: Computed, min: number, n = 6): Spot[] {
     if (pickd.some((p) => distKm(p.lat, p.lon, s.lat, s.lon) < 250)) continue;
     // Over 100 miles from any U.S. town is Canada, Mexico or open sea: not listed.
     const near = nearestPlace(rows, s.lat, s.lon, 2000);
-    if (!near || near.miles > 100) continue;
+    if (!near || near.miles > (c.nearMiles ?? 100)) continue;
     pickd.push({
       ...s,
       value: Math.round(s.value * 10) / 10,
       place: `${near.miles < 5 ? "" : `${Math.round(near.miles)} mi from `}${near.hit.name}, ${near.hit.st}`,
+      note: c.detail?.(s.lat, s.lon),
     });
     if (pickd.length >= n) break;
   }
@@ -852,6 +1074,7 @@ export async function fieldEngine(id: FieldId) {
     valid: new Date(cycleTime(cycle) + c.fh * 3600_000).toISOString(),
     bounds: CONUS,
     areas: areasOf(c, bands.levels),
+    alt: c.alt ? areasOf({ ...c, field: c.alt.field }, c.alt.levels) : null,
     spots: top,
     fires: (c.extra?.fires as unknown[]) ?? undefined,
     storms: (c.extra?.storms as unknown[]) ?? undefined,
@@ -869,5 +1092,9 @@ export async function fieldPreview(id: FieldId) {
     lon: number;
     chance: number;
   }[];
-  return { areas: areasOf(c, FIELD_BANDS[id].levels), fires };
+  return {
+    areas: areasOf(c, FIELD_BANDS[id].levels),
+    alt: c.alt ? areasOf({ ...c, field: c.alt.field }, c.alt.levels) : null,
+    fires,
+  };
 }

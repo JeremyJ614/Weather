@@ -33,7 +33,8 @@ export type FieldId =
   | "dcp"
   | "ltg"
   | "rwrap"
-  | "blizz";
+  | "blizz"
+  | "first";
 export const FIELD_BANDS: Record<
   FieldId,
   { levels: number[]; labels: string[]; colors: string[] }
@@ -83,12 +84,24 @@ export const FIELD_BANDS: Record<
     labels: ["Visible (LP)", "Classic", "Heavy rain (HP)", "Rain-wrapped"],
     colors: ["#a3e635", "#facc15", "#38bdf8", "#a855f7"],
   },
+  first: {
+    levels: [15, 35, 55, 75],
+    labels: ["Low", "Medium", "High", "Very high"],
+    colors: ["#5eead4", "#facc15", "#fb923c", "#f43f5e"],
+  },
   blizz: {
     levels: [1, 3, 6, 12, 24],
     labels: ["1 h", "3 h (blizzard)", "6 h", "12 h", "24 h+"],
     colors: ["#bae6fd", "#60a5fa", "#818cf8", "#c084fc", "#f0abfc"],
   },
 };
+
+/** First Storms' timing map: when the first storms start, latest first (nested). */
+export const FIRST_TIME_BANDS = [
+  { label: "4–6 hours", color: "#a78bfa" },
+  { label: "2–4 hours", color: "#f472b6" },
+  { label: "Within 2 hours", color: "#fde047" },
+];
 
 /** Lightning Surge Detector storm outlines: rising, jump, strong jump. */
 export const SURGE_BANDS = [
