@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 type Row = Record<string, unknown>;
-const db = { rows: new Map<string, Row>() };
+const db = { rows: new Map<string, Row>(), reads: 0 };
 const computed: string[] = [];
 let newest = "2026102412";
 
@@ -57,7 +57,7 @@ function table() {
 }
 
 vi.mock("@/lib/supabase/admin", () => ({
-  supabaseAdmin: () => ({ from: () => table() }),
+  supabaseAdmin: () => ({ from: () => (db.reads++, table()) }),
 }));
 vi.mock("@/lib/models/render", () => ({ latestCycle: async () => newest }));
 vi.mock("@/lib/engines/fields", () => ({
@@ -71,7 +71,8 @@ vi.mock("@/lib/engines/fields", () => ({
   },
 }));
 
-const { storedField, refreshWanted } = await import("@/lib/engines/stored");
+let storedField: typeof import("@/lib/engines/stored").storedField;
+let refreshWanted: typeof import("@/lib/engines/stored").refreshWanted;
 const ago = (min: number) => new Date(Date.now() - min * 60_000).toISOString();
 const put = (id: string, cycle: string, checked: number, wanted = 0) =>
   db.rows.set(id, {
@@ -84,7 +85,11 @@ const put = (id: string, cycle: string, checked: number, wanted = 0) =>
     refreshing_at: null,
   });
 
-beforeEach(() => {
+beforeEach(async () => {
+  // A fresh module each time: the per-server copy must not carry between cases.
+  vi.resetModules();
+  ({ storedField, refreshWanted } = await import("@/lib/engines/stored"));
+  db.reads = 0;
   db.rows.clear();
   computed.length = 0;
   newest = "2026102412";
@@ -138,5 +143,14 @@ describe("stored engine maps", () => {
     const r = await refreshWanted();
     expect(r.refreshed).toEqual(["stp"]);
     expect(computed).toEqual(["stp"]);
+  });
+
+  it("a warm server answers from its own copy without the database", async () => {
+    put("stp", "2026102411", 5);
+    await storedField("stp");
+    const before = db.reads;
+    const again = await storedField("stp");
+    expect(again.map).toEqual({ id: "stp", cycle: "2026102411" });
+    expect(db.reads).toBe(before);
   });
 });

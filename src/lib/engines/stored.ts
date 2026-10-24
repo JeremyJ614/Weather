@@ -27,15 +27,39 @@ const WANT_MS = 30 * 60_000;
 /** A refresh claim older than this has died and can be taken over. */
 const CLAIM_MS = 2 * 60_000;
 
+/** A warm server trusts its own copy this long before looking at the table again. */
+const MEMO_MS = 5 * 60_000;
+
 const age = (iso: string) => Date.now() - Date.parse(iso);
 
+/**
+ * This server's copy of each map. A warm server serves from it, and reads the map itself
+ * from the table only when the stored run has moved on, which keeps database egress to
+ * about one map per server per run.
+ */
+const memo = new Map<FieldId, { data: FieldMap; at: number }>();
+const remember = (id: FieldId, data: FieldMap) =>
+  memo.set(id, { data, at: Date.now() });
+
 async function read(id: FieldId): Promise<Row | null> {
-  const { data } = await supabaseAdmin()
+  const db = supabaseAdmin();
+  const { data: head } = await db
     .from("engine_maps")
-    .select("id, cycle, data, checked_at, wanted_at")
+    .select("id, cycle, checked_at, wanted_at")
     .eq("id", id)
     .maybeSingle();
-  return (data as Row | null) ?? null;
+  if (!head) return null;
+  const mine = memo.get(id)?.data;
+  if (mine && mine.cycle === head.cycle)
+    return { ...(head as Row), data: mine };
+  const { data } = await db
+    .from("engine_maps")
+    .select("data")
+    .eq("id", id)
+    .maybeSingle();
+  return data
+    ? { ...(head as Row), data: (data as Pick<Row, "data">).data }
+    : null;
 }
 
 /** Takes the refresh for one engine unless another server is already on it. */
@@ -55,6 +79,7 @@ async function claim(id: FieldId) {
 /** Computes one engine's map and stores it; returns the map. */
 export async function refreshField(id: FieldId): Promise<FieldMap> {
   const map = await fieldEngine(id);
+  remember(id, map);
   const now = new Date().toISOString();
   // A storage failure costs the next visitor a recompute, never this visitor their map.
   try {
@@ -80,8 +105,12 @@ export async function refreshField(id: FieldId): Promise<FieldMap> {
 export async function storedField(
   id: FieldId,
 ): Promise<{ map: FieldMap; later: (() => Promise<unknown>) | null }> {
+  const mine = memo.get(id);
+  if (mine && Date.now() - mine.at < MEMO_MS)
+    return { map: mine.data, later: null };
   const row = await read(id).catch(() => null);
   if (!row) return { map: await refreshField(id), later: null };
+  remember(id, row.data);
   const db = supabaseAdmin();
   if (age(row.wanted_at) > WANT_MS)
     void db
