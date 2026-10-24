@@ -2,11 +2,18 @@ import "server-only";
 import { PLACES } from "@/lib/geo/places.data";
 import { nearestPlace, parsePlaces } from "@/lib/geo/search";
 import { gridSize, locator, type Field } from "@/lib/models/grib2";
-import { MODELS, REGIONS, latestCycle, record } from "@/lib/models/render";
+import {
+  MODELS,
+  REGIONS,
+  exists,
+  latestCycle,
+  record,
+} from "@/lib/models/render";
 import { activeFires } from "@/lib/fire/data";
 import { getOutlook } from "@/lib/tropical/nhc";
 import { latticeAreas, soften } from "./areas";
 import { FIELD_BANDS, type FieldId } from "./colors";
+import { logFlags, type Flag } from "./verify";
 
 /**
  * The model-driven Weather Engines (Extras). Each reads a handful of HRRR fields by byte range
@@ -36,6 +43,19 @@ function nextUtc(hour: number, ahead = 0) {
   t.setUTCMinutes(0, 0, 0);
   while (t.getUTCHours() !== hour) t.setTime(t.getTime() + 3600_000);
   return t.getTime();
+}
+
+/** The newest 48-hour HRRR run (00, 06, 12 or 18Z) at or before `cycle` with its last hour out. */
+async function longRun(cycle: string) {
+  for (let back = 0; back <= 12; back++) {
+    const t = cycleTime(cycle) - back * 3600_000;
+    const d = new Date(t);
+    if (d.getUTCHours() % 6) continue;
+    const id = d.toISOString().slice(0, 13).replace(/[-T]/g, "");
+    if (await exists(MODELS.hrrr.url(id.slice(0, 8), id.slice(8), 48)))
+      return id;
+  }
+  return null;
 }
 
 async function grab(cycle: string, fh: number, matches: string[]) {
@@ -72,16 +92,6 @@ function thetaE(t: number, td: number, p: number) {
   return th * Math.exp((3036 / tl - 1.78) * r * (1 + 0.448 * r));
 }
 const es = (tc: number) => 6.112 * Math.exp((17.67 * tc) / (tc + 243.5));
-/** Relative humidity (%) from T and Td in K. */
-const rh = (t: number, td: number) => (100 * es(td - 273.15)) / es(t - 273.15);
-/** Stull (2011) wet-bulb (°C) from T (°C) and RH (%). */
-const wetBulb = (t: number, r: number) =>
-  t * Math.atan(0.151977 * Math.sqrt(r + 8.313659)) +
-  Math.atan(t + r) -
-  Math.atan(r - 1.676331) +
-  0.00391838 * r ** 1.5 * Math.atan(0.023101 * r) -
-  4.686035;
-
 type Computed = {
   field: Field;
   cycle: string;
@@ -91,6 +101,8 @@ type Computed = {
   note?: string;
   /** A field noisy cell to cell (terrain-driven), softened twice before contouring. */
   rough?: boolean;
+  /** Places to check against the weather later (from the top spots). */
+  flags?: (spots: Spot[]) => Flag[];
 };
 
 /** Nocturnal LLJ Ramp-Up, valid at the coming 06Z (about 1 a.m. Central). */
@@ -587,6 +599,150 @@ async function ltg(cycle: string): Promise<Computed> {
   return { field: { grid: first.grid, values: out }, cycle, fh };
 }
 
+/**
+ * Rain-Wrap Index (0–100) where this evening's supercells could form (SCP ≥ 1): how hidden a
+ * tornado may be in rain. After Rasmussen and Straka (1998), weak storm-relative wind at anvil
+ * level (250–300 mb) keeps the rain falling around the updraft (heavy-precipitation storms);
+ * strong anvil-level flow carries it away (low-precipitation storms). Deep moisture and a low
+ * cloud base add to it. Storm motion is the HRRR's own Bunkers right mover.
+ */
+async function rwrap(cycle: string): Promise<Computed> {
+  const fh = hourFor(cycle, nextUtc(0, 1));
+  const [mu, mucin, srh, us, vs, ust, vst, u25, v25, u30, v30, pw, lcl, zs] =
+    await grab(cycle, fh, [
+      ":CAPE:255-0 mb above ground:",
+      ":CIN:255-0 mb above ground:",
+      ":HLCY:3000-0 m above ground:",
+      ":VUCSH:0-6000 m above ground:",
+      ":VVCSH:0-6000 m above ground:",
+      ":USTM:0-6000 m above ground:",
+      ":VSTM:0-6000 m above ground:",
+      ":UGRD:250 mb:",
+      ":VGRD:250 mb:",
+      ":UGRD:300 mb:",
+      ":VGRD:300 mb:",
+      ":PWAT:entire atmosphere",
+      ":HGT:level of adiabatic condensation from sfc:",
+      ":HGT:surface:",
+    ]);
+  const out = new Float32Array(mu.values.length);
+  for (let i = 0; i < out.length; i++) {
+    const sh = bulk(us.values[i], vs.values[i]);
+    const c = mucin.values[i];
+    const scp =
+      (mu.values[i] / 1000) *
+      (srh.values[i] / 50) *
+      (sh < 10 ? 0 : sh > 20 ? 1 : sh / 20) *
+      (c > -40 ? 1 : -40 / c);
+    if (!(scp >= 1)) continue;
+    const sr = Math.hypot(
+      (u25.values[i] + u30.values[i]) / 2 - ust.values[i],
+      (v25.values[i] + v30.values[i]) / 2 - vst.values[i],
+    );
+    const wind = clamp((28 - sr) / 10);
+    const wet = clamp((pw.values[i] - 20) / 20);
+    const base = clamp((1500 - (lcl.values[i] - zs.values[i])) / 1000);
+    out[i] = Math.max(1, 100 * (0.6 * wind + 0.3 * wet + 0.1 * base));
+  }
+  return { field: { grid: mu.grid, values: out }, cycle, fh };
+}
+
+/**
+ * Blizzard Composite: hours of whiteout over the next two days, by the Weather Service's
+ * blizzard test (gusts of 35 mph or more with snow cutting visibility to a quarter mile).
+ * The newest run gives every 2 hours to 18; the newest 48-hour run every 3 hours after
+ * that. Falling snow counts where the HRRR snows with visibility under half a mile; blowing
+ * snow where at least 2" of snow lies, it is −5 °C or colder (dry, loose snow) and gusts reach
+ * 40 mph. Time runs out at 35 seconds; the note then says how far it counted.
+ */
+async function blizz(cycle: string): Promise<Computed> {
+  const start = Date.now();
+  const t0 = cycleTime(cycle);
+  const long = await longRun(cycle);
+  const steps: { c: string; fh: number; at: number; dur: number }[] = [];
+  for (let fh = 1; fh <= 17; fh += 2)
+    steps.push({ c: cycle, fh, at: fh, dur: 2 });
+  if (long) {
+    const off = (t0 - cycleTime(long)) / 3600_000;
+    for (let at = 20; at + off <= 48; at += 3)
+      steps.push({ c: long, fh: at + off, at, dur: 3 });
+  }
+  const [snodNear] = await grab(cycle, 1, [":SNOD:surface:"]);
+  const n = snodNear.values.length;
+  const hours = new Float32Array(n);
+  const first = new Float32Array(n).fill(NaN);
+  const last = new Float32Array(n);
+  let snod = snodNear.values;
+  let through = 0;
+  for (let k = 0; k < steps.length; k += 3) {
+    if (Date.now() - start > 35_000) break;
+    const batch = steps.slice(k, k + 3);
+    const got = await Promise.all(
+      batch.map((st) =>
+        grab(st.c, st.fh, [
+          ":GUST:surface:",
+          ":VIS:surface:",
+          ":CSNOW:surface:",
+          ":TMP:2 m above ground:",
+          ...(st.c === long && st.at === 20 ? [":SNOD:surface:"] : []),
+        ]),
+      ),
+    );
+    batch.forEach((st, b) => {
+      const [g, v, cs, t2, sd] = got[b];
+      if (sd) snod = sd.values;
+      for (let i = 0; i < n; i++) {
+        const mph = g.values[i] * 2.237;
+        if (mph < 35) continue;
+        const falling = cs.values[i] >= 0.5 && v.values[i] <= 800;
+        const blowing = snod[i] >= 0.05 && t2.values[i] <= 268.15 && mph >= 40;
+        if (!falling && !blowing) continue;
+        hours[i] += st.dur;
+        if (!(first[i] <= st.at)) first[i] = st.at - st.dur / 2;
+        last[i] = st.at + st.dur / 2;
+      }
+      through = st.at + st.dur / 2;
+    });
+  }
+  const loc = locator(snodNear.grid);
+  const [w] = gridSize(snodNear.grid);
+  const cell = (lat: number, lon: number) => {
+    const [fi, fj] = loc(lat, lon);
+    return Math.round(fj) * w + Math.round(fi);
+  };
+  return {
+    field: { grid: snodNear.grid, values: hours },
+    cycle,
+    fh: 1,
+    note:
+      through < 47
+        ? `Counted through the next ${Math.round(through)} hours.`
+        : undefined,
+    flags: (spots) =>
+      spots
+        .filter((x) => x.value >= 3)
+        .flatMap((x) => {
+          const i = cell(x.lat, x.lon);
+          if (!Number.isFinite(first[i])) return [];
+          const at = t0 + first[i] * 3600_000;
+          return [
+            {
+              key: `${new Date(at).toISOString().slice(0, 10)}:${x.lat.toFixed(1)},${x.lon.toFixed(1)}`,
+              at,
+              lat: x.lat,
+              lon: x.lon,
+              label: `${x.place} (${x.value} h)`,
+              window_min: Math.min(
+                720,
+                Math.round((last[i] - first[i] + 3) * 60),
+              ),
+              radius_km: 40,
+            },
+          ];
+        }),
+  };
+}
+
 const COMPUTE: Record<FieldId, (cycle: string) => Promise<Computed>> = {
   llj,
   nst,
@@ -596,6 +752,8 @@ const COMPUTE: Record<FieldId, (cycle: string) => Promise<Computed>> = {
   scp,
   dcp,
   ltg,
+  rwrap,
+  blizz,
 };
 
 export type Spot = {
@@ -685,6 +843,8 @@ export async function fieldEngine(id: FieldId) {
   if (!cycle) throw new Error("No HRRR run is available");
   const c = await COMPUTE[id](cycle);
   const bands = FIELD_BANDS[id];
+  const top = id === "pyro" ? [] : spots(c, bands.levels[0]);
+  if (c.flags) await logFlags(id, c.flags(top)).catch(() => {});
   return {
     id,
     cycle,
@@ -692,7 +852,7 @@ export async function fieldEngine(id: FieldId) {
     valid: new Date(cycleTime(cycle) + c.fh * 3600_000).toISOString(),
     bounds: CONUS,
     areas: areasOf(c, bands.levels),
-    spots: id === "pyro" ? [] : spots(c, bands.levels[0]),
+    spots: top,
     fires: (c.extra?.fires as unknown[]) ?? undefined,
     storms: (c.extra?.storms as unknown[]) ?? undefined,
     note: c.note ?? null,

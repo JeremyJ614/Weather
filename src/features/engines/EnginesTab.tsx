@@ -15,7 +15,9 @@ import {
   Flame,
   FlaskConical,
   Radar,
+  Snowflake,
   Tornado,
+  Umbrella,
   Waves,
   Wind,
   Zap,
@@ -33,7 +35,7 @@ import {
   torBin,
   type FieldId,
 } from "@/lib/engines/colors";
-import type { EngineStorm } from "@/lib/engines/probsevere";
+import type { EngineStorm, WrapStorm } from "@/lib/engines/probsevere";
 import type { SurgeStorm } from "@/lib/engines/surge";
 import type { Areas } from "@/lib/engines/areas";
 import radars from "@/lib/engines/radars.json";
@@ -49,6 +51,8 @@ const FIELDS: FieldId[] = [
   "scp",
   "dcp",
   "ltg",
+  "rwrap",
+  "blizz",
 ];
 const isField = (e: Engine): e is FieldId => FIELDS.includes(e as FieldId);
 type Spot = {
@@ -80,6 +84,7 @@ type FieldData = {
   fires?: Fire[];
   storms?: { name: string; lat: number; lon: number; mph: number }[];
   note: string | null;
+  stats?: { days: number; checked: number; hits: number } | null;
 };
 type Data = {
   at: string;
@@ -160,6 +165,18 @@ const ENGINES: {
     name: "Wildfire & PyroCb",
     sub: "Blowups and fire storms",
     icon: <Flame aria-hidden />,
+  },
+  {
+    id: "rwrap",
+    name: "Rain-Wrap Index",
+    sub: "Will tornadoes hide in rain?",
+    icon: <Umbrella aria-hidden />,
+  },
+  {
+    id: "blizz",
+    name: "Blizzard Composite",
+    sub: "Hours of whiteout, 2 days",
+    icon: <Snowflake aria-hidden />,
   },
   {
     id: "tctor",
@@ -253,6 +270,24 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
       "Isolated means the odd strike; frequent and up means lightning every few seconds nearby. Any thunder you hear means you are close enough to be struck, so head indoors.",
     ],
   },
+  rwrap: {
+    lead: "Fair to good: storm type is forecast right about two times in three.",
+    body: [
+      "Some supercells drop their rain far from the tornado, so it stands out against clear sky (low-precipitation, LP). Others wrap it in curtains of heavy rain, where it can't be seen coming (heavy-precipitation, HP), the most dangerous kind for anyone on the road or chasing.",
+      "Research by Rasmussen and Straka (1998) found the difference is mostly the wind at anvil level relative to the storm: weak flow (under about 18 m/s) lets the rain fall back around the updraft; strong flow (over about 28 m/s) carries it away. From this evening's HRRR (about 7 p.m. Central) the index weighs that wind between 250 and 300 mb against the model's own storm motion (Bunkers right mover) for 60%, deep moisture (precipitable water) for 30% and a low cloud base for 10%, from 1 (visible) to 100 (rain-wrapped).",
+      "It is shown only where supercells are possible (Supercell Composite 1 or more). Storms that merge or run into each other often turn HP whatever the forecast said.",
+      "The live list scores the rotating storms ProbSevere is tracking right now the same way, from the 4–6 km storm-relative wind and moisture ProbSevere attaches to each (Brooks and others, 1994).",
+    ],
+  },
+  blizz: {
+    lead: "Wind good, snowfall fair, visibility fair to poor.",
+    body: [
+      "The National Weather Service calls it a blizzard when gusts reach 35 mph with snow, falling or blowing, cutting visibility to a quarter mile or less for three hours or more.",
+      "This counts the hours each place meets that test over the next two days: the newest HRRR run every 2 hours out to 18, then the newest 48-hour run (from 00, 06, 12 or 18Z) every 3 hours. Falling snow counts where the model snows with visibility under half a mile; blowing snow counts where at least 2 inches of snow already lie, it is −5 °C (23 °F) or colder so the snow is dry and loose, and gusts reach 40 mph, even with no snow falling.",
+      "The model's visibility in snow is its weakest part, and it can't know how crusted the snow on the ground is, so marginal places get false alarms. Interstates are drawn bright so you can see which ones cross the whiteout areas.",
+      "Each place with 3 or more hours is checked while it happens against airport reports (a quarter mile or less with 30 kt winds) and afterwards against Weather Service blizzard reports, and the hit rate shows below.",
+    ],
+  },
   tctor: {
     lead: "Good for the broad zone; band tornadoes are brief.",
     body: [
@@ -328,6 +363,9 @@ export function EnginesTab({
   const [data, setData] = useState<Data | null>(null);
   const [failed, setFailed] = useState(false);
   const [surge, setSurge] = useState<SurgeData | "error" | null>(null);
+  const [wraps, setWraps] = useState<
+    { at: string; storms: WrapStorm[] } | "error" | null
+  >(null);
   const [beam, setBeam] = useState<ReturnType<typeof beamAt> | "none" | null>(
     null,
   );
@@ -375,6 +413,24 @@ export function EnginesTab({
         .then((r) => (r.ok ? r.json() : Promise.reject()))
         .then((d: SurgeData) => live && setSurge(d))
         .catch(() => live && setSurge((x) => x ?? "error"));
+    load();
+    const t = setInterval(load, 120_000);
+    return () => {
+      live = false;
+      clearInterval(t);
+    };
+  }, [engine]);
+
+  // The rotating storms' rain-wrap, every two minutes while that engine is open.
+  useEffect(() => {
+    if (engine !== "rwrap") return;
+    let live = true;
+    const load = () =>
+      document.visibilityState === "visible" &&
+      fetch("/api/engines/rainwrap")
+        .then((r) => (r.ok ? r.json() : Promise.reject()))
+        .then((d) => live && setWraps(d))
+        .catch(() => live && setWraps((x) => x ?? "error"));
     load();
     const t = setInterval(load, 120_000);
     return () => {
@@ -488,6 +544,25 @@ export function EnginesTab({
         "line-width": 0.8,
       },
     });
+    // Interstates over the Blizzard areas, from whichever base map loaded.
+    const roads = m.getSource("composite")
+      ? { source: "composite", "source-layer": "road" }
+      : m.getSource("openmaptiles")
+        ? { source: "openmaptiles", "source-layer": "transportation" }
+        : null;
+    if (roads)
+      m.addLayer({
+        id: "roads-hi",
+        type: "line",
+        ...roads,
+        filter: ["==", ["get", "class"], "motorway"],
+        layout: { visibility: "none" },
+        paint: {
+          "line-color": pick(colors, "engine:roads", "#e2e8f0"),
+          "line-width": ["interpolate", ["linear"], ["zoom"], 4, 0.8, 9, 2.4],
+          "line-opacity": 0.85,
+        },
+      });
     m.addSource("fires", { type: "geojson", data: EMPTY });
     m.addLayer({
       id: "fires",
@@ -572,6 +647,7 @@ export function EnginesTab({
     vis("blind", e === "blind");
     vis("radars", e === "blind");
     vis("fires", e === "pyro");
+    vis("roads-hi", e === "blizz");
   };
 
   useEffect(() => {
@@ -989,6 +1065,68 @@ export function EnginesTab({
                 ))}
               </ul>
             </>
+          )}
+        </section>
+      )}
+
+      {isField(engine) && field && field !== "error" && field.stats && (
+        <p className={s.small}>
+          {field.stats.checked >= 10
+            ? `Hit rate, last ${field.stats.days} days: ${Math.round((100 * field.stats.hits) / field.stats.checked)}% of ${field.stats.checked} flagged places saw it happen.`
+            : `The hit rate shows once 10 flagged places have been checked against what happened (${field.stats.checked} so far).`}
+        </p>
+      )}
+
+      {engine === "rwrap" && (
+        <section className={s.card}>
+          <header>
+            <h3>Rotating storms now</h3>
+            {wraps && wraps !== "error" && (
+              <small>ProbSevere scan {time(wraps.at)}</small>
+            )}
+          </header>
+          {wraps === null && (
+            <p className={s.small}>Reading the latest scan…</p>
+          )}
+          {wraps === "error" && (
+            <p className={s.small}>
+              ProbSevere isn&apos;t answering right now. Trying again in two
+              minutes.
+            </p>
+          )}
+          {wraps && wraps !== "error" && wraps.storms.length === 0 && (
+            <p className={s.small}>
+              No storm is rotating right now, so there is nothing to score.
+            </p>
+          )}
+          {wraps && wraps !== "error" && (
+            <ul className={s.storms}>
+              {wraps.storms.map((x) => {
+                const band = Math.max(
+                  0,
+                  FIELD_BANDS.rwrap.levels.findLastIndex((l) => x.wrap >= l),
+                );
+                return (
+                  <li key={x.id}>
+                    <button type="button" onClick={() => focus(x)}>
+                      <span className={s.where}>
+                        <b>{x.place}</b>
+                        <small>
+                          {x.tor}% tornado · mid-level wind {x.srw} kt ·{" "}
+                          {x.pwat}&quot; of water · base{" "}
+                          {x.lcl.toLocaleString("en-US")} ft
+                        </small>
+                      </span>
+                      <span className={s.hail}>
+                        <i style={{ background: fieldColor("rwrap", band) }} />
+                        <b>{x.wrap}</b>
+                        <small>{FIELD_BANDS.rwrap.labels[band]}</small>
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
           )}
         </section>
       )}

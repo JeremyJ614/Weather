@@ -339,16 +339,24 @@ export const GROUPS: Group[] = [
       ["scp", "Supercell Composite Parameter"],
       ["dcp", "Derecho Composite Parameter"],
       ["ltg", "Lightning Threat"],
+      ["rwrap", "Rain-Wrap Index"],
+      ["blizz", "Blizzard Composite (hours of whiteout)"],
     ] as const
   ).map(([id, label]) => ({
     id: `engine-${id}`,
     label,
     note: "Extras → Weather Engines map bands.",
-    entries: FIELD_BANDS[id].labels.map((l, i) => ({
-      key: `engine:${id}:${i}`,
-      label: l,
-      def: FIELD_BANDS[id].colors[i],
-    })),
+    entries: [
+      ...FIELD_BANDS[id].labels.map((l, i) => ({
+        key: `engine:${id}:${i}`,
+        label: l,
+        def: FIELD_BANDS[id].colors[i],
+      })),
+      // The Blizzard map also brightens the interstates crossing its areas.
+      ...(id === "blizz"
+        ? [{ key: "engine:roads", label: "Interstates", def: "#e2e8f0" }]
+        : []),
+    ],
   })),
   {
     id: "engine-pyrocb",

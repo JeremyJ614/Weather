@@ -13,6 +13,57 @@ type Report = {
   lat: number;
   lon: number;
 };
+
+/** A place an engine flagged, to be checked against what happened. */
+export type Flag = {
+  key: string;
+  at: number;
+  lat: number;
+  lon: number;
+  label: string;
+  window_min: number;
+  radius_km: number;
+};
+
+/** Saves an engine's flags (each key once). */
+export async function logFlags(engine: string, flags: Flag[]) {
+  if (!flags.length) return 0;
+  const { error } = await supabaseAdmin()
+    .from("engine_checks")
+    .upsert(
+      flags.map((f) => ({
+        engine,
+        key: f.key.slice(0, 80),
+        at: new Date(f.at).toISOString(),
+        lat: f.lat,
+        lon: f.lon,
+        label: f.label.slice(0, 120),
+        window_min: f.window_min,
+        radius_km: f.radius_km,
+      })),
+      { onConflict: "engine,key", ignoreDuplicates: true },
+    );
+  if (error) throw new Error(error.message);
+  return flags.length;
+}
+
+/** Engine hit rate over the last `days`: flags checked, and how many the weather followed. */
+export async function engineStats(engine: string, days = 30) {
+  const since = new Date(Date.now() - days * 86400_000).toISOString();
+  const db = supabaseAdmin();
+  const q = () =>
+    db
+      .from("engine_checks")
+      .select("id", { count: "exact", head: true })
+      .eq("engine", engine)
+      .gt("at", since);
+  const [all, hits] = await Promise.all([
+    q().not("hit", "is", null),
+    q().eq("hit", true),
+  ]);
+  return { days, checked: all.count ?? 0, hits: hits.count ?? 0 };
+}
+
 const stamp = (t: number) =>
   new Date(t).toISOString().slice(0, 16).replace(/[-:T]/g, "");
 
@@ -73,7 +124,63 @@ type Check = {
 /** Which reports count for each engine's flags. */
 const COUNTS: Record<string, (r: Report) => boolean> = {
   surge: isSevere,
+  blizz: (r) => r.type === "BLIZZARD" || r.type === "SNOW SQUALL",
 };
+
+/**
+ * While a blizzard flag's window is open, an airport within its radius reporting a quarter
+ * mile or less with 30 kt winds or gusts (in the last 90 minutes) makes it a hit.
+ */
+async function liveBlizzard() {
+  const db = supabaseAdmin();
+  const now = Date.now();
+  const { data } = await db
+    .from("engine_checks")
+    .select("id, at, lat, lon, window_min, radius_km")
+    .eq("engine", "blizz")
+    .is("hit", null)
+    .lte("at", new Date(now).toISOString())
+    .gt("at", new Date(now - 13 * 3600_000).toISOString());
+  const open = (data ?? []).filter(
+    (r) => Date.parse(r.at) + r.window_min * 60_000 >= now,
+  );
+  if (!open.length) return 0;
+  const r = await fetch(
+    "https://mesonet.agron.iastate.edu/api/1/currents.json?networkclass=ASOS&country=US",
+    { cache: "no-store", signal: AbortSignal.timeout(30000) },
+  ).catch(() => null);
+  if (!r?.ok) return 0;
+  const obs = (
+    (await r.json()) as {
+      data: {
+        lat: number;
+        lon: number;
+        vsby: number | null;
+        sknt: number | null;
+        gust: number | null;
+        utc_valid: string | null;
+      }[];
+    }
+  ).data.filter(
+    (o) =>
+      o.vsby != null &&
+      o.vsby <= 0.25 &&
+      Math.max(o.gust ?? 0, o.sknt ?? 0) >= 30 &&
+      o.utc_valid &&
+      now - Date.parse(o.utc_valid) < 90 * 60_000,
+  );
+  const ids = open
+    .filter((c) =>
+      obs.some((o) => km(c.lat, c.lon, o.lat, o.lon) <= c.radius_km),
+    )
+    .map((c) => c.id);
+  if (ids.length)
+    await db
+      .from("engine_checks")
+      .update({ hit: true, checked_at: new Date().toISOString() })
+      .in("id", ids);
+  return ids.length;
+}
 
 export function judge(c: Check, reports: Report[]) {
   const a = Date.parse(c.at);
@@ -89,6 +196,7 @@ export function judge(c: Check, reports: Report[]) {
 
 export async function verifyChecks() {
   const db = supabaseAdmin();
+  const live = await liveBlizzard().catch(() => 0);
   const ready = new Date(Date.now() - 3 * 3600_000).toISOString();
   const { data, error } = await db
     .from("engine_checks")
@@ -99,7 +207,10 @@ export async function verifyChecks() {
     .order("at", { ascending: true })
     .limit(1000);
   if (error) throw new Error(error.message);
-  const rows = (data ?? []) as Check[];
+  // Reports lag: a flag is judged once its whole window ended at least 3 hours ago.
+  const rows = ((data ?? []) as Check[]).filter(
+    (r) => Date.parse(r.at) + r.window_min * 60_000 < Date.parse(ready),
+  );
   let hits = 0;
   if (rows.length) {
     const from = Date.parse(rows[0].at);
@@ -125,5 +236,5 @@ export async function verifyChecks() {
     .from("engine_checks")
     .delete()
     .lt("at", new Date(Date.now() - 120 * 86400_000).toISOString());
-  return { checked: rows.length, hits };
+  return { checked: rows.length, hits, live };
 }

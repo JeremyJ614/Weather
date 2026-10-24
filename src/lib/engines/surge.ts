@@ -123,23 +123,6 @@ export async function surges() {
   };
 }
 
-/** Engine hit rate over the last `days`: flags checked, and how many the weather followed. */
-export async function engineStats(engine: string, days = 30) {
-  const since = new Date(Date.now() - days * 86400_000).toISOString();
-  const db = supabaseAdmin();
-  const q = () =>
-    db
-      .from("engine_checks")
-      .select("id", { count: "exact", head: true })
-      .eq("engine", engine)
-      .gt("at", since);
-  const [all, hits] = await Promise.all([
-    q().not("hit", "is", null),
-    q().eq("hit", true),
-  ]);
-  return { days, checked: all.count ?? 0, hits: hits.count ?? 0 };
-}
-
 /**
  * Every 10 minutes (pg_cron "engine-surge"): log each storm whose lightning jumped, once per
  * storm per half hour, for the hit rate and the "Lightning surges" alert.

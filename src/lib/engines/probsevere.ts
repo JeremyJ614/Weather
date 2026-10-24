@@ -169,3 +169,62 @@ export async function probSevere() {
     ),
   };
 }
+
+export type WrapStorm = {
+  id: string;
+  place: string;
+  lat: number;
+  lon: number;
+  tor: number;
+  /** 0–100: how wrapped in rain, from the storm's own environment. */
+  wrap: number;
+  /** 4–6 km storm-relative wind (kt), precipitable water (in), cloud base (ft). */
+  srw: number;
+  pwat: number;
+  lcl: number;
+};
+
+/**
+ * Rain-Wrap Index for the rotating storms ProbSevere is tracking now, from the environment it
+ * attaches to each: weak mid-level storm-relative wind (Brooks and others, 1994) and deep
+ * moisture mean heavy-precipitation storms whose tornadoes hide in rain.
+ */
+export async function wrapStorms() {
+  const names = await fileNames();
+  const latest = names.at(-1);
+  if (!latest) throw new Error("ProbSevere has no files");
+  const raw = await file(latest);
+  const out: WrapStorm[] = [];
+  for (const f of raw.features) {
+    const p = f.properties;
+    const tor = num(p.ProbTor);
+    if (tor < 3 && num(p.MAXLLAZ) < 0.008) continue;
+    const srw = num(p.SRW46KM);
+    const pwat = num(p.PWAT);
+    const lcl = num(p.LCL);
+    const lat = num(p.MLAT);
+    const lon = num(p.MLON);
+    const wrap = Math.round(
+      100 *
+        (0.6 * Math.max(0, Math.min(1, (40 - srw) / 25)) +
+          0.3 * Math.max(0, Math.min(1, (pwat - 0.8) / 0.8)) +
+          0.1 * Math.max(0, Math.min(1, (1500 - lcl) / 1000))),
+    );
+    out.push({
+      id: p.ID,
+      place: placeOf(lat, lon),
+      lat,
+      lon,
+      tor: Math.round(tor),
+      wrap,
+      srw: Math.round(srw),
+      pwat: Math.round(pwat * 100) / 100,
+      lcl: Math.round((lcl * 3.281) / 100) * 100,
+    });
+  }
+  out.sort((a, b) => b.tor - a.tor || b.wrap - a.wrap);
+  return {
+    at: new Date(stamp(latest)).toISOString(),
+    storms: out.slice(0, 25),
+  };
+}

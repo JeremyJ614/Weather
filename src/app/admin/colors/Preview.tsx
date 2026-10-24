@@ -109,6 +109,8 @@ export function previewSource(
     case "engine-scp":
     case "engine-dcp":
     case "engine-ltg":
+    case "engine-rwrap":
+    case "engine-blizz":
       return {
         url: `/api/engines/preview?e=${id.slice(7)}`,
         title: "The engine's areas from the latest HRRR run",

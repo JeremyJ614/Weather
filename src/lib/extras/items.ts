@@ -13,6 +13,8 @@ export const EXTRAS_ITEMS = [
   { id: "scp", group: "engines", name: "Supercell Composite" },
   { id: "dcp", group: "engines", name: "Derecho Composite" },
   { id: "ltg", group: "engines", name: "Lightning Threat" },
+  { id: "rwrap", group: "engines", name: "Rain-Wrap Index" },
+  { id: "blizz", group: "engines", name: "Blizzard Composite" },
   { id: "llj", group: "engines", name: "Nocturnal LLJ" },
   { id: "nst", group: "engines", name: "Landspouts & Waterspouts" },
   { id: "pyro", group: "engines", name: "Wildfire & PyroCb" },

@@ -24,7 +24,16 @@ export const BLIND_BANDS = [
  * and default colors, one color per band. Editable as `engine:<id>:<band>`.
  */
 export type FieldId =
-  "llj" | "nst" | "pyro" | "tctor" | "stp" | "scp" | "dcp" | "ltg";
+  | "llj"
+  | "nst"
+  | "pyro"
+  | "tctor"
+  | "stp"
+  | "scp"
+  | "dcp"
+  | "ltg"
+  | "rwrap"
+  | "blizz";
 export const FIELD_BANDS: Record<
   FieldId,
   { levels: number[]; labels: string[]; colors: string[] }
@@ -68,6 +77,16 @@ export const FIELD_BANDS: Record<
     levels: [0.05, 0.25, 1, 2.5, 5],
     labels: ["Isolated", "Scattered", "Frequent", "Intense", "Extreme"],
     colors: ["#fde68a", "#facc15", "#fb923c", "#f472b6", "#f8fafc"],
+  },
+  rwrap: {
+    levels: [1, 35, 55, 75],
+    labels: ["Visible (LP)", "Classic", "Heavy rain (HP)", "Rain-wrapped"],
+    colors: ["#a3e635", "#facc15", "#38bdf8", "#a855f7"],
+  },
+  blizz: {
+    levels: [1, 3, 6, 12, 24],
+    labels: ["1 h", "3 h (blizzard)", "6 h", "12 h", "24 h+"],
+    colors: ["#bae6fd", "#60a5fa", "#818cf8", "#c084fc", "#f0abfc"],
   },
 };
 

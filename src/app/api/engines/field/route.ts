@@ -1,6 +1,7 @@
 import { after } from "next/server";
 import type { FieldId } from "@/lib/engines/colors";
 import { storedField } from "@/lib/engines/stored";
+import { engineStats } from "@/lib/engines/verify";
 import { stateOf } from "@/lib/extras/items";
 import { getSiteDefaults } from "@/lib/settings";
 
@@ -15,10 +16,14 @@ const IDS: FieldId[] = [
   "scp",
   "dcp",
   "ltg",
+  "rwrap",
+  "blizz",
 ];
+// Engines that flag places and show their own hit rate.
+const CHECKED = new Set<FieldId>(["blizz"]);
 
 /**
- * GET ?e=llj|nst|pyro|tctor|stp|scp|dcp|ltg: one model-driven engine's map and list,
+ * GET ?e=<engine id>: one model-driven engine's map and list,
  * served from storage (lib/engines/stored.ts) and held at the edge for 5 minutes.
  */
 export async function GET(req: Request) {
@@ -28,9 +33,12 @@ export async function GET(req: Request) {
   if (stateOf((await getSiteDefaults()).extras, e) !== "on")
     return new Response("Not found", { status: 404 });
   try {
-    const { map, later } = await storedField(e);
+    const [{ map, later }, stats] = await Promise.all([
+      storedField(e),
+      CHECKED.has(e) ? engineStats(e).catch(() => null) : null,
+    ]);
     if (later) after(later);
-    return Response.json(map, {
+    return Response.json(stats ? { ...map, stats } : map, {
       headers: {
         "Cache-Control": "public, s-maxage=300, stale-while-revalidate=3600",
       },
