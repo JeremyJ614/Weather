@@ -63,6 +63,10 @@ export const ABOUT: Record<string, string> = {
     "Records and averages for your place, and tornado, hurricane and lightning climatology.",
   "weather-glossary": "Any weather word explained in plain language.",
   "free-content-library": "Free lessons and guides on how weather works.",
+  "on-this-day":
+    "This date in weather history: the tornadoes and hurricanes on record, mapped, with the stories behind them; pick any date.",
+  "climate-extremes":
+    "The hottest, coldest and windiest places in the country right now, today's high and low, and every record set this week.",
   "weather-patterns":
     "What already happened (yesterday, the week, the month, the season) in plain words with the numbers behind it.",
   extras:

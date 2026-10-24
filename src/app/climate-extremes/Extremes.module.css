@@ -1,0 +1,196 @@
+.scope,
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.scope button,
+.chips button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.chips svg {
+  width: 14px;
+}
+.scope button[aria-pressed="true"],
+.chips button[aria-pressed="true"] {
+  border-color: var(--lit-line);
+  background: var(--lit);
+  color: var(--accent);
+}
+.empty {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.today {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.today > div {
+  display: grid;
+  gap: 2px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-left-width: 3px;
+  border-radius: 16px;
+  background: var(--surface);
+}
+.today b {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 30px;
+  line-height: 1.1;
+}
+.today span {
+  font-size: 13px;
+  color: var(--muted);
+}
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr));
+  gap: 10px;
+}
+.card {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-top-width: 3px;
+  border-radius: 18px;
+  background: var(--surface);
+}
+.card header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.card header svg {
+  width: 15px;
+}
+.big {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 32px;
+  line-height: 1.1;
+}
+.at {
+  font-size: 13px;
+  color: var(--muted);
+}
+.rest {
+  display: grid;
+  gap: 4px;
+  margin-top: 6px;
+  padding: 8px 0 0;
+  border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+  list-style: none;
+  font-size: 12.5px;
+}
+.rest li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.rest span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+}
+.panel {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+}
+.bar {
+  display: flex;
+  height: 12px;
+  overflow: hidden;
+  border-radius: 999px;
+  gap: 2px;
+}
+.bar span {
+  flex-basis: 0;
+}
+.summary {
+  font-size: 14px;
+}
+.records {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  padding: 0;
+}
+.records li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "badge value" "where value";
+  gap: 2px 10px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+  border-radius: 14px;
+}
+.badge {
+  grid-area: badge;
+  justify-self: start;
+  padding: 1px 8px;
+  border: 1px solid;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.where {
+  grid-area: where;
+  font-size: 14px;
+}
+.value {
+  grid-area: value;
+  display: grid;
+  justify-items: end;
+  align-content: center;
+}
+.value b {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 20px;
+}
+.value small {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.fine {
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.more {
+  min-height: 42px;
+  border: 1px solid var(--lit-line);
+  border-radius: 14px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
+}

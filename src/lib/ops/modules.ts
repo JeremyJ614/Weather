@@ -10,6 +10,8 @@ export const MODULES = [
   { id: "game", label: "Forecast Game" },
   { id: "trivia", label: "Daily Trivia" },
   { id: "weatherdle", label: "Weatherdle" },
+  { id: "onthisday", label: "On This Day" },
+  { id: "extremes", label: "Climate Extremes" },
   { id: "polls", label: "Weekly Polls" },
   { id: "sswxcon", label: "SSWXCon Score" },
   { id: "warnings", label: "Warnings & Reports" },

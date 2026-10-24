@@ -93,6 +93,21 @@ const TIPS: Step["tips"] = [
 /** What changed lately, for members who toured before. */
 const NEW: Step["tips"] = [
   {
+    icon: "Grid3x3",
+    title: "Weatherdle",
+    text: "A new weather word every day in WX Games, any length, six tries. Solves earn Leaderboard points; share your grid.",
+  },
+  {
+    icon: "CalendarDays",
+    title: "On This Day",
+    text: "Today in weather history: every tornado and hurricane on record for the date, mapped, with the stories behind them. Pick any date.",
+  },
+  {
+    icon: "Thermometer",
+    title: "Climate Extremes",
+    text: "The hottest, coldest and windiest places in the country right now, and every record the Weather Service reported this week.",
+  },
+  {
     icon: "Car",
     title: "Two chase targets, always",
     text: "Storm Chasing Outlook now picks two targets at least 125 miles apart, so they're two different chases, and says how far apart they are.",

@@ -93,6 +93,7 @@ import {
   PanelTop,
   Lightbulb,
   Grid3x3,
+  Thermometer,
 } from "lucide-react";
 
 /** Only the icons the navigation uses, so the bundle carries nothing else. */
@@ -190,6 +191,7 @@ const MAP: Record<string, LucideIcon> = {
   PanelTop,
   Lightbulb,
   Grid3x3,
+  Thermometer,
 };
 
 /** Every icon the menus can show (the Menu editor offers these). */
