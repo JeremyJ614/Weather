@@ -55,10 +55,12 @@ export default async function SswxCon() {
         <ModuleOff label="SSWXCon" />
       </main>
     );
-  const sb = await supabaseServer();
   const [national, snaps] = await Promise.all([
     nationalScore().catch(() => null),
-    recentSnaps(sb),
+    // A build without the database (CI) renders an empty trend; the next rebuild fills it.
+    supabaseServer()
+      .then(recentSnaps)
+      .catch(() => []),
   ]);
   return (
     <main className="mx-auto max-w-2xl px-4 pt-4 pb-28">
