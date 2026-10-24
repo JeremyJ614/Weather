@@ -255,6 +255,15 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     href: "/admin/sms",
   },
   {
+    id: "weatherdle",
+    group: "games",
+    desc: "Weatherdle: hints on or off, and any word for any day",
+    label: "Weatherdle",
+    icon: "Grid3x3",
+    phase: "Final List",
+    href: "/admin/weatherdle",
+  },
+  {
     id: "trivia",
     group: "games",
     desc: "Today's questions, AI drafts, points and bonus questions",

@@ -17,7 +17,7 @@ export const ABOUT: Record<string, string> = {
   "daylight-tracker":
     "Sunrise, sunset and how much daylight you're gaining or losing.",
   "wx-games":
-    "A daily forecast game scored against what actually happens, plus weather trivia.",
+    "Weatherdle (a new weather word every day), a forecast game scored against what actually happens, and weather trivia.",
   leaderboard: "Everyone's points from the games and trivia.",
   "weekly-polls": "A new weather question every week, with the results live.",
   sswxcon:

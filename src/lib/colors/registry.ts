@@ -10,6 +10,7 @@ import { HAZ, HAZARDS, RISK } from "@/lib/timing/calc";
 import { KIND } from "@/lib/warnings/reports";
 import type { Colors } from "./pick";
 import { BANDS } from "@/lib/sswxcon/score";
+import { WORDLE_COLORS } from "@/lib/weatherdle/colors";
 import { COLOR as WARN } from "@/lib/warnings/style";
 import { RARITY } from "@/lib/badges";
 import { GAUGE_LEVELS } from "@/lib/rivers/style";
@@ -577,6 +578,16 @@ export const GROUPS: Group[] = [
     note: "The Storm Shelter map on Disaster Response.",
     entries: SHELTER_COLORS.map((c) => ({
       key: `shelter:${c.key}`,
+      label: c.label,
+      def: c.color,
+    })),
+  },
+  {
+    id: "weatherdle",
+    label: "Weatherdle",
+    note: "The tiles and keys in WX Games → Weatherdle.",
+    entries: WORDLE_COLORS.map((c) => ({
+      key: `weatherdle:${c.key}`,
       label: c.label,
       def: c.color,
     })),

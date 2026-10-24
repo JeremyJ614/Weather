@@ -27,6 +27,7 @@ import {
   RADAR_STOPS,
   VEL_STOPS,
 } from "@/features/replay/palette";
+import { Board } from "@/app/wx-games/WeatherdleView";
 import { chasePreview } from "./actions";
 
 /**
@@ -359,6 +360,18 @@ export const WIDGETS: Record<string, W> = {
   aurora: Aurora,
   kp: Aurora,
   badges: Badges,
+  // An example game: every tile color in the colors being edited.
+  weatherdle: ({ colors }) => (
+    <Board
+      length={7}
+      colors={colors}
+      guesses={[
+        { word: "THUNDER", marks: "gxxgyxy" },
+        { word: "TORPEDO", marks: "gggxxgg" },
+        { word: "TORNADO", marks: "ggggggg" },
+      ]}
+    />
+  ),
   "replay-radar": radar("REF"),
   "replay-velocity": radar("VEL"),
   "replay-cc": radar("RHO"),

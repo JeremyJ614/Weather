@@ -146,6 +146,7 @@ const WIDGET_IDS = new Set([
   "aurora",
   "kp",
   "badges",
+  "weatherdle",
   "replay-radar",
   "replay-velocity",
   "replay-cc",
