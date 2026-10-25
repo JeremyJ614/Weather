@@ -258,11 +258,11 @@
   }
   function renderTable() {
     const rows = [];
-    const group = (t) => rows.push(`<tr class="grp"><td colspan="4">${t}</td></tr>`);
+    const group = (t) => rows.push(`<tr class="grp"><td colspan="3">${t}</td></tr>`);
     const row = (id, name, kind, base, extra = "") => {
       const [cls, text] = result(id, base);
       const now = picks.menus[id];
-      rows.push(`<tr><td class="nm">${name}<small>${kind}</small>${extra}</td><td><button class="tog" data-mid="${id}" data-k="m" aria-pressed="${now.m}">${icon(now.m ? "Check" : "Minus")} Main</button></td><td><button class="tog" data-mid="${id}" data-k="q" aria-pressed="${now.q}">${icon(now.q ? "Check" : "Minus")} Quick</button></td><td><span class="state ${cls}">${text}</span></td></tr>`);
+      rows.push(`<tr><td class="nm">${name}<small>${kind}</small><span class="state ${cls}">${text}</span>${extra}</td><td><button class="tog" data-mid="${id}" data-k="m" aria-pressed="${now.m}">${icon(now.m ? "Check" : "Minus")} Main</button></td><td><button class="tog" data-mid="${id}" data-k="q" aria-pressed="${now.q}">${icon(now.q ? "Check" : "Minus")} Quick</button></td></tr>`);
     };
     group("New main menus");
     MENUS.main.forEach((m) => row(m.id, m.name, m.kind, null));
