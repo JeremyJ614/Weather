@@ -20,7 +20,7 @@ import { ALL_PAGES, MAIN_NAV, visibleNav } from "@/lib/nav/registry";
 import { ABOUT, INTERESTS } from "./about";
 import s from "./Guide.module.css";
 
-export type Mode = "tour" | "showcase";
+export type Mode = "tour" | "showcase" | "news";
 export type GuideProps = {
   mode: Mode;
   name: string | null;
@@ -44,15 +44,15 @@ const HOW: Record<string, string> = {
   local:
     "Everything here follows your active place. The Dashboard is the full picture, the Daily Brief is the short version (it can come by email too), and the Forecast Discussion is your NWS office in plain words.",
   community:
-    "Make a forecast in the daily game and get scored against what actually happens, answer trivia, vote in the weekly poll and climb the leaderboard. Points earn badges and titles.",
+    "Solve the day's Weatherdle, make a forecast in the daily game and get scored against what actually happens, answer trivia, vote in the weekly poll and climb the leaderboard. Points earn badges and titles.",
   severe:
     "Start with the SSWXCon score for the big picture, then SPC's outlooks, live warnings and discussions. Tropical Outlook's Model Tracks races the models; Storm Chasing Outlook picks the day's two best targets, at least 125 miles apart, and explains them tab by tab.",
   tools:
     "Pick a model, a run and a field on Radar & Model Runs, then press play or drag the timeline. Tap a river gauge for its forecast crest; spin a 3D sounding with your finger.",
   specialty:
     "Tonight's sky for star gazing, the moon and planets, where the aurora could reach and live lightning strikes near you.",
-  edu: "Records and averages for your place, a glossary for any word you hit on another page, and a free library of lessons.",
-  else: "Weather Patterns sums up what already happened in plain words. Extras holds the Weather Engines, now drawn like SPC outlooks, plus the Storm Visualizer and Particle Morph. Disaster Response lists the groups that help after storms, and Donate supports StormSync.",
+  edu: "Records and averages for your place, a glossary for any word you hit on another page, a free library of lessons, and On This Day: one famous storm from today's date in history, told like a story, with that day's map.",
+  else: "Weather Patterns sums up what already happened in plain words, and Climate Extremes the country's hottest, coldest and windiest spots right now. Extras holds the Weather Engines, drawn like SPC outlooks (storm engines from ProbTor to Lightning Surge and Severe Analogs, outdoor ones for sunsets, rainbows, deer and fishing), plus the Storm Visualizer and Particle Morph. Disaster Response lists the groups that help after storms, and Donate supports StormSync.",
   account:
     "My Profile holds your places and badges; Account Settings your menus, Quick Menu, theme and this tour; Notifications which alerts reach your phone.",
 };
@@ -90,22 +90,37 @@ const TIPS: Step["tips"] = [
   },
 ];
 
-/** What changed lately, for members who toured before. */
+/** What changed lately: in the tour, and on its own for members who toured before. */
 const NEW: Step["tips"] = [
+  {
+    icon: "Menu",
+    title: "Seven new menus",
+    text: "Hive, Orbit, Shutter and Ribbon Fold for the main menu; Card Fan, Island and Rotary for the Quick Menu. Corner Sweep now covers the whole screen and draws a line through the page you're on. Bottom Rail Pop, Morph FAB and Radar Scope are gone.",
+  },
+  {
+    icon: "CalendarDays",
+    title: "On This Day, retold",
+    text: "Each day, one famous storm from this date in history, written like a person telling it, with that day's tornado tracks, reports or hurricane path on the map and photos when Wikipedia has free ones.",
+  },
+  {
+    icon: "MapPin",
+    title: "Deer and fishing maps that read",
+    text: "Deer Activity and Fishing Bite show a dot for each spot around Ohio, ranked against today's typical spot, with the typical score in words. Tap a dot for its next three days.",
+  },
+  {
+    icon: "Rainbow",
+    title: "Rainbow Chance, sharper",
+    text: "Only real rain counts now, not drizzle or radar clutter, and the sky toward the sun comes from the HRRR's clouds too, so low-sun evenings read right.",
+  },
   {
     icon: "Zap",
     title: "Ten new Weather Engines",
-    text: "In Extras: Lightning Surge, First Storms, Boundary Collisions, Severe Analogs, Rain-Wrap, Blizzard, Sunset & Sunrise, Rainbow Chance, Deer Activity and Fishing Bite. Each checks itself against what really happened.",
+    text: "In Extras: Lightning Surge, First Storms, Boundary Collisions, Severe Analogs, Rain-Wrap, Blizzard, Sunset & Sunrise, Rainbow Chance, Deer Activity and Fishing Bite. Each checks itself against what really happened. ProbHail, Rotation Tracks and Snow Squalls were retired.",
   },
   {
     icon: "Grid3x3",
     title: "Weatherdle",
     text: "A new weather word every day in WX Games, any length, six tries. Solves earn Leaderboard points; share your grid.",
-  },
-  {
-    icon: "CalendarDays",
-    title: "On This Day",
-    text: "Each day, one famous storm from this date in history, written like a person telling it, with that day's tornado tracks, reports or hurricane path on the map and photos when Wikipedia has free ones.",
   },
   {
     icon: "Thermometer",
@@ -207,14 +222,19 @@ const SHOWCASE: Step[] = [
     icon: "Archive",
     kicker: "Replays",
     title: "Relive the storms",
-    body: "Replay famous tornadoes minute by minute: radar, warnings, the damage path and every report. Or log your own chase, draw the route and replay it against the radar.",
-    chips: ["tornado-archive", "chasing-log", "severe-weather-history"],
+    body: "Replay famous tornadoes minute by minute: radar, warnings, the damage path and every report. Log your own chase, draw the route and replay it against the radar. Or meet today's storm from history, told like a story.",
+    chips: [
+      "tornado-archive",
+      "chasing-log",
+      "on-this-day",
+      "severe-weather-history",
+    ],
   },
   {
     icon: "FlaskConical",
     kicker: "Extras",
     title: "Engines with a wow",
-    body: "Weather Engines drawn like SPC outlooks (ProbTor, STP, SCP, derecho, lightning and landspouts), a 3D Storm Visualizer and a Particle Morph you can play with.",
+    body: "Weather Engines drawn like SPC outlooks: ProbTor, Lightning Surge, First Storms, Severe Analogs, Boundary Collisions and more, outdoor engines for sunsets, rainbows, deer and fishing, a 3D Storm Visualizer and a Particle Morph you can play with.",
     chips: ["extras"],
   },
   {
@@ -253,7 +273,7 @@ const SHOWCASE: Step[] = [
     icon: "Palette",
     kicker: "Make it yours",
     title: "Your app, your way",
-    body: "Pick from eighteen menu styles and fifteen ready-made themes, fill a Quick Menu with the pages you use most, and choose exactly which alerts reach your phone.",
+    body: `Pick from ${Object.keys(MENU_NAMES).length} menu styles, from a honeycomb to a 3D ring, and fifteen ready-made themes, fill a Quick Menu with the pages you use most, and choose exactly which alerts reach your phone.`,
     chips: ["settings", "notifications", "profile"],
   },
   {
@@ -326,11 +346,31 @@ function tourSteps(name: string | null): Step[] {
   ];
 }
 
+/** For members who toured before: just what's new, then the menus to try. */
+function newsSteps(name: string | null): Step[] {
+  const menus = tourSteps(name).at(-1)!;
+  return [
+    {
+      icon: "Sparkles",
+      kicker: name ? `Welcome back, ${name}` : "Welcome back",
+      title: "What's new",
+      body: "",
+      tips: NEW,
+    },
+    { ...menus, kicker: "Try them", title: "Try the new menus" },
+  ];
+}
+
 const DWELL = 6500;
 
 /** The member tour or the guest showcase: full-screen, skippable, story-style steps. */
 export function Guide({ mode, name, menus, onDone }: GuideProps) {
-  const steps = mode === "tour" ? tourSteps(name) : SHOWCASE;
+  const steps =
+    mode === "tour"
+      ? tourSteps(name)
+      : mode === "news"
+        ? newsSteps(name)
+        : SHOWCASE;
   const [i, setStep] = useState(0);
   const [held, setHeld] = useState(false);
   /** The page chip opened for its description, and the showcase's picked interests. */
@@ -400,7 +440,7 @@ export function Guide({ mode, name, menus, onDone }: GuideProps) {
 
   const finish = (save: boolean) => {
     if (!save) return close();
-    savePrefs({ menus: pick }, mode === "tour");
+    savePrefs({ menus: pick }, mode !== "showcase");
     onDone();
   };
   const compact = step.end === "menus";
@@ -466,7 +506,9 @@ export function Guide({ mode, name, menus, onDone }: GuideProps) {
       aria-label={
         mode === "tour"
           ? "Tour of StormSync Weather"
-          : "What's inside StormSync Weather"
+          : mode === "news"
+            ? "What's new in StormSync Weather"
+            : "What's inside StormSync Weather"
       }
       onPointerDown={(e) => {
         swipe.current = { x: e.clientX, y: e.clientY };

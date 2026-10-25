@@ -4,7 +4,14 @@ import { useEffect, useRef, useState, type ComponentType } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useViewer } from "@/features/account/useViewer";
 import { savePrefs } from "@/features/account/PrefsSync";
-import { SHOWCASE_LAST, showcaseDue, tourDue } from "./due";
+import {
+  NEWS_EDITION,
+  NEWS_KEY,
+  SHOWCASE_LAST,
+  newsDue,
+  showcaseDue,
+  tourDue,
+} from "./due";
 import type { GuideProps, Mode } from "./Guide";
 
 const QUIET =
@@ -12,7 +19,8 @@ const QUIET =
 
 /**
  * Decides when a guide plays and loads it only then: the guest showcase on a first visit
- * (and weekly after), the member tour once, and either on request (`?showcase`, `?tour`).
+ * (and weekly after), the member tour once, a member who toured before the newest batch of
+ * changes their short "What's new" once, and either guide on request (`?showcase`, `?tour`).
  * Waits for the launch intro, and for the account's preferences before a tour.
  */
 export function GuideHost({
@@ -43,7 +51,9 @@ export function GuideHost({
           ? "showcase"
           : signedIn && tourDue()
             ? "tour"
-            : null;
+            : signedIn && newsDue()
+              ? "news"
+              : null;
     const want = ask ?? auto;
     // A requested guide plays once per request; an automatic one once per page load.
     const once = ask ? `${ask}?${params.toString()}` : `auto:${want}`;
@@ -53,10 +63,11 @@ export function GuideHost({
     const go = () => {
       if (html.dataset.intro || document.getElementById("launch-intro"))
         return false;
-      if (want === "tour" && !ask && html.dataset.prefs !== "ready")
+      if (want !== "showcase" && !ask && html.dataset.prefs !== "ready")
         return false;
-      // The account may have just said this member has toured.
+      // The account may have just said this member has toured (news then, not the tour).
       if (want === "tour" && !ask && !tourDue()) return true;
+      if (want === "news" && (tourDue() || !newsDue())) return true;
       played.current.add(once);
       if (want === "showcase")
         try {
@@ -84,6 +95,11 @@ export function GuideHost({
   const done = () => {
     delete document.documentElement.dataset.guide;
     if (mode === "tour") savePrefs({ toured: true }, signedIn);
+    // The tour shows What's new too, so either one marks this edition seen.
+    if (mode !== "showcase")
+      try {
+        localStorage.setItem(NEWS_KEY, NEWS_EDITION);
+      } catch {}
     setMode(null);
     if (ask) router.replace(path, { scroll: false });
   };

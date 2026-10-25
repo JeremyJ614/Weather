@@ -13,6 +13,19 @@ export function showcaseDue(now = Date.now()) {
   }
 }
 
+/** Bumped with each batch of "What's new": members who toured see the new items once. */
+export const NEWS_KEY = "sswx-news";
+export const NEWS_EDITION = "2026-10-25";
+
+/** A member who toured before an edition gets its short "What's new" (once per device). */
+export function newsDue() {
+  try {
+    return localStorage.getItem(NEWS_KEY) !== NEWS_EDITION;
+  } catch {
+    return false;
+  }
+}
+
 /** Members get the tour once (the account remembers it across devices). */
 export function tourDue() {
   try {
