@@ -44,17 +44,53 @@ const S = (
 ): MenuStyle => ({ id, name, placements, Component });
 
 export const MENU_STYLES: Record<string, MenuStyle> = {
+  hive: S(
+    "hive",
+    "Hive",
+    FLOAT_CENTER,
+    lazy(() => import("./Hive").then((m) => m.Hive)),
+  ),
+  orbit: S(
+    "orbit",
+    "Orbit",
+    TOP,
+    lazy(() => import("./Orbit").then((m) => m.Orbit)),
+  ),
+  shutter: S(
+    "shutter",
+    "Shutter",
+    TOP,
+    lazy(() => import("./Shutter").then((m) => m.Shutter)),
+  ),
+  ribbon: S(
+    "ribbon",
+    "Ribbon Fold",
+    TOP,
+    lazy(() => import("./RibbonFold").then((m) => m.RibbonFold)),
+  ),
+  fan: S(
+    "fan",
+    "Card Fan",
+    FLOAT_RIGHT,
+    lazy(() => import("./CardFan").then((m) => m.CardFan)),
+  ),
+  island: S(
+    "island",
+    "Island",
+    FLOAT_CENTER,
+    lazy(() => import("./Island").then((m) => m.Island)),
+  ),
+  rotary: S(
+    "rotary",
+    "Rotary",
+    FLOAT_RIGHT,
+    lazy(() => import("./Rotary").then((m) => m.Rotary)),
+  ),
   sweep: S(
     "sweep",
     "Corner Sweep",
     TOP,
     lazy(() => import("./CornerSweep").then((m) => m.CornerSweep)),
-  ),
-  morph: S(
-    "morph",
-    "Morph FAB",
-    FLOAT_RIGHT,
-    lazy(() => import("./MorphFab").then((m) => m.MorphFab)),
   ),
   plates: S(
     "plates",
@@ -98,12 +134,6 @@ export const MENU_STYLES: Record<string, MenuStyle> = {
     TOP,
     lazy(() => import("./SwipeTabs").then((m) => m.SwipeTabs)),
   ),
-  railpop: S(
-    "railpop",
-    "Bottom Rail Pop",
-    BAR,
-    lazy(() => import("./RailPop").then((m) => m.RailPop)),
-  ),
   vortex: S(
     "vortex",
     "StormSync Vortex",
@@ -139,12 +169,6 @@ export const MENU_STYLES: Record<string, MenuStyle> = {
     "Iris",
     TOP,
     lazy(() => import("./Iris").then((m) => m.Iris)),
-  ),
-  radar: S(
-    "radar",
-    "Radar Scope",
-    FLOAT_RIGHT,
-    lazy(() => import("./RadarScope").then((m) => m.RadarScope)),
   ),
   palette: S(
     "palette",

@@ -1,0 +1,225 @@
+/* Shutter: slats swing shut like blinds, then the index sets in. Transform and opacity only. */
+.blinds {
+  position: fixed;
+  inset: 0;
+  z-index: 64;
+  display: flex;
+  perspective: 1400px;
+  pointer-events: none;
+  visibility: hidden;
+  transition: visibility 0s 0.75s;
+}
+.on .blinds {
+  visibility: visible;
+  pointer-events: auto;
+  transition: visibility 0s;
+}
+.blinds i {
+  flex: 1;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    var(--bg),
+    color-mix(in srgb, var(--surface) 80%, var(--bg)) 55%,
+    var(--bg)
+  );
+  box-shadow: inset -1px 0 0 color-mix(in srgb, var(--accent) 14%, transparent);
+  transform: rotateY(90deg);
+  transform-origin: 50% 50%;
+  /* Opening right to left on the way out. */
+  transition: transform 0.4s var(--ease) calc(var(--r) * 28ms);
+}
+.on .blinds i {
+  transform: none;
+  transition: transform 0.55s cubic-bezier(0.65, 0, 0.35, 1)
+    calc(var(--i) * 40ms);
+}
+.index {
+  position: fixed;
+  inset: 0;
+  z-index: 65;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  padding: calc(64px + env(safe-area-inset-top, 0px)) 16px 0;
+  visibility: hidden;
+  opacity: 0;
+  transition:
+    opacity 0.2s,
+    visibility 0s 0.2s;
+}
+.on .index {
+  visibility: visible;
+  opacity: 1;
+  transition:
+    opacity 0.3s 0.5s,
+    visibility 0s;
+}
+.head {
+  max-width: 880px;
+  width: 100%;
+  margin: 0 auto 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 30%, var(--line));
+}
+.head p,
+.head small {
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+.head h2 {
+  margin: 4px 0 2px;
+  font-family: var(--font-display);
+  font-weight: var(--display-weight);
+  text-transform: var(--display-case);
+  font-size: clamp(30px, 9vw, 54px);
+  line-height: 1;
+  text-shadow: 0 0 26px color-mix(in srgb, var(--accent) 35%, transparent);
+  animation: set 0.5s var(--ease) both;
+}
+.on .head h2 {
+  animation-delay: 0.55s;
+}
+.cols {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 14px;
+  max-width: 880px;
+  width: 100%;
+  min-height: 0;
+  margin: 0 auto;
+}
+.secs,
+.pages {
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: calc(30px + env(safe-area-inset-bottom, 0px));
+  scrollbar-width: none;
+}
+.secs {
+  position: relative;
+  padding-left: 12px;
+}
+/* The marker that slides to the active section. */
+.mark {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 3px;
+  height: 1px;
+  border-radius: 3px;
+  background: var(--accent);
+  box-shadow: 0 0 12px var(--accent);
+  transform: translateY(var(--y)) scaleY(var(--h));
+  transform-origin: top;
+  transition: transform 0.45s var(--spring);
+}
+.secs > li:not(.mark) {
+  opacity: 0;
+  transform: translateX(-14px);
+  transition:
+    opacity 0.15s,
+    transform 0.2s;
+}
+.on .secs > li:not(.mark) {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 0.35s calc(0.6s + var(--i) * 35ms),
+    transform 0.5s calc(0.6s + var(--i) * 35ms) var(--ease);
+}
+.sec {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 4px;
+  color: var(--muted);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: left;
+  transition: color 0.2s;
+}
+.sec em {
+  color: color-mix(in srgb, var(--accent) 60%, var(--muted));
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-style: normal;
+}
+.sec span {
+  flex: 1;
+}
+.sec:hover,
+.sec[aria-pressed="true"] {
+  color: var(--text);
+}
+.sec[aria-pressed="true"] em,
+.sec[data-here] em {
+  color: var(--accent);
+}
+.sec[aria-current="page"] {
+  color: var(--accent);
+}
+.out {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  align-self: center;
+}
+.page {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.2;
+  transition: transform 0.25s var(--ease);
+}
+.page:hover {
+  transform: translateX(4px);
+}
+.ic {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  color: var(--accent);
+}
+.page[aria-current="page"] {
+  color: var(--accent);
+  text-shadow: 0 0 14px color-mix(in srgb, var(--accent) 50%, transparent);
+}
+.page[aria-current="page"]::after {
+  content: "";
+  width: 7px;
+  height: 7px;
+  margin-left: auto;
+  flex: none;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--accent);
+}
+.pages li {
+  animation: slide 0.45s var(--ease) both;
+  animation-delay: calc(0.05s + var(--i) * 30ms);
+}
+.pages[data-enter] li {
+  animation-delay: calc(0.7s + var(--i) * 30ms);
+}
+@keyframes slide {
+  from {
+    opacity: 0;
+    transform: translateX(22px);
+  }
+}
+@keyframes set {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}

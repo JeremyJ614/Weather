@@ -65,3 +65,21 @@ export function entries(groups: NavGroup[], sel?: NavGroup): Entry[] {
         };
       });
 }
+
+export type Flat = Entry & { to: string; group: string };
+
+/** Every page of every section in one list, each with its section's name (quick menus). */
+export const flatPages = (groups: NavGroup[]): Flat[] =>
+  groups.flatMap((g) =>
+    g.pages.map((pg) => ({
+      key: `${g.id}/${pg.slug}`,
+      label: pg.label,
+      icon: pg.icon,
+      to: href(pg),
+      group: g.label,
+    })),
+  );
+
+/** The section holding the page at `path`, if any. */
+export const groupOf = (groups: NavGroup[], path: string) =>
+  groups.find((g) => g.pages.some((pg) => href(pg) === path));
