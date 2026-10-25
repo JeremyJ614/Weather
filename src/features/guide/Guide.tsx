@@ -105,7 +105,7 @@ const NEW: Step["tips"] = [
   {
     icon: "CalendarDays",
     title: "On This Day",
-    text: "Today in weather history: every tornado and hurricane on record for the date, mapped, with the stories behind them. Pick any date.",
+    text: "Each day, one famous storm from this date in history, written like a person telling it, with that day's tornado tracks, reports or hurricane path on the map and photos when Wikipedia has free ones.",
   },
   {
     icon: "Thermometer",

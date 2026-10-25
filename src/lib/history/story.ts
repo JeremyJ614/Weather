@@ -1,78 +1,55 @@
 import "server-only";
-import type { OtdData } from "./onthisday";
+import type { OtdFeature } from "./onthisday";
+import type { Article, Photo } from "./wiki";
 
 /**
- * On This Day's stories, written by Gemini (the owner's history key) from NOAA's records for
- * the date, plus at most three other well-documented U.S. weather events it is sure fell on
- * that date. Record items must match a year in the records, or they are dropped.
+ * On This Day's write-up of the featured event, by Gemini (the owner's history key), in a
+ * person's voice: a weather writer telling the story, not a list of numbers. It may use only
+ * NOAA's facts and the Wikipedia article about the event; anything else is left out.
  */
-export const KINDS = [
-  "tornado",
-  "hurricane",
-  "flood",
-  "winter",
-  "heat",
-  "cold",
-  "wind",
-  "hail",
-  "fire",
-  "other",
-] as const;
-export type Kind = (typeof KINDS)[number];
-
-export type OtdEvent = {
-  year: number;
-  kind: Kind;
+export type OtdStory = {
+  /** The event's name, e.g. "The Jarrell Tornado". */
   title: string;
-  text: string;
-  /** "records": from NOAA's data shown on the page; "history": the wider record books. */
-  from: "records" | "history";
+  headline: string;
+  /** Three to five paragraphs. */
+  story: string[];
+  photos: Photo[];
+  source: { title: string; url: string } | null;
+  /** When it was written; `retry` when Wikipedia didn't answer and it should be redone. */
+  written?: string;
+  retry?: boolean;
 };
-export type OtdStory = { headline: string; intro: string; events: OtdEvent[] };
 
 const MODELS = ["gemini-flash-latest", "gemini-flash-lite-latest"];
-const MONTHS = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
-];
+const MONTHS =
+  "January February March April May June July August September October November December".split(
+    " ",
+  );
 export const dateName = (md: string) =>
   `${MONTHS[Number(md.slice(0, 2)) - 1]} ${Number(md.slice(3))}`;
 
-function facts(d: OtdData) {
-  const t = d.tornadoes;
-  const lines = [
-    `Tornadoes on file for ${dateName(d.md)}, 1950 to ${d.through}: ${t.total} in ${t.years} different years, ${t.deaths} deaths in all.`,
-    ...t.top.map(
-      (x) =>
-        `${x.year}: ${x.rating} tornado ${x.near ? `through or near ${x.near}` : `in ${x.st}`}, ${x.miles.toFixed(1)} miles long, ${x.yards} yards wide, ${x.deaths} killed, ${x.hurt} injured.`,
-    ),
-    ...d.landfalls
-      .slice(0, 6)
-      .map(
-        (l) =>
-          `${l.year}: ${l.name} made landfall ${l.near} as a ${l.strength.toLowerCase()} (${l.mph} mph winds).`,
-      ),
-  ];
-  return lines.join("\n");
-}
+/** Phrases that make writing sound machine-made; a draft with them is sent back. */
+const TELLS = [
+  /\bin conclusion\b/i,
+  /\btestament to\b/i,
+  /\bdelve\b/i,
+  /\btapestry\b/i,
+  /\b(serves as |is |was |remains )?an? (stark|sobering|poignant|grim|powerful) reminder\b/i,
+  /\bserves as a reminder\b/i,
+  /\bforever (changed|etched)\b/i,
+  /\bnature'?s (fury|wrath)\b/i,
+  /\bstands as a\b/i,
+  /\bit is (important|worth) (to note|noting)\b/i,
+  /\bin the annals\b/i,
+  /\bnavigat(e|ing) the\b/i,
+  /^#|\n#|\*\*|^\s*[-•]/m,
+];
 
-/** The model's JSON checked against the records; anything malformed is no story. */
-export function cleanStory(raw: string, d: OtdData): OtdStory | null {
-  let j: {
-    headline?: unknown;
-    intro?: unknown;
-    events?: Record<string, unknown>[];
-  };
+/** The model's JSON, checked: the right shape, sensible lengths, no machine tells. */
+export function cleanFeature(
+  raw: string,
+): Pick<OtdStory, "title" | "headline" | "story"> | null {
+  let j: { title?: unknown; headline?: unknown; story?: unknown };
   try {
     j = JSON.parse(raw.replace(/^```(?:json)?|```$/g, "").trim());
   } catch {
@@ -80,80 +57,71 @@ export function cleanStory(raw: string, d: OtdData): OtdStory | null {
   }
   const str = (v: unknown, max: number) =>
     typeof v === "string" ? v.replace(/\s+/g, " ").trim().slice(0, max) : "";
-  const headline = str(j.headline, 160);
-  const intro = str(j.intro, 600);
-  if (!headline || !intro || !Array.isArray(j.events)) return null;
-  const known = new Set([
-    ...d.tornadoes.top.map((t) => t.year),
-    ...d.landfalls.map((l) => l.year),
-  ]);
-  const now = new Date().getUTCFullYear();
-  let history = 0;
-  const events: OtdEvent[] = [];
-  for (const e of j.events) {
-    const year = Number(e.year);
-    const kind = KINDS.includes(e.kind as Kind) ? (e.kind as Kind) : "other";
-    const title = str(e.title, 80);
-    const text = str(e.text, 320);
-    const from = e.from === "records" ? "records" : "history";
-    if (!Number.isInteger(year) || year < 1700 || year > now || !title || !text)
-      continue;
-    if (from === "records" && !known.has(year)) continue;
-    if (from === "history" && ++history > 3) continue;
-    events.push({ year, kind, title, text, from });
-  }
-  if (!events.length) return null;
-  events.sort((a, b) => b.year - a.year);
-  return { headline, intro, events: events.slice(0, 8) };
+  const title = str(j.title, 70);
+  const headline = str(j.headline, 220);
+  const paras = (Array.isArray(j.story) ? j.story : []).map((p) => str(p, 900));
+  // Machine tells anywhere (even in a stray short line) send the draft back.
+  if (TELLS.some((re) => re.test([title, headline, ...paras].join("\n"))))
+    return null;
+  const story = paras.filter((p) => p.length >= 60);
+  if (!title || !headline || story.length < 3 || story.length > 6) return null;
+  return { title, headline, story };
 }
 
-/** Writes the date's stories, or null when Gemini can't. */
-export async function writeStory(d: OtdData): Promise<OtdStory | null> {
+/** Writes the featured event's story, or null when Gemini can't (the page then uses NOAA's facts). */
+export async function writeFeature(
+  f: OtdFeature,
+  md: string,
+  article: Article | null,
+): Promise<Pick<OtdStory, "title" | "headline" | "story"> | null> {
   const key = process.env.GEMINI_HISTORY_KEY ?? process.env.GEMINI_API_KEY;
   if (!key) return null;
-  const prompt = `You are the SSWX Forecast Desk at StormSync Media writing "On This Day in Weather History" for ${dateName(d.md)}, for weather fans in the United States. Warm, vivid, plain words; respectful about lives lost; no jargon.
+  const when = `${dateName(md)}, ${f.year}`;
+  const prompt = `You write the "On This Day" feature for StormSync Media, a weather site for storm chasers and weather fans in the United States. Today's feature is what happened on ${when}.
 
-Here are NOAA's records for this date (SPC's tornado database and NHC's hurricane best tracks):
-${facts(d)}
+Write it the way a seasoned weather writer and storm chaser would tell it to a friend who loves weather: warm, vivid and human. Put the reader in that day: the sky, the towns, the timing, what people saw and did, and what forecasters learned. Vary your sentence lengths. Use only a few numbers, where they matter. Be respectful and gentle about people who were killed or hurt. Plain words, no jargon unless you explain it in passing.
 
-Write:
-- "headline": one sentence on the most remarkable event on this date.
-- "intro": two or three sentences setting the scene for the date.
-- "events": 4 to 8 events, each {"year": number, "kind": one of ${KINDS.join(", ")}, "title": under 60 characters, "text": two sentences under 240 characters, "from": "records" or "history"}.
-Events marked "records" must come from the records above, using only their numbers and places. You may add up to 3 events marked "history": other famous U.S. weather events (blizzards, floods, heat waves, cold outbreaks, derechos, hailstorms, wildfires) that you are certain happened on ${dateName(d.md)} of that year. If you are not certain of the exact date, leave it out. Never invent numbers.
+Do not sound like an AI or a report: no lists, no headings, no bold, no "In conclusion", no "testament to", "delve", "tapestry", "stands as", "a stark reminder", "nature's fury", "forever changed", "it is worth noting".
 
-Answer with JSON only: {"headline": string, "intro": string, "events": [...]}`;
-  for (const model of MODELS) {
-    try {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-        {
-          method: "POST",
-          headers: {
-            "x-goog-api-key": key,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: {
-              temperature: 0.4,
-              maxOutputTokens: 2000,
-              responseMimeType: "application/json",
+Use ONLY the facts below. If something is not in them, leave it out: never invent a name, a quote, a number, a time or a detail.
+
+NOAA's records:
+${f.facts.join("\n")}
+${article ? `\nFrom the Wikipedia article "${article.title}":\n${article.text}\n` : ""}
+Answer with JSON only:
+{"title": "the event's name as people know it, or a plain one (under 60 characters)", "headline": "one sentence that draws the reader in (under 200 characters)", "story": ["3 to 5 paragraphs, each 2 to 4 sentences"]}`;
+  for (const model of MODELS)
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+          {
+            method: "POST",
+            headers: {
+              "x-goog-api-key": key,
+              "Content-Type": "application/json",
             },
-          }),
-          signal: AbortSignal.timeout(30000),
-        },
-      );
-      const out = res.ok ? await res.json() : null;
-      const text: string =
-        out?.candidates?.[0]?.content?.parts
-          ?.map((p: { text?: string }) => p.text ?? "")
-          .join("") ?? "";
-      const s = cleanStory(text, d);
-      if (s) return s;
-    } catch {
-      // overloaded or timed out: try the next model
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              generationConfig: {
+                temperature: 0.8,
+                maxOutputTokens: 2500,
+                responseMimeType: "application/json",
+              },
+            }),
+            signal: AbortSignal.timeout(30000),
+          },
+        );
+        const out = res.ok ? await res.json() : null;
+        const text: string =
+          out?.candidates?.[0]?.content?.parts
+            ?.map((p: { text?: string }) => p.text ?? "")
+            .join("") ?? "";
+        const s = cleanFeature(text);
+        if (s) return s;
+      } catch {
+        // overloaded or timed out: try again, then the next model
+      }
     }
-  }
   return null;
 }

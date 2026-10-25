@@ -1,51 +1,70 @@
 import type { Metadata } from "next";
 import { after } from "next/server";
+import { revalidateTag } from "next/cache";
 import { CalendarDays } from "lucide-react";
 import { ModuleOff } from "@/components/ops/ModuleOff";
 import { PageHero } from "@/components/ui/PageHero";
 import { getColors } from "@/lib/colors/server";
-import { ensureDay, readDay, todayMd, validMd } from "@/lib/history/days";
-import { buildDay, type OtdData } from "@/lib/history/onthisday";
+import { ensureDay, readDay, todayMd } from "@/lib/history/days";
+import type { OtdFeature } from "@/lib/history/onthisday";
 import { dateName } from "@/lib/history/story";
 import { project } from "@/lib/map/usAlbers";
 import { getSiteDefaults } from "@/lib/settings";
-import { OnThisDayView } from "./OnThisDayView";
+import { OnThisDayView, type Drawn } from "./OnThisDayView";
 
 export const metadata: Metadata = {
   title: "On This Day in Weather History · StormSync Media",
 };
+// Always today's date (Central time); the stored day is read through the data cache.
+export const dynamic = "force-dynamic";
 
-/** Map lines are projected here, so the phone gets ready-to-draw paths. */
-function paths(d: OtdData) {
-  return d.tornadoes.paths.map((p) => {
-    const a = project(p.a[0], p.a[1]);
-    const b = p.b ? project(p.b[0], p.b[1]) : null;
-    const d =
-      b && Math.hypot(b.x - a.x, b.y - a.y) > 0.6
-        ? `M${a.x.toFixed(1)} ${a.y.toFixed(1)}L${b.x.toFixed(1)} ${b.y.toFixed(1)}`
-        : `M${a.x.toFixed(1)} ${a.y.toFixed(1)}h0.01`;
-    return { d, mag: p.mag };
-  });
+/** The featured event's tracks, reports and storm path, projected for the phone. */
+function draw(f: OtdFeature): Drawn {
+  const xy = ([lon, lat]: [number, number]) => {
+    const p = project(lon, lat);
+    return [Math.round(p.x * 10) / 10, Math.round(p.y * 10) / 10] as const;
+  };
+  return {
+    tracks: f.tracks.map((t) => {
+      const [ax, ay] = xy(t.a);
+      const b = t.b ? xy(t.b) : null;
+      return {
+        d:
+          b && Math.hypot(b[0] - ax, b[1] - ay) > 0.6
+            ? `M${ax} ${ay}L${b[0]} ${b[1]}`
+            : `M${ax} ${ay}h0.01`,
+        mag: t.mag,
+      };
+    }),
+    reports: f.reports.map((r) => {
+      const [x, y] = xy(r.p);
+      return { k: r.k, x, y };
+    }),
+    storm: f.storm
+      ? {
+          segs: f.storm.pts.slice(1).map((p, i) => {
+            const [ax, ay] = xy([f.storm!.pts[i][0], f.storm!.pts[i][1]]);
+            const [bx, by] = xy([p[0], p[1]]);
+            return { d: `M${ax} ${ay}L${bx} ${by}`, kt: p[2] };
+          }),
+          land: xy(f.storm.land),
+        }
+      : null,
+  };
 }
 
-export default async function OnThisDay({
-  searchParams,
-}: {
-  searchParams: Promise<{ d?: string }>;
-}) {
-  const [{ d }, { disabled }, colors] = await Promise.all([
-    searchParams,
+export default async function OnThisDay() {
+  const [{ disabled }, colors] = await Promise.all([
     getSiteDefaults(),
     getColors(),
   ]);
-  const today = todayMd();
-  const md = validMd(d) ? d! : today;
+  const md = todayMd();
   const hero = (
     <PageHero
       icon={<CalendarDays aria-hidden />}
-      eyebrow={["SPC tornado records", "NHC best tracks"]}
+      eyebrow={["NOAA records", "Weather history"]}
       title="On This Day"
-      subtitle={`${dateName(md)} in weather history: the tornadoes and hurricanes NOAA has on record for the date, and the stories behind them.`}
+      subtitle={`${dateName(md)} in weather history: one storm that made its mark on this date, and its story.`}
     />
   );
   if (disabled.includes("onthisday"))
@@ -57,21 +76,27 @@ export default async function OnThisDay({
     );
 
   const stored = await readDay(md);
-  let data = stored?.data ?? null;
-  if (!data) data = await buildDay(md).catch(() => null);
-  // A date nobody has opened yet is stored, with its stories, after this visit.
-  if (!stored?.story && process.env.SUPABASE_SERVICE_ROLE_KEY)
-    after(() => ensureDay(md).catch(() => undefined));
+  const story = stored?.story && "title" in stored.story ? stored.story : null;
+  // Today's date not ready yet (the morning job makes it), or its story is to be redone
+  // (Wikipedia didn't answer): do it after this visit.
+  if (
+    (!stored?.data.feature || !story || story.retry) &&
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+  )
+    after(async () => {
+      await ensureDay(md).catch(() => undefined);
+      revalidateTag(`history:${md}`, { expire: 0 });
+    });
+  const f = stored?.data.feature ?? null;
 
   return (
     <main className="mx-auto max-w-2xl px-4 pt-4 pb-28">
       {hero}
       <OnThisDayView
         md={md}
-        today={today}
-        data={data}
-        story={stored?.story ?? null}
-        paths={data ? paths(data) : []}
+        feature={f}
+        story={story}
+        drawn={f ? draw(f) : null}
         colors={colors}
       />
     </main>
