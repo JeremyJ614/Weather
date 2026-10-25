@@ -131,6 +131,14 @@ export const OUTDOOR_BANDS: Record<
   },
 };
 
+/** Deer and Fishing map dots: each spot against today's typical one (the band colors, in order). */
+export const OUTDOOR_RANKS = [
+  "Slower than most",
+  "Typical today",
+  "Better",
+  "Best today",
+];
+
 /** Boundary Collision Analyzer: each collision's dot, by its score. */
 export const BOUND_POINTS = [
   { min: 0, label: "Low", color: "#94a3b8" },

@@ -11,12 +11,87 @@ import { openSky, rainbowChance } from "./outdoor";
 
 /**
  * Rainbow Chance (Extras engine), a nowcast for now, +30 and +60 minutes. Radar (NOAA's
- * national base reflectivity mosaic) says where the rain is; GOES visible satellite says
- * where the sky is open; the sun's position says where it is low enough. Rain and cloud are
- * carried forward on the HRRR's 700 mb wind. For each place: rain 5–20 km opposite the sun,
- * open sky toward the sun, the sun between 0° and 42° up.
+ * national base reflectivity mosaic, 15 dBZ or more: real rain, not clutter or drizzle) says
+ * where the rain is; the HRRR's total cloud and GOES visible satellite say where the sky is
+ * open toward the sun (the model alone with the sun under 15°, when visible imagery goes dark
+ * whatever the sky); the sun's position says where it is low enough. Radar rain is carried
+ * forward on the HRRR's 700 mb wind. For each place: rain 5–20 km opposite the sun, open sky
+ * toward the sun (out to 40 km when it is under 10°), the sun between 0° and 42° up.
  */
 const WMS = "https://nowcoast.noaa.gov/geoserver/ows";
+
+/** nowCOAST's reflectivity ramp from 6 dBZ (lighter returns are drawn 40% see-through). */
+const RAMP = (
+  "6:599494 8:3bb1b1 9:1dcece 10:00ecec 11:00d9ee 13:00c6f1 14:00b3f3 15:01a0f6 16:0078f6 " +
+  "18:0050f6 19:0028f6 20:0000f6 21:003fb8 23:007f7b 24:00bf3d 25:00ff00 26:00f100 28:00e300 " +
+  "29:00d500 30:00c800 31:00ba00 33:00ac00 34:009e00 35:009000 36:3fab00 38:7fc700 39:bfe300 " +
+  "40:ffff00 41:f9ef00 43:f3df00 44:edcf00 45:e7c000 46:edb400 48:f3a800 49:f99c00 50:ff9000 " +
+  "51:ff6c00 53:ff4800 54:ff2400 55:ff0000 56:f60000 58:ed0000 59:e40000 60:dc0000 61:d50000 " +
+  "63:ce0000 64:c70000 65:c00000 66:cf003f 68:df007f 69:ef00bf 70:ff00ff 71:e515f1 73:cc2ae4 " +
+  "74:b23fd6 75:9955c9 76:747bce 78:4fa1d4 79:2ac7da 80:05ede0"
+)
+  .split(" ")
+  .map((e) => {
+    const [q, c] = e.split(":");
+    const n = parseInt(c, 16);
+    return [Number(q), n >> 16, (n >> 8) & 255, n & 255];
+  });
+const dbzMemo = new Map<number, number>();
+
+/** A radar pixel back to dBZ by the nearest color on the ramp (0 when see-through or empty). */
+export function dbzOf(r: number, g: number, b: number, a: number) {
+  if (a < 200) return 0;
+  const key = (r << 16) | (g << 8) | b;
+  let v = dbzMemo.get(key);
+  if (v === undefined) {
+    let best = Infinity;
+    v = 0;
+    for (const [q, R, G, B] of RAMP) {
+      const d = (r - R) ** 2 + (g - G) ** 2 + (b - B) ** 2;
+      if (d < best) {
+        best = d;
+        v = q;
+      }
+    }
+    dbzMemo.set(key, v);
+  }
+  return v;
+}
+
+const cycleMs = (c: string) =>
+  Date.UTC(+c.slice(0, 4), +c.slice(4, 6) - 1, +c.slice(6, 8), +c.slice(8));
+
+/** The HRRR's total cloud (0–1) for the next three hours of the newest run, kept per run. */
+let cloud: {
+  cycle: string;
+  at: (lat: number, lon: number, t: number) => number;
+} | null = null;
+async function cloudiness() {
+  const cycle = await latestCycle("hrrr");
+  if (!cycle) return null;
+  if (cloud?.cycle === cycle) return cloud.at;
+  const recs = await Promise.all(
+    [1, 2, 3].map((fh) =>
+      record(
+        MODELS.hrrr.url(cycle.slice(0, 8), cycle.slice(8), fh),
+        ":TCDC:entire atmosphere:",
+      ),
+    ),
+  );
+  const c0 = cycleMs(cycle);
+  const loc = locator(recs[0].grid);
+  const [w, h] = gridSize(recs[0].grid);
+  const at = (lat: number, lon: number, t: number) => {
+    const fh = Math.min(3, Math.max(1, Math.round((t - c0) / 3600_000)));
+    const [fi, fj] = loc(lat, lon);
+    const x = Math.min(w - 1, Math.max(0, Math.round(fi)));
+    const y = Math.min(h - 1, Math.max(0, Math.round(fj)));
+    const v = recs[fh - 1].values[y * w + x];
+    return Number.isFinite(v) ? Math.min(1, Math.max(0, v / 100)) : 0;
+  };
+  cloud = { cycle, at };
+  return at;
+}
 const [W, S, E, N] = REGIONS.conus.b;
 const STEP = 0.1;
 const LW = Math.round((E - W) / STEP) + 1;
@@ -104,10 +179,11 @@ let memo: {
 } | null = null;
 
 async function build(): Promise<RainbowMap & { grids: Float32Array[] }> {
-  const [radar, sat, wind] = await Promise.all([
+  const [radar, sat, wind, cld] = await Promise.all([
     frame("weather_radar:conus_base_reflectivity_mosaic", 2360, 1080),
     frame("satellite:goes_visible_imagery", 1180, 540),
     steering().catch(() => () => [0, 0] as [number, number]),
+    cloudiness().catch(() => null),
   ]);
   const px = (img: typeof radar, lat: number, lon: number) => {
     const x = Math.floor(((lon - W) / (E - W)) * img.w);
@@ -118,7 +194,8 @@ async function build(): Promise<RainbowMap & { grids: Float32Array[] }> {
   };
   const wet = (lat: number, lon: number) => {
     const k = px(radar, lat, lon);
-    return k >= 0 && radar.rgba[k + 3] > 0;
+    const p = radar.rgba;
+    return k >= 0 && dbzOf(p[k], p[k + 1], p[k + 2], p[k + 3]) >= 15;
   };
   const gray = (lat: number, lon: number) => {
     const k = px(sat, lat, lon);
@@ -154,13 +231,23 @@ async function build(): Promise<RainbowMap & { grids: Float32Array[] }> {
           if (wet(c, d)) hits++;
         }
         if (!hits) continue;
+        // A low sun shines in under clouds farther away, so look farther toward it.
+        const far = sun.altitude < 10 ? [0, 8, 20, 40] : [0, 5, 12];
         let open = 0;
-        for (const km of [0, 5, 12]) {
+        for (const km of far) {
           const [a, b] = move(lat, lon, sun.azimuth, km);
           const [c, d] = back(a, b);
-          open += openSky(gray(c, d));
+          const vis = openSky(gray(c, d));
+          // The model forecast is already for time t: no carrying needed.
+          const model = cld ? 1 - cld(a, b, t.getTime()) : null;
+          open +=
+            model === null
+              ? vis
+              : sun.altitude < 15
+                ? model
+                : (vis + model) / 2;
         }
-        g[j * LW + i] = rainbowChance(sun.altitude, hits, open / 3);
+        g[j * LW + i] = rainbowChance(sun.altitude, hits, open / far.length);
       }
     }
     grids.push(g);

@@ -1,7 +1,8 @@
 import "server-only";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { buildDay, type OtdData } from "./onthisday";
-import { writeStory, type OtdStory } from "./story";
+import { buildDay, type OtdData, type OtdFeature } from "./onthisday";
+import { writeFeature, type OtdStory } from "./story";
+import { articlePhotos, findArticle } from "./wiki";
 
 export type HistoryDay = {
   md: string;
@@ -42,11 +43,69 @@ export async function readDay(md: string): Promise<HistoryDay | null> {
 }
 
 /**
- * Builds a date from NOAA's records and stores it; writes its stories when `story` is set
- * (or keeps the stored ones). A stored date is rebuilt after 300 days, so each new year's
- * tornadoes and storms join it.
+ * Chooses the day's featured event and writes it up. NOAA's strongest few candidates are
+ * looked up on Wikipedia: the strongest one with an article about it (naming the U.S. place)
+ * wins, as long as NOAA rates it at least 60% as significant as the strongest overall.
  */
-export async function ensureDay(md: string, story = true) {
+export async function featureStory(
+  d: OtdData,
+  write: boolean,
+): Promise<{ feature: OtdFeature | null; story: OtdStory | null }> {
+  const cands = d.candidates ?? (d.feature ? [d.feature] : []);
+  if (!cands.length) return { feature: null, story: null };
+  // One at a time, strongest first, so Wikipedia sees as few requests as possible. When it
+  // doesn't answer (rate limits), the story is marked to be written again on the next run.
+  let i = 0;
+  let article = null;
+  let unsure = false;
+  for (let k = 0; k < cands.length && !article && !unsure; k++) {
+    if (cands[k].score < 0.6 * cands[0].score) break;
+    article = await findArticle(cands[k], d.md).catch(() => {
+      unsure = true;
+      return null;
+    });
+    if (article) i = k;
+  }
+  const feature = cands[i];
+  if (!write) return { feature, story: null };
+  const [text, photos] = await Promise.all([
+    writeFeature(feature, d.md, article),
+    article
+      ? articlePhotos(article.title).catch(() => {
+          unsure = true;
+          return [];
+        })
+      : [],
+  ]);
+  return {
+    feature,
+    story: text
+      ? {
+          ...text,
+          photos,
+          source: article ? { title: article.title, url: article.url } : null,
+          written: new Date().toISOString(),
+          ...(unsure ? { retry: true } : {}),
+        }
+      : null,
+  };
+}
+
+/**
+ * Builds a date from NOAA's records and stores it with its featured event's story (or keeps
+ * the stored one). A stored date is rebuilt after 300 days, so each new year's events join.
+ */
+const busy = new Map<string, Promise<unknown>>();
+
+/** One build per date at a time on this server, however many visits ask. */
+export function ensureDay(md: string, story = true) {
+  const run =
+    busy.get(md) ?? buildAndStore(md, story).finally(() => busy.delete(md));
+  busy.set(md, run);
+  return run;
+}
+
+async function buildAndStore(md: string, story: boolean) {
   const db = supabaseAdmin();
   const { data: have } = await db
     .from("history_days")
@@ -55,17 +114,29 @@ export async function ensureDay(md: string, story = true) {
     .maybeSingle();
   const fresh =
     have && Date.now() - Date.parse(have.updated_at) < 300 * 86400_000;
-  if (fresh && (have.story || !story)) return { md, built: false };
-  const data = fresh
+  // Stories from before the featured-event redesign (no "title") are written again, and so
+  // is one written while Wikipedia wasn't answering, half an hour later.
+  const st = have?.story as Partial<OtdStory> | null;
+  const current = Boolean(
+    st?.title &&
+    (!st.retry || Date.now() - Date.parse(st.written ?? "") < 30 * 60_000),
+  );
+  if (fresh && (current || !story)) return { md, built: false };
+  let data = fresh
     ? ((await db.from("history_days").select("data").eq("md", md).single()).data
         ?.data as OtdData)
     : await buildDay(md);
-  const s = story ? await writeStory(data) : null;
+  // Dates stored before the redesign have no candidates yet.
+  const old = fresh && data && data.candidates === undefined;
+  if (old) data = await buildDay(md);
+  const { feature, story: s } = await featureStory(data, story);
+  if (s || !current) data = { ...data, feature };
   const { error } = await db.from("history_days").upsert({
     md,
     data,
-    story: s ?? have?.story ?? null,
-    updated_at: fresh ? have.updated_at : new Date().toISOString(),
+    story: s ?? (current ? have!.story : null),
+    updated_at:
+      fresh && !old && have ? have.updated_at : new Date().toISOString(),
   });
   if (error) throw new Error(error.message);
   return { md, built: !fresh, story: Boolean(s) };

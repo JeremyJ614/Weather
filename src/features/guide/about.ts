@@ -64,13 +64,13 @@ export const ABOUT: Record<string, string> = {
   "weather-glossary": "Any weather word explained in plain language.",
   "free-content-library": "Free lessons and guides on how weather works.",
   "on-this-day":
-    "This date in weather history: the tornadoes and hurricanes on record, mapped, with the stories behind them; pick any date.",
+    "Today's date in weather history: one big tornado day, hurricane or windstorm from the past, told like a story, with that day's tracks and reports mapped and photos when there are any. A new one every day.",
   "climate-extremes":
     "The hottest, coldest and windiest places in the country right now, today's high and low, and every record set this week.",
   "weather-patterns":
     "What already happened (yesterday, the week, the month, the season) in plain words with the numbers behind it.",
   extras:
-    "Weather Engines drawn like SPC outlooks (ProbTor, STP, SCP, derecho, lightning and more), the Storm Visualizer and Particle Morph.",
+    "Weather Engines drawn like SPC outlooks (ProbTor, STP, SCP, derecho, Lightning Surge, First Storms, Severe Analogs, Boundary Collisions and more), outdoor engines for sunsets, rainbows, deer and fishing, the Storm Visualizer and Particle Morph.",
   "disaster-response":
     "Organizations that help after storms and how to give to them or help them, plus a map of emergency shelters near you.",
   donate:
@@ -152,6 +152,7 @@ export const INTERESTS: {
     label: "Learning & games",
     pages: [
       "wx-games",
+      "on-this-day",
       "weather-glossary",
       "free-content-library",
       "climatology",

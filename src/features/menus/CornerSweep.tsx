@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "@/components/IntentLink";
 import { NavIcon } from "@/components/NavIcon";
 import { Beam } from "@/components/ui/Beam";
@@ -17,6 +18,10 @@ export function CornerSweep({ groups, placement, role }: MenuProps) {
     setSub: setExpanded,
   } = useMenuNav(role);
   const side = placement.id.startsWith("top-left") ? "left" : "right";
+  // Opening shows the current page's section, so its struck-through line is in view.
+  const here = groups.find((g) => g.pages.some((pg) => href(pg) === path));
+  // Opened that way, its pages wait for the sweep and the headings.
+  const [auto, setAuto] = useState(false);
   return (
     <div className={open ? s.on : undefined} data-menu-role={role}>
       <div className={`${s.lay} ${s.l1}`} data-side={side} />
@@ -34,8 +39,9 @@ export function CornerSweep({ groups, placement, role }: MenuProps) {
               className={s.g}
               style={{ ["--i" as string]: i }}
               tabIndex={open ? 0 : -1}
+              aria-current={path === href(g.pages[0]) ? "page" : undefined}
             >
-              {g.label}
+              <span className={s.strike}>{g.label}</span>
             </Link>
           ) : (
             <div key={g.id}>
@@ -43,13 +49,17 @@ export function CornerSweep({ groups, placement, role }: MenuProps) {
                 className={s.g}
                 style={{ ["--i" as string]: i }}
                 aria-expanded={expanded === g.id}
+                data-here={here?.id === g.id || undefined}
                 tabIndex={open ? 0 : -1}
-                onClick={() => setExpanded(expanded === g.id ? null : g.id)}
+                onClick={() => {
+                  setAuto(false);
+                  setExpanded(expanded === g.id ? null : g.id);
+                }}
               >
                 {g.label}
               </button>
               {expanded === g.id && (
-                <div className={s.subs}>
+                <div className={s.subs} data-auto={auto || undefined}>
                   {g.pages.map((pg, k) => (
                     <Beam
                       key={pg.slug}
@@ -70,7 +80,7 @@ export function CornerSweep({ groups, placement, role }: MenuProps) {
                           name={pg.icon}
                           className="size-4 text-accent"
                         />
-                        {pg.label}
+                        <span className={s.strike}>{pg.label}</span>
                       </Link>
                     </Beam>
                   ))}
@@ -85,7 +95,13 @@ export function CornerSweep({ groups, placement, role }: MenuProps) {
         data-side={side}
         aria-label={open ? "Close menu" : "Open menu"}
         aria-expanded={open}
-        onClick={() => setOpen(!open)}
+        onClick={() => {
+          if (!open && here && here.pages.length > 1) {
+            setExpanded(here.id);
+            setAuto(true);
+          }
+          setOpen(!open);
+        }}
       >
         <i />
         <i />

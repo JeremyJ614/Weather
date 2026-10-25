@@ -69,7 +69,13 @@ export async function GET(req: Request) {
   }
   if (e === "deer" || e === "fish") {
     const d = await placeMap(e).catch(() => null);
-    return Response.json({ polys: polys(d?.areas, e) });
+    return Response.json({
+      dots: (d?.points ?? []).map((p) => ({
+        lat: p.lat,
+        lon: p.lon,
+        key: `engine:${e}:${p.rank}`,
+      })),
+    });
   }
   if (e === "boundpt") {
     const r = await fieldPreview("bound").catch(() => null);

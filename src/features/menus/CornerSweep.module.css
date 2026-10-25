@@ -1,4 +1,5 @@
-/* Corner Sweep: two circles sweep in from the corner, then big headings slide in.
+/* Corner Sweep: two circles sweep in from the corner and cover the whole screen, then big
+   headings slide in; a glowing line strikes through the page you're on.
    Transform and opacity only. */
 .trig {
   position: fixed;
@@ -45,22 +46,25 @@
   transform: translateY(-8px) rotate(-45deg);
   transform-origin: center;
 }
+/* Centered on the corner with a radius of 1.5× the longest side: past the far corner on any
+   screen (the diagonal is at most 1.42× the longest side). */
 .lay {
   position: fixed;
-  top: -850px;
-  width: 1700px;
-  height: 1700px;
+  top: -150vmax;
+  width: 300vmax;
+  height: 300vmax;
   border-radius: 50%;
   z-index: 60;
   transform: scale(0);
   transition: transform 0.7s cubic-bezier(0.77, 0, 0.175, 1);
   pointer-events: none;
+  will-change: transform;
 }
 .lay[data-side="right"] {
-  right: -850px;
+  right: -150vmax;
 }
 .lay[data-side="left"] {
-  left: -850px;
+  left: -150vmax;
 }
 .l1 {
   background: color-mix(in srgb, var(--accent) 10%, var(--bg));
@@ -116,8 +120,56 @@
   transition-delay: calc(var(--i) * 45ms + 0.5s);
 }
 .g[aria-expanded="true"],
+.g[data-here],
 .g:hover {
   color: var(--accent);
+}
+.g[aria-current="page"] {
+  color: var(--text);
+}
+/* The page you're on: a glowing line draws through it, left to right, once the list is in. */
+.strike {
+  position: relative;
+  display: inline-block;
+}
+.strike::after {
+  content: "";
+  position: absolute;
+  left: -6px;
+  right: -6px;
+  top: 52%;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--accent);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.2s;
+}
+.g .strike::after {
+  height: 3px;
+}
+/* Headings are always there (hidden): the line follows the menu opening. */
+.on .g[aria-current="page"] > .strike::after {
+  transform: scaleX(1);
+  transition: transform 0.55s var(--ease);
+  transition-delay: calc(var(--i) * 45ms + 0.85s);
+}
+/* Pages appear with their section: the line draws as they arrive. */
+.mi[aria-current="page"] > .strike::after {
+  transform: scaleX(1);
+  animation: strike 0.55s 0.3s var(--ease) both;
+}
+.subs[data-auto] .beam {
+  animation-delay: calc(0.75s + var(--i, 0) * 30ms);
+}
+.subs[data-auto] .mi[aria-current="page"] > .strike::after {
+  animation-delay: 1.15s;
+}
+@keyframes strike {
+  from {
+    transform: scaleX(0);
+  }
 }
 .subs {
   display: flex;
