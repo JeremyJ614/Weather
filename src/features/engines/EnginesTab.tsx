@@ -40,6 +40,7 @@ import {
   FIELD_BANDS,
   FIRST_TIME_BANDS,
   OUTDOOR_BANDS,
+  OUTDOOR_RANKS,
   PYRO_BINS,
   SURGE_BANDS,
   TOR_BINS,
@@ -139,7 +140,10 @@ type RainbowData = {
   reports: Summary;
 };
 type PlaceMap = {
-  areas: Areas;
+  /** One dot per land spot: its best hour's score, when, and its rank against today's typical spot. */
+  points: { lat: number; lon: number; v: number; at: number; rank: number }[];
+  /** Today's typical spot's best-hour score. */
+  typical: number;
   spots: Spot[];
   reports: Summary;
 };
@@ -950,6 +954,29 @@ export function EnginesTab({
         "circle-stroke-width": 1.5,
       },
     });
+    // Deer and Fishing: a dot per spot, colored by its best hour (a smooth field over a small
+    // region read as one flat block).
+    m.addSource("outdoor", { type: "geojson", data: EMPTY });
+    m.addLayer({
+      id: "outdoor",
+      type: "circle",
+      source: "outdoor",
+      paint: {
+        "circle-color": ["get", "c"],
+        "circle-radius": [
+          "interpolate",
+          ["exponential", 2],
+          ["zoom"],
+          5,
+          4,
+          8,
+          28,
+        ],
+        "circle-opacity": 0.9,
+        "circle-stroke-color": "#000000",
+        "circle-stroke-width": 1,
+      },
+    });
     m.addSource("pastday", { type: "geojson", data: EMPTY });
     m.addLayer({
       id: "pastday",
@@ -1051,8 +1078,9 @@ export function EnginesTab({
       m.setLayoutProperty(id, "visibility", on ? "visible" : "none");
     vis("torA-fill", e === "tor");
     vis("torA-line", e === "tor");
-    vis("fieldA-fill", isField(e) || isPlace(e) || e === "analog");
-    vis("fieldA-line", isField(e) || isPlace(e) || e === "analog");
+    vis("fieldA-fill", isField(e) || e === "rainbow" || e === "analog");
+    vis("fieldA-line", isField(e) || e === "rainbow" || e === "analog");
+    vis("outdoor", e === "deer" || e === "fish");
     vis("pastday", e === "analog");
     vis("collide", e === "bound");
     vis("tor-fill", e === "tor");
@@ -1071,9 +1099,24 @@ export function EnginesTab({
     const placeAreas =
       engine === "rainbow" && rainbow && rainbow !== "error"
         ? rainbow.maps[view]
-        : mapKey && placeMaps[mapKey] && placeMaps[mapKey] !== "error"
-          ? (placeMaps[mapKey] as PlaceMap).areas
-          : null;
+        : null;
+    const pm =
+      mapKey && placeMaps[mapKey] && placeMaps[mapKey] !== "error"
+        ? (placeMaps[mapKey] as PlaceMap)
+        : null;
+    if (engine === "deer" || engine === "fish")
+      (map.getSource("outdoor") as GeoJSONSource | undefined)?.setData(
+        pm
+          ? {
+              type: "FeatureCollection",
+              features: pm.points.map((p) => ({
+                type: "Feature",
+                properties: { c: fieldColor(engine, p.rank) },
+                geometry: { type: "Point", coordinates: [p.lon, p.lat] },
+              })),
+            }
+          : EMPTY,
+      );
     const an = engine === "analog" ? analogs[view] : undefined;
     if (engine === "analog") {
       const a = an && an !== "error" && an.areas ? an.areas : EMPTY;
@@ -1119,7 +1162,7 @@ export function EnginesTab({
       ] as never;
       map.setPaintProperty("fieldA-fill", "fill-color", expr);
       map.setPaintProperty("fieldA-line", "line-color", expr);
-    } else if (isPlace(engine))
+    } else if (engine === "rainbow")
       (map.getSource("fieldA") as GeoJSONSource | undefined)?.setData(EMPTY);
     if (f && f !== "error" && engine === "bound")
       (map.getSource("collide") as GeoJSONSource | undefined)?.setData({
@@ -1213,10 +1256,16 @@ export function EnginesTab({
             ? FIRST_TIME_BANDS.map((b, i) => [b.label, timeColor(i)])
             : engine === "blind"
               ? BLIND_BANDS.map((b, i) => [b.label, blindColor(i)])
-              : bandsOf(engine).labels.map((l, i) => [
-                  l,
-                  fieldColor(engine, i),
-                ]);
+              : engine === "deer" || engine === "fish"
+                ? OUTDOOR_RANKS.map((l, i) => [l, fieldColor(engine, i)])
+                : bandsOf(engine).labels.map((l, i) => [
+                    l,
+                    fieldColor(engine, i),
+                  ]);
+  const placeNow =
+    mapKey && placeMaps[mapKey] && placeMaps[mapKey] !== "error"
+      ? (placeMaps[mapKey] as PlaceMap)
+      : null;
   const field = isField(engine) ? fields[engine] : undefined;
   const valid = (iso: string) =>
     new Date(iso).toLocaleString("en-US", {
@@ -1898,6 +1947,36 @@ export function EnginesTab({
                 the next day
               </h3>
             </header>
+            <p className={s.small}>
+              Each dot on the map is a spot about 35 miles from the next, across
+              Ohio and its neighbors, ranked by its best hour in the next 24
+              {engine === "fish"
+                ? " for the fish you picked"
+                : " for deer to move"}
+              : red-hot dots beat the typical spot today by 8 points or more,
+              dim ones fall 4 or more behind (the key under the map). Tap any
+              dot, or a place here, for its next three days.
+            </p>
+            {placeNow && (
+              <p className={s.small}>
+                Typical best hour today: <b>{placeNow.typical}</b> of 100 (
+                {
+                  OUTDOOR_BANDS[engine].labels[
+                    Math.max(
+                      0,
+                      OUTDOOR_BANDS[engine].levels.findLastIndex(
+                        (l) => placeNow.typical >= l,
+                      ),
+                    )
+                  ]
+                }
+                ). Dawn and dusk always score well; the weather makes the
+                difference from place to place.
+                {placeNow.points.filter((p) => p.rank === 1).length >=
+                  0.8 * placeNow.points.length &&
+                  " Today most spots are about the same: the weather isn't favoring one area."}
+              </p>
+            )}
             {mapKey && !placeMaps[mapKey] && (
               <p className={s.small}>Reading the forecast…</p>
             )}

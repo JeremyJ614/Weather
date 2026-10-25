@@ -8,7 +8,6 @@ import {
   sunTimes,
 } from "@/lib/sky/astro";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { latticeAreas, soften, type Areas } from "./areas";
 import { OUTDOOR_BANDS } from "./colors";
 import { tuned } from "./fields";
 import {
@@ -178,6 +177,13 @@ const speciesOf = (id: string) =>
   SPECIES.find((s) => s.id === id) ?? SPECIES[0];
 
 /** The regional map: each place's best hour in the next 24, as SPC-style areas. */
+const median = (xs: number[]) => {
+  const a = [...xs].sort((x, y) => x - y);
+  return a.length ? a[a.length >> 1] : 0;
+};
+/** A spot against today's typical one: 0 slower (4+ under), 1 typical, 2 better (4+), 3 best (8+). */
+export const rankOf = (d: number) => (d <= -4 ? 0 : d < 4 ? 1 : d < 8 ? 2 : 3);
+
 export async function placeMap(kind: "deer" | "fish", sp: SpeciesId = "bass") {
   const { W, E, S, N, step } = REGION;
   const lats: number[] = [];
@@ -209,26 +215,6 @@ export async function placeMap(kind: "deer" | "fish", sp: SpeciesId = "bass") {
       }
     }
   });
-  // Up to a 0.1° lattice for smooth areas.
-  const fine = 0.1;
-  const fw = Math.round((E - W) / fine) + 1;
-  const fh = Math.round((N - S) / fine) + 1;
-  const v = new Float32Array(fw * fh);
-  for (let j = 0; j < fh; j++)
-    for (let i = 0; i < fw; i++) {
-      const y = (j * fine) / step;
-      const x = (i * fine) / step;
-      const y0 = Math.min(ch - 2, Math.floor(y));
-      const x0 = Math.min(cw - 2, Math.floor(x));
-      const ty = y - y0;
-      const tx = x - x0;
-      const at = (a: number, b: number) => best[b * cw + a];
-      v[j * fw + i] =
-        at(x0, y0) * (1 - tx) * (1 - ty) +
-        at(x0 + 1, y0) * tx * (1 - ty) +
-        at(x0, y0 + 1) * (1 - tx) * ty +
-        at(x0 + 1, y0 + 1) * tx * ty;
-    }
   const bands = OUTDOOR_BANDS[kind];
   places ??= parsePlaces(PLACES);
   const rowsP = places;
@@ -256,18 +242,35 @@ export async function placeMap(kind: "deer" | "fish", sp: SpeciesId = "bass") {
       at: when[k],
     });
   }
+  // One dot per land spot (a town within 20 miles; Lake Erie and empty corners left out):
+  // its best hour's score and when. Every spot's best hour falls at dawn or dusk, so on the
+  // absolute scale nearly all read the same; the dots are ranked against today's typical
+  // spot instead (rank), which is what the weather changes from place to place.
+  const points: {
+    lat: number;
+    lon: number;
+    v: number;
+    at: number;
+    rank: number;
+  }[] = [];
+  for (let k = 0; k < best.length; k++) {
+    const near = nearestPlace(rowsP, lats[k], lons[k], 300);
+    if (near && near.miles <= 20)
+      points.push({
+        lat: lats[k],
+        lon: lons[k],
+        v: Math.round(best[k]),
+        at: when[k],
+        rank: 0,
+      });
+  }
+  const typical = median(points.map((p) => p.v));
+  for (const p of points) p.rank = rankOf(p.v - typical);
   return {
     at: new Date().toISOString(),
     bounds: [W, S, E, N],
-    areas: latticeAreas(
-      soften(v, fw, fh, 1),
-      fw,
-      fh,
-      W,
-      N,
-      fine,
-      bands.levels,
-    ) as Areas,
+    points,
+    typical,
     spots,
   };
 }
