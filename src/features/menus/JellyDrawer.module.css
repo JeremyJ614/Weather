@@ -1,0 +1,183 @@
+/* Jelly Drawer: a side drawer with a springy, bulging edge. Transform and opacity only. */
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 64;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+}
+.on .scrim {
+  pointer-events: auto;
+}
+.drawer {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 66;
+  border-right: 1.5px solid var(--accent);
+  background: linear-gradient(90deg, var(--bg), var(--surface));
+  box-shadow: 0 0 30px -12px var(--accent);
+  will-change: transform;
+}
+[data-right] .drawer {
+  left: auto;
+  right: 0;
+  border-right: 0;
+  border-left: 1.5px solid var(--accent);
+  background: linear-gradient(270deg, var(--bg), var(--surface));
+}
+.bump {
+  position: absolute;
+  top: 0;
+  left: 100%;
+  width: 60px;
+  height: 320px;
+  margin-left: -1px;
+  overflow: visible;
+  transform-origin: 0 50%;
+  pointer-events: none;
+}
+[data-right] .bump {
+  left: auto;
+  right: 100%;
+  margin: 0 -1px 0 0;
+  transform-origin: 100% 50%;
+}
+.fill {
+  fill: var(--surface);
+}
+.edge {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+.tab {
+  position: absolute;
+  top: 50%;
+  left: 100%;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 84px;
+  margin-top: -42px;
+  border: 1px solid var(--lit-line);
+  border-left: 0;
+  border-radius: 0 14px 14px 0;
+  background: var(--lit);
+  box-shadow: var(--glow);
+  color: var(--accent);
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+[data-right] .tab {
+  left: auto;
+  right: 100%;
+  border: 1px solid var(--lit-line);
+  border-right: 0;
+  border-radius: 14px 0 0 14px;
+}
+.tab i {
+  width: 3px;
+  height: 30px;
+  border-radius: 3px;
+  background: currentColor;
+  box-shadow: 6px 0 0 currentColor;
+  transform: translateX(-3px);
+}
+.pane {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  touch-action: pan-y;
+}
+.track {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  width: 200%;
+  transition: transform 0.45s var(--ease);
+}
+.track[data-sub] {
+  transform: translateX(-50%);
+}
+.col {
+  width: 50%;
+  height: 100%;
+  overflow-y: auto;
+  scrollbar-width: none;
+  padding: calc(64px + env(safe-area-inset-top, 0px)) 14px
+    calc(24px + env(safe-area-inset-bottom, 0px)) 18px;
+}
+.col small {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+.col h2 {
+  margin-bottom: 14px;
+  font-family: var(--font-display);
+  font-weight: var(--display-weight);
+  text-transform: var(--display-case);
+  font-size: 22px;
+  line-height: 1.05;
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 48px;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 14%, transparent);
+  font-size: 14.5px;
+  font-weight: 800;
+  text-align: left;
+  opacity: 0;
+  transform: translateX(-24px);
+}
+.on .row {
+  opacity: 1;
+  transform: none;
+  transition:
+    transform 0.5s var(--spring) calc(0.12s + var(--i) * 35ms),
+    opacity 0.3s calc(0.12s + var(--i) * 35ms);
+}
+.row[aria-current="page"],
+.row[data-here] {
+  color: var(--accent);
+}
+.ic {
+  width: 19px;
+  height: 19px;
+  flex: none;
+  color: var(--accent);
+}
+.go {
+  width: 16px;
+  margin-left: auto;
+  flex: none;
+  color: var(--muted);
+}
+.back {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.back svg {
+  width: 14px;
+}
+:global(html[data-tier="low"]) .drawer {
+  box-shadow: none;
+}

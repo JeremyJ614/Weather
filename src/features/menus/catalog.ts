@@ -26,6 +26,11 @@ export const MENU_NAMES: Record<string, string> = {
   ribbon: "Ribbon Fold",
   island: "Island",
   rotary: "Rotary",
+  liquid: "Liquid Metal",
+  kinetic: "Kinetic Type",
+  jelly: "Jelly Drawer",
+  switcher: "Switcher",
+  keycaps: "Keycaps",
 };
 
 export const OFFERED = {
@@ -44,6 +49,9 @@ export const OFFERED = {
     "orbit",
     "shutter",
     "ribbon",
+    "liquid",
+    "kinetic",
+    "jelly",
   ].filter((id) => MENU_NAMES[id]),
   second: [
     "island",
@@ -58,6 +66,8 @@ export const OFFERED = {
     "ripple",
     "dial",
     "vortex",
+    "switcher",
+    "keycaps",
   ].filter((id) => MENU_NAMES[id]),
 };
 
