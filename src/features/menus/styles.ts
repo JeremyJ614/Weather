@@ -68,12 +68,6 @@ export const MENU_STYLES: Record<string, MenuStyle> = {
     TOP,
     lazy(() => import("./RibbonFold").then((m) => m.RibbonFold)),
   ),
-  fan: S(
-    "fan",
-    "Card Fan",
-    FLOAT_RIGHT,
-    lazy(() => import("./CardFan").then((m) => m.CardFan)),
-  ),
   island: S(
     "island",
     "Island",
@@ -115,12 +109,6 @@ export const MENU_STYLES: Record<string, MenuStyle> = {
     "Bento Board",
     TOP,
     lazy(() => import("./BentoBoard").then((m) => m.BentoBoard)),
-  ),
-  bentolive: S(
-    "bentolive",
-    "Live Bento",
-    TOP,
-    lazy(() => import("./LiveBento").then((m) => m.LiveBento)),
   ),
   tabsheet: S(
     "tabsheet",
