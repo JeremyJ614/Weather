@@ -19,7 +19,7 @@ export function SignupStart({ next }: { next: string }) {
   );
   const err = start?.error ?? g?.error;
   return (
-    <div className={s.shell}>
+    <main className={s.shell}>
       <div className={s.top}>
         <Link
           href="/"
@@ -113,6 +113,6 @@ export function SignupStart({ next }: { next: string }) {
           </Button>
         </div>
       </div>
-    </div>
+    </main>
   );
 }

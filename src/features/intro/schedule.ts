@@ -1,3 +1,5 @@
+import { LANDING } from "@/lib/nav/landing";
+
 /** When the launch intro plays. Users change this in account settings. */
 export type IntroPref = "always" | "daily" | "first" | "off";
 
@@ -38,4 +40,4 @@ export function shouldPlay(
  * so a same-day browser visit would otherwise have used up the day's play), and once on
  * request from account settings ("Play it now").
  */
-export const introBootScript = `(function(){try{var p=localStorage.getItem("sswx-intro")||"daily",l=localStorage.getItem("sswx-intro-last"),d=new Date(),k=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"),play=p==="always"||(p==="first"&&!l)||(p!=="off"&&p!=="always"&&p!=="first"&&l!==k);if(sessionStorage.getItem("sswx-intro-now")){play=true;sessionStorage.removeItem("sswx-intro-now")}var app=matchMedia("(display-mode: standalone)").matches||navigator.standalone;if(app&&p!=="off"&&!localStorage.getItem("sswx-intro-app")){play=true;localStorage.setItem("sswx-intro-app","1")}if(play)document.documentElement.dataset.intro="play"}catch(e){}})()`;
+export const introBootScript = `(function(){try{if(${LANDING}.test(location.pathname)&&!sessionStorage.getItem("sswx-intro-now"))return;var p=localStorage.getItem("sswx-intro")||"daily",l=localStorage.getItem("sswx-intro-last"),d=new Date(),k=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"),play=p==="always"||(p==="first"&&!l)||(p!=="off"&&p!=="always"&&p!=="first"&&l!==k);if(sessionStorage.getItem("sswx-intro-now")){play=true;sessionStorage.removeItem("sswx-intro-now")}var app=matchMedia("(display-mode: standalone)").matches||navigator.standalone;if(app&&p!=="off"&&!localStorage.getItem("sswx-intro-app")){play=true;localStorage.setItem("sswx-intro-app","1")}if(play)document.documentElement.dataset.intro="play"}catch(e){}})()`;

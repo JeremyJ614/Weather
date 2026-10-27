@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/site";
 import { getRealViewer } from "@/lib/auth/viewer";
 import { activePromos, cheapestTier } from "@/lib/billing/plans";
 import {
@@ -14,10 +15,11 @@ import { stripeOn } from "@/lib/billing/stripe";
 import { supabaseServer } from "@/lib/supabase/server";
 import { JoinView } from "./JoinView";
 
-export const metadata: Metadata = {
-  title: "Join · StormSync Weather",
-  description: "Pick a plan, build your own, or start free.",
-};
+export const metadata: Metadata = pageMeta(
+  "/join",
+  "Join",
+  "Pick a plan, build your own, or start free.",
+);
 
 export default async function Join({
   searchParams,

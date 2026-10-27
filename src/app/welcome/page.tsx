@@ -1,11 +1,17 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/site";
 import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
 import { safeNext } from "@/lib/safe-next";
 import { InteractiveForm } from "./InteractiveForm";
 import { getSignupForm } from "@/lib/auth/signup-form";
 
-export const metadata: Metadata = { title: "Welcome · StormSync Media" };
+export const metadata: Metadata = pageMeta(
+  "/welcome",
+  "Welcome",
+  "Welcome to StormSync Weather.",
+  { noindex: true },
+);
 
 /** First sign-in: the signup form. Anyone who already has a profile goes on. */
 export default async function Welcome({
@@ -29,10 +35,12 @@ export default async function Welcome({
   if (profile) redirect(safeNext(raw));
 
   return (
-    <InteractiveForm
-      form={await getSignupForm()}
-      next={next}
-      email={user.email ?? ""}
-    />
+    <main>
+      <InteractiveForm
+        form={await getSignupForm()}
+        next={next}
+        email={user.email ?? ""}
+      />
+    </main>
   );
 }

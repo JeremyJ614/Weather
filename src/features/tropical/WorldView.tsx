@@ -278,7 +278,10 @@ export function WorldView({ nhc, colors }: { nhc: Storm[]; colors: Colors }) {
               <img
                 src={w.links.graphic}
                 alt={`JTWC warning graphic for ${w.title}`}
+                width={900}
+                height={700}
                 loading="lazy"
+                decoding="async"
                 className={s.graphic}
               />
               <a

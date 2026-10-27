@@ -1232,6 +1232,14 @@ export const TERMS: Term[] = [
 ];
 
 export const CATEGORIES = [...new Set(TERMS.map((t) => t.category))].sort();
+/** Unique anchor per entry; a term filed under two categories gets the category added. */
+export const termIds = () =>
+  TERMS.map((t, i) =>
+    TERMS.findIndex((x) => x.term === t.term) === i
+      ? slug(t.term)
+      : `${slug(t.term)}-${slug(t.category)}`,
+  );
+
 export const slug = (t: string) =>
   t
     .toLowerCase()

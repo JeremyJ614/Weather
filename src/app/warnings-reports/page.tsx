@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/site";
 import { Radio, Siren } from "lucide-react";
 import { ModuleOff } from "@/components/ops/ModuleOff";
 import { PageHero } from "@/components/ui/PageHero";
@@ -12,9 +13,11 @@ import { ReportsView } from "./ReportsView";
 import { WarningsView } from "./WarningsView";
 import s from "./Warn.module.css";
 
-export const metadata: Metadata = {
-  title: "Warnings & Reports · StormSync Media",
-};
+export const metadata: Metadata = pageMeta(
+  "/warnings-reports",
+  "Warnings & Reports",
+  "What the Weather Service has warned, and what people on the ground have actually reported.",
+);
 
 // Performance #5: served from the edge and rebuilt at most once a minute; the page catches up
 // on load when the copy it was served is older than that (WarningsView).

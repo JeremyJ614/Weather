@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/site";
 import { Wind } from "lucide-react";
 import { ModuleOff } from "@/components/ops/ModuleOff";
 import { PageHero } from "@/components/ui/PageHero";
@@ -15,9 +16,11 @@ import {
 import type { Season } from "@/lib/patterns/season";
 import { PatternsView } from "./PatternsView";
 
-export const metadata: Metadata = {
-  title: "Weather Patterns · StormSync Media",
-};
+export const metadata: Metadata = pageMeta(
+  "/weather-patterns",
+  "Weather Patterns",
+  "The national picture today, the week ahead by region, and what has already happened: the past week, month and year, summed up.",
+);
 export const revalidate = 1800;
 
 export default async function WeatherPatterns() {

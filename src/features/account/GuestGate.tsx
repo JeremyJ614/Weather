@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { ALL_PAGES } from "@/lib/nav/registry";
 import { showcaseDue } from "@/features/guide/due";
 import { useViewer } from "./useViewer";
+import { LANDING } from "@/lib/nav/landing";
 import s from "./GuestGate.module.css";
 
 const SEEN = "sswx-gate-seen";
@@ -23,7 +24,14 @@ export function GuestGate() {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    if (pending || signedIn || QUIET.test(path)) return;
+    // Landing pages carry their own sign-up card; a members' page asked for still gates.
+    if (
+      pending ||
+      signedIn ||
+      QUIET.test(path) ||
+      (!want && LANDING.test(path))
+    )
+      return;
     let first = false;
     try {
       first = !localStorage.getItem(SEEN);

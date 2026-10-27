@@ -92,6 +92,9 @@
 
 /* ── warning cards ── */
 .card {
+  /* Off-screen rows skip drawing until scrolled near (find-in-page still sees them). */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 120px;
   overflow: hidden;
   border-radius: 16px;
   border: 1px solid color-mix(in srgb, var(--c) 35%, var(--line));
@@ -292,6 +295,9 @@
   gap: 6px;
 }
 .reports li {
+  /* Off-screen rows skip drawing until scrolled near (find-in-page still sees them). */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 64px;
   display: grid;
   grid-template-columns: 5.5rem 1fr;
   gap: 10px;

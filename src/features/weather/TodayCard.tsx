@@ -10,7 +10,7 @@ import {
   Wind,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { LocationSheet } from "@/features/location/LocationSheet";
+import { LocationSheet } from "@/features/location/LazyLocationSheet";
 import { usePlaces } from "@/features/location/usePlaces";
 import { useWeather } from "./useWeather";
 import { WeatherIcon } from "./WeatherIcon";

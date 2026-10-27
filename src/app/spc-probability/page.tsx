@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/site";
 import { Map as MapIcon, Percent } from "lucide-react";
 import { ModuleOff } from "@/components/ops/ModuleOff";
+import { FrontDoorCta } from "@/features/account/FrontDoorCta";
 import { PageHero } from "@/components/ui/PageHero";
 import { HomeTabs } from "@/features/news/HomeTabs";
 import { pick } from "@/lib/colors/registry";
@@ -10,9 +12,11 @@ import { getSiteDefaults } from "@/lib/settings";
 import { gameDate } from "@/lib/game/score";
 import { OutlookView, PlaceStrip, ProbabilityView } from "./SpcViews";
 
-export const metadata: Metadata = {
-  title: "SPC & Probability · StormSync Media",
-};
+export const metadata: Metadata = pageMeta(
+  "/spc-probability",
+  "SPC & Probability",
+  "Where the Storm Prediction Center expects severe weather, nationwide, for the next eight days \u2014 and how likely it is where you are.",
+);
 // Day labels ("Today", "Tomorrow") must not go stale past midnight.
 export const revalidate = 600;
 
@@ -34,6 +38,7 @@ export default async function SpcProbability() {
         title="SPC & Probability"
         subtitle="Where the Storm Prediction Center expects severe weather, nationwide, for the next eight days — and how likely it is where you are."
       />
+      <FrontDoorCta what="SPC & Probability" />
       {disabled.includes("spc") ? (
         <ModuleOff label="SPC & Probability" />
       ) : (

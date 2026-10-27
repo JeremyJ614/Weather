@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/site";
 import { ThermometerSun } from "lucide-react";
 import { ModuleOff } from "@/components/ops/ModuleOff";
 import { PageHero } from "@/components/ui/PageHero";
@@ -7,9 +8,11 @@ import { getSiteDefaults } from "@/lib/settings";
 import { cpcHazards, droughtNow, droughtTrend } from "@/lib/hazards/data";
 import { HazardsView } from "./HazardsView";
 
-export const metadata: Metadata = {
-  title: "Hazards & Droughts · StormSync Media",
-};
+export const metadata: Metadata = pageMeta(
+  "/hazards-droughts",
+  "Hazards & Droughts",
+  "What could go wrong 3 to 14 days out, where it is dry, and whether it is getting better or worse.",
+);
 export const revalidate = 1800;
 
 export default async function HazardsDroughts() {

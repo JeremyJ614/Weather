@@ -53,7 +53,7 @@ export const EXTRAS_ITEMS = [
     "first",
     "First Storms",
     "first-storms",
-    "Sprout",
+    "CloudLightning",
     "Where the first thunderstorms will start in the next six hours, and when.",
   ),
   e(
@@ -130,14 +130,14 @@ export const EXTRAS_ITEMS = [
     "deer",
     "Deer Activity",
     "deer-activity",
-    "Trees",
+    "Compass",
     "A Day 1–3 outlook of deer movement across the lower 48, drawn like SPC's.",
   ),
   e(
     "fish",
     "Fishing Bite",
     "fishing-bite",
-    "Fish",
+    "Waves",
     "A Day 1–3 outlook of the bite across the lower 48 for five kinds of fish.",
   ),
   e(
@@ -235,14 +235,14 @@ export const EXTRAS_ITEMS = [
     "flock",
     "Murmuration",
     "murmuration",
-    "Bird",
+    "Wind",
     "Thousands of starlings wheeling at dusk.",
   ),
   r(
     "sand",
     "Falling Sand",
     "falling-sand",
-    "Hourglass",
+    "Timer",
     "Pour sand, water, fire and seeds.",
   ),
   r(

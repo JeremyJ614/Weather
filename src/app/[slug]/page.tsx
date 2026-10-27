@@ -10,6 +10,7 @@ import { ALL_PAGES } from "@/lib/nav/registry";
 import { EXTRAS_GROUP } from "@/lib/nav/extras";
 import { pendingPages } from "@/lib/nav/pending";
 import { getSiteDefaults } from "@/lib/settings";
+import { pageMeta } from "@/lib/seo/site";
 import { ExtraView } from "./ExtraView";
 
 export const dynamicParams = false;
@@ -32,12 +33,10 @@ export async function generateMetadata({
   const item = extraOf(slug);
   if (item)
     return stateOf((await getSiteDefaults()).extras, item.id) === "page"
-      ? { title: `${item.name} · StormSync Media`, description: item.blurb }
-      : { title: "StormSync Media" };
+      ? pageMeta(`/${item.slug}`, item.name, item.blurb)
+      : {};
   const page = ALL_PAGES.find((p) => p.slug === slug);
-  return {
-    title: page ? `${page.label} · StormSync Media` : "StormSync Media",
-  };
+  return page ? { title: page.label } : {};
 }
 
 export default async function Page({

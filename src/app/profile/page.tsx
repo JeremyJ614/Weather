@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/site";
 import Link from "next/link";
 import { UserRound } from "lucide-react";
 import { PageHero } from "@/components/ui/PageHero";
@@ -10,7 +11,12 @@ import { supabaseServer } from "@/lib/supabase/server";
 import type { Badge } from "@/lib/badges";
 import { ProfileView, type ProfileData } from "./ProfileView";
 
-export const metadata: Metadata = { title: "My Profile · StormSync Media" };
+export const metadata: Metadata = pageMeta(
+  "/profile",
+  "My Profile",
+  "Sign in to see your stats, badges and places.",
+  { noindex: true },
+);
 export const dynamic = "force-dynamic";
 
 /** Days in a row (ending today or yesterday) with a forecast guess or a trivia answer. */

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/site";
 import { Box } from "lucide-react";
 import { ModuleOff } from "@/components/ops/ModuleOff";
 import { PageHero } from "@/components/ui/PageHero";
@@ -6,7 +7,11 @@ import { getColors } from "@/lib/colors/server";
 import { getSiteDefaults } from "@/lib/settings";
 import { SoundingsView } from "./SoundingsView";
 
-export const metadata: Metadata = { title: "3D Soundings · StormSync Media" };
+export const metadata: Metadata = pageMeta(
+  "/3d-soundings",
+  "3D Soundings",
+  "Tap a balloon site or any point on the map to see the atmosphere above it in 3D, on a Skew-T and on a hodograph.",
+);
 
 export default async function Soundings() {
   const { disabled } = await getSiteDefaults();

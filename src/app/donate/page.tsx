@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/site";
 import { supabaseServer } from "@/lib/supabase/server";
 import { stripeOn } from "@/lib/billing/stripe";
 import { DonateView, type Gift } from "@/features/donate/DonateView";
 
-export const metadata: Metadata = {
-  title: "Donate · StormSync Weather",
-  description:
-    "Support StormSync Weather with a one-time or monthly gift of any amount.",
-};
+export const metadata: Metadata = pageMeta(
+  "/donate",
+  "Donate",
+  "Support StormSync Weather with a one-time or monthly gift of any amount.",
+);
 
 /** Donations (Fix-It List #16): give any amount, once or monthly, through Stripe. */
 export default async function Donate({

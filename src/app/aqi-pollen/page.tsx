@@ -1,11 +1,16 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/site";
 import { Wind } from "lucide-react";
 import { ModuleOff } from "@/components/ops/ModuleOff";
 import { PageHero } from "@/components/ui/PageHero";
 import { getSiteDefaults } from "@/lib/settings";
 import { AirView } from "./AirView";
 
-export const metadata: Metadata = { title: "AQI & Pollen · StormSync Media" };
+export const metadata: Metadata = pageMeta(
+  "/aqi-pollen",
+  "AQI & Pollen",
+  "What is in the air where you are, how readily it is moving around, and what to do about it.",
+);
 
 export default async function AqiPollen() {
   const { disabled } = await getSiteDefaults();

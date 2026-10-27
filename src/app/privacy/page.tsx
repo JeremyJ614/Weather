@@ -1,12 +1,13 @@
 import { ShieldCheck } from "lucide-react";
 import { PageHero } from "@/components/ui/PageHero";
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/site";
 
-export const metadata: Metadata = {
-  title: "Privacy Policy · StormSync Media",
-  description:
-    "What StormSync Weather collects, why, and how to have it deleted.",
-};
+export const metadata: Metadata = pageMeta(
+  "/privacy",
+  "Privacy Policy",
+  "What StormSync Weather collects, why, and how to have it deleted.",
+);
 
 const UPDATED = "October 13, 2026";
 const CONTACT = "jaywx@yahoo.com";

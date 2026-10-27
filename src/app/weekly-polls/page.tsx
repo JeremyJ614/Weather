@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/site";
 import Link from "next/link";
 import { History, Vote } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -11,7 +12,11 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { PastPolls, ThisWeek, type Poll } from "./PollsView";
 import s from "./Polls.module.css";
 
-export const metadata: Metadata = { title: "Weekly Polls · StormSync Media" };
+export const metadata: Metadata = pageMeta(
+  "/weekly-polls",
+  "Weekly Polls",
+  "One question a week from the StormSync team. Cast your vote, then see how everyone else called it.",
+);
 
 export default async function WeeklyPolls() {
   const [viewer, { disabled }] = await Promise.all([

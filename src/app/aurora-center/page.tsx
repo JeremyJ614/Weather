@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/site";
 import { Sparkles } from "lucide-react";
 import { ModuleOff } from "@/components/ops/ModuleOff";
 import { PageHero } from "@/components/ui/PageHero";
@@ -6,7 +7,11 @@ import { getColors } from "@/lib/colors/server";
 import { getSiteDefaults } from "@/lib/settings";
 import { AuroraView } from "./AuroraView";
 
-export const metadata: Metadata = { title: "Aurora Center · StormSync Media" };
+export const metadata: Metadata = pageMeta(
+  "/aurora-center",
+  "Aurora Center",
+  "Whether the aurora can reach you tonight, the live oval on a map and as SWPC's image, Kp, and the solar wind that drives it.",
+);
 
 export default async function AuroraCenter() {
   const { disabled } = await getSiteDefaults();

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/site";
 import { Atom } from "lucide-react";
 import { ModuleOff } from "@/components/ops/ModuleOff";
 import { PageHero } from "@/components/ui/PageHero";
@@ -8,9 +9,11 @@ import { PASTEL, type Pastel } from "@/lib/ingredients/calc";
 import { getSiteDefaults } from "@/lib/settings";
 import { IngredientsView } from "./IngredientsView";
 
-export const metadata: Metadata = {
-  title: "Atmospheric Ingredients · StormSync Media",
-};
+export const metadata: Metadata = pageMeta(
+  "/atmospheric-ingredients",
+  "Atmospheric Ingredients",
+  "The ingredients storms are built from, hour by hour for your place: how much fuel, how much spin, and when they line up.",
+);
 
 export default async function AtmosphericIngredients() {
   const [{ disabled }, colors] = await Promise.all([
