@@ -98,8 +98,10 @@
 .cb svg {
   transition: transform 0.25s var(--spring);
 }
-.cb:hover {
-  transform: scale(1.05);
+@media (hover: hover) {
+  .cb:hover {
+    transform: scale(1.05);
+  }
 }
 .cb:active {
   transform: scale(0.95);

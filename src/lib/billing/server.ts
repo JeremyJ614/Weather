@@ -2,7 +2,7 @@ import "server-only";
 import { cleanBilling, type Billing } from "./plans";
 import { SELLABLE_SLUGS } from "./sellable";
 
-export { SELLABLE, SELLABLE_SLUGS } from "./sellable";
+export { SELLABLE, SELLABLE_SLUGS, sellableNow } from "./sellable";
 export const BILLING_TAG = "billing";
 
 const cfg = () => ({

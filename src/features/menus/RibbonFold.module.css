@@ -149,7 +149,6 @@
   color: var(--muted);
   transition: transform 0.25s var(--ease);
 }
-.row:hover .go,
 .row:focus-visible .go {
   transform: translateX(3px);
   color: var(--accent);
@@ -235,8 +234,12 @@
   background: currentColor;
   transition: transform 0.35s var(--spring);
 }
-.tab:hover {
-  transform: rotate(-4deg);
+/* Hover only where there's a real pointer: a phone keeps "hover" after a tap, which left the
+   tab tilted after the menu closed. */
+@media (hover: hover) {
+  .tab:hover {
+    transform: rotate(-4deg);
+  }
 }
 /* Pulled: the tab drops a little and its lines cross. */
 .on .tab {
@@ -247,6 +250,12 @@
 }
 .on .tab i:nth-of-type(2) {
   transform: translateY(-3.5px) rotate(-45deg);
+}
+@media (hover: hover) {
+  .row:hover .go {
+    transform: translateX(3px);
+    color: var(--accent);
+  }
 }
 @keyframes unfold {
   from {

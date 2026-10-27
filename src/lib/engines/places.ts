@@ -1,6 +1,4 @@
 import "server-only";
-import { PLACES } from "@/lib/geo/places.data";
-import { nearestPlace, parsePlaces } from "@/lib/geo/search";
 import {
   compassPoint,
   moonPosition,
@@ -8,7 +6,6 @@ import {
   sunTimes,
 } from "@/lib/sky/astro";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { OUTDOOR_BANDS } from "./colors";
 import { tuned } from "./fields";
 import {
   SPECIES,
@@ -22,9 +19,9 @@ import {
 import { rainbowAt } from "./rainbow";
 
 /**
- * Deer Activity and Fishing Bite (Extras engines), from Open-Meteo's hourly forecast with the
- * past week for comparison: a regional map (Ohio and its neighbors) of each place's best hour
- * in the next day, and a 3-day readout for any one place.
+ * Deer Activity and Fishing Bite (Extras engines) for one place: a 3-day hour-by-hour readout
+ * from Open-Meteo's forecast with the past week for comparison. The national Day 1–3 maps
+ * come from the GFS (./outmap).
  */
 const UA = { "User-Agent": "StormSync Weather (https://weather.sswx.space)" };
 const VARS = [
@@ -38,9 +35,6 @@ const VARS = [
 type Hourly = Record<(typeof VARS)[number], (number | null)[]> & {
   time: string[];
 };
-/** The region the maps cover: Ohio and the states around it. */
-export const REGION = { W: -86, E: -79, S: 37.5, N: 42.5, step: 0.5 };
-let places: ReturnType<typeof parsePlaces> | null = null;
 
 async function hourly(lats: number[], lons: number[], revalidate: number) {
   const r = await fetch(
@@ -63,12 +57,16 @@ type DeerConfig = {
 const RUT = { pre: "10-25", peak: "11-05", post: "11-21", end: "12-10" };
 
 export async function deerConfig(): Promise<DeerConfig> {
-  const { data } = await supabaseAdmin()
-    .from("app_config")
-    .select("value")
-    .eq("key", "deer_seasons")
-    .maybeSingle();
-  const v = (data?.value ?? {}) as Partial<DeerConfig>;
+  // The owner's seasons when they can be read; the usual Ohio rut when they can't.
+  let v: Partial<DeerConfig> = {};
+  try {
+    const { data } = await supabaseAdmin()
+      .from("app_config")
+      .select("value")
+      .eq("key", "deer_seasons")
+      .maybeSingle();
+    v = (data?.value ?? {}) as Partial<DeerConfig>;
+  } catch {}
   return {
     state: v.state ?? "Ohio",
     seasons: Array.isArray(v.seasons) ? v.seasons : [],
@@ -77,7 +75,7 @@ export async function deerConfig(): Promise<DeerConfig> {
 }
 
 /** Moon overhead and underfoot (major periods) and rise and set (minor) around a time. */
-function solunar(lat: number, lon: number, day: Date) {
+export function solunar(lat: number, lon: number, day: Date) {
   const majors: number[] = [];
   const minors: number[] = [];
   for (const d of [-1, 0, 1, 2, 3]) {
@@ -177,104 +175,6 @@ const speciesOf = (id: string) =>
   SPECIES.find((s) => s.id === id) ?? SPECIES[0];
 
 /** The regional map: each place's best hour in the next 24, as SPC-style areas. */
-const median = (xs: number[]) => {
-  const a = [...xs].sort((x, y) => x - y);
-  return a.length ? a[a.length >> 1] : 0;
-};
-/** A spot against today's typical one: 0 slower (4+ under), 1 typical, 2 better (4+), 3 best (8+). */
-export const rankOf = (d: number) => (d <= -4 ? 0 : d < 4 ? 1 : d < 8 ? 2 : 3);
-
-export async function placeMap(kind: "deer" | "fish", sp: SpeciesId = "bass") {
-  const { W, E, S, N, step } = REGION;
-  const lats: number[] = [];
-  const lons: number[] = [];
-  for (let lat = N; lat >= S - 1e-9; lat -= step)
-    for (let lon = W; lon <= E + 1e-9; lon += step) {
-      lats.push(lat);
-      lons.push(lon);
-    }
-  const [data, w, cfg] = await Promise.all([
-    hourly(lats, lons, 3600),
-    tuned(kind),
-    kind === "deer" ? deerConfig() : null,
-  ]);
-  const cw = Math.round((E - W) / step) + 1;
-  const ch = Math.round((N - S) / step) + 1;
-  const best = new Float32Array(cw * ch);
-  const when = new Float64Array(cw * ch);
-  const species = speciesOf(sp);
-  data.forEach((h, k) => {
-    for (const r of rows(h, lats[k], lons[k], 24)) {
-      const v =
-        kind === "deer"
-          ? deerScore(r.deer, rutBoost(new Date(r.t), cfg!.rut), w)
-          : fishScore(r.fish, species, w);
-      if (v > best[k]) {
-        best[k] = v;
-        when[k] = r.t;
-      }
-    }
-  });
-  const bands = OUTDOOR_BANDS[kind];
-  places ??= parsePlaces(PLACES);
-  const rowsP = places;
-  const order = [...best.keys()].sort((a, b) => best[b] - best[a]);
-  const spots: {
-    lat: number;
-    lon: number;
-    value: number;
-    place: string;
-    note: string;
-    at: number;
-  }[] = [];
-  for (const k of order) {
-    if (best[k] < bands.levels[1] || spots.length >= 6) break;
-    if (spots.some((p) => Math.hypot(p.lat - lats[k], p.lon - lons[k]) < 1.2))
-      continue;
-    const near = nearestPlace(rowsP, lats[k], lons[k], 300);
-    if (!near || near.miles > 30) continue;
-    spots.push({
-      lat: lats[k],
-      lon: lons[k],
-      value: Math.round(best[k]),
-      place: `${near.miles < 5 ? "" : `${Math.round(near.miles)} mi from `}${near.hit.name}, ${near.hit.st}`,
-      note: "",
-      at: when[k],
-    });
-  }
-  // One dot per land spot (a town within 20 miles; Lake Erie and empty corners left out):
-  // its best hour's score and when. Every spot's best hour falls at dawn or dusk, so on the
-  // absolute scale nearly all read the same; the dots are ranked against today's typical
-  // spot instead (rank), which is what the weather changes from place to place.
-  const points: {
-    lat: number;
-    lon: number;
-    v: number;
-    at: number;
-    rank: number;
-  }[] = [];
-  for (let k = 0; k < best.length; k++) {
-    const near = nearestPlace(rowsP, lats[k], lons[k], 300);
-    if (near && near.miles <= 20)
-      points.push({
-        lat: lats[k],
-        lon: lons[k],
-        v: Math.round(best[k]),
-        at: when[k],
-        rank: 0,
-      });
-  }
-  const typical = median(points.map((p) => p.v));
-  for (const p of points) p.rank = rankOf(p.v - typical);
-  return {
-    at: new Date().toISOString(),
-    bounds: [W, S, E, N],
-    points,
-    typical,
-    spots,
-  };
-}
-
 const hhmm = (t: number, tz: string) =>
   new Date(t).toLocaleTimeString("en-US", {
     hour: "numeric",

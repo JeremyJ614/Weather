@@ -181,8 +181,10 @@
   line-height: 1.2;
   transition: transform 0.25s var(--ease);
 }
-.page:hover {
-  transform: translateX(4px);
+@media (hover: hover) {
+  .page:hover {
+    transform: translateX(4px);
+  }
 }
 .ic {
   width: 18px;

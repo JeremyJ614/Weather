@@ -1,0 +1,256 @@
+/* Switcher: the page steps back behind a 3D stack of cards. Transform and opacity only. */
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 64;
+  background: color-mix(in srgb, #05060a 72%, transparent);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.35s,
+    visibility 0s 0.4s;
+}
+.on .scrim {
+  opacity: 1;
+  visibility: visible;
+  transition:
+    opacity 0.35s,
+    visibility 0s;
+}
+.stack {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: calc(150px + env(safe-area-inset-bottom, 0px));
+  z-index: 65;
+  overflow-y: auto;
+  scrollbar-width: none;
+  padding: calc(70px + env(safe-area-inset-top, 0px)) 18px 30px;
+  perspective: 900px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+.on .stack {
+  opacity: 1;
+  pointer-events: auto;
+  transition: opacity 0.4s 0.1s;
+}
+.card {
+  position: relative;
+  display: block;
+  width: 100%;
+  max-width: 520px;
+  height: 170px;
+  margin: -92px auto 0;
+  overflow: hidden;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line));
+  border-radius: 22px;
+  background: linear-gradient(180deg, var(--surface2), var(--surface) 70%);
+  box-shadow: 0 -14px 30px -10px #000;
+  text-align: left;
+  opacity: 0;
+  transform: rotateX(-14deg) translateY(60px);
+  transform-origin: 50% 0;
+  transition:
+    transform 0.6s cubic-bezier(0.2, 1.1, 0.4, 1) var(--d),
+    opacity 0.4s var(--d);
+}
+.card:first-child {
+  margin-top: 0;
+}
+.on .card {
+  opacity: 1;
+  transform: rotateX(-14deg);
+}
+.card[aria-current="page"] {
+  border-color: var(--accent);
+}
+.card header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  font-weight: 800;
+}
+.card em {
+  margin-left: auto;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-style: normal;
+}
+.pv {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 10px;
+}
+.pv span {
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 11px;
+}
+.ic {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  color: var(--accent);
+}
+.now {
+  position: fixed;
+  left: 50%;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  z-index: 65;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  width: min(62vw, 300px);
+  margin-left: calc(min(62vw, 300px) / -2);
+  padding: 14px 12px;
+  border: 1px solid var(--lit-line);
+  border-radius: 22px;
+  background: linear-gradient(180deg, var(--surface), var(--bg));
+  box-shadow:
+    0 20px 40px -10px #000,
+    var(--glow);
+  opacity: 0;
+  transform: translateY(40px) scale(0.9);
+  pointer-events: none;
+  transition:
+    transform 0.5s var(--spring),
+    opacity 0.3s;
+}
+.on .now {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+.now small {
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+.now span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 800;
+}
+.full {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 66;
+  display: flex;
+  flex-direction: column;
+  width: 100vw;
+  height: 100dvh;
+  padding: calc(64px + env(safe-area-inset-top, 0px)) 18px
+    calc(18px + env(safe-area-inset-bottom, 0px));
+  border: 1px solid var(--lit-line);
+  border-radius: 22px;
+  background: var(--bg);
+  transform-origin: 0 0;
+  transition: transform 0.5s cubic-bezier(0.2, 1, 0.3, 1);
+}
+.full h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  font-family: var(--font-display);
+  font-weight: var(--display-weight);
+  text-transform: var(--display-case);
+  font-size: 22px;
+}
+.full ul {
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.full li {
+  animation: in 0.45s var(--ease) both;
+  animation-delay: calc(0.25s + var(--i) * 40ms);
+}
+.full a {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  border-bottom: 1px solid var(--line);
+  font-weight: 700;
+}
+.full a[aria-current="page"] {
+  color: var(--accent);
+}
+.go {
+  width: 16px;
+  margin-left: auto;
+  color: var(--muted);
+}
+.back {
+  position: absolute;
+  left: 18px;
+  top: calc(22px + env(safe-area-inset-top, 0px));
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.back svg {
+  width: 14px;
+}
+.handle {
+  position: fixed;
+  z-index: 67;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  width: 132px;
+  padding: 6px 0 9px;
+  border: 1px solid var(--lit-line);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--bg) 80%, transparent);
+  box-shadow: var(--glow);
+  touch-action: none;
+  transition:
+    opacity 0.25s,
+    transform 0.35s var(--spring);
+  -webkit-tap-highlight-color: transparent;
+}
+.handle span {
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+.handle i {
+  width: 96px;
+  height: 5px;
+  border-radius: 5px;
+  background: var(--text);
+  box-shadow: 0 0 10px var(--accent);
+}
+.on .handle {
+  opacity: 0;
+  transform: translateY(20px);
+  pointer-events: none;
+}
+@keyframes in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}

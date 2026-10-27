@@ -8,7 +8,6 @@ export const MENU_NAMES: Record<string, string> = {
   ledger: "Glass Ledger",
   spotlight: "Mega Spotlight",
   bentoboard: "Bento Board",
-  bentolive: "Live Bento",
   tabsheet: "Tab Bar + Sheet",
   scrolltabs: "Swipe Tabs",
   vortex: "StormSync Vortex",
@@ -25,9 +24,13 @@ export const MENU_NAMES: Record<string, string> = {
   orbit: "Orbit",
   shutter: "Shutter",
   ribbon: "Ribbon Fold",
-  fan: "Card Fan",
   island: "Island",
   rotary: "Rotary",
+  liquid: "Liquid Metal",
+  kinetic: "Kinetic Type",
+  jelly: "Jelly Drawer",
+  switcher: "Switcher",
+  keycaps: "Keycaps",
 };
 
 export const OFFERED = {
@@ -37,7 +40,6 @@ export const OFFERED = {
     "ledger",
     "spotlight",
     "bentoboard",
-    "bentolive",
     "wallet",
     "iris",
     "tabsheet",
@@ -47,9 +49,11 @@ export const OFFERED = {
     "orbit",
     "shutter",
     "ribbon",
+    "liquid",
+    "kinetic",
+    "jelly",
   ].filter((id) => MENU_NAMES[id]),
   second: [
-    "fan",
     "island",
     "rotary",
     "ribbon",
@@ -62,11 +66,13 @@ export const OFFERED = {
     "ripple",
     "dial",
     "vortex",
+    "switcher",
+    "keycaps",
   ].filter((id) => MENU_NAMES[id]),
 };
 
 /** Built-in defaults; the admin panel's choices (app_config) override them. */
-export const DEFAULT_MENUS = { main: "sweep", second: "fan" };
+export const DEFAULT_MENUS = { main: "sweep", second: "peek" };
 
 /** Valid, offered, distinct choices; anything else falls back to the defaults. */
 export function pickMenus(

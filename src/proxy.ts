@@ -1,11 +1,12 @@
 import { REMEMBER_COOKIE, sessionOptions } from "@/lib/supabase/remember";
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
-import { ALL_PAGES, GUEST_PATHS } from "@/lib/nav/registry";
+import { GUEST_PATHS } from "@/lib/nav/registry";
+import { EVERY_PAGE } from "@/lib/nav/extras";
 import { cleanBilling, planOpens, type MemberPlan } from "@/lib/billing/plans";
 import { SELLABLE_SLUGS } from "@/lib/billing/sellable";
 
-const SLUGS = new Set(ALL_PAGES.map((p) => p.slug).filter(Boolean));
+const SLUGS = new Set(EVERY_PAGE.map((p) => p.slug).filter(Boolean));
 const SELLABLE_SET = new Set(SELLABLE_SLUGS);
 
 /**

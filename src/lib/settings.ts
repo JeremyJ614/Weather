@@ -2,7 +2,7 @@ import { DEFAULT_MENUS, pickMenus } from "@/features/menus/catalog";
 import { DEFAULT_THEME, FONT_SETS, PALETTES } from "@/lib/theme/registry";
 import { ICON_NAMES } from "@/components/NavIcon";
 import { cleanLayout, type MenuLayout } from "@/lib/nav/layout";
-import { ALL_PAGES } from "@/lib/nav/registry";
+import { EVERY_PAGE } from "@/lib/nav/extras";
 import { cleanItems, type ExtrasStates } from "@/lib/extras/items";
 
 export const SITE_DEFAULTS_TAG = "site-defaults";
@@ -62,7 +62,7 @@ export function cleanDefaults(
   };
   const layout = cleanLayout(
     raw.find((r) => r.key === "menu_layout")?.value,
-    new Set(ALL_PAGES.map((p) => p.slug)),
+    new Set(EVERY_PAGE.map((p) => p.slug)),
     new Set(ICON_NAMES),
   );
   const extras = cleanItems(raw.find((r) => r.key === "extras_items")?.value);

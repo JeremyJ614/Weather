@@ -3,7 +3,7 @@ import type { FieldId } from "@/lib/engines/colors";
 import { storedField } from "@/lib/engines/stored";
 import { engineStats } from "@/lib/engines/verify";
 import { reportSummary } from "@/lib/engines/reports";
-import { stateOf } from "@/lib/extras/items";
+import { isLive } from "@/lib/extras/items";
 import { getSiteDefaults } from "@/lib/settings";
 
 export const maxDuration = 60;
@@ -34,7 +34,7 @@ export async function GET(req: Request) {
   const e = new URL(req.url).searchParams.get("e") as FieldId;
   if (!IDS.includes(e)) return new Response("Bad request", { status: 400 });
   // Switched off or hidden in admin → Extras: nothing is computed for it.
-  if (stateOf((await getSiteDefaults()).extras, e) !== "on")
+  if (!isLive((await getSiteDefaults()).extras, e))
     return new Response("Not found", { status: 404 });
   try {
     const [{ map, later }, stats, reports] = await Promise.all([

@@ -189,7 +189,9 @@ export function SpeciesPicker({
           aria-pressed={value === x.id}
           onClick={() => onChange(x.id)}
         >
-          {x.name.replace("Largemouth ", "").replace("Channel ", "")}
+          {x.name.replace(/^(Largemouth|Channel) (.)/, (_, _w, c: string) =>
+            c.toUpperCase(),
+          )}
         </button>
       ))}
     </div>

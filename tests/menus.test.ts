@@ -24,21 +24,21 @@ describe("menu choice", () => {
   it("places the default pair without overlap", () => {
     const r = resolvePlacements(
       MENU_STYLES.sweep.placements,
-      MENU_STYLES.fan.placements,
+      MENU_STYLES.peek.placements,
     );
     expect(r.stacked).toBe(false);
   });
   it("has every offered style built", () => {
-    expect(OFFERED.main).toHaveLength(15);
-    expect(OFFERED.second).toHaveLength(13);
+    expect(OFFERED.main).toHaveLength(17);
+    expect(OFFERED.second).toHaveLength(14);
     for (const id of [...OFFERED.main, ...OFFERED.second])
       expect(MENU_STYLES[id], id).toBeDefined();
   });
   it("only allows offered styles in each menu", () => {
-    expect(pickMenus({ main: "fan" }).main).toBe(DEFAULT_MENUS.main);
+    expect(pickMenus({ main: "peek" }).main).toBe(DEFAULT_MENUS.main);
     expect(pickMenus({ second: "notch" }).second).toBe(DEFAULT_MENUS.second);
   });
-  it("drops the retired menus (owner's Final Fix-It #15–16, Fix List 2026-10-25)", () => {
+  it("drops the retired menus (owner's Final Fix-It #15–16, Fix Lists 2026-10-25 and 2026-10-26)", () => {
     for (const id of [
       "split",
       "notch",
@@ -47,6 +47,8 @@ describe("menu choice", () => {
       "railpop",
       "morph",
       "radar",
+      "bentolive",
+      "fan",
     ]) {
       expect(OFFERED.main).not.toContain(id);
       expect(OFFERED.second).not.toContain(id);

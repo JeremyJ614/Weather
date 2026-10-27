@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 /**
  * Open/close state that closes itself on a link tap, on navigation and on Escape, plus the
  * open section (`sub`) a menu drills into. Closing always folds the section too, so no
- * zoomed or expanded panel can outlive its menu (Live Bento once stayed up after a tap).
+ * zoomed or expanded panel can outlive its menu (a zooming tile once stayed up after a tap).
  */
 export function useMenuNav(role: "main" | "second") {
   const [open, setOpen] = useState(false);

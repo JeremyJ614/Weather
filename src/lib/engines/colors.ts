@@ -131,13 +131,18 @@ export const OUTDOOR_BANDS: Record<
   },
 };
 
-/** Deer and Fishing map dots: each spot against today's typical one (the band colors, in order). */
-export const OUTDOOR_RANKS = [
-  "Slower than most",
-  "Typical today",
-  "Better",
-  "Best today",
-];
+/**
+ * Deer Activity and Fishing Bite outlooks (lower 48, Days 1–3): SPC-style nested categories,
+ * each starting at a score (0–100). Editable as `engine:outmap:<i>`.
+ */
+export const OUTMAP_BANDS = {
+  labels: ["Fair", "Good", "Very good", "Excellent", "Peak"],
+  colors: ["#c1e9c1", "#66a366", "#ffe066", "#ffa366", "#e06666"],
+};
+export const OUTMAP = {
+  deer: [60, 68, 75, 82, 90],
+  fish: [60, 68, 76, 84, 91],
+};
 
 /** Boundary Collision Analyzer: each collision's dot, by its score. */
 export const BOUND_POINTS = [

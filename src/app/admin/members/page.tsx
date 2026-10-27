@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { getBilling, SELLABLE } from "@/lib/billing/server";
+import { getBilling, sellableNow } from "@/lib/billing/server";
+import { getSiteDefaults } from "@/lib/settings";
 import { tierPages, type TierId } from "@/lib/billing/plans";
 import { Button } from "@/components/ui/Button";
 import { requireAdmin } from "@/lib/auth/admin-guard";
@@ -54,7 +55,9 @@ export default async function Members({
     getBilling(),
   ]);
   // Pages each member can open: their plan's pages and add-ons, then admin changes.
-  const sellable = SELLABLE.map((x) => x.slug);
+  const sellable = sellableNow((await getSiteDefaults()).extras).map(
+    (x) => x.slug,
+  );
   const sub = new Map((subs ?? []).map((x) => [x.user_id, x]));
   const access = (id: string) => {
     const x = sub.get(id);
