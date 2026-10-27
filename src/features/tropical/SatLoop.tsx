@@ -145,8 +145,9 @@ export function SatLoop({
     const frames = keep.current;
     return () => {
       live = false;
+      // Frames arrive out of order, so a loop closed early leaves gaps.
       for (const f of frames.splice(0))
-        if (!(f instanceof HTMLImageElement)) f.close();
+        if (f && !(f instanceof HTMLImageElement)) f.close();
     };
   }, [src, url]);
 
