@@ -11,7 +11,7 @@ import { moduleIds } from "@/lib/ops/modules";
 import { cleanForm } from "@/lib/auth/signup-form";
 import { ICON_NAMES } from "@/components/NavIcon";
 import { cleanLayout } from "@/lib/nav/layout";
-import { ALL_PAGES } from "@/lib/nav/registry";
+import { EVERY_PAGE } from "@/lib/nav/extras";
 
 const UUID = /^[0-9a-f-]{36}$/;
 
@@ -226,7 +226,7 @@ export async function saveMenuLayout(raw: unknown): Promise<SaveState> {
       ? {}
       : cleanLayout(
           raw,
-          new Set(ALL_PAGES.map((p) => p.slug)),
+          new Set(EVERY_PAGE.map((p) => p.slug)),
           new Set(ICON_NAMES),
         );
   if (!layout) return { error: "Every menu needs at least one section." };

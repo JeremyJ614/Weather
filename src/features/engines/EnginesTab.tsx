@@ -603,13 +603,20 @@ const time = (iso: string) =>
 export function EnginesTab({
   colors,
   items = {},
+  only,
 }: {
   colors: Colors;
   /** The owner's switches (admin → Extras): hidden engines are left out, off ones greyed. */
   items?: ExtrasStates;
+  /** One engine on a page of its own, without the picker. */
+  only?: string;
 }) {
-  const shown = ENGINES.filter((e) => stateOf(items, e.id) !== "hidden");
-  const usable = shown.filter((e) => stateOf(items, e.id) === "on");
+  const shown = only
+    ? ENGINES.filter((e) => e.id === only)
+    : ENGINES.filter((e) => stateOf(items, e.id) !== "hidden");
+  const usable = only
+    ? shown
+    : shown.filter((e) => stateOf(items, e.id) === "on");
   const [engine, setEngine] = useState<Engine>(usable[0]?.id ?? "tor");
   const [data, setData] = useState<Data | null>(null);
   const [failed, setFailed] = useState(false);
@@ -1293,7 +1300,12 @@ export function EnginesTab({
 
   return (
     <div className="grid gap-3">
-      <div className={s.sections} role="tablist" aria-label="Weather engines">
+      <div
+        className={s.sections}
+        role="tablist"
+        aria-label="Weather engines"
+        hidden={!!only}
+      >
         {SECTIONS.map((sec) => {
           const list = sec.ids
             .map((id) => shown.find((e) => e.id === id))

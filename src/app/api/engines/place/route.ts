@@ -7,7 +7,7 @@ import {
 import { placeDetail } from "@/lib/engines/places";
 import { SPECIES, type SpeciesId } from "@/lib/engines/outdoor";
 import { reportSummary } from "@/lib/engines/reports";
-import { stateOf } from "@/lib/extras/items";
+import { isLive } from "@/lib/extras/items";
 import { getSiteDefaults } from "@/lib/settings";
 
 export const maxDuration = 60;
@@ -21,7 +21,7 @@ export async function GET(req: Request) {
   const e = q.get("e");
   if (e !== "deer" && e !== "fish")
     return new Response("Bad request", { status: 400 });
-  if (stateOf((await getSiteDefaults()).extras, e) !== "on")
+  if (!isLive((await getSiteDefaults()).extras, e))
     return new Response("Not found", { status: 404 });
   const sp = (SPECIES.find((s) => s.id === q.get("sp"))?.id ??
     "bass") as SpeciesId;

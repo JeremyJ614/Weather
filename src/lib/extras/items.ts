@@ -1,43 +1,257 @@
 /**
  * Everything on the Extras page the owner can switch (admin → Extras): each Weather Engine
- * and each Random. "on" shows and works; "off" stays listed but can't be opened (and its
- * data route answers 404); "hidden" is gone from the page entirely.
+ * and each Random. "on" shows and works in its Extras tab; "off" stays listed but can't be
+ * opened (and its data route answers 404); "hidden" is gone from the page entirely; "page"
+ * moves it out of Extras onto a page of its own at `/<slug>`, in the menus and sellable on
+ * the plans like any other page (choosing "on" moves it back).
  */
-export type ItemState = "on" | "off" | "hidden";
-export const ITEM_STATES: ItemState[] = ["on", "off", "hidden"];
+export type ItemState = "on" | "off" | "hidden" | "page";
+export const ITEM_STATES: ItemState[] = ["on", "off", "hidden", "page"];
+
+type Item = {
+  id: string;
+  group: "engines" | "randoms";
+  name: string;
+  /** Its own page's address, when it has one. */
+  slug: string;
+  /** A NavIcon name, for the menus. */
+  icon: string;
+  /** One line for its page and the menus' search. */
+  blurb: string;
+};
+const e = <I extends string>(
+  id: I,
+  name: string,
+  slug: string,
+  icon: string,
+  blurb: string,
+) => ({ id, group: "engines", name, slug, icon, blurb }) satisfies Item;
+const r = <I extends string>(
+  id: I,
+  name: string,
+  slug: string,
+  icon: string,
+  blurb: string,
+) => ({ id, group: "randoms", name, slug, icon, blurb }) satisfies Item;
 
 export const EXTRAS_ITEMS = [
-  { id: "tor", group: "engines", name: "ProbTor" },
-  { id: "surge", group: "engines", name: "Lightning Surge Detector" },
-  { id: "first", group: "engines", name: "First Storms" },
-  { id: "analog", group: "engines", name: "Severe Analogs" },
-  { id: "bound", group: "engines", name: "Boundary Collisions" },
-  { id: "stp", group: "engines", name: "Significant Tornado" },
-  { id: "scp", group: "engines", name: "Supercell Composite" },
-  { id: "dcp", group: "engines", name: "Derecho Composite" },
-  { id: "ltg", group: "engines", name: "Lightning Threat" },
-  { id: "rwrap", group: "engines", name: "Rain-Wrap Index" },
-  { id: "blizz", group: "engines", name: "Blizzard Composite" },
-  { id: "sunset", group: "engines", name: "Sunset & Sunrise" },
-  { id: "rainbow", group: "engines", name: "Rainbow Chance" },
-  { id: "deer", group: "engines", name: "Deer Activity" },
-  { id: "fish", group: "engines", name: "Fishing Bite" },
-  { id: "llj", group: "engines", name: "Nocturnal LLJ" },
-  { id: "nst", group: "engines", name: "Landspouts & Waterspouts" },
-  { id: "pyro", group: "engines", name: "Wildfire & PyroCb" },
-  { id: "tctor", group: "engines", name: "Hurricane Tornadoes" },
-  { id: "blind", group: "engines", name: "Radar Blind Spot" },
-  { id: "storm", group: "randoms", name: "Storm Visualizer" },
-  { id: "slider", group: "randoms", name: "The Weather Slider" },
-  { id: "orb", group: "randoms", name: "Liquid Orb" },
-  { id: "horizon", group: "randoms", name: "Event Horizon" },
-  { id: "field", group: "randoms", name: "Pressure Field" },
-  { id: "aura", group: "randoms", name: "Modern Visual" },
-  { id: "morph", group: "randoms", name: "Particle Morph" },
-  { id: "ink", group: "randoms", name: "Ink Flow" },
-  { id: "flock", group: "randoms", name: "Murmuration" },
-  { id: "sand", group: "randoms", name: "Falling Sand" },
-  { id: "galaxy", group: "randoms", name: "Galaxy Forge" },
+  e(
+    "tor",
+    "ProbTor",
+    "probtor",
+    "Tornado",
+    "Each storm's tornado chance for the next hour, from NOAA's ProbSevere.",
+  ),
+  e(
+    "surge",
+    "Lightning Surge Detector",
+    "lightning-surge",
+    "Activity",
+    "Storms whose lightning is jumping right now, a sign they're strengthening.",
+  ),
+  e(
+    "first",
+    "First Storms",
+    "first-storms",
+    "Sprout",
+    "Where the first thunderstorms will start in the next six hours, and when.",
+  ),
+  e(
+    "analog",
+    "Severe Analogs",
+    "severe-analogs",
+    "History",
+    "Past days that looked like today, and the severe weather they brought.",
+  ),
+  e(
+    "bound",
+    "Boundary Collisions",
+    "boundary-collisions",
+    "Network",
+    "Where outflow boundaries, fronts and drylines will meet in the next three hours.",
+  ),
+  e(
+    "stp",
+    "Significant Tornado",
+    "significant-tornado",
+    "Tornado",
+    "The Significant Tornado Parameter for this evening, from the HRRR.",
+  ),
+  e(
+    "scp",
+    "Supercell Composite",
+    "supercell-composite",
+    "CloudLightning",
+    "Where supercells are possible this evening, from the HRRR.",
+  ),
+  e(
+    "dcp",
+    "Derecho Composite",
+    "derecho-composite",
+    "Wind",
+    "Where long-lived wind storms could organize.",
+  ),
+  e(
+    "ltg",
+    "Lightning Threat",
+    "lightning-threat",
+    "Zap",
+    "How much lightning to expect in the next three hours.",
+  ),
+  e(
+    "rwrap",
+    "Rain-Wrap Index",
+    "rain-wrap-index",
+    "Droplets",
+    "Whether a storm's tornado would be visible or hidden in rain.",
+  ),
+  e(
+    "blizz",
+    "Blizzard Composite",
+    "blizzard-composite",
+    "Snowflake",
+    "Hours of blizzard whiteout over the next two days.",
+  ),
+  e(
+    "sunset",
+    "Sunset & Sunrise",
+    "sunset-sunrise",
+    "Sunrise",
+    "How colorful tonight's sunset and tomorrow's sunrise will be.",
+  ),
+  e(
+    "rainbow",
+    "Rainbow Chance",
+    "rainbow-chance",
+    "Rainbow",
+    "Where a rainbow could show now and in the next hour, and which way to look.",
+  ),
+  e(
+    "deer",
+    "Deer Activity",
+    "deer-activity",
+    "Trees",
+    "A Day 1–3 outlook of deer movement across the lower 48, drawn like SPC's.",
+  ),
+  e(
+    "fish",
+    "Fishing Bite",
+    "fishing-bite",
+    "Fish",
+    "A Day 1–3 outlook of the bite across the lower 48 for five kinds of fish.",
+  ),
+  e(
+    "llj",
+    "Nocturnal LLJ",
+    "nocturnal-llj",
+    "Wind",
+    "The low-level jet's ramp-up tonight, which feeds night storms.",
+  ),
+  e(
+    "nst",
+    "Landspouts & Waterspouts",
+    "landspouts-waterspouts",
+    "Waves",
+    "Where non-supercell tornadoes and waterspouts could form.",
+  ),
+  e(
+    "pyro",
+    "Wildfire & PyroCb",
+    "wildfire-pyrocb",
+    "Flame",
+    "Fire weather, and which wildfires could blow up into their own storms.",
+  ),
+  e(
+    "tctor",
+    "Hurricane Tornadoes",
+    "hurricane-tornadoes",
+    "Tornado",
+    "Tornado risk in a landfalling storm's outer rain bands.",
+  ),
+  e(
+    "blind",
+    "Radar Blind Spot",
+    "radar-blind-spot",
+    "Radar",
+    "How low the nearest radar sees over any spot in the country.",
+  ),
+  r(
+    "storm",
+    "Storm Visualizer",
+    "storm-visualizer",
+    "Tornado",
+    "A supercell, a tornado and a hurricane built from up to 135,000 particles.",
+  ),
+  r(
+    "slider",
+    "The Weather Slider",
+    "weather-slider",
+    "Camera",
+    "Real storm photos pouring into each other.",
+  ),
+  r(
+    "orb",
+    "Liquid Orb",
+    "liquid-orb",
+    "Droplets",
+    "A glass orb of swirling liquid, with every control.",
+  ),
+  r(
+    "horizon",
+    "Event Horizon",
+    "event-horizon",
+    "Orbit",
+    "Light bending around a black hole.",
+  ),
+  r(
+    "field",
+    "Pressure Field",
+    "pressure-field",
+    "Waves",
+    "Glowing lines lifted by moving noise.",
+  ),
+  r(
+    "aura",
+    "Modern Visual",
+    "modern-visual",
+    "Sparkles",
+    "A glass crystal in rings of light.",
+  ),
+  r(
+    "morph",
+    "Particle Morph",
+    "particle-morph",
+    "Sparkles",
+    "Particles that reshape themselves.",
+  ),
+  r(
+    "ink",
+    "Ink Flow",
+    "ink-flow",
+    "Palette",
+    "A real fluid you stir with your finger.",
+  ),
+  r(
+    "flock",
+    "Murmuration",
+    "murmuration",
+    "Bird",
+    "Thousands of starlings wheeling at dusk.",
+  ),
+  r(
+    "sand",
+    "Falling Sand",
+    "falling-sand",
+    "Hourglass",
+    "Pour sand, water, fire and seeds.",
+  ),
+  r(
+    "galaxy",
+    "Galaxy Forge",
+    "galaxy-forge",
+    "Telescope",
+    "A spiral galaxy, then two colliding.",
+  ),
 ] as const;
 
 export type ExtrasItemId = (typeof EXTRAS_ITEMS)[number]["id"];
@@ -57,3 +271,19 @@ export function cleanItems(raw: unknown): ExtrasStates {
 
 export const stateOf = (s: ExtrasStates, id: string): ItemState =>
   s[id as ExtrasItemId] ?? "on";
+
+/** Whether it works (its data is made, its routes answer): in its tab or on its own page. */
+export const isLive = (s: ExtrasStates, id: string) => {
+  const st = stateOf(s, id);
+  return st === "on" || st === "page";
+};
+
+/** The switches as the Extras tabs see them: an item on its own page is gone from the tabs. */
+export const forTabs = (s: ExtrasStates): ExtrasStates =>
+  Object.fromEntries(
+    Object.entries(s).map(([k, v]) => [k, v === "page" ? "hidden" : v]),
+  );
+
+/** Items moved onto pages of their own. */
+export const onPages = (s: ExtrasStates) =>
+  EXTRAS_ITEMS.filter((i) => s[i.id] === "page");

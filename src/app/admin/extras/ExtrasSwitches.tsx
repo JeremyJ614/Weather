@@ -14,13 +14,14 @@ const LABEL: Record<ItemState, string> = {
   on: "On",
   off: "Off",
   hidden: "Hidden",
+  page: "Own page",
 };
 const GROUPS = [
   { id: "engines", label: "Weather Engines" },
   { id: "randoms", label: "Randoms" },
 ] as const;
 
-/** Admin → Extras: every engine and Random, each On, Off (listed, greyed) or Hidden. */
+/** Admin → Extras: every engine and Random, each On, Off (listed, greyed), Hidden or on its Own page. */
 export function ExtrasSwitches({ initial }: { initial: ExtrasStates }) {
   const [items, setItems] = useState(initial);
   const [err, setErr] = useState<string | null>(null);
@@ -52,11 +53,21 @@ export function ExtrasSwitches({ initial }: { initial: ExtrasStates }) {
                   key={i.id}
                   className="flex flex-wrap items-center gap-3 rounded-2xl border border-line bg-surface px-4 py-3"
                 >
-                  <b className="min-w-0 flex-1">{i.name}</b>
+                  <span className="grid min-w-0 flex-1">
+                    <b>{i.name}</b>
+                    {now === "page" && (
+                      <a
+                        href={`/${i.slug}`}
+                        className="truncate text-xs text-accent"
+                      >
+                        weather.sswx.space/{i.slug}
+                      </a>
+                    )}
+                  </span>
                   <span
                     role="radiogroup"
-                    aria-label={`${i.name}: on, off or hidden`}
-                    className="flex gap-1"
+                    aria-label={`${i.name}: on, off, hidden or its own page`}
+                    className="flex flex-wrap gap-1"
                   >
                     {ITEM_STATES.map((st) => (
                       <button

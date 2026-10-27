@@ -15,6 +15,7 @@ import { fontClassNames } from "@/lib/theme/fonts";
 import { getSiteDefaults } from "@/lib/settings";
 import { applyLayout } from "@/lib/nav/layout";
 import { MAIN_NAV, SECOND_NAV } from "@/lib/nav/registry";
+import { extrasGroup } from "@/lib/nav/extras";
 import { ErrorReporter } from "@/components/ops/ErrorReporter";
 import { SiteBanner } from "@/components/ops/SiteBanner";
 import { ViewAsBar } from "@/components/ops/ViewAsBar";
@@ -42,6 +43,9 @@ export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const defaults = await getSiteDefaults();
+  // Extras items with pages of their own join the main menu as an "Extras" section.
+  const extra = extrasGroup(defaults.extras);
+  const mains = extra.pages.length ? [...MAIN_NAV, extra] : MAIN_NAV;
   return (
     <html
       lang="en"
@@ -76,8 +80,8 @@ export default async function RootLayout({
         <PrefsSync />
         <MenuHost
           defaults={defaults.menus}
-          main={applyLayout(MAIN_NAV, SECOND_NAV, defaults.layout, "main")}
-          second={applyLayout(SECOND_NAV, MAIN_NAV, defaults.layout, "second")}
+          main={applyLayout(mains, SECOND_NAV, defaults.layout, "main")}
+          second={applyLayout(SECOND_NAV, mains, defaults.layout, "second")}
         />
       </body>
     </html>

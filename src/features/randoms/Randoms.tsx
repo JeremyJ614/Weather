@@ -150,9 +150,20 @@ const CREDITS = [
 ] as const;
 
 /** Randoms: one visual runs at a time; the rest stay unloaded. */
-export function Randoms({ items = {} }: { items?: ExtrasStates }) {
-  const shown = LIST.filter((x) => stateOf(items, x.id) !== "hidden");
-  const usable = shown.filter((x) => stateOf(items, x.id) === "on");
+export function Randoms({
+  items = {},
+  only,
+}: {
+  items?: ExtrasStates;
+  /** One Random on a page of its own, without the picker. */
+  only?: string;
+}) {
+  const shown = only
+    ? LIST.filter((x) => x.id === only)
+    : LIST.filter((x) => stateOf(items, x.id) !== "hidden");
+  const usable = only
+    ? shown
+    : shown.filter((x) => stateOf(items, x.id) === "on");
   const [id, setId] = useState<(typeof LIST)[number]["id"]>(
     usable[0]?.id ?? "storm",
   );
@@ -165,7 +176,7 @@ export function Randoms({ items = {} }: { items?: ExtrasStates }) {
     );
   return (
     <div className="grid gap-3">
-      <div className={s.picker}>
+      <div className={s.picker} hidden={!!only}>
         {shown.map((x) => {
           const off = stateOf(items, x.id) === "off";
           return (

@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import { requireAdmin } from "@/lib/auth/admin-guard";
-import { ALL_PAGES } from "@/lib/nav/registry";
+import { EVERY_PAGE } from "@/lib/nav/extras";
 
 export const metadata: Metadata = {
   title: "Page usage · Admin · StormSync Media",
 };
 
 const DAYS = 30;
-const label = new Map(ALL_PAGES.map((p) => [p.slug, p.label]));
+const label = new Map(EVERY_PAGE.map((p) => [p.slug, p.label]));
 const dayKey = (d: Date) =>
   d.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
 const today = () => new Date();

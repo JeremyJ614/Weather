@@ -5,7 +5,7 @@ import {
   type Analog,
 } from "@/lib/analogs/analogs";
 import { ANALOG_BANDS } from "@/lib/engines/colors";
-import { stateOf } from "@/lib/extras/items";
+import { isLive } from "@/lib/extras/items";
 import { getSiteDefaults } from "@/lib/settings";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
@@ -16,7 +16,7 @@ export const maxDuration = 60;
  * GET ?a=YYYY-MM-DD: one matched day's storm reports.
  */
 export async function GET(req: Request) {
-  if (stateOf((await getSiteDefaults()).extras, "analog") !== "on")
+  if (!isLive((await getSiteDefaults()).extras, "analog"))
     return new Response("Not found", { status: 404 });
   const q = new URL(req.url).searchParams;
   const one = q.get("a");

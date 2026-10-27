@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { requireAdmin } from "@/lib/auth/admin-guard";
-import { SELLABLE, getBilling, getClaims } from "@/lib/billing/server";
+import { getBilling, getClaims, sellableNow } from "@/lib/billing/server";
+import { getSiteDefaults } from "@/lib/settings";
 import { PricingEditor } from "./PricingEditor";
 import { Coupons } from "./Coupons";
 import { PlanLocks } from "./PlanLocks";
@@ -11,21 +12,28 @@ export const metadata: Metadata = {
 
 export default async function Pricing() {
   const { supabase } = await requireAdmin("billing");
-  const [billing, claims, { data: coupons }, { data: plans }, { data: locks }] =
-    await Promise.all([
-      getBilling(),
-      getClaims(),
-      supabase
-        .from("coupons")
-        .select("*")
-        .order("created_at", { ascending: false }),
-      supabase.from("subscriptions").select("tier, status"),
-      supabase
-        .from("app_config")
-        .select("value")
-        .eq("key", "plan_locks")
-        .maybeSingle(),
-    ]);
+  const [
+    billing,
+    claims,
+    { data: coupons },
+    { data: plans },
+    { data: locks },
+    { extras },
+  ] = await Promise.all([
+    getBilling(),
+    getClaims(),
+    supabase
+      .from("coupons")
+      .select("*")
+      .order("created_at", { ascending: false }),
+    supabase.from("subscriptions").select("tier, status"),
+    supabase
+      .from("app_config")
+      .select("value")
+      .eq("key", "plan_locks")
+      .maybeSingle(),
+    getSiteDefaults(),
+  ]);
   const count = (f: (x: { tier: string; status: string }) => boolean) =>
     (plans ?? []).filter(f).length;
   return (
@@ -63,7 +71,7 @@ export default async function Pricing() {
       <PricingEditor
         initial={billing}
         claims={claims}
-        pages={SELLABLE.map(({ slug, label }) => ({ slug, label }))}
+        pages={sellableNow(extras).map(({ slug, label }) => ({ slug, label }))}
       />
       <Coupons list={coupons ?? []} />
     </main>

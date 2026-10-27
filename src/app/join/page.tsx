@@ -6,8 +6,10 @@ import {
   SELLABLE_SLUGS,
   getBilling,
   getClaims,
+  sellableNow,
   today,
 } from "@/lib/billing/server";
+import { getSiteDefaults } from "@/lib/settings";
 import { stripeOn } from "@/lib/billing/stripe";
 import { supabaseServer } from "@/lib/supabase/server";
 import { JoinView } from "./JoinView";
@@ -24,10 +26,11 @@ export default async function Join({
 }) {
   const sp = await searchParams;
   const lockedSlug = sp.locked;
-  const [billing, claims, viewer] = await Promise.all([
+  const [billing, claims, viewer, { extras }] = await Promise.all([
     getBilling(),
     getClaims(),
     getRealViewer(),
+    getSiteDefaults(),
   ]);
   let current = null;
   let billingOpen = false;
@@ -53,7 +56,7 @@ export default async function Join({
       claims={claims}
       promos={activePromos(billing, claims, today())}
       today={today()}
-      pages={SELLABLE.map(({ slug, label, icon, phase }) => ({
+      pages={sellableNow(extras).map(({ slug, label, icon, phase }) => ({
         slug,
         label,
         icon,
