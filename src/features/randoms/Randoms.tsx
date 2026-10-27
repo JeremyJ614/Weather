@@ -2,20 +2,28 @@
 
 import { useState } from "react";
 import {
+  Bird,
   Droplet,
   Gem,
+  Hourglass,
   Images,
   Orbit,
+  Palette,
   Sparkles,
   Tornado,
   Waves,
+  Telescope,
 } from "lucide-react";
 import {
   AuraScene,
   FieldScene,
+  FlockScene,
+  GalaxyScene,
   HorizonScene,
+  InkScene,
   MorphScene,
   OrbScene,
+  SandScene,
   SliderScene,
   StormScene,
 } from "./Scenes";
@@ -73,6 +81,34 @@ const LIST = [
     Icon: Sparkles,
     C: MorphScene,
   },
+  {
+    id: "ink",
+    name: "Ink Flow",
+    blurb: "A real fluid you stir with your finger.",
+    Icon: Palette,
+    C: InkScene,
+  },
+  {
+    id: "flock",
+    name: "Murmuration",
+    blurb: "Thousands of starlings wheeling at dusk.",
+    Icon: Bird,
+    C: FlockScene,
+  },
+  {
+    id: "sand",
+    name: "Falling Sand",
+    blurb: "Pour sand, water, fire and seeds.",
+    Icon: Hourglass,
+    C: SandScene,
+  },
+  {
+    id: "galaxy",
+    name: "Galaxy Forge",
+    blurb: "A spiral galaxy, then two colliding.",
+    Icon: Telescope,
+    C: GalaxyScene,
+  },
 ] as const;
 
 const CREDITS = [
@@ -105,6 +141,11 @@ const CREDITS = [
     "Modern Visual",
     "Russell Henderson",
     "https://codepen.io/russell-henderson/pen/jEVVqBe",
+  ],
+  [
+    "WebGL Fluid Simulation, behind Ink Flow's shading",
+    "Pavel Dobryakov",
+    "https://github.com/PavelDoGreat/WebGL-Fluid-Simulation",
   ],
 ] as const;
 

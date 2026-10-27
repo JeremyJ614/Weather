@@ -34,6 +34,10 @@ export const EXTRAS_ITEMS = [
   { id: "field", group: "randoms", name: "Pressure Field" },
   { id: "aura", group: "randoms", name: "Modern Visual" },
   { id: "morph", group: "randoms", name: "Particle Morph" },
+  { id: "ink", group: "randoms", name: "Ink Flow" },
+  { id: "flock", group: "randoms", name: "Murmuration" },
+  { id: "sand", group: "randoms", name: "Falling Sand" },
+  { id: "galaxy", group: "randoms", name: "Galaxy Forge" },
 ] as const;
 
 export type ExtrasItemId = (typeof EXTRAS_ITEMS)[number]["id"];

@@ -10,6 +10,9 @@ import type { Field } from "./engines/field";
 import type { Aura } from "./engines/aura";
 import type { Morph } from "./engines/morph";
 import type { Slider } from "./engines/slider";
+import type { Ink } from "./engines/ink";
+import type { Material, Sand } from "./engines/sand";
+import type { Galaxy } from "./engines/galaxy";
 import { SLIDES } from "./slides";
 import s from "./Randoms.module.css";
 
@@ -552,6 +555,136 @@ export function MorphScene() {
       <p className={s.hint}>
         Move your finger across it to tilt; tap the arrow to morph.
       </p>
+    </>
+  );
+}
+
+export function InkScene() {
+  const [scene, setScene] = useState<Ink | null>(null);
+  return (
+    <>
+      <Stage
+        label="Ink Flow: colored ink swirling in a fluid you stir"
+        load={async (el, ctx) => (await import("./engines/ink")).mount(el, ctx)}
+        onReady={(sc) => setScene(sc)}
+        shape="tall"
+      />
+      <section className={s.panel}>
+        <Toggles
+          items={[
+            { label: "Splash more ink", on: false, set: () => scene?.splash() },
+          ]}
+        />
+        <p className={s.hint}>
+          Drag through it to stir. The ink is a real fluid: it swirls, curls
+          into eddies and slowly fades.
+        </p>
+      </section>
+    </>
+  );
+}
+
+export function FlockScene() {
+  return (
+    <>
+      <Stage
+        label="Murmuration: a flock of starlings wheeling at dusk"
+        load={async (el, ctx) =>
+          (await import("./engines/flock")).mount(el, ctx)
+        }
+        shape="tall"
+      />
+      <p className={s.hint}>
+        Thousands of starlings, each only watching its neighbors. Touch the sky
+        (or move the mouse through it) and they scatter from you like from a
+        falcon.
+      </p>
+    </>
+  );
+}
+
+export function SandScene() {
+  const [scene, setScene] = useState<Sand | null>(null);
+  const [mats, setMats] = useState<readonly Material[]>([]);
+  const [mat, setMat] = useState<Material>("Sand");
+  return (
+    <>
+      <Stage
+        label="Falling Sand: a sandbox of sand, water, fire and plants"
+        load={async (el, ctx) => {
+          const m = await import("./engines/sand");
+          setMats(m.MATERIALS);
+          return m.mount(el, ctx);
+        }}
+        onReady={(sc) => setScene(sc)}
+        shape="tall"
+      />
+      <section className={s.panel}>
+        <Toggles
+          items={mats.map((m) => ({
+            label: m,
+            on: m === mat,
+            set: () => {
+              setMat(m);
+              scene?.use(m);
+            },
+          }))}
+        />
+        <Toggles
+          items={[
+            { label: "Empty", on: false, set: () => scene?.clear() },
+            { label: "Start over", on: false, set: () => scene?.reset() },
+          ]}
+        />
+        <p className={s.hint}>
+          Drag to pour. Water puts fire out, fire burns plants and seeds, and
+          seeds sprout where they touch water.
+        </p>
+      </section>
+    </>
+  );
+}
+
+export function GalaxyScene() {
+  const [scene, setScene] = useState<Galaxy | null>(null);
+  const [two, setTwo] = useState(false);
+  return (
+    <>
+      <Stage
+        label="Galaxy Forge: a spiral galaxy, and two galaxies colliding"
+        load={async (el, ctx) =>
+          (await import("./engines/galaxy")).mount(el, ctx)
+        }
+        onReady={(sc) => setScene(sc)}
+        shape="tall"
+      />
+      <section className={s.panel}>
+        <Toggles
+          items={[
+            {
+              label: "One galaxy",
+              on: !two,
+              set: () => {
+                setTwo(false);
+                scene?.single();
+              },
+            },
+            {
+              label: "Collide two",
+              on: two,
+              set: () => {
+                setTwo(true);
+                scene?.collide();
+              },
+            },
+          ]}
+        />
+        <p className={s.hint}>
+          Drag to turn it, scroll to zoom. Colliding galaxies throw out long
+          tidal tails before their cores merge, as the Antennae and the Mice did
+          in real life.
+        </p>
+      </section>
     </>
   );
 }
