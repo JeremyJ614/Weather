@@ -91,11 +91,10 @@ export function previewSource(
         url: "/api/engines/preview?e=rainbow",
         title: "Rainbow chances now, from radar and satellite",
       };
-    case "engine-deer":
-    case "engine-fish":
+    case "engine-outmap":
       return {
-        url: `/api/engines/preview?e=${id.slice(7)}`,
-        title: "Today's best hour around Ohio, from Open-Meteo",
+        url: "/api/engines/preview?e=outmap",
+        title: "Day 1's Deer Activity outlook, from the latest GFS run",
       };
     case "engine-analog":
       return {

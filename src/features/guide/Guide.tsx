@@ -104,8 +104,8 @@ const NEW: Step["tips"] = [
   },
   {
     icon: "MapPin",
-    title: "Deer and fishing maps that read",
-    text: "Deer Activity and Fishing Bite show a dot for each spot around Ohio, ranked against today's typical spot, with the typical score in words. Tap a dot for its next three days.",
+    title: "Deer and fishing outlooks",
+    text: "Deer Activity and Fishing Bite are now outlooks for the whole lower 48, Days 1 to 3, drawn like SPC's from the GFS model: Fair to Peak, with the best spots each day. Tap anywhere for its next three days.",
   },
   {
     icon: "Rainbow",

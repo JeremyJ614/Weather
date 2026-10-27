@@ -1,4 +1,10 @@
-import { placeDetail, placeMap } from "@/lib/engines/places";
+import { after } from "next/server";
+import {
+  computeOutdoorMaps,
+  storedOutdoor,
+  type OutMap,
+} from "@/lib/engines/outmap";
+import { placeDetail } from "@/lib/engines/places";
 import { SPECIES, type SpeciesId } from "@/lib/engines/outdoor";
 import { reportSummary } from "@/lib/engines/reports";
 import { stateOf } from "@/lib/extras/items";
@@ -7,8 +13,8 @@ import { getSiteDefaults } from "@/lib/settings";
 export const maxDuration = 60;
 
 /**
- * GET ?e=deer|fish[&sp=<species>]: the regional map of each place's best hour today.
- * Add &lat=&lon= (and &tz=) for one place's next three days.
+ * GET ?e=deer|fish[&sp=<species>]: the lower 48's Day 1–3 outlook (SPC-style areas and the
+ * best spots each day). Add &lat=&lon= (and &tz=) for one place's next three days.
  */
 export async function GET(req: Request) {
   const q = new URL(req.url).searchParams;
@@ -37,10 +43,20 @@ export async function GET(req: Request) {
         },
       });
     }
-    const [map, reports] = await Promise.all([
-      placeMap(e, sp),
+    const [{ map, later }, reports] = await Promise.all([
+      storedOutdoor(e, sp).catch(async () => {
+        // Without the table (a fresh deployment's first minutes), compute it outright.
+        const maps = await computeOutdoorMaps();
+        return {
+          map: maps.find(
+            (m) => m.kind === e && (e === "deer" || m.species === sp),
+          ) as OutMap,
+          later: null,
+        };
+      }),
       reportSummary(e).catch(() => null),
     ]);
+    if (later) after(later);
     return Response.json(
       { ...map, reports },
       {
@@ -50,6 +66,7 @@ export async function GET(req: Request) {
       },
     );
   } catch (err) {
+    console.error("engines/place", err);
     return Response.json(
       {
         error:
