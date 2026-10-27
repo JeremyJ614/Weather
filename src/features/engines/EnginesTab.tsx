@@ -50,6 +50,7 @@ import {
   type OutdoorId,
 } from "@/lib/engines/colors";
 import type { SpeciesId } from "@/lib/engines/outdoor";
+import { unpackAreas } from "@/lib/engines/pack";
 import { read as readPlaces } from "@/features/location/store";
 import {
   PlacePanel,
@@ -694,7 +695,18 @@ export function EnginesTab({
     let live = true;
     fetch(`/api/engines/field?e=${want}`)
       .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((d: FieldData) => live && setFields((f) => ({ ...f, [want]: d })))
+      .then(
+        (d: FieldData) =>
+          live &&
+          setFields((f) => ({
+            ...f,
+            [want]: {
+              ...d,
+              areas: unpackAreas(d.areas),
+              alt: unpackAreas(d.alt),
+            },
+          })),
+      )
       .catch(() => live && setFields((f) => ({ ...f, [want]: "error" })));
     return () => {
       live = false;
@@ -802,7 +814,15 @@ export function EnginesTab({
     fetch(`/api/engines/place?e=${e}${sp ? `&sp=${sp}` : ""}`)
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then(
-        (d: PlaceMap) => live && setPlaceMaps((m) => ({ ...m, [needMap]: d })),
+        (d: PlaceMap) =>
+          live &&
+          setPlaceMaps((m) => ({
+            ...m,
+            [needMap]: {
+              ...d,
+              days: d.days.map((x) => ({ ...x, areas: unpackAreas(x.areas) })),
+            },
+          })),
       )
       .catch(() => live && setPlaceMaps((m) => ({ ...m, [needMap]: "error" })));
     return () => {

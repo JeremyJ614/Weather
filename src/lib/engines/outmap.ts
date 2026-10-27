@@ -9,6 +9,7 @@ import { sunTimes } from "@/lib/sky/astro";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { latticeAreas, soften, type Areas } from "./areas";
 import { OUTMAP } from "./colors";
+import { packAreas, type Packed } from "./pack";
 import { tuned } from "./fields";
 import {
   SPECIES,
@@ -49,7 +50,8 @@ export type OutSpot = {
 export type OutDay = {
   /** The Central-time date, YYYY-MM-DD. */
   date: string;
-  areas: Areas;
+  /** Packed once stored (lib/engines/pack.ts). */
+  areas: Areas | Packed;
   spots: OutSpot[];
   /** The middle score across the map that day. */
   typical: number;
@@ -468,7 +470,13 @@ async function newestRun() {
 
 /** Computes and stores every map; returns them. */
 export async function refreshOutdoorMaps() {
-  const maps = await computeOutdoorMaps();
+  const maps = (await computeOutdoorMaps()).map((m) => ({
+    ...m,
+    days: m.days.map((d) => ({
+      ...d,
+      areas: "packed" in d.areas ? d.areas : packAreas(d.areas),
+    })),
+  }));
   const now = new Date().toISOString();
   for (const m of maps)
     memo.set(rowId(m.kind, m.species), { data: m, at: Date.now() });

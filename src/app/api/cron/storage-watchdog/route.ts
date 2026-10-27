@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { rollover } from "@/lib/history/rollover";
 import { OWNER_EMAIL } from "@/lib/help/alert";
 import {
   assess,
@@ -57,7 +58,6 @@ export async function GET(request: Request) {
     db.from("notifications").delete().lt("created_at", day(90)),
     db.from("contact_messages").delete().lt("created_at", day(365)),
     db.from("page_views").delete().lt("day", day(180)),
-    db.from("chase_days").delete().lt("day", day(1100)),
     db.from("game_guesses").delete().lt("guess_date", day(731)),
     db.from("game_points").delete().lt("earned_on", day(731)),
     db.from("trivia_answers").delete().lt("answered_at", day(731)),
@@ -76,6 +76,11 @@ export async function GET(request: Request) {
   if (pruneError) {
     return Response.json({ error: pruneError.message }, { status: 500 });
   }
+  // On the 2nd of each month, history older than two years moves to files (lib/history/rollover).
+  const rolled =
+    new Date().getUTCDate() === 2
+      ? await rollover(db).catch((e: Error) => ({ error: e.message }))
+      : null;
 
   const latest = await db
     .from("storage_snapshots")
@@ -136,5 +141,5 @@ export async function GET(request: Request) {
     emailed = true;
   }
 
-  return Response.json({ ...usage, emailed });
+  return Response.json({ ...usage, emailed, rolled });
 }

@@ -3,6 +3,7 @@ import { latestCycle } from "@/lib/models/render";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { FIELD_BANDS, type FieldId } from "./colors";
 import { fieldEngine } from "./fields";
+import { packAreas, type Packed } from "./pack";
 
 /**
  * Performance #1: engine maps live in `engine_maps`, one row per engine. A map is computed
@@ -10,7 +11,17 @@ import { fieldEngine } from "./fields";
  * served the stored copy. When a newer run is out the stored copy is still served at once
  * and the new one is computed behind it, so nobody waits on the model but the very first.
  */
-export type FieldMap = Awaited<ReturnType<typeof fieldEngine>>;
+type Computed = Awaited<ReturnType<typeof fieldEngine>>;
+/** A map as stored and served: its shapes packed (lib/engines/pack.ts). */
+export type FieldMap = Omit<Computed, "areas" | "alt"> & {
+  areas: Packed | Computed["areas"];
+  alt?: Packed | Computed["areas"] | null;
+};
+const pack = (m: Computed): FieldMap => ({
+  ...m,
+  areas: m.areas ? packAreas(m.areas) : m.areas,
+  alt: m.alt ? packAreas(m.alt) : m.alt,
+});
 
 type Row = {
   id: string;
@@ -78,7 +89,7 @@ async function claim(id: FieldId) {
 
 /** Computes one engine's map and stores it; returns the map. */
 export async function refreshField(id: FieldId): Promise<FieldMap> {
-  const map = await fieldEngine(id);
+  const map = pack(await fieldEngine(id));
   remember(id, map);
   const now = new Date().toISOString();
   // A storage failure costs the next visitor a recompute, never this visitor their map.

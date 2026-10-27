@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { surges } from "@/lib/engines/surge";
 import { rainbowNow } from "@/lib/engines/rainbow";
 import { storedOutdoor } from "@/lib/engines/outmap";
+import { unpackAreas } from "@/lib/engines/pack";
 import {
   ANALOG_BANDS,
   BOUND_POINTS,
@@ -69,7 +70,9 @@ export async function GET(req: Request) {
   }
   if (e === "outmap") {
     const d = await storedOutdoor("deer").catch(() => null);
-    return Response.json({ polys: polys(d?.map.days[0]?.areas, "outmap") });
+    return Response.json({
+      polys: polys(unpackAreas(d?.map.days[0]?.areas), "outmap"),
+    });
   }
   if (e === "boundpt") {
     const r = await fieldPreview("bound").catch(() => null);
