@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/site";
 import { Orbit } from "lucide-react";
 import { ModuleOff } from "@/components/ops/ModuleOff";
 import { PageHero } from "@/components/ui/PageHero";
@@ -7,9 +8,11 @@ import { getSiteDefaults } from "@/lib/settings";
 import { getOutlook } from "@/lib/tropical/nhc";
 import { TropicalView } from "./TropicalView";
 
-export const metadata: Metadata = {
-  title: "Tropical Outlook · StormSync Media",
-};
+export const metadata: Metadata = pageMeta(
+  "/tropical-outlook",
+  "Tropical Outlook",
+  "Active storms with their cones and watches, where new ones may form in the next 7 days, and live satellite.",
+);
 export const revalidate = 600;
 
 export default async function TropicalOutlook() {

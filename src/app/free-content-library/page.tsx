@@ -1,15 +1,19 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/site";
 import Link from "next/link";
 import { Library, Search } from "lucide-react";
 import { ModuleOff } from "@/components/ops/ModuleOff";
+import { FrontDoorCta } from "@/features/account/FrontDoorCta";
 import { PageHero } from "@/components/ui/PageHero";
 import { getSiteDefaults } from "@/lib/settings";
 import { SOURCE, search, shelves } from "@/lib/library/data";
 import s from "./FreeLibrary.module.css";
 
-export const metadata: Metadata = {
-  title: "Free Content Library · StormSync Media",
-};
+export const metadata: Metadata = pageMeta(
+  "/free-content-library",
+  "Free Content Library",
+  "A whole weather school, every word readable here: no paywall, and no trip to someone else's website to finish the paragraph.",
+);
 
 /**
  * The reading room: NOAA JetStream's whole weather school, readable here. Search is a GET
@@ -34,6 +38,7 @@ export default async function FreeContentLibrary({
         title="Free Content Library"
         subtitle="A whole weather school, every word readable here: no paywall, and no trip to someone else's website to finish the paragraph."
       />
+      <FrontDoorCta what="the Free Content Library" />
       {disabled.includes("library") ? (
         <ModuleOff label="Free Content Library" />
       ) : (

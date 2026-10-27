@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/site";
 import { Flame } from "lucide-react";
 import { ModuleOff } from "@/components/ops/ModuleOff";
 import { PageHero } from "@/components/ui/PageHero";
@@ -7,7 +8,11 @@ import { getSiteDefaults } from "@/lib/settings";
 import { activeFires, fireOutlook } from "@/lib/fire/data";
 import { FireView } from "./FireView";
 
-export const metadata: Metadata = { title: "Fire Weather · StormSync Media" };
+export const metadata: Metadata = pageMeta(
+  "/fire-weather",
+  "Fire Weather",
+  "Active wildfires with their burn areas, the fires nearest you, and where weather favors new fires today and tomorrow.",
+);
 export const revalidate = 900;
 
 export default async function FireWeather() {

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/site";
 import { Waves } from "lucide-react";
 import { ModuleOff } from "@/components/ops/ModuleOff";
 import { PageHero } from "@/components/ui/PageHero";
@@ -7,9 +8,11 @@ import { getSiteDefaults } from "@/lib/settings";
 import { eroDays } from "@/lib/flood/data";
 import { FloodView } from "./FloodView";
 
-export const metadata: Metadata = {
-  title: "Flooding Outlook · StormSync Media",
-};
+export const metadata: Metadata = pageMeta(
+  "/flooding-outlook",
+  "Flooding Outlook",
+  "Where rain may outrun what the ground can take, five days out, tested at your location.",
+);
 export const revalidate = 1800;
 
 export default async function FloodingOutlook() {

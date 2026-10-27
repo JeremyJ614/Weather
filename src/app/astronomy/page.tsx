@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/site";
 import { Moon } from "lucide-react";
 import { ModuleOff } from "@/components/ops/ModuleOff";
 import { PageHero } from "@/components/ui/PageHero";
@@ -6,7 +7,11 @@ import { getColors } from "@/lib/colors/server";
 import { getSiteDefaults } from "@/lib/settings";
 import { AstroView } from "./AstroView";
 
-export const metadata: Metadata = { title: "Astronomy · StormSync Media" };
+export const metadata: Metadata = pageMeta(
+  "/astronomy",
+  "Astronomy",
+  "The moon at its real phase, the planets you can see tonight, the sun's day, and the sky calendar ahead.",
+);
 
 export default async function Astronomy() {
   const { disabled } = await getSiteDefaults();

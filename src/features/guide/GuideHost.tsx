@@ -13,6 +13,7 @@ import {
   tourDue,
 } from "./due";
 import type { GuideProps, Mode } from "./Guide";
+import { LANDING } from "@/lib/nav/landing";
 
 const QUIET =
   /^\/(login|signup|welcome|auth|join|privacy|closed|offline)(\/|$)/;
@@ -45,7 +46,7 @@ export function GuideHost({
     if (pending || mode) return;
     // A guest sent here by the signup gate sees the gate first.
     const auto: Mode | null =
-      QUIET.test(path) || params.has("join")
+      QUIET.test(path) || LANDING.test(path) || params.has("join")
         ? null
         : !signedIn && showcaseDue()
           ? "showcase"

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/site";
 import { HeartHandshake } from "lucide-react";
 import { PageHero } from "@/components/ui/PageHero";
 import { getViewer } from "@/lib/auth/viewer";
@@ -10,9 +11,11 @@ import { getColors } from "@/lib/colors/server";
 import { pick } from "@/lib/colors/pick";
 import { SHELTER_COLORS } from "@/lib/disaster/style";
 
-export const metadata: Metadata = {
-  title: "Disaster Response · StormSync Weather",
-};
+export const metadata: Metadata = pageMeta(
+  "/disaster-response",
+  "Disaster Response",
+  "Groups that help after storms, how to give to them or help with them, and storm shelters near you.",
+);
 
 /**
  * Disaster Response (Phase 61, open to guests): organizations that help after storms and a

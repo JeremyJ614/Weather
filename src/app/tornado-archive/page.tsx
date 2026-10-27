@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/site";
 import { Suspense } from "react";
 import { Tornado } from "lucide-react";
 import { ModuleOff } from "@/components/ops/ModuleOff";
@@ -8,9 +9,11 @@ import { getColors } from "@/lib/colors/server";
 import { getSiteDefaults } from "@/lib/settings";
 import { ArchiveView } from "./ArchiveView";
 
-export const metadata: Metadata = {
-  title: "Official Tornado Archive · StormSync Media",
-};
+export const metadata: Metadata = pageMeta(
+  "/tornado-archive",
+  "Official Tornado Archive",
+  "Watch history's tornadoes happen again: every path, damage point, survey, hail report and warning, on the clock they happened on.",
+);
 export const revalidate = 1800;
 
 export default async function TornadoArchive() {

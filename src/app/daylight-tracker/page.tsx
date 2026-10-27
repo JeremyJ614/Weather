@@ -1,13 +1,16 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/site";
 import { Sunrise } from "lucide-react";
 import { ModuleOff } from "@/components/ops/ModuleOff";
 import { PageHero } from "@/components/ui/PageHero";
 import { getSiteDefaults } from "@/lib/settings";
 import { DaylightView } from "./DaylightView";
 
-export const metadata: Metadata = {
-  title: "Daylight Tracker · StormSync Media",
-};
+export const metadata: Metadata = pageMeta(
+  "/daylight-tracker",
+  "Daylight Tracker",
+  "How much daylight you get today, how fast it is changing, and where you are on the year's long curve.",
+);
 
 export default async function DaylightTracker() {
   const { disabled } = await getSiteDefaults();

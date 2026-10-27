@@ -1,5 +1,12 @@
 /* eslint-disable @next/next/no-img-element -- cached local logo */
-export const metadata = { title: "Offline · StormSync Media" };
+import { pageMeta } from "@/lib/seo/site";
+
+export const metadata = pageMeta(
+  "/offline",
+  "Offline",
+  "You're offline. StormSync Weather keeps working with what it saved.",
+  { noindex: true },
+);
 
 export default function Offline() {
   return (

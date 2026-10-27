@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/site";
 import { ScanEye } from "lucide-react";
 import { ModuleOff } from "@/components/ops/ModuleOff";
 import { PageHero } from "@/components/ui/PageHero";
@@ -7,9 +8,11 @@ import { mesoscale } from "@/lib/spc/md";
 import { MdView } from "./MdView";
 import s from "./Md.module.css";
 
-export const metadata: Metadata = {
-  title: "Mesoscale Discussions · StormSync Media",
-};
+export const metadata: Metadata = pageMeta(
+  "/mesoscale-discussions",
+  "Mesoscale Discussions",
+  "What SPC forecasters are watching develop in the next few hours, and how likely a watch is.",
+);
 export const revalidate = 120;
 
 export default async function MesoscaleDiscussions() {

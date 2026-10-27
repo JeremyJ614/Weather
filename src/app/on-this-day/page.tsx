@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/site";
 import { after } from "next/server";
 import { revalidateTag } from "next/cache";
 import { CalendarDays } from "lucide-react";
 import { ModuleOff } from "@/components/ops/ModuleOff";
+import { FrontDoorCta } from "@/features/account/FrontDoorCta";
+import { ShareButton } from "@/components/ShareButton";
 import { PageHero } from "@/components/ui/PageHero";
 import { getColors } from "@/lib/colors/server";
 import { ensureDay, readDay, todayMd } from "@/lib/history/days";
@@ -12,9 +15,11 @@ import { project } from "@/lib/map/usAlbers";
 import { getSiteDefaults } from "@/lib/settings";
 import { OnThisDayView, type Drawn } from "./OnThisDayView";
 
-export const metadata: Metadata = {
-  title: "On This Day in Weather History · StormSync Media",
-};
+export const metadata: Metadata = pageMeta(
+  "/on-this-day",
+  "On This Day in Weather History",
+  "One famous storm from today's date in history, told like a story, with its tornado tracks, reports or hurricane path on the map.",
+);
 // Always today's date (Central time); the stored day is read through the data cache.
 export const dynamic = "force-dynamic";
 
@@ -60,12 +65,19 @@ export default async function OnThisDay() {
   ]);
   const md = todayMd();
   const hero = (
-    <PageHero
-      icon={<CalendarDays aria-hidden />}
-      eyebrow={["NOAA records", "Weather history"]}
-      title="On This Day"
-      subtitle={`${dateName(md)} in weather history: one storm that made its mark on this date, and its story.`}
-    />
+    <div className="mb-4 grid gap-3">
+      <PageHero
+        icon={<CalendarDays aria-hidden />}
+        eyebrow={["NOAA records", "Weather history"]}
+        title="On This Day"
+        subtitle={`${dateName(md)} in weather history: one storm that made its mark on this date, and its story.`}
+      />
+      <FrontDoorCta what="On This Day" />
+      <ShareButton
+        title={`On this day in weather history: ${dateName(md)}`}
+        className="justify-self-start"
+      />
+    </div>
   );
   if (disabled.includes("onthisday"))
     return (

@@ -2,9 +2,11 @@
 
 import { redirect } from "next/navigation";
 import { updateTag } from "next/cache";
+import { after } from "next/server";
 import { requireAdmin } from "@/lib/auth/admin-guard";
 import { cleanDoc, plainText, type Doc } from "@/lib/news/doc";
 import { publishFields, type Mode } from "@/lib/news/publish";
+import { pingIndexNow } from "@/lib/seo/indexnow";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 export type NewsState = { error?: string; saved?: boolean } | null;
@@ -68,6 +70,13 @@ export async function saveNews(_: NewsState, fd: FormData): Promise<NewsState> {
     p_detail: { state: when.status, at: when.publish_at, by: viewer.name },
   });
   updateTag("news");
+  // Published now: tell search engines about the story and the refreshed feed.
+  if (
+    when.status === "published" &&
+    when.publish_at &&
+    Date.parse(when.publish_at) <= Date.now()
+  )
+    after(() => pingIndexNow([`/news/${id}`, "/feed.xml", "/"]));
   return { saved: true };
 }
 

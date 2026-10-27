@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/site";
 import Link from "next/link";
 import { CalendarDays, Crown, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -10,7 +11,11 @@ import { gameDate } from "@/lib/game/score";
 import { Hall, Podium, type Board, type Title } from "./Boards";
 import s from "./Leaderboard.module.css";
 
-export const metadata: Metadata = { title: "Leaderboard · StormSync Media" };
+export const metadata: Metadata = pageMeta(
+  "/leaderboard",
+  "Leaderboard",
+  "Every WX Games point, ranked by week, month and year, and the Champions Hall of every monthly and yearly winner.",
+);
 
 /** Monday of the week, the 1st of the month and January 1st, on the Eastern clock. */
 function periods(today: string) {

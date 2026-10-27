@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/site";
 import { Clock } from "lucide-react";
 import { ModuleOff } from "@/components/ops/ModuleOff";
 import { PageHero } from "@/components/ui/PageHero";
@@ -8,9 +9,11 @@ import { getSiteDefaults } from "@/lib/settings";
 import { HAZ, HAZARDS, RISK, type Haz } from "@/lib/timing/calc";
 import { TimingView } from "./TimingView";
 
-export const metadata: Metadata = {
-  title: "Storm Timing Index · StormSync Media",
-};
+export const metadata: Metadata = pageMeta(
+  "/storm-timing-index",
+  "Storm Timing Index",
+  "Hour by hour for your place: when the atmosphere is at its most dangerous, for how long, and whether it peaks after dark.",
+);
 
 export default async function StormTiming() {
   const [{ disabled }, colors] = await Promise.all([

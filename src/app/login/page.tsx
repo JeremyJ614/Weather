@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/site";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Card } from "@/components/ui/Card";
@@ -12,7 +13,12 @@ import { ChangePin } from "./ChangePin";
 import { BadgePlate } from "@/components/BadgeIcon";
 import { getColors } from "@/lib/colors/server";
 
-export const metadata: Metadata = { title: "Sign in · StormSync Media" };
+export const metadata: Metadata = pageMeta(
+  "/login",
+  "Sign in",
+  "Log in to StormSync Weather.",
+  { noindex: true },
+);
 
 export default async function Login({
   searchParams,

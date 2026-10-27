@@ -1,10 +1,16 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/site";
 import Link from "next/link";
 import { Lock } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { ALL_PAGES } from "@/lib/nav/registry";
 
-export const metadata: Metadata = { title: "Page closed · StormSync Media" };
+export const metadata: Metadata = pageMeta(
+  "/closed",
+  "Page closed",
+  "This page is closed for your account.",
+  { noindex: true },
+);
 
 /** Where the proxy sends a member from a page an admin closed to them. */
 export default async function Closed({

@@ -1,4 +1,8 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/site";
+import { JsonLd } from "@/components/seo/JsonLd";
+import { ShareButton } from "@/components/ShareButton";
+import { articleOf } from "@/lib/seo/schema";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ArrowRight, Clock, ExternalLink } from "lucide-react";
@@ -16,9 +20,15 @@ export async function generateMetadata({
 }: {
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
-  const a = article((await params).slug);
+  const slug = (await params).slug;
+  const a = article(slug);
   return a
-    ? { title: `${a.title} · Free Content Library`, description: a.summary }
+    ? pageMeta(
+        `/free-content-library/${slug}`,
+        `${a.title} · Free Content Library`,
+        a.summary,
+        { type: "article" },
+      )
     : {};
 }
 
@@ -43,12 +53,24 @@ export default async function LibraryArticle({
         </Link>
         <h1>{a.title}</h1>
         <p className={s.lede}>{a.summary}</p>
+        <JsonLd
+          data={articleOf({
+            path: `/free-content-library/${a.slug}`,
+            title: a.title,
+            description: a.summary,
+          })}
+        />
         <p className={s.meta}>
           <Clock aria-hidden /> {a.reading_minutes} min read ·{" "}
           <a href={a.source_url} target="_blank" rel="noreferrer">
             {a.source_name} <ExternalLink aria-hidden />
           </a>
         </p>
+        <ShareButton
+          title={a.title}
+          text={a.summary}
+          className="justify-self-start"
+        />
         <Blocks blocks={a.body} />
         <p className={s.licence}>
           From{" "}

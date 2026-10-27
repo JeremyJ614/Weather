@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/site";
 import { Thermometer } from "lucide-react";
 import { ModuleOff } from "@/components/ops/ModuleOff";
 import { PageHero } from "@/components/ui/PageHero";
@@ -8,9 +9,11 @@ import { project } from "@/lib/map/usAlbers";
 import { getSiteDefaults } from "@/lib/settings";
 import { ExtremesView, type Placed } from "./ExtremesView";
 
-export const metadata: Metadata = {
-  title: "Climate Extremes Tracker · StormSync Media",
-};
+export const metadata: Metadata = pageMeta(
+  "/climate-extremes",
+  "Climate Extremes Tracker",
+  "The hottest, coldest, windiest and stormiest readings in the country right now, and every record the Weather Service has reported this week.",
+);
 
 // Served from the edge and rebuilt every 10 minutes: the station feed is national and the
 // same for everyone. The view shows when its numbers were read.

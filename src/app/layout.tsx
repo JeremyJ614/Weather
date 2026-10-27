@@ -19,17 +19,43 @@ import { extrasGroup } from "@/lib/nav/extras";
 import { ErrorReporter } from "@/components/ops/ErrorReporter";
 import { SiteBanner } from "@/components/ops/SiteBanner";
 import { ViewAsBar } from "@/components/ops/ViewAsBar";
+import { JsonLd } from "@/components/seo/JsonLd";
+import { siteGraph } from "@/lib/seo/schema";
+import { SITE } from "@/lib/seo/site";
+
+const verify = {
+  google: process.env.GOOGLE_SITE_VERIFICATION,
+  bing: process.env.BING_SITE_VERIFICATION,
+};
 
 export const metadata: Metadata = {
-  title: "StormSync Media",
-  applicationName: "StormSync Media",
+  metadataBase: new URL(SITE.url),
+  title: {
+    default: `${SITE.name}: live radar, SPC outlooks and storm chasing`,
+    template: `%s · ${SITE.name}`,
+  },
+  applicationName: SITE.name,
+  description: SITE.description,
+  publisher: SITE.publisher,
+  category: "weather",
   appleWebApp: {
     capable: true,
     title: "StormSync",
     statusBarStyle: "black-translucent",
   },
-  description:
-    "Severe weather, forecasts and storm chasing from StormSync Media.",
+  formatDetection: { telephone: false },
+  openGraph: { siteName: SITE.name, type: "website", locale: "en_US" },
+  twitter: { card: "summary_large_image" },
+  alternates: {
+    types: {
+      "application/rss+xml": [{ url: "/feed.xml", title: "SSWX News" }],
+    },
+  },
+  // Search Console and Bing Webmaster ownership, when the owner sets the env vars.
+  verification: {
+    ...(verify.google && { google: verify.google }),
+    ...(verify.bing && { other: { "msvalidate.01": verify.bing } }),
+  },
 };
 
 export const viewport: Viewport = {
@@ -60,6 +86,7 @@ export default async function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: introBootScript }} />
       </head>
       <body>
+        <JsonLd data={siteGraph} />
         <DeviceSetup />
         <ErrorReporter />
         <LaunchIntro />

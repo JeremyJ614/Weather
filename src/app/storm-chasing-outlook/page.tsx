@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/site";
 import { Car } from "lucide-react";
 import { ModuleOff } from "@/components/ops/ModuleOff";
 import { PageHero } from "@/components/ui/PageHero";
@@ -13,9 +14,11 @@ import {
 import { supabaseServer } from "@/lib/supabase/server";
 import { ChaseView, type Ledger } from "./ChaseView";
 
-export const metadata: Metadata = {
-  title: "Storm Chasing Outlook · StormSync Media",
-};
+export const metadata: Metadata = pageMeta(
+  "/storm-chasing-outlook",
+  "Storm Chasing Outlook",
+  "Today's two best places to chase, why, what kind of storms, how the day could bust, and how it ranks against the year.",
+);
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 

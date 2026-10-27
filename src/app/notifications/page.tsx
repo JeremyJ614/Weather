@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/site";
 import Link from "next/link";
 import { Bell } from "lucide-react";
 import { PageHero } from "@/components/ui/PageHero";
@@ -6,7 +7,12 @@ import { getViewer } from "@/lib/auth/viewer";
 import { supabaseServer } from "@/lib/supabase/server";
 import { NotifyView, type NotifyData } from "./NotifyView";
 
-export const metadata: Metadata = { title: "Notifications · StormSync Media" };
+export const metadata: Metadata = pageMeta(
+  "/notifications",
+  "Notifications",
+  "Choose every alert you want, where it's for, and when it may buzz.",
+  { noindex: true },
+);
 export const dynamic = "force-dynamic";
 
 /** Notifications: every alert type as a switch, quiet hours, devices, and recent alerts. */

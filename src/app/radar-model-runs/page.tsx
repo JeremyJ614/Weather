@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/site";
 import { Radar } from "lucide-react";
 import { ModuleOff } from "@/components/ops/ModuleOff";
 import { PageHero } from "@/components/ui/PageHero";
@@ -6,9 +7,11 @@ import { getColors } from "@/lib/colors/server";
 import { getSiteDefaults } from "@/lib/settings";
 import { RadarView } from "./RadarView";
 
-export const metadata: Metadata = {
-  title: "Radar & Model Runs · StormSync Media",
-};
+export const metadata: Metadata = pageMeta(
+  "/radar-model-runs",
+  "Radar & Model Runs",
+  "Looping radar, MRMS and satellite, HRRR, GFS and ensemble maps rendered from NOAA's data, a 15-minute nowcast, and every model's forecast for your spot.",
+);
 
 export default async function RadarModelRuns() {
   const [{ disabled }, colors] = await Promise.all([

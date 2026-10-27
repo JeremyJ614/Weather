@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/site";
 import { after } from "next/server";
 import { CircleHelp, Gamepad2, Grid3x3, Radar } from "lucide-react";
 import { ModuleOff } from "@/components/ops/ModuleOff";
@@ -15,7 +16,11 @@ import { GameView, type Guess } from "./GameView";
 import { TriviaView, type TriviaQ } from "./TriviaView";
 import { WeatherdleView, type WdState, type WdStats } from "./WeatherdleView";
 
-export const metadata: Metadata = { title: "WX Games · StormSync Media" };
+export const metadata: Metadata = pageMeta(
+  "/wx-games",
+  "WX Games",
+  "Guess the day's weather word, call where today's severe weather and tornadoes will hit, and test your weather knowledge. Every point counts toward the Leaderboard.",
+);
 
 const SELECT =
   "guess_date,lat,lon,city_label,tor_lat,tor_lon,tor_city_label,severe_points,tornado_points,points";
