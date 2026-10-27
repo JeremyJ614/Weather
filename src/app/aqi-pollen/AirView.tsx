@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { ChevronDown, Flower2, MapPin, Wind } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { LocationSheet } from "@/features/location/LocationSheet";
+import { LocationSheet } from "@/features/location/LazyLocationSheet";
 import { usePlaces } from "@/features/location/usePlaces";
 import { HomeTabs } from "@/features/news/HomeTabs";
 import type { AirReport } from "@/lib/air/air";

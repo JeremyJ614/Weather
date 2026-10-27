@@ -226,3 +226,8 @@
     animation: none;
   }
 }
+/* Off-screen rows skip drawing until scrolled near (find-in-page still sees them). */
+.board li {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 52px;
+}

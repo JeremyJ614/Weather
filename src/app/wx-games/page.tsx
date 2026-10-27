@@ -12,8 +12,9 @@ import { gameDate } from "@/lib/game/score";
 import { healDay } from "@/lib/trivia/generate";
 import { getColors } from "@/lib/colors/server";
 import { healWord } from "@/lib/weatherdle/make";
-import { GameView, type Guess } from "./GameView";
-import { TriviaView, type TriviaQ } from "./TriviaView";
+import type { Guess } from "./GameView";
+import type { TriviaQ } from "./TriviaView";
+import { GameView, TriviaView } from "./Lazy";
 import { WeatherdleView, type WdState, type WdStats } from "./WeatherdleView";
 
 export const metadata: Metadata = pageMeta(

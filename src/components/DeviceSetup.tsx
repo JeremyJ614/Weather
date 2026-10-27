@@ -8,6 +8,11 @@ export function DeviceSetup() {
   useEffect(() => {
     if ("serviceWorker" in navigator && process.env.NODE_ENV === "production") {
       navigator.serviceWorker.register("/sw.js").catch(() => {});
+      // Says so when the worker showed a saved copy (instant reopen).
+      if (navigator.serviceWorker.controller)
+        import("@/features/offline/stale").then((m) =>
+          m.watchStale(navigator.serviceWorker),
+        );
     }
     const nav = navigator as Navigator & {
       deviceMemory?: number;

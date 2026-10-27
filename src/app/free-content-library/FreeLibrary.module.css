@@ -197,3 +197,8 @@
 .pager a[data-next] small {
   justify-content: flex-end;
 }
+/* Off-screen articles skip drawing until scrolled near (find-in-page still sees them). */
+.shelf li {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 110px;
+}
