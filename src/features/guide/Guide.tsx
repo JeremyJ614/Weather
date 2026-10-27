@@ -94,63 +94,33 @@ const TIPS: Step["tips"] = [
 const NEW: Step["tips"] = [
   {
     icon: "Menu",
-    title: "Seven new menus",
-    text: "Hive, Orbit, Shutter and Ribbon Fold for the main menu; Card Fan, Island and Rotary for the Quick Menu. Corner Sweep now covers the whole screen and draws a line through the page you're on. Bottom Rail Pop, Morph FAB and Radar Scope are gone.",
-  },
-  {
-    icon: "CalendarDays",
-    title: "On This Day, retold",
-    text: "Each day, one famous storm from this date in history, written like a person telling it, with that day's tornado tracks, reports or hurricane path on the map and photos when Wikipedia has free ones.",
+    title: "Five new menus",
+    text: "Liquid Metal, Kinetic Type and Jelly Drawer for the main menu; Switcher and Keycaps for the Quick Menu. Hive now sits centred and Ribbon Fold opens cleanly. Live Bento and Card Fan are gone.",
   },
   {
     icon: "MapPin",
     title: "Deer and fishing outlooks",
-    text: "Deer Activity and Fishing Bite are now outlooks for the whole lower 48, Days 1 to 3, drawn like SPC's from the GFS model: Fair to Peak, with the best spots each day. Tap anywhere for its next three days.",
+    text: "Deer Activity and Fishing Bite are outlooks for the whole lower 48, Days 1 to 3, drawn like SPC's: Fair to Peak areas from the GFS model, with the best spots for dawn or dusk each day.",
   },
   {
-    icon: "Rainbow",
-    title: "Rainbow Chance, sharper",
-    text: "Only real rain counts now, not drizzle or radar clutter, and the sky toward the sun comes from the HRRR's clouds too, so low-sun evenings read right.",
+    icon: "Sparkles",
+    title: "Four new Randoms",
+    text: "In Extras: Ink Flow, Murmuration, Falling Sand and Galaxy Forge. Touch them and they answer.",
   },
   {
     icon: "Zap",
-    title: "Ten new Weather Engines",
-    text: "In Extras: Lightning Surge, First Storms, Boundary Collisions, Severe Analogs, Rain-Wrap, Blizzard, Sunset & Sunrise, Rainbow Chance, Deer Activity and Fishing Bite. Each checks itself against what really happened. ProbHail, Rotation Tracks and Snow Squalls were retired.",
+    title: "Opens fast on a weak signal",
+    text: "When the signal is slow or gone, pages you've opened before show right away from your last visit, with a note saying how old they are and a Refresh button once newer data arrives. Warnings and alerts are always live.",
   },
   {
-    icon: "Grid3x3",
-    title: "Weatherdle",
-    text: "A new weather word every day in WX Games, any length, six tries. Solves earn Leaderboard points; share your grid.",
+    icon: "Rocket",
+    title: "Smoother and lighter",
+    text: "Your Quick Menu pages load ahead of time on Wi-Fi, satellite loops play from the graphics chip, archive radar decodes in the background, and long lists scroll lighter.",
   },
   {
-    icon: "Thermometer",
-    title: "Climate Extremes",
-    text: "The hottest, coldest and windiest places in the country right now, and every record the Weather Service reported this week.",
-  },
-  {
-    icon: "Car",
-    title: "Two chase targets, always",
-    text: "Storm Chasing Outlook now picks two targets at least 125 miles apart, so they're two different chases, and says how far apart they are.",
-  },
-  {
-    icon: "FlaskConical",
-    title: "Engines that read like SPC maps",
-    text: "ProbTor and the model engines in Extras draw nested, outlined areas like an SPC outlook.",
-  },
-  {
-    icon: "Route",
-    title: "Replay a chase",
-    text: "Draw your route in the Storm Chasing Log; it snaps to the roads, finds the storms near it and replays them on radar.",
-  },
-  {
-    icon: "HeartHandshake",
-    title: "Disaster Response",
-    text: "Groups that help after storms, what they do and where, and how to give to them or help them.",
-  },
-  {
-    icon: "HandCoins",
-    title: "Donate",
-    text: "Support StormSync with a gift of any amount, once or every month, and add your name to the supporters wall.",
+    icon: "Megaphone",
+    title: "Share a story",
+    text: "On This Day, library articles and news have a Share button, and links you send show a preview card with the page's picture.",
   },
 ];
 
