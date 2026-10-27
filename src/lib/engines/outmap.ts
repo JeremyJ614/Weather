@@ -441,10 +441,11 @@ export async function computeOutdoorMaps(now = Date.now()): Promise<OutMap[]> {
   ];
 }
 
-const rowId = (kind: "deer" | "fish", sp?: SpeciesId) =>
-  kind === "deer" ? "outmap:deer" : `outmap:fish:${sp ?? "bass"}`;
+/** Each map's row in `engine_maps` (ids are at most 16 characters there). */
+export const rowId = (kind: "deer" | "fish", sp?: SpeciesId) =>
+  kind === "deer" ? "out:deer" : `out:${sp ?? "bass"}`;
 /** The row that carries the refresh claim for all six maps. */
-const LEAD = "outmap:deer";
+const LEAD = "out:deer";
 
 type Row = { cycle: string; data: OutMap; checked_at: string };
 
@@ -567,7 +568,7 @@ export async function refreshOutdoorIfStale() {
     await supabaseAdmin()
       .from("engine_maps")
       .update({ checked_at: now })
-      .like("id", "outmap:%");
+      .like("id", "out:%");
     return { refreshed: false, cycle: row.cycle };
   }
   if (row && !(await claim())) return { refreshed: false, busy: true };

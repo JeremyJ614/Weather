@@ -53,3 +53,13 @@ describe("Deer and Fishing outlooks", () => {
     for (const x of lons(0)) expect(Math.round(x * 100) / 100).toBe(x);
   });
 });
+
+describe("Deer and Fishing storage", () => {
+  it("fits every map's id in engine_maps (16 characters at most)", async () => {
+    const { rowId } = await import("@/lib/engines/outmap");
+    const { SPECIES } = await import("@/lib/engines/outdoor");
+    const ids = [rowId("deer"), ...SPECIES.map((s) => rowId("fish", s.id))];
+    for (const id of ids) expect(id.length).toBeLessThanOrEqual(16);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+});
