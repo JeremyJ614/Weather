@@ -1,0 +1,81 @@
+/* The place in the header (Fix list 2026-10-30 #6). In the top-right corner when no menu uses
+   it; otherwise stacked under the StormSync logo in the corner the logo takes. */
+.wrap {
+  pointer-events: auto;
+  position: absolute;
+  top: calc(13px + env(safe-area-inset-top, 0px));
+  right: 12px;
+  animation: in 700ms var(--ease) 120ms both;
+}
+:global(html[data-top-right]) .wrap {
+  top: calc(31px + env(safe-area-inset-top, 0px));
+  right: auto;
+  left: 12px;
+}
+:global(html[data-logo-side="right"]) .wrap {
+  top: calc(31px + env(safe-area-inset-top, 0px));
+  right: 12px;
+  left: auto;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  /* Clear of the masthead (about 164 px wide, centered). */
+  max-width: min(160px, calc(50vw - 100px));
+  min-height: 30px;
+  padding: 0 9px 0 7px;
+  border: 1px solid color-mix(in srgb, var(--accent) 38%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1;
+  box-shadow:
+    0 0 14px -6px var(--accent),
+    inset 0 1px 0 rgb(255 255 255 / 0.06);
+  -webkit-tap-highlight-color: transparent;
+  transition: transform var(--t-fast) var(--ease);
+}
+.chip:active {
+  transform: scale(0.96);
+}
+:global(html[data-top-right]) .chip,
+:global(html[data-logo-side="right"]) .chip {
+  min-height: 24px;
+  padding: 0 9px 0 6px;
+  font-size: 11px;
+  max-width: min(150px, calc(50vw - 96px));
+}
+.chip svg {
+  flex: none;
+  width: 13px;
+  height: 13px;
+  color: var(--accent);
+  filter: drop-shadow(
+    0 0 4px color-mix(in srgb, var(--accent) 60%, transparent)
+  );
+}
+.chip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+:global(html[data-top-right]) .chip svg,
+:global(html[data-logo-side="right"]) .chip svg {
+  width: 12px;
+  height: 12px;
+}
+@keyframes in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wrap {
+    animation: none;
+  }
+}

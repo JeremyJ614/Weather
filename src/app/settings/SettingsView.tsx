@@ -16,8 +16,14 @@ import { savePrefs } from "@/features/account/PrefsSync";
 import { parsePref, type IntroPref } from "@/features/intro/schedule";
 import { KEYS } from "@/lib/prefs-keys";
 import { FONT_SETS, PALETTES, TEMPLATES } from "@/lib/theme/registry";
-import { QuickMenu } from "./QuickMenu";
+import dynamic from "next/dynamic";
 import s from "./Settings.module.css";
+
+// Quick Menu pins read this device's storage, so they load after the page (speed budget).
+const QuickMenu = dynamic(
+  () => import("./QuickMenu").then((m) => m.QuickMenu),
+  { ssr: false },
+);
 
 type Pair = { main: string; second: string };
 type Theme = { palette: string; font: string };

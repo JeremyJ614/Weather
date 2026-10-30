@@ -90,6 +90,7 @@ export function MenuHost({
   );
   const bar = [mp, sp].some((p) => p.id === "bottom-bar");
   const topLeft = [mp, sp].some((p) => p.id.startsWith("top-left"));
+  const topRight = [mp, sp].some((p) => p.id.startsWith("top-right"));
   useEffect(() => {
     // Pages keep their last lines clear of a full-width bottom bar.
     const root = document.documentElement;
@@ -98,7 +99,10 @@ export function MenuHost({
     // The header's logo takes whichever top corner no menu uses.
     if (topLeft) root.dataset.logoSide = "right";
     else delete root.dataset.logoSide;
-  }, [bar, topLeft]);
+    // The header's place leaves a top-right menu its corner (HeaderLocation).
+    if (topRight) root.dataset.topRight = "";
+    else delete root.dataset.topRight;
+  }, [bar, topLeft, topRight]);
   // Admin-only pages are listed only for admins; the pages themselves check on the server.
   const { isAdmin, signedIn, adminShortcuts, pending, locked } = useViewer();
   const guest = !signedIn && !pending;
