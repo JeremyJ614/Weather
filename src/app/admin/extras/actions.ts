@@ -4,6 +4,7 @@ import { revalidatePath, updateTag } from "next/cache";
 import { requireAdmin } from "@/lib/auth/admin-guard";
 import {
   cleanItems,
+  defaultState,
   EXTRAS_ITEMS,
   ITEM_STATES,
   type ItemState,
@@ -54,8 +55,8 @@ export async function setExtrasItem(
     .eq("key", "extras_items")
     .maybeSingle();
   const next: Record<string, ItemState> = { ...cleanItems(data?.value) };
-  const was = next[id] ?? "on";
-  if (state === "on") delete next[id];
+  const was = next[id] ?? defaultState(id);
+  if (state === defaultState(id)) delete next[id];
   else next[id] = state;
   const { error } = await supabase
     .from("app_config")

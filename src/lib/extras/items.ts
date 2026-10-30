@@ -252,25 +252,55 @@ export const EXTRAS_ITEMS = [
     "Telescope",
     "A spiral galaxy, then two colliding.",
   ),
+  r(
+    "ocean",
+    "Ocean Day Cycle",
+    "ocean-day-cycle",
+    "Waves",
+    "A shader ocean from dawn through a lightning storm to moonlit night.",
+  ),
+  r(
+    "spacetime",
+    "Curved Spacetime",
+    "curved-spacetime",
+    "Orbit",
+    "Stars, planets and black holes bending a glowing grid you can throw them across.",
+  ),
 ] as const;
+
+/**
+ * Built and waiting on the owner's approval (Fix list 2026-10-30 #5): hidden until switched on
+ * in admin → Extras; admins see it in its tab marked as a preview.
+ */
+const AWAITING: ReadonlySet<string> = new Set(["spacetime"]);
+/** Still waiting on the owner: an admin sees it in its tab, marked as a preview. */
+export const awaiting = (s: ExtrasStates, id: string) =>
+  AWAITING.has(id) && !(id in s);
+/** What an item is when the owner hasn't set it. */
+export const defaultState = (id: string): ItemState =>
+  AWAITING.has(id) ? "hidden" : "on";
 
 export type ExtrasItemId = (typeof EXTRAS_ITEMS)[number]["id"];
 export type ExtrasStates = Partial<Record<ExtrasItemId, ItemState>>;
 
 const IDS = new Set<string>(EXTRAS_ITEMS.map((i) => i.id));
 
-/** Only known items with a known state; anything missing is "on". */
+/** Only known items with a known state; anything missing is its default (`defaultState`). */
 export function cleanItems(raw: unknown): ExtrasStates {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
   const out: ExtrasStates = {};
   for (const [k, v] of Object.entries(raw as Record<string, unknown>))
-    if (IDS.has(k) && ITEM_STATES.includes(v as ItemState) && v !== "on")
+    if (
+      IDS.has(k) &&
+      ITEM_STATES.includes(v as ItemState) &&
+      v !== defaultState(k)
+    )
       out[k as ExtrasItemId] = v as ItemState;
   return out;
 }
 
 export const stateOf = (s: ExtrasStates, id: string): ItemState =>
-  s[id as ExtrasItemId] ?? "on";
+  s[id as ExtrasItemId] ?? defaultState(id);
 
 /** Whether it works (its data is made, its routes answer): in its tab or on its own page. */
 export const isLive = (s: ExtrasStates, id: string) => {

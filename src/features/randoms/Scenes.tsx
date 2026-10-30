@@ -13,6 +13,12 @@ import type { Slider } from "./engines/slider";
 import type { Ink } from "./engines/ink";
 import type { Material, Sand } from "./engines/sand";
 import type { Galaxy } from "./engines/galaxy";
+import type { Ocean } from "./engines/ocean";
+import type {
+  Spacetime,
+  SpacetimeScene,
+  SpacetimeTheme,
+} from "./engines/spacetime";
 import { SLIDES } from "./slides";
 import s from "./Randoms.module.css";
 
@@ -683,6 +689,180 @@ export function GalaxyScene() {
           Drag to turn it, scroll to zoom. Colliding galaxies throw out long
           tidal tails before their cores merge, as the Antennae and the Mice did
           in real life.
+        </p>
+      </section>
+    </>
+  );
+}
+
+export function OceanScene() {
+  const [scene, setScene] = useState<Ocean | null>(null);
+  const [list, setList] = useState<
+    typeof import("./engines/ocean").OCEAN_SCENES | null
+  >(null);
+  const [day, setDay] = useState(0);
+  const [auto, setAuto] = useState(true);
+  const n = list?.length ?? 6;
+  const at = list?.[Math.min(n - 1, Math.floor(day * n))];
+  return (
+    <>
+      <Stage
+        label="Ocean Day Cycle: a shader ocean from dawn through storm and night"
+        load={async (el, ctx) => {
+          const m = await import("./engines/ocean");
+          setList(m.OCEAN_SCENES);
+          if (ctx.reduced) setAuto(false);
+          return m.mount(el, ctx);
+        }}
+        onReady={(sc) => {
+          setScene(sc);
+          sc.onProgress(setDay);
+        }}
+        shape="tall"
+      >
+        {at && (
+          <div className={s.title}>
+            <small>Ocean Day Cycle · {Math.round(day * 100)}%</small>
+            <b>{at.name}</b>
+            <p>{at.about}</p>
+          </div>
+        )}
+      </Stage>
+      <section className={s.panel}>
+        <Range
+          label="Time of day"
+          min={0}
+          max={100}
+          step={1}
+          value={Math.round(day * 100)}
+          onChange={(v) => {
+            setAuto(false);
+            scene?.seek(v / 100);
+          }}
+        />
+        <Toggles
+          items={(list ?? []).map((x, i) => ({
+            label: x.name,
+            on: at?.name === x.name,
+            set: () => {
+              setAuto(false);
+              scene?.seek(i / (n - 1));
+            },
+          }))}
+        />
+        <Toggles
+          items={[
+            {
+              label: "Auto day cycle",
+              on: auto,
+              set: (on) => {
+                setAuto(on);
+                scene?.auto(on);
+              },
+            },
+          ]}
+        />
+        <p className={s.hint}>
+          Drag across the water to move through the day. The storm brings
+          lightning out on the horizon; at night the moon lays a silver path on
+          the swells. If your phone can&apos;t hold a smooth frame rate, it
+          renders a little softer on its own.
+        </p>
+      </section>
+    </>
+  );
+}
+
+export function SpacetimeScene() {
+  const [scene, setScene] = useState<Spacetime | null>(null);
+  const [now, setNow] = useState<SpacetimeScene>("orbit");
+  const [theme, setTheme] = useState<SpacetimeTheme>("classic");
+  const [full, setFull] = useState(false);
+  const scenes: [SpacetimeScene, string][] = [
+    ["orbit", "Star & planet"],
+    ["binary", "Binary stars"],
+    ["merger", "Black hole merger"],
+    ["solar", "Solar system"],
+  ];
+  return (
+    <>
+      <Stage
+        label="Curved Spacetime: stars, planets and black holes bending a glowing grid"
+        load={async (el, ctx) =>
+          (await import("./engines/spacetime")).mount(el, ctx)
+        }
+        onReady={(sc) => setScene(sc)}
+        shape="tall"
+      >
+        <div className={s.title}>
+          <small>Curved Spacetime</small>
+          <b>Gravity as a rubber sheet</b>
+        </div>
+      </Stage>
+      <section className={s.panel}>
+        <h4>Start from</h4>
+        <Toggles
+          items={scenes.map(([k, label]) => ({
+            label,
+            on: now === k,
+            set: () => {
+              setNow(k);
+              setFull(false);
+              scene?.scene(k);
+            },
+          }))}
+        />
+        <h4>Add</h4>
+        <Toggles
+          items={[
+            ...(["planet", "star", "hole"] as const).map((k) => ({
+              label:
+                k === "planet"
+                  ? "+ Planet"
+                  : k === "star"
+                    ? "+ Star"
+                    : "+ Black hole",
+              on: false,
+              set: () => setFull(!(scene?.add(k) ?? true)),
+            })),
+            {
+              label: "Clear",
+              on: false,
+              set: () => {
+                setFull(false);
+                scene?.clear();
+              },
+            },
+          ]}
+        />
+        {full && (
+          <p className={s.hint} role="status">
+            The sheet holds eight bodies at most, with room around each. Clear
+            some or let them merge.
+          </p>
+        )}
+        <h4>Grid colors</h4>
+        <Toggles
+          items={(
+            [
+              ["classic", "Classic"],
+              ["gold", "StormSync gold"],
+              ["royal", "Royal purple"],
+            ] as const
+          ).map(([k, label]) => ({
+            label,
+            on: theme === k,
+            set: () => {
+              setTheme(k);
+              scene?.theme(k);
+            },
+          }))}
+        />
+        <p className={s.hint}>
+          Drag a body to move or throw it, pinch on one to change its mass,
+          double-tap empty space for a planet or hold for a black hole. Drag
+          space to orbit, pinch to zoom. Two black holes that meet merge and
+          send gravitational-wave ripples across the sheet.
         </p>
       </section>
     </>
