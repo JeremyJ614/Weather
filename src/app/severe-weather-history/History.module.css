@@ -133,9 +133,7 @@
 }
 .top li {
   display: grid;
-  grid-template-columns: 3rem 1fr auto;
   align-items: center;
-  gap: 8px;
   padding: 8px 10px;
   border: 1px solid var(--line);
   border-left: 4px solid var(--c);
@@ -159,4 +157,194 @@
   font-size: 11.5px;
   line-height: 1.6;
   color: var(--muted);
+}
+/* Fix list 2026-10-30 #7. Track and outline widths: the national width in map units, or a
+   steady width in screen pixels once zoomed in (--px is map units per screen pixel). */
+.tracks {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.tracks path {
+  stroke-width: min(
+    calc(var(--cw) * 1px),
+    calc(var(--px, 1) * var(--sw) * 1px)
+  );
+}
+.tagged {
+  stroke-linejoin: round;
+  stroke-width: min(
+    calc(var(--cw) * 1px),
+    calc(var(--px, 1) * var(--sw) * 1px)
+  );
+}
+.plain {
+  stroke-width: min(0.3px, calc(var(--px, 1) * 0.8px));
+}
+.picked path {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: calc(var(--px, 1) * 4px);
+}
+.picked .halo {
+  stroke: #fff;
+  stroke-opacity: 0.85;
+  stroke-width: calc(var(--px, 1) * 9px);
+  filter: drop-shadow(0 0 calc(var(--px, 1) * 6px) var(--accent));
+}
+.range {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+}
+.range label {
+  display: grid;
+  gap: 4px;
+  flex: 1 1 120px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.range input {
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--text);
+  color-scheme: dark;
+  font-size: 14px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.range button {
+  min-height: 40px;
+  padding: 0 18px;
+  border: 1px solid var(--lit-line);
+  border-radius: 999px;
+  background: var(--lit);
+  color: var(--accent);
+  font-weight: 800;
+}
+.range button:disabled {
+  opacity: 0.4;
+}
+.range small {
+  flex-basis: 100%;
+  color: var(--muted);
+  font-size: 12px;
+}
+.states {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+}
+.states summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  list-style: none;
+}
+.states summary::-webkit-details-marker {
+  display: none;
+}
+.states summary svg {
+  width: 16px;
+  color: var(--accent);
+}
+.stateTools {
+  display: flex;
+  gap: 6px;
+  padding: 0 14px 8px;
+}
+.stateTools button {
+  min-height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.stateGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+  gap: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 0 14px 14px;
+}
+.stateGrid label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.stateGrid input {
+  accent-color: var(--accent);
+}
+.stateGrid small {
+  margin-left: auto;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.top button {
+  display: grid;
+  grid-template-columns: 3rem 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+}
+.top button svg {
+  width: 15px;
+  color: var(--muted);
+}
+.top button[aria-current] svg {
+  color: var(--accent);
+}
+.top li:has(button[aria-current]) {
+  border-color: var(--c);
+  box-shadow: 0 0 14px -6px var(--c);
+}
+.tagLegend {
+  display: grid;
+  gap: 6px;
+}
+.tagLegend li {
+  display: grid;
+  grid-template-columns: 22px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+.tagLegend i {
+  width: 22px;
+  height: 14px;
+  border: 2.5px solid var(--c);
+  border-radius: 3px;
+  background: rgb(255 255 255 / 0.04);
+  box-shadow: 0 0 8px -2px var(--c);
+}
+.tagLegend b {
+  font-family: var(--font-mono);
+  color: var(--c);
 }

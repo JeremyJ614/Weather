@@ -3,7 +3,8 @@ import { tornadoTracks } from "@/lib/history/data";
 export const maxDuration = 60;
 
 /**
- * GET /api/history/tornadoes?year=2025 or ?days=30|90 → projected tornado tracks.
+ * GET /api/history/tornadoes?year=2025, ?days=30|90 or ?from=YYYY-MM-DD&to=YYYY-MM-DD →
+ * projected tornado tracks.
  * A finished year never changes, so it is cached for a week; recent windows for an hour.
  */
 export async function GET(req: Request) {
@@ -24,6 +25,19 @@ export async function GET(req: Request) {
       .toISOString()
       .slice(0, 10);
     end = new Date(now.getTime() + 86400000).toISOString().slice(0, 10);
+  } else if (
+    // A chosen range (Fix list 2026-10-30 #7): from/to dates, up to two years, 2000 on.
+    /^\d{4}-\d{2}-\d{2}$/.test(q.get("from") ?? "") &&
+    /^\d{4}-\d{2}-\d{2}$/.test(q.get("to") ?? "") &&
+    q.get("from")! >= "2000-01-01" &&
+    q.get("from")! <= q.get("to")! &&
+    Date.parse(q.get("to")!) - Date.parse(q.get("from")!) <= 731 * 86400000
+  ) {
+    start = q.get("from")!;
+    end = new Date(Date.parse(q.get("to")!) + 86400000)
+      .toISOString()
+      .slice(0, 10);
+    if (end < now.toISOString().slice(0, 10)) ttl = 7 * 86400;
   } else
     return Response.json(
       { error: "Pick a year or a window." },
