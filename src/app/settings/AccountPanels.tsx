@@ -7,7 +7,9 @@ import {
   Download,
   KeyRound,
   LogOut,
+  Package,
   Smartphone,
+  TabletSmartphone,
   Trash2,
 } from "lucide-react";
 import { manageBilling } from "@/app/join/actions";
@@ -18,6 +20,7 @@ import {
   signOutEverywhere,
   type AccState,
 } from "./actions";
+import { APK_URL, GUIDE_LINKS } from "@/features/help/install-links";
 import s from "./Settings.module.css";
 
 export type PlanSummary = {
@@ -274,12 +277,24 @@ function InstallCard() {
       {!installed && android && (
         <p className={s.note}>
           Or{" "}
-          <a href="/downloads/stormsync-weather.apk" download>
+          <a href={APK_URL} download>
             download the Android app
           </a>{" "}
           (2.3 MB). Allow installs from your browser when Android asks.
         </p>
       )}
+      <div className={s.guides}>
+        <p className={s.note}>Step-by-step guides:</p>
+        <Link href={GUIDE_LINKS.iphone}>
+          <Smartphone aria-hidden /> Install on iPhone or iPad
+        </Link>
+        <Link href={GUIDE_LINKS.android}>
+          <TabletSmartphone aria-hidden /> Install on Android
+        </Link>
+        <Link href={GUIDE_LINKS.apk}>
+          <Package aria-hidden /> Android app file (APK): download and install
+        </Link>
+      </div>
     </section>
   );
 }
