@@ -115,9 +115,11 @@ export async function refreshField(id: FieldId): Promise<FieldMap> {
  */
 export async function storedField(
   id: FieldId,
+  /** Skip this server's copy and read the stored map (a refresh key press). */
+  fresh = false,
 ): Promise<{ map: FieldMap; later: (() => Promise<unknown>) | null }> {
   const mine = memo.get(id);
-  if (mine && Date.now() - mine.at < MEMO_MS)
+  if (!fresh && mine && Date.now() - mine.at < MEMO_MS)
     return { map: mine.data, later: null };
   const row = await read(id).catch(() => null);
   if (!row) return { map: await refreshField(id), later: null };
