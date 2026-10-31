@@ -818,7 +818,14 @@ export const TERMS: Term[] = [
     term: "HREF",
     full: "High-Resolution Ensemble Forecast",
     category: "Models",
-    desc: "An ensemble of high-resolution models designed to characterize convective hazard potential. Used by SPC for severe weather outlooks. Excels at capturing the probabilistic nature of convective initiation.",
+    desc: "An ensemble of high-resolution models designed to characterize convective hazard potential, long used by SPC for severe weather outlooks. Retired in 2026 and replaced by REFS.",
+    unit: "",
+  },
+  {
+    term: "REFS",
+    full: "Rapid Refresh Forecast System Ensemble Forecast System",
+    category: "Models",
+    desc: "NOAA's 3 km storm-scale ensemble that replaced HREF in 2026: 14 members (the RRFS, its own five-member ensemble and two HRRR runs, from the current and previous cycles) out to 60 hours. Its chance maps show how likely a threshold is met near a point, such as updraft helicity over 75 for supercells.",
     unit: "",
   },
   {

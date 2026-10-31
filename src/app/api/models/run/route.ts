@@ -7,7 +7,7 @@ import {
   type ModelId,
 } from "@/lib/models/render";
 
-/** GET /api/models/run?model=hrrr|gfs|href → recent cycles, forecast hours and every parameter with its legend. */
+/** GET /api/models/run?model=hrrr|gfs|refs → recent cycles, forecast hours and every parameter with its legend. */
 export async function GET(req: Request) {
   const model = new URL(req.url).searchParams.get("model") as ModelId;
   const m = MODELS[model];

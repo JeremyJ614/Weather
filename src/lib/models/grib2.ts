@@ -1,7 +1,7 @@
 /**
  * A small GRIB2 reader for the records the model viewer draws: one message (one field),
  * on a regular lat/lon grid (template 3.0, GFS) or Lambert conformal (3.30, HRRR and
- * HREF), packed simply (5.0) or with complex packing and spatial differencing (5.2/5.3,
+ * REFS), packed simply (5.0) or with complex packing and spatial differencing (5.2/5.3,
  * which is what NCEP uses). Values come back as a Float32Array in the file's own scan
  * order; NaN where the field is missing.
  */
@@ -244,7 +244,7 @@ export function decodeGrib2(buf: Uint8Array): Field {
 
 /**
  * Fractional grid position (i across, j up the file's rows) for a lat/lon, or null off
- * the grid. HRRR/HREF scan south to north (+i, +j); GFS scans north to south.
+ * the grid. HRRR/REFS scan south to north (+i, +j); GFS scans north to south.
  */
 export function locator(
   grid: Grid,

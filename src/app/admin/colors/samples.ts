@@ -3,6 +3,7 @@ import { project } from "@/lib/map/usAlbers";
 import { PROB_STEPS } from "@/lib/colors/spc";
 import { hazardKind } from "@/lib/hazards/style";
 import { tierOf } from "@/lib/tropical/style";
+import { COLOR as WARN } from "@/lib/warnings/style";
 import {
   FIELD_BANDS,
   OUTDOOR_BANDS,
@@ -32,6 +33,8 @@ export type Sample = {
   /** Drawn over the states, unclipped (oceans, tracks). */
   over: Shape[];
   dots: Dot[];
+  /** Numbered markers (x, y on the canvas) whose key list doubles as the legend. */
+  marks?: { k: string; label: string; x: number; y: number }[];
 };
 
 const CAT = ["TSTM", "MRGL", "SLGT", "ENH", "MDT", "HIGH"];
@@ -153,6 +156,69 @@ async function warnTags(): Promise<Sample> {
       .filter((s) => s.d),
     dots: [],
   };
+}
+
+type Base = {
+  states: { id: string; d: string }[];
+  labels: { abbr: string; x: number; y: number }[];
+};
+const OFFSHORE = new Set(["AK", "HI", "PR", "DC"]);
+const WARN_KINDS = Object.keys(WARN);
+const WARN_MAPS = 3;
+
+/**
+ * Every Warnings-map color on the Severe Weather History map, a third per map: each warning
+ * type fills one state, picked evenly across the country (west to east in bands, north to
+ * south), with a numbered marker that matches the legend.
+ */
+async function warnMap(part: number): Promise<Sample> {
+  const b = await json<Base>("/api/maps/base");
+  const at = new Map(b.labels.map((l) => [l.abbr, l]));
+  const per = Math.ceil(WARN_KINDS.length / WARN_MAPS);
+  const kinds = WARN_KINDS.slice(part * per, (part + 1) * per);
+  // Serpentine order through four bands, so neighbors in the list are neighbors on the map.
+  const states = b.states
+    .filter((st) => !OFFSHORE.has(st.id) && at.has(st.id))
+    .map((st) => ({ ...st, ...at.get(st.id)! }));
+  const ys = states.map((st) => st.y).sort((a, c) => a - c);
+  const band = (y: number) =>
+    Math.min(3, Math.floor((ys.indexOf(y) / ys.length) * 4));
+  states.sort((a, c) => {
+    const ba = band(a.y);
+    const bc = band(c.y);
+    return ba !== bc ? ba - bc : ba % 2 ? c.x - a.x : a.x - c.x;
+  });
+  const picked = kinds.map(
+    (k, i) =>
+      [
+        k,
+        states[Math.floor(((i + 0.5) * states.length) / kinds.length)],
+      ] as const,
+  );
+  const first = part * per + 1;
+  return {
+    title: `Warning colors ${first}–${first + kinds.length - 1} of ${WARN_KINDS.length}, one state each`,
+    under: picked.map(([k, st]) => ({ k: `warn:${k}`, d: st.d, o: 0.85 })),
+    over: [],
+    dots: [],
+    marks: picked.map(([k, st], i) => ({
+      k: `warn:${k}`,
+      label: `${first + i}. ${k}`,
+      x: st.x,
+      y: st.y,
+    })),
+  };
+}
+
+/** Groups whose colors are spread over several example maps, picked with chips. */
+export function samplesFor(
+  id: string,
+): { label: string; load: () => Promise<Sample> }[] | null {
+  if (id !== "warnings") return null;
+  return Array.from({ length: WARN_MAPS }, (_, i) => ({
+    label: `Map ${i + 1}`,
+    load: () => warnMap(i),
+  }));
 }
 
 async function drought(): Promise<Sample> {

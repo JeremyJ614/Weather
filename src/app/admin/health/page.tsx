@@ -1,5 +1,19 @@
 import type { Metadata } from "next";
 import { requireAdmin } from "@/lib/auth/admin-guard";
+import {
+  Bars,
+  Banner,
+  Card,
+  Chips,
+  Meter,
+  Note,
+  Page,
+  Row,
+  Rows,
+  Tile,
+  Tiles,
+  TONE,
+} from "@/components/admin/Dash";
 
 export const metadata: Metadata = {
   title: "System health · Admin · StormSync Media",
@@ -42,88 +56,142 @@ const CACHES: Record<string, [string, number]> = {
 const DB_LIMIT = 500e6;
 const now = () => Date.now();
 
-/** Database size, biggest tables, cache ages and scheduled jobs (VIP #44). */
+/**
+ * Database size, biggest tables, cache ages and scheduled jobs (VIP #44), led by a verdict
+ * and sorted so anything wrong is on top (owner's follow-up #5).
+ */
 export default async function HealthPage() {
   const { supabase } = await requireAdmin("health");
   const { data, error } = await supabase.rpc("admin_health");
   const h = data as Health | null;
   if (error || !h)
     return (
-      <main className="mx-auto max-w-2xl px-4 pt-6 pb-24">
-        <h1 className="display text-3xl text-accent">System health</h1>
-        <p className="mt-4 text-muted">
-          Health couldn&apos;t be read right now. Reload to try again.
-        </p>
-      </main>
+      <Page title="System health">
+        <Banner
+          color={TONE.bad}
+          title="Health couldn't be read right now"
+          detail="Reload to try again."
+        />
+      </Page>
     );
+  const dbF = h.db_bytes / DB_LIMIT;
+  const caches = Object.entries(CACHES).map(([k, [label, maxMin]]) => {
+    const at = h.caches[k];
+    const age = at ? (now() - Date.parse(at)) / 60000 : Infinity;
+    return { label, at, f: Math.min(1, age / maxMin), stale: age > maxMin };
+  });
+  const stale = caches.filter((c) => c.stale);
+  const failed = h.cron.filter((j) => j.ok === false);
+  const issues =
+    stale.length +
+    failed.length +
+    (dbF > 0.8 ? 1 : 0) +
+    (h.errors_24h > 10 ? 1 : 0);
+  const verdict =
+    failed.length || dbF > 0.9 ? TONE.bad : issues ? TONE.warn : TONE.good;
+  const tables = (h.tables ?? []).slice(0, 12);
   return (
-    <main className="mx-auto grid max-w-2xl gap-4 px-4 pt-6 pb-24">
-      <h1 className="display text-3xl text-accent">System health</h1>
-      <div className="grid grid-cols-3 gap-2">
-        {[
-          [
-            "Database",
-            mb(h.db_bytes),
-            `${Math.round((h.db_bytes / DB_LIMIT) * 100)}% of free 500 MB`,
-          ],
-          ["Members", String(h.members), "profiles"],
-          ["Errors", String(h.errors_24h), "groups seen in 24 h"],
-        ].map(([k, v, sub]) => (
-          <div
-            key={k}
-            className="grid gap-0.5 rounded-2xl border border-line bg-surface p-3"
-          >
-            <span className="text-xs text-muted">{k}</span>
-            <b className="mono text-xl text-accent">{v}</b>
-            <span className="text-[11px] text-muted">{sub}</span>
-          </div>
-        ))}
-      </div>
-      <section className="grid gap-2 rounded-2xl border border-line bg-surface p-4">
-        <h2 className="font-bold">Caches</h2>
-        {Object.entries(CACHES).map(([k, [label, maxMin]]) => {
-          const at = h.caches[k];
-          const stale = !at || now() - Date.parse(at) > maxMin * 60000;
-          return (
-            <p key={k} className="flex justify-between gap-3 text-sm">
-              <span>{label}</span>
-              <span className={stale ? "text-[#fbbf24]" : "text-muted"}>
-                {ago(at)}
-                {stale && " · stale"}
-              </span>
-            </p>
-          );
-        })}
-      </section>
-      <section className="grid gap-2 rounded-2xl border border-line bg-surface p-4">
-        <h2 className="font-bold">Scheduled jobs</h2>
-        {h.cron.map((j) => (
-          <p key={j.job} className="flex justify-between gap-3 text-sm">
-            <span className="min-w-0 truncate">
-              {j.job}{" "}
-              <span className="mono text-xs text-muted">{j.schedule}</span>
-            </span>
-            <span className={j.ok === false ? "text-[#f87171]" : "text-muted"}>
-              {j.ok === false ? "failed · " : ""}
-              {ago(j.last)}
-            </span>
-          </p>
-        ))}
-      </section>
-      <section className="grid gap-1 rounded-2xl border border-line bg-surface p-4">
-        <h2 className="mb-1 font-bold">Tables</h2>
-        {(h.tables ?? []).slice(0, 25).map((t) => (
-          <p
-            key={t.name}
-            className="flex justify-between gap-3 text-sm tabular-nums"
-          >
-            <span className="mono min-w-0 truncate text-xs">{t.name}</span>
-            <span className="text-muted">
-              {t.rows.toLocaleString("en-US")} rows · {mb(t.bytes)}
-            </span>
-          </p>
-        ))}
-      </section>
-    </main>
+    <Page
+      title="System health"
+      lead="Database room, how fresh each cached feed is, and every scheduled job, worst first."
+    >
+      <Banner
+        color={verdict}
+        title={
+          issues
+            ? `${issues} ${issues === 1 ? "thing needs" : "things need"} a look`
+            : "All systems normal"
+        }
+        detail={[
+          failed.length
+            ? `${failed.length} failed ${failed.length === 1 ? "job" : "jobs"}`
+            : null,
+          stale.length
+            ? `${stale.length} stale ${stale.length === 1 ? "cache" : "caches"}`
+            : null,
+          `${h.errors_24h} error groups in 24 h`,
+        ]
+          .filter(Boolean)
+          .join(" · ")}
+      />
+      <Tiles>
+        <Tile
+          hero
+          label="Database"
+          value={mb(h.db_bytes)}
+          sub={`${Math.round(dbF * 100)}% of the free 500 MB`}
+          color={dbF > 0.8 ? TONE.warn : TONE.good}
+        />
+        <Tile
+          label="Members"
+          value={h.members.toLocaleString("en-US")}
+          sub="profiles"
+          color={TONE.info}
+        />
+        <Tile
+          label="Errors"
+          value={h.errors_24h}
+          sub="groups seen in 24 h"
+          color={h.errors_24h > 10 ? TONE.bad : TONE.violet}
+        />
+        <Tile
+          label="Jobs"
+          value={`${h.cron.length - failed.length}/${h.cron.length}`}
+          sub="last run fine"
+          color={failed.length ? TONE.bad : TONE.good}
+        />
+      </Tiles>
+      <Card title="Database room" meta={`${mb(DB_LIMIT - h.db_bytes)} left`}>
+        <Meter f={dbF} color={dbF > 0.8 ? TONE.warn : TONE.good} />
+      </Card>
+      <Card title="Caches" meta="bar = age against its limit">
+        <Rows>
+          {[...caches]
+            .sort((a, b) => b.f - a.f)
+            .map((c) => (
+              <div key={c.label} style={{ display: "grid", gap: 4 }}>
+                <Row
+                  color={c.stale ? TONE.warn : TONE.good}
+                  name={c.label}
+                  detail={`${ago(c.at)}${c.stale ? " · stale" : ""}`}
+                />
+                <Meter f={c.f} color={c.stale ? TONE.warn : TONE.good} />
+              </div>
+            ))}
+        </Rows>
+      </Card>
+      <Card title="Scheduled jobs" meta={`${h.cron.length} jobs`}>
+        <Chips>
+          {[...h.cron]
+            .sort((a, b) => Number(a.ok !== false) - Number(b.ok !== false))
+            .map((j) => (
+              <Row
+                key={j.job}
+                color={
+                  j.ok === false ? TONE.bad : j.last ? TONE.good : TONE.warn
+                }
+                name={j.job}
+                detail={
+                  j.ok === false ? `failed · ${ago(j.last)}` : ago(j.last)
+                }
+              />
+            ))}
+        </Chips>
+      </Card>
+      <Card title="Biggest tables" meta="by size">
+        <Bars
+          rows={tables.map((t) => ({
+            label: <span className="mono text-xs">{t.name}</span>,
+            value: t.bytes,
+            text: `${t.rows.toLocaleString("en-US")} rows · ${mb(t.bytes)}`,
+            color: TONE.info,
+          }))}
+        />
+      </Card>
+      <Note>
+        Schedules run in the database (pg_cron) and on Vercel. A stale cache
+        refills on its next visit or run.
+      </Note>
+    </Page>
   );
 }

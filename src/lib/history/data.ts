@@ -109,6 +109,8 @@ export type WarnPoly = {
   tier: number;
   tag?: WarnTag;
   date: string;
+  /** The state its polygon sits in (two letters), for the state filter. */
+  st?: string;
 };
 
 /**
@@ -179,11 +181,27 @@ export async function warningHistory(
     const d = geoPath(f.geometry, 0.8);
     if (!d) continue;
     const tag = warnTag(p);
+    // The state under the polygon's middle (its first ring's average point).
+    const ring = String(
+      (f.geometry as { coordinates?: unknown }).coordinates ?? "",
+    )
+      .split(",")
+      .map(Number);
+    let sx = 0;
+    let sy = 0;
+    let k = 0;
+    for (let i = 0; i + 1 < ring.length && k < 64; i += 2, k++) {
+      sx += ring[i];
+      sy += ring[i + 1];
+    }
+    const mid = k ? project(sx / k, sy / k) : null;
+    const st = mid ? stateAt(mid.x, mid.y) : "";
     out.push({
       d,
       kind: kind as WarnPoly["kind"],
       tier: warnTier(p),
       ...(tag ? { tag } : {}),
+      ...(st ? { st } : {}),
       date: String(p.issue ?? "").slice(0, 10),
     });
   }
@@ -217,7 +235,8 @@ export async function warningMonth(key: string): Promise<WarnPoly[]> {
   );
   const iso = (d: Date) => d.toISOString().slice(0, 16) + "Z";
   const done = monthDone(key);
-  const path = `warnings/v1/${key}.json.gz`;
+  // v2: each warning carries its state.
+  const path = `warnings/v2/${key}.json.gz`;
   // No storage (a preview without database keys): every month comes from IEM.
   let store: ReturnType<
     ReturnType<typeof supabaseAdmin>["storage"]["from"]

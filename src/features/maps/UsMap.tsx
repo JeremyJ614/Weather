@@ -7,7 +7,8 @@ import { pickCities, type City } from "@/lib/map/cityLabels";
 import { useZoom } from "./useZoom";
 import s from "./UsMap.module.css";
 
-export type Swatch = { label: string; color: string };
+/** A legend entry; `outline` draws it as an outlined box (a border color, not a fill). */
+export type Swatch = { label: string; color: string; outline?: boolean };
 type Base = {
   states: { id: string; d: string }[];
   nation: string;
@@ -119,8 +120,14 @@ async function toPng(
   let x = 28;
   g.font = `600 13px ${font}`;
   for (const l of legend) {
-    g.fillStyle = l.color;
-    g.fillRect(x, H + band + 24, 16, 16);
+    if (l.outline) {
+      g.strokeStyle = l.color;
+      g.lineWidth = 2;
+      g.strokeRect(x + 1, H + band + 25, 14, 14);
+    } else {
+      g.fillStyle = l.color;
+      g.fillRect(x, H + band + 24, 16, 16);
+    }
     g.fillStyle = "#ddd";
     g.fillText(l.label, x + 22, H + band + 37);
     x += 30 + g.measureText(l.label).width;
@@ -403,7 +410,16 @@ export function UsMap({
         <ul className={s.legend}>
           {legend.map((l) => (
             <li key={l.label}>
-              <i style={{ background: l.color }} />
+              <i
+                style={
+                  l.outline
+                    ? {
+                        background: "transparent",
+                        boxShadow: `inset 0 0 0 2px ${l.color}`,
+                      }
+                    : { background: l.color }
+                }
+              />
               {l.label}
             </li>
           ))}

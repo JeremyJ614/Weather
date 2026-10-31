@@ -1,5 +1,6 @@
 "use client";
 
+import { BB8Toggle } from "@/components/ui/BB8Toggle";
 import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { BellRing, Inbox, MapPin, Moon, Smartphone } from "lucide-react";
@@ -283,7 +284,7 @@ export function NotifyView({ data }: { data: NotifyData }) {
       ))}
 
       <section className={s.card} aria-labelledby="quiet-h">
-        <label className={s.topic}>
+        <div className={s.topic}>
           <span className={s.icon} aria-hidden>
             <Moon className="size-4" />
           </span>
@@ -293,18 +294,16 @@ export function NotifyView({ data }: { data: NotifyData }) {
               Holds everything but warnings and watches until quiet hours end.
             </small>
           </span>
-          <input
-            type="checkbox"
-            role="switch"
-            className={s.switch}
+          <BB8Toggle
+            label="Quiet hours"
             checked={Boolean(quiet)}
-            onChange={(e) => {
-              const q = e.target.checked ? { from: 22, to: 7 } : null;
+            onChange={(on) => {
+              const q = on ? { from: 22, to: 7 } : null;
               setQuiet(q);
               save({ quiet: q });
             }}
           />
-        </label>
+        </div>
         {quiet && (
           <div className={s.hours}>
             {(["from", "to"] as const).map((k) => (

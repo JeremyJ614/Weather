@@ -325,26 +325,54 @@
   border-color: var(--c);
   box-shadow: 0 0 14px -6px var(--c);
 }
-.tagLegend {
+/* Dates and States, side by side on every History map (owner's follow-up #3). */
+.filters {
   display: grid;
-  gap: 6px;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
 }
-.tagLegend li {
-  display: grid;
-  grid-template-columns: 22px 1fr auto;
+.filters button {
+  display: flex;
   align-items: center;
   gap: 10px;
+  min-height: 52px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  text-align: left;
   font-size: 13px;
+  font-weight: 700;
 }
-.tagLegend i {
-  width: 22px;
-  height: 14px;
-  border: 2.5px solid var(--c);
-  border-radius: 3px;
-  background: rgb(255 255 255 / 0.04);
-  box-shadow: 0 0 8px -2px var(--c);
+.filters button[aria-expanded="true"],
+.filters button[data-on] {
+  border-color: var(--lit-line);
+  box-shadow: 0 0 14px -8px var(--accent);
 }
-.tagLegend b {
-  font-family: var(--font-mono);
-  color: var(--c);
+.filters svg {
+  flex: none;
+  width: 18px;
+  color: var(--accent);
+}
+.filters span {
+  display: grid;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.filters small {
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.statePanel {
+  display: grid;
+  gap: 8px;
+  padding-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
 }

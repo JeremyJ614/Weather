@@ -53,7 +53,7 @@ const corners = (b: number[]) =>
  * are rendered from NOAA's GRIB2 on demand (/api/models/map) and play as a loop. Frames
  * preload ahead of the playhead, and playback waits for a frame rather than skipping it.
  */
-export function ModelViewer({ model }: { model: "hrrr" | "gfs" | "href" }) {
+export function ModelViewer({ model }: { model: "hrrr" | "gfs" | "refs" }) {
   const [run, setRun] = useState<Run | "error" | null>(null);
   const [cycle, setCycle] = useState("");
   const [key, setKey] = useState("");
@@ -144,6 +144,67 @@ export function ModelViewer({ model }: { model: "hrrr" | "gfs" | "href" }) {
       );
     }
   }, [cur, ready, reg, loaded]);
+
+  // Paused and zoomed in (Fix list 2026-10-30 #8): the frame is redrawn just for the view,
+  // snapped to half degrees, and laid over the loop's frame, so fields stay crisp up close.
+  const [view, setView] = useState<number[] | null>(null);
+  useEffect(() => {
+    const m = map.current;
+    if (!m || !ready || !reg) return;
+    const look = () => {
+      const b = m.getBounds();
+      const w = b.getWest();
+      const e = b.getEast();
+      const span = (reg.b[2] - reg.b[0]) / (e - w);
+      if (span < 1.8) return setView(null);
+      const lo = (v: number) => Math.floor(v * 2) / 2;
+      const hi = (v: number) => Math.ceil(v * 2) / 2;
+      const box = [lo(w), lo(b.getSouth()), hi(e), hi(b.getNorth())];
+      setView(box[2] - box[0] <= 25 && box[3] - box[1] <= 20 ? box : null);
+    };
+    m.on("moveend", look);
+    return () => {
+      m.off("moveend", look);
+    };
+  }, [ready, reg]);
+  const detail =
+    !playing && view && cur ? `${cur}&bbox=${view.join(",")}` : null;
+  useEffect(() => {
+    const m = map.current;
+    if (!m || !ready) return;
+    const src = m.getSource("model-detail") as ImageSource | undefined;
+    if (!detail || !view) {
+      if (m.getLayer("model-detail"))
+        m.setLayoutProperty("model-detail", "visibility", "none");
+      return;
+    }
+    const img = new Image();
+    img.onload = () => {
+      if (src) src.updateImage({ url: detail, coordinates: corners(view) });
+      else {
+        m.addSource("model-detail", {
+          type: "image",
+          url: detail,
+          coordinates: corners(view),
+        });
+        const label = m.getStyle().layers.find((l) => l.type === "symbol")?.id;
+        m.addLayer(
+          {
+            id: "model-detail",
+            type: "raster",
+            source: "model-detail",
+            paint: { "raster-opacity": 0.82, "raster-fade-duration": 0 },
+          },
+          label,
+        );
+      }
+      m.setLayoutProperty("model-detail", "visibility", "visible");
+    };
+    img.src = detail;
+    return () => {
+      img.onload = null;
+    };
+  }, [detail, view, ready]);
 
   useEffect(() => {
     const m = map.current;

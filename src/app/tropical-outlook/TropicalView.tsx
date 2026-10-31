@@ -124,7 +124,7 @@ export function TropicalView({
       <Summary data={data} airborne={recon?.filter((r) => r.active).length} />
       <HomeTabs
         label="Tropical"
-        variant="pills"
+        variant="deck"
         tabs={[
           {
             id: "trop-storms",

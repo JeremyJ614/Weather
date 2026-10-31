@@ -161,7 +161,7 @@ const SHOWCASE: Step[] = [
     icon: "Radar",
     kicker: "Radar & models",
     title: "Rendered live from NOAA",
-    body: "Radar loops and HRRR, GFS and HREF model maps drawn straight from NOAA's data, plus 3D soundings and river gauges.",
+    body: "Radar loops and HRRR, GFS and REFS model maps drawn straight from NOAA's data, plus 3D soundings and river gauges.",
     chips: ["radar-model-runs", "3d-soundings", "river-flood-gauges"],
   },
   {

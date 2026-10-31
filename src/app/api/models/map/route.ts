@@ -24,6 +24,25 @@ export async function GET(req: Request) {
   const fh = Number(q.get("fh"));
   const p = m && paramOf(model, q.get("p") ?? "");
   const region = REGIONS[q.get("region") ?? "conus"];
+  // A zoomed-in view (Fix list 2026-10-30 #8): its own sharp render, snapped to half degrees
+  // so neighbors share the edge copy.
+  const box = (q.get("bbox") ?? "").split(",").map(Number);
+  const [cw, cs, ce, cn] = REGIONS.conus.b;
+  const detail =
+    box.length === 4 &&
+    box.every(
+      (v) => Number.isFinite(v) && Math.abs(v * 2 - Math.round(v * 2)) < 1e-9,
+    ) &&
+    box[0] >= cw - 5 &&
+    box[2] <= ce + 5 &&
+    box[1] >= cs - 5 &&
+    box[3] <= cn + 5 &&
+    box[2] - box[0] >= 1 &&
+    box[2] - box[0] <= 25 &&
+    box[3] - box[1] >= 1 &&
+    box[3] - box[1] <= 20
+      ? box
+      : null;
   const age =
     Date.now() -
     Date.UTC(
@@ -36,6 +55,7 @@ export async function GET(req: Request) {
     !m ||
     !p ||
     !region ||
+    (q.has("bbox") && !detail) ||
     !/^\d{10}$/.test(cycle) ||
     !m.cycles.includes(+cycle.slice(8)) ||
     !(age >= 0 && age < 4 * 86400_000) ||
@@ -51,8 +71,8 @@ export async function GET(req: Request) {
       f,
       p,
       bandColors(p, colors),
-      region.b,
-      region.label === "CONUS" ? 1800 : 1400,
+      detail ?? region.b,
+      detail ? 1600 : region.label === "CONUS" ? 2400 : 2000,
     );
     return new Response(new Uint8Array(png), {
       headers: {

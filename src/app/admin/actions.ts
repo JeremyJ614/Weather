@@ -273,7 +273,8 @@ export async function startLens(fd: FormData) {
   redirect("/");
 }
 
-export async function stopLens() {
+export async function stopLens(form?: FormData) {
+  const toMembers = form?.get("to") === "members";
   const store = await cookies();
   const id = store.get(LENS_COOKIE)?.value;
   store.delete(LENS_COOKIE);
@@ -285,7 +286,7 @@ export async function stopLens() {
       p_target: id,
       p_detail: { member: id },
     });
-    redirect(`/admin/members/${id}`);
+    redirect(toMembers ? "/admin/members" : `/admin/members/${id}`);
   }
-  redirect("/admin");
+  redirect(toMembers ? "/admin/members" : "/admin");
 }

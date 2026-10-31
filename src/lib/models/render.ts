@@ -2,7 +2,7 @@ import "server-only";
 import { deflateSync } from "node:zlib";
 import { pick, type Colors } from "@/lib/colors/pick";
 import { decodeGrib2, gridSize, locator, type Field } from "./grib2";
-import { GFS, HREF, HRRR, SCALES, type Param } from "./params";
+import { GFS, HRRR, REFS, SCALES, type Param } from "./params";
 
 /**
  * Model maps rendered on demand from NOAA's own GRIB2 files: the viewer asks for one
@@ -15,15 +15,22 @@ import { GFS, HREF, HRRR, SCALES, type Param } from "./params";
  * sampled with a clamped Catmull-Rom (smooth through the grid, never past a real value),
  * which is what turns GFS's 25 km cells from a mosaic into a smooth map.
  */
-export type ModelId = "hrrr" | "gfs" | "href";
+export type ModelId = "hrrr" | "gfs" | "refs";
 type Def = {
   label: string;
   res: string;
   params: Param[];
   cycles: number[];
   hours: number[];
-  url: (ymd: string, hh: string, fh: number) => string;
+  /** The file for a forecast hour (`file`: an ensemble's product file, see Param.file). */
+  url: (ymd: string, hh: string, fh: number, file?: string) => string;
+  /** Where to look when `url` has nothing (REFS: NOAA's parallel feed, before it goes live). */
+  alt?: (ymd: string, hh: string, fh: number, file?: string) => string;
 };
+const REFS_URL =
+  (env: string) =>
+  (d: string, h: string, f: number, file = "prob") =>
+    `https://nomads.ncep.noaa.gov/pub/data/nccf/com/refs/${env}/refs.${d}/${h}/ensprod/refs.t${h}z.${file}.f${String(f).padStart(2, "0")}.conus.grib2`;
 
 export const MODELS: Record<ModelId, Def> = {
   hrrr: {
@@ -44,14 +51,15 @@ export const MODELS: Record<ModelId, Def> = {
     url: (d, h, f) =>
       `https://noaa-gfs-bdp-pds.s3.amazonaws.com/gfs.${d}/${h}/atmos/gfs.t${h}z.pgrb2.0p25.f${String(f).padStart(3, "0")}`,
   },
-  href: {
-    label: "HREF Ensemble",
-    res: "3 km · 2-hourly",
-    params: HREF,
+  // HREF retires when REFS goes operational (NWS SCN 26-47/26-48, Fix list 2026-10-30 #8).
+  refs: {
+    label: "REFS Ensemble",
+    res: "3 km · 14 members",
+    params: REFS,
     cycles: [0, 6, 12, 18],
-    hours: Array.from({ length: 18 }, (_, i) => i * 2 + 1),
-    url: (d, h, f) =>
-      `https://nomads.ncep.noaa.gov/pub/data/nccf/com/href/prod/href.${d}/ensprod/href.t${h}z.conus.prob.f${String(f).padStart(2, "0")}.grib2`,
+    hours: Array.from({ length: 24 }, (_, i) => i * 2 + 1),
+    url: REFS_URL("prod"),
+    alt: REFS_URL("para"),
   },
 };
 
@@ -95,7 +103,12 @@ export async function latestCycle(model: ModelId, from = Date.now()) {
     const c = new Date(t.getTime() - back * 3600_000);
     if (!m.cycles.includes(c.getUTCHours())) continue;
     const id = ymdh(c);
-    if (await exists(m.url(id.slice(0, 8), id.slice(8), last))) return id;
+    const [d, h] = [id.slice(0, 8), id.slice(8)];
+    if (
+      (await exists(m.url(d, h, last))) ||
+      (m.alt && (await exists(m.alt(d, h, last))))
+    )
+      return id;
   }
   return null;
 }
@@ -149,9 +162,12 @@ export async function record(url: string, match: string, also?: string) {
 const K2F = (k: number) => ((k - 273.15) * 9) / 5 + 32;
 const MS2KT = 1.943844;
 
-/** Unit changes, by parameter key (VIP's `convert`). */
-function convert(key: string, v: number, max: number) {
+/** Unit changes, by parameter key (VIP's `convert`); ensemble mean/PMM keys as their base. */
+function convert(raw: string, v: number, max: number) {
+  const key = raw.replace(/^(m|pm|lp)_/, "");
   switch (key) {
+    case "qpf":
+      return v / 25.4;
     case "gust":
       return v * 2.236936;
     case "dpt2m":
@@ -215,11 +231,16 @@ export async function fieldFor(
   fh: number,
   p: Param,
 ): Promise<Field> {
-  const url = MODELS[model].url(cycle.slice(0, 8), cycle.slice(8), fh);
-  const recs = await Promise.all([
-    record(url, p.match, p.also),
-    ...(p.extra ?? []).map((m) => record(url, m)),
-  ]);
+  const m = MODELS[model];
+  const at = [cycle.slice(0, 8), cycle.slice(8), fh, p.file] as const;
+  const read = (url: string) =>
+    Promise.all([
+      record(url, p.match, p.also),
+      ...(p.extra ?? []).map((x) => record(url, x)),
+    ]);
+  const recs = await read(m.url(...at)).catch((e) =>
+    m.alt ? read(m.alt(...at)) : Promise.reject(e),
+  );
   const [a] = recs;
   const n = a.values.length;
   const out = new Float32Array(n);
@@ -240,7 +261,49 @@ export async function fieldFor(
   let max = -Infinity;
   for (const v of out) if (v > max) max = v;
   for (let i = 0; i < n; i++) out[i] = convert(p.key, out[i], max);
+  // 3 km fields carry grid-scale speckle; one light pass keeps every feature a forecaster
+  // reads and drops the single-pixel noise (Fix list 2026-10-30 #8). Storm-scale fields
+  // (radar, updrafts, lightning, ensemble chances) keep their full detail.
+  if (model !== "gfs" && !SHARP.test(p.key)) {
+    const [gw, gh] = gridSize(a.grid);
+    return { grid: a.grid, values: despeckle(out, gw, gh) };
+  }
   return { grid: a.grid, values: out };
+}
+
+/** Fields drawn at full detail: radar, tops, updraft helicity and speed, lightning, chances. */
+const SHARP =
+  /^(p_|pm_|lp_)|refc|refd|refl|retop|uphl|uh|ltng|lightning|uvv|prate|smoke|vis|cldbase|ptype/;
+
+/** One 1-2-1 binomial pass in each direction over a grid, skipping missing cells. */
+function despeckle(v: Float32Array, w: number, h: number) {
+  const tmp = new Float32Array(v.length);
+  const out = new Float32Array(v.length);
+  const pass = (
+    src: Float32Array,
+    dst: Float32Array,
+    dx: number,
+    dy: number,
+  ) => {
+    for (let j = 0; j < h; j++)
+      for (let i = 0; i < w; i++) {
+        const k = j * w + i;
+        const c = src[k];
+        if (Number.isNaN(c)) {
+          dst[k] = c;
+          continue;
+        }
+        const a =
+          i - dx >= 0 && j - dy >= 0 ? src[k - dy * w - dx] : Number.NaN;
+        const b = i + dx < w && j + dy < h ? src[k + dy * w + dx] : Number.NaN;
+        const sa = Number.isNaN(a) ? c : a;
+        const sb = Number.isNaN(b) ? c : b;
+        dst[k] = (sa + 2 * c + sb) / 4;
+      }
+  };
+  pass(v, tmp, 1, 0);
+  pass(tmp, out, 0, 1);
+  return out;
 }
 
 const hex = (c: string) => {
@@ -344,6 +407,8 @@ export function paint(
     v[Math.min(gh - 1, Math.max(0, j)) * gw + Math.min(gw - 1, Math.max(0, i))];
   const rgb = colors.map(hex);
   const lv = p.levels;
+  // Pass 1: the field at every pixel (NaN where there is none).
+  const vals = new Float32Array(W * H).fill(Number.NaN);
   for (let y = 0; y < H; y++) {
     const lat = unMercY(top - ((y + 0.5) / H) * (top - bot));
     for (let x = 0; x < W; x++) {
@@ -368,24 +433,63 @@ export function paint(
         val = cr(row(j - 1), row(j), row(j + 1), row(j + 2), tj);
         if (Number.isNaN(val)) val = c11;
       }
-      if (Number.isNaN(val)) continue;
-      let band: number;
-      if (val < lv[0]) {
-        if (!p.full) continue;
-        band = 0;
-      } else {
-        let k = lv.length - 1;
-        while (k > 0 && val < lv[k]) k--;
-        band = k + (p.full ? 1 : 0);
-      }
-      const o = (y * W + x) * 4;
-      const c = rgb[band];
-      rgba[o] = c[0];
-      rgba[o + 1] = c[1];
-      rgba[o + 2] = c[2];
-      rgba[o + 3] = 255;
+      vals[y * W + x] = val;
     }
   }
+  // Band of a value: -1 = nothing drawn (under the first level of a partial field).
+  const bandOf = (val: number) => {
+    if (val < lv[0]) return p.full ? 0 : -1;
+    let k = lv.length - 1;
+    while (k > 0 && val < lv[k]) k--;
+    return k + (p.full ? 1 : 0);
+  };
+  // Pass 2 (Fix list 2026-10-30 #8): each band edge is anti-aliased across a pixel (the
+  // pixel's distance to the contour, from the local gradient, blends the two bands) and
+  // traced with a thin dark line, so edges stay crisp and defined instead of stair-stepped.
+  const LINE = 0.75;
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const o = y * W + x;
+      const val = vals[o];
+      if (Number.isNaN(val)) continue;
+      const band = bandOf(val);
+      const l = x > 0 ? vals[o - 1] : val;
+      const r = x < W - 1 ? vals[o + 1] : val;
+      const u = y > 0 ? vals[o - W] : val;
+      const d = y < H - 1 ? vals[o + W] : val;
+      const gx = (Number.isNaN(r) ? val : r) - (Number.isNaN(l) ? val : l);
+      const gy = (Number.isNaN(d) ? val : d) - (Number.isNaN(u) ? val : u);
+      const g = Math.hypot(gx, gy) / 2;
+      // The nearest contour: the level at this band's floor or ceiling.
+      const k = band - (p.full ? 1 : 0);
+      const floor = k >= 0 ? lv[k] : -Infinity;
+      const ceil = k + 1 < lv.length ? lv[k + 1] : Infinity;
+      const below = val - floor;
+      const above = ceil - val;
+      const dist = g > 0 ? Math.min(below, above) / g : Infinity;
+      let c = band >= 0 ? rgb[band] : null;
+      let alpha = band >= 0 ? 255 : 0;
+      if (dist < 0.5) {
+        const other = bandOf(below < above ? floor - 1e-6 : ceil);
+        const t = 0.5 - dist;
+        const oc = other >= 0 ? rgb[other] : null;
+        if (c && oc) c = c.map((ch, q) => Math.round(ch + (oc[q] - ch) * t));
+        else if (c) alpha = Math.round(255 * (1 - t));
+        else if (oc) {
+          c = oc;
+          alpha = Math.round(255 * t);
+        }
+      }
+      if (!c || alpha === 0) continue;
+      if (dist < LINE) {
+        const dark = 0.38 * (1 - dist / LINE);
+        c = c.map((ch) => Math.round(ch * (1 - dark)));
+      }
+      rgba[o * 4] = c[0];
+      rgba[o * 4 + 1] = c[1];
+      rgba[o * 4 + 2] = c[2];
+      rgba[o * 4 + 3] = alpha;
+    }
   return { png: png(W, H, rgba), w: W, h: H };
 }
 
