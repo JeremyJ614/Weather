@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import { UsMap } from "@/features/maps/UsMap";
 import { project } from "@/lib/map/usAlbers";
 import type { Group } from "@/lib/colors/registry";
-import { sampleFor, type Sample, type Shape } from "./samples";
+import { sampleFor, samplesFor, type Sample, type Shape } from "./samples";
 
 /** A live shape: drawn in a saved color `c`, or carrying its color key `k`. */
 type Poly = { c?: string; k?: string; d: string };
@@ -187,7 +187,10 @@ const WidgetPreview = dynamic(() =>
 
 /** Whether a group has any preview under its colors. */
 export const hasPreview = (id: string) =>
-  WIDGET_IDS.has(id) || previewSource(id) !== null || sampleFor(id) !== null;
+  WIDGET_IDS.has(id) ||
+  previewSource(id) !== null ||
+  sampleFor(id) !== null ||
+  samplesFor(id) !== null;
 
 type Props = {
   group: Group;
@@ -203,7 +206,7 @@ const chip =
  * when there is one, today's live map otherwise, or either when both exist.
  */
 export function Preview(props: Props) {
-  const [today, setToday] = useState(false);
+  const [which, setWhich] = useState(0);
   if (WIDGET_IDS.has(props.group.id)) {
     // Every key in the group, as edited (a half-typed hex falls back to saved, then default).
     const colors = Object.fromEntries(
@@ -217,30 +220,39 @@ export function Preview(props: Props) {
     );
     return <WidgetPreview id={props.group.id} colors={colors} />;
   }
-  const sample = sampleFor(props.group.id);
+  const single = sampleFor(props.group.id);
+  const maps =
+    samplesFor(props.group.id) ??
+    (single ? [{ label: "Example day", load: single }] : []);
   const live = previewSource(props.group.id) !== null;
-  if (!sample) return <LivePreview {...props} />;
+  if (!maps.length) return <LivePreview {...props} />;
+  const tabs = [...maps.map((m) => m.label), ...(live ? ["Today"] : [])];
+  const pick = Math.min(which, tabs.length - 1);
   return (
     <div className="grid gap-2">
-      {live && (
-        <div className="flex gap-2">
-          {[false, true].map((t) => (
+      {tabs.length > 1 && (
+        <div className="flex flex-wrap gap-2">
+          {tabs.map((t, i) => (
             <button
-              key={String(t)}
+              key={t}
               type="button"
-              aria-pressed={today === t}
-              onClick={() => setToday(t)}
+              aria-pressed={pick === i}
+              onClick={() => setWhich(i)}
               className={chip}
             >
-              {t ? "Today" : "Example day"}
+              {t}
             </button>
           ))}
         </div>
       )}
-      {today ? (
+      {pick >= maps.length ? (
         <LivePreview {...props} />
       ) : (
-        <SampleMap key={props.group.id} load={sample} {...props} />
+        <SampleMap
+          key={`${props.group.id}-${pick}`}
+          load={maps[pick].load}
+          {...props}
+        />
       )}
     </div>
   );
@@ -289,7 +301,10 @@ function SampleMap({
   return (
     <UsMap
       title={ok ? `Preview · ${ok.title}` : "Preview"}
-      legend={[]}
+      legend={(ok?.marks ?? []).map((m) => ({
+        label: m.label,
+        color: col(m.k),
+      }))}
       status={!s ? "loading" : s === "error" ? "error" : "ready"}
       file="sswx-color-preview"
       actions={false}
@@ -300,6 +315,25 @@ function SampleMap({
         ok ? (
           <g>
             {draw(ok.over)}
+            {ok.marks?.map((m, i) => (
+              <g key={`m${i}`} transform={`translate(${m.x} ${m.y})`}>
+                <circle
+                  r={14}
+                  fill="#0b0b10"
+                  stroke={col(m.k)}
+                  strokeWidth={2}
+                />
+                <text
+                  textAnchor="middle"
+                  dy="0.35em"
+                  fontSize={14}
+                  fontWeight={800}
+                  fill="#fff"
+                >
+                  {m.label.split(".")[0]}
+                </text>
+              </g>
+            ))}
             {ok.dots.map((d, i) => (
               <circle
                 key={i}

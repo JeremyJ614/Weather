@@ -59,10 +59,21 @@ export default async function WxGames() {
   if (viewer.lens) {
     // The owner viewing as a member: the member's rounds, through owner-only functions.
     const sb = await supabaseServer();
-    const [g, t] = await Promise.all([
+    const [g, t, wd, plays] = await Promise.all([
       sb.rpc("lens_guesses", { p_user: viewer.id! }),
       sb.rpc("lens_trivia_today", { p_user: viewer.id! }),
+      sb.rpc("lens_weatherdle_state", { p_user: viewer.id! }),
+      sb.rpc("lens_weatherdle_plays", { p_user: viewer.id! }),
     ]);
+    word = (wd.data as WdState | null) ?? null;
+    wordStats = weatherdleStats(
+      (plays.data ?? []) as {
+        day: string;
+        solved: boolean;
+        guesses: string[];
+      }[],
+      today,
+    );
     const rows = (g.data ?? []) as (Guess & { guess_date: string })[];
     mine = rows.find((r) => r.guess_date === today) ?? null;
     last = rows.find((r) => r.points !== null) ?? null;
@@ -119,8 +130,8 @@ export default async function WxGames() {
       {viewer.lens && (
         <p className="mb-4 rounded-2xl border border-[var(--lit-line)] bg-[var(--lit)] p-3 text-sm">
           You&apos;re playing as <b className="text-accent">{viewer.name}</b>.
-          Pins and answers go in as theirs and count toward their points; each
-          one is recorded in the audit log under your name.
+          Weatherdle guesses, pins and answers go in as theirs and count toward
+          their points; each one is recorded in the audit log under your name.
         </p>
       )}
       <HomeTabs
@@ -137,7 +148,6 @@ export default async function WxGames() {
             ) : (
               <WeatherdleView
                 signedIn={viewer.signedIn}
-                lens={Boolean(viewer.lens)}
                 initial={word}
                 stats={wordStats}
                 colors={colors}

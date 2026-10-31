@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { supabaseServer } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
+import { getViewer } from "@/lib/auth/viewer";
 
 export type ProfileEdit = {
   first_name: string;
@@ -37,22 +39,42 @@ export async function saveProfile(
     return { ok: false, error: "Use the two-letter state code." };
   if (phone && !/^\+?\d{10,15}$/.test(phone))
     return { ok: false, error: "Phone is 10–15 digits." };
+  const fields = {
+    first_name: first,
+    last_name: last,
+    nickname: nick || null,
+    use_nickname: e.use_nickname && !!nick,
+    city,
+    state,
+    phone: phone || null,
+  };
   const supabase = await supabaseServer();
+  const viewer = await getViewer();
+  if (viewer.lens && viewer.id) {
+    // The owner editing a member while viewing as them (getViewer re-checked the
+    // owner and the target); only these descriptive fields, and it's audited.
+    const { error } = await supabaseAdmin()
+      .from("profiles")
+      .update(fields)
+      .eq("id", viewer.id);
+    if (error)
+      return { ok: false, error: "Couldn't save just now. Try again." };
+    await supabase.rpc("log_admin", {
+      p_action: "edit_profile_as",
+      p_target: viewer.id,
+      p_detail: { member: viewer.id, fields: Object.keys(fields) },
+    });
+    revalidatePath("/profile");
+    revalidatePath(`/admin/members/${viewer.id}`);
+    return { ok: true };
+  }
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Sign in again to save." };
   const { error } = await supabase
     .from("profiles")
-    .update({
-      first_name: first,
-      last_name: last,
-      nickname: nick || null,
-      use_nickname: e.use_nickname && !!nick,
-      city,
-      state,
-      phone: phone || null,
-    })
+    .update(fields)
     .eq("id", user.id);
   if (error) return { ok: false, error: "Couldn't save just now. Try again." };
   revalidatePath("/profile");
