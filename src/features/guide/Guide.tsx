@@ -109,8 +109,8 @@ const NEW: Step["tips"] = [
   },
   {
     icon: "Zap",
-    title: "Opens fast on a weak signal",
-    text: "When the signal is slow or gone, pages you've opened before show right away from your last visit, with a note saying how old they are and a Refresh button once newer data arrives. Warnings and alerts are always live.",
+    title: "Always up to date",
+    text: "Pages and data always load live, and the app moves onto each new version by itself. With no signal at all, pages you've opened before show from your last visit and update themselves when you reconnect. Warnings and alerts are always live.",
   },
   {
     icon: "Rocket",

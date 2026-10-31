@@ -13,6 +13,8 @@ import {
   Tornado,
   Waves,
   Telescope,
+  Sunrise,
+  Atom,
 } from "lucide-react";
 import {
   AuraScene,
@@ -22,12 +24,15 @@ import {
   HorizonScene,
   InkScene,
   MorphScene,
+  OceanScene,
   OrbScene,
   SandScene,
   SliderScene,
+  SpacetimeScene,
   StormScene,
 } from "./Scenes";
-import { stateOf, type ExtrasStates } from "@/lib/extras/items";
+import { useViewer } from "@/features/account/useViewer";
+import { awaiting, stateOf, type ExtrasStates } from "@/lib/extras/items";
 import s from "./Randoms.module.css";
 
 const LIST = [
@@ -109,6 +114,20 @@ const LIST = [
     Icon: Telescope,
     C: GalaxyScene,
   },
+  {
+    id: "ocean",
+    name: "Ocean Day Cycle",
+    blurb: "Dawn to storm to moonlit night on a shader sea.",
+    Icon: Sunrise,
+    C: OceanScene,
+  },
+  {
+    id: "spacetime",
+    name: "Curved Spacetime",
+    blurb: "Throw stars and black holes across a bending grid.",
+    Icon: Atom,
+    C: SpacetimeScene,
+  },
 ] as const;
 
 const CREDITS = [
@@ -147,6 +166,16 @@ const CREDITS = [
     "Pavel Dobryakov",
     "https://github.com/PavelDoGreat/WebGL-Fluid-Simulation",
   ],
+  [
+    "Ocean Shader 6-Scene Day Cycle",
+    "Margarita",
+    "https://codepen.io/Margarita-the-solid/pen/xbgrWpd",
+  ],
+  [
+    "Curved Spacetime",
+    "Guilherme Zeni",
+    "https://github.com/Guillhermm/web-ai-experiments",
+  ],
 ] as const;
 
 /** Randoms: one visual runs at a time; the rest stay unloaded. */
@@ -158,12 +187,15 @@ export function Randoms({
   /** One Random on a page of its own, without the picker. */
   only?: string;
 }) {
+  // A new Random waiting on the owner's approval shows to admins only, marked as a preview.
+  const viewer = useViewer();
+  const preview = (id: string) => viewer.isAdmin && awaiting(items, id);
   const shown = only
     ? LIST.filter((x) => x.id === only)
-    : LIST.filter((x) => stateOf(items, x.id) !== "hidden");
+    : LIST.filter((x) => stateOf(items, x.id) !== "hidden" || preview(x.id));
   const usable = only
     ? shown
-    : shown.filter((x) => stateOf(items, x.id) === "on");
+    : shown.filter((x) => stateOf(items, x.id) === "on" || preview(x.id));
   const [id, setId] = useState<(typeof LIST)[number]["id"]>(
     usable[0]?.id ?? "storm",
   );
@@ -179,6 +211,7 @@ export function Randoms({
       <div className={s.picker} hidden={!!only}>
         {shown.map((x) => {
           const off = stateOf(items, x.id) === "off";
+          const early = preview(x.id);
           return (
             <button
               key={x.id}
@@ -191,7 +224,13 @@ export function Randoms({
               <b>
                 <x.Icon aria-hidden /> {x.name}
               </b>
-              <small>{off ? "Off for now" : x.blurb}</small>
+              <small>
+                {early
+                  ? "Preview: only admins see this until it's switched on in admin → Extras."
+                  : off
+                    ? "Off for now"
+                    : x.blurb}
+              </small>
             </button>
           );
         })}

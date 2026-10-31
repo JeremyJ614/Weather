@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
   Crown,
@@ -18,6 +18,7 @@ import {
   signOutEverywhere,
   type AccState,
 } from "./actions";
+import { APK_URL } from "@/features/help/install-links";
 import s from "./Settings.module.css";
 
 export type PlanSummary = {
@@ -43,16 +44,19 @@ export function AccountPanels({
   email,
   pinSet,
   plan,
+  guides,
 }: {
   email: string;
   pinSet: boolean;
   plan: PlanSummary;
+  /** The install guide links, drawn on the server (no JavaScript). */
+  guides?: ReactNode;
 }) {
   return (
     <>
       <PlanCard plan={plan} />
       <SecurityCard email={email} pinSet={pinSet} />
-      <InstallCard />
+      <InstallCard guides={guides} />
       <DataCard pinSet={pinSet} />
     </>
   );
@@ -212,7 +216,7 @@ function SecurityCard({ email, pinSet }: { email: string; pinSet: boolean }) {
 
 type Prompt = Event & { prompt: () => Promise<void> };
 
-function InstallCard() {
+function InstallCard({ guides }: { guides?: ReactNode }) {
   const [installed, setInstalled] = useState(false);
   const [prompt, setPrompt] = useState<Prompt | null>(null);
   const [ios, setIos] = useState(false);
@@ -274,12 +278,13 @@ function InstallCard() {
       {!installed && android && (
         <p className={s.note}>
           Or{" "}
-          <a href="/downloads/stormsync-weather.apk" download>
+          <a href={APK_URL} download>
             download the Android app
           </a>{" "}
           (2.3 MB). Allow installs from your browser when Android asks.
         </p>
       )}
+      {guides}
     </section>
   );
 }

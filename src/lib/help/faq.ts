@@ -57,7 +57,7 @@ export const DEFAULT_FAQ: Faq = {
       section("Installing the app", [
         item(
           "How do I install it on my phone?",
-          "On Android, open the site in Chrome, open the menu and choose Install app (or Add to Home screen), or [download the Android app](/downloads/stormsync-weather.apk) and allow installs from your browser when asked. On iPhone, open it in Safari, tap Share, then Add to Home Screen.\n\nInstalled, it opens full screen with its own icon and can send you alerts like any other app. Account Settings has an Install button when your browser offers one.",
+          "On iPhone, open it in Safari, tap Share, then Add to Home Screen. On Android, open it in Chrome, open the menu and choose Install app (or Add to Home screen), or download the Android app file and allow installs from your browser when asked.\n\nThe [Install the app](/faq?tab=install) tab walks through each one step by step, with fixes for anything that goes wrong, and has the [Android app download](/faq?tab=install#install-apk). Installed, it opens full screen with its own icon and can send you alerts like any other app.",
         ),
         item(
           "Does it work without a connection?",

@@ -12,7 +12,12 @@ import type { Colors } from "./pick";
 import { BANDS } from "@/lib/sswxcon/score";
 import { WORDLE_COLORS } from "@/lib/weatherdle/colors";
 import { EXTREME_COLORS } from "@/lib/extremes/colors";
-import { COLOR as WARN } from "@/lib/warnings/style";
+import {
+  COLOR as WARN,
+  TAG_COLOR,
+  TAG_LABEL,
+  WARN_TAGS,
+} from "@/lib/warnings/style";
 import { RARITY } from "@/lib/badges";
 import { GAUGE_LEVELS } from "@/lib/rivers/style";
 import { SHELTER_COLORS } from "@/lib/disaster/style";
@@ -158,6 +163,16 @@ export const GROUPS: Group[] = [
       key: `warn:${k}`,
       label: k,
       def: v,
+    })),
+  },
+  {
+    id: "warntags",
+    label: "Warning outlines (impact tags)",
+    note: "Severe Weather History · the strongest wording on each warning",
+    entries: WARN_TAGS.map((t) => ({
+      key: `warntag:${t}`,
+      label: TAG_LABEL[t],
+      def: TAG_COLOR[t],
     })),
   },
   {

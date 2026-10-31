@@ -128,6 +128,33 @@ async function tornadoes(): Promise<Sample> {
   };
 }
 
+/** Warnings of the 26–28 April 2024 outbreak, outlined by their strongest impact tag. */
+async function warnTags(): Promise<Sample> {
+  const j = await json<{
+    warnings: { k: "TO" | "SV" | "FF"; t?: string; c: number[][] }[];
+  }>("/samples/warnings-20240426.json");
+  const name = {
+    TO: "Tornado Warning",
+    SV: "Severe Thunderstorm Warning",
+    FF: "Flash Flood Warning",
+  };
+  const rank = { FF: 0, SV: 1, TO: 2 };
+  const ws = j.warnings.sort((a, b) => rank[a.k] - rank[b.k]);
+  const shape = (c: number[][]) =>
+    geoPath({ type: "Polygon", coordinates: [c] }, 0.4);
+  return {
+    title:
+      "Warnings of 26–28 April 2024 (Elkhorn and Lincoln): outlines by impact tag",
+    view: { x: 360, y: 150, w: 330 },
+    under: ws.map((w) => ({ k: `warn:${name[w.k]}`, d: shape(w.c), o: 0.45 })),
+    over: ws
+      .filter((w) => w.t)
+      .map((w) => ({ k: `warntag:${w.t}`, d: shape(w.c), w: 1.8 }))
+      .filter((s) => s.d),
+    dots: [],
+  };
+}
+
 async function drought(): Promise<Sample> {
   const j = await json<{ features: { dm: number; geometry: Geometry }[] }>(
     "/samples/usdm-20220816.json",
@@ -366,6 +393,8 @@ export function sampleFor(id: string): (() => Promise<Sample>) | null {
       return () => spc("prob");
     case "ef":
       return tornadoes;
+    case "warntags":
+      return warnTags;
     case "usdm":
       return drought;
     case "fire":

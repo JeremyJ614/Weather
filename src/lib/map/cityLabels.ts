@@ -15,8 +15,10 @@ export function pickCities(
 ): City[] {
   const k = full / v.w;
   if (k < 1.4) return [];
-  // A few anchor cities at moderate zoom; more only when zoomed far in (Fix-It #6.8).
-  const want = k < 2.5 ? 5 : k < 5 ? 8 : k < 10 ? 14 : 22;
+  // A few anchor cities at moderate zoom; more only when zoomed far in (Fix-It #6.8), and
+  // town names on maps that zoom past 10× (Fix list 2026-10-30 #7), still never crowded.
+  const want =
+    k < 2.5 ? 5 : k < 5 ? 8 : k < 10 ? 14 : k < 20 ? 22 : k < 40 ? 30 : 38;
   const gap = fs * 1.6;
   const boxes: [number, number, number, number][] = [];
   const out: City[] = [];

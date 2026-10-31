@@ -1,13 +1,14 @@
 /* StormSync service worker.
    - The app's code files (hashed, never change) are kept in a capped cache, oldest out first,
      so phones don't fill up with every version ever shipped (review round, "sw-clean").
-   - Pages and their data are fetched live. When the network is slow (no answer in 1.5 s) or
-     gone, the copy from the last visit is shown instead and the page is told how old it is,
-     so it can say so ("instant-reopen"). Warnings, alerts, account and payment calls are
-     never answered from a saved copy. */
+   - Pages and their data are always fetched live (Fix list 2026-10-30 #1: the old 1.5 s
+     fallback showed stale copies on every slow engine map and kept asking for a refresh).
+     Only when there is no connection at all is the copy from the last visit shown, and the
+     page reloads by itself as soon as the connection is back. Warnings, alerts, account and
+     payment calls are never answered from a saved copy. */
 const SHELL = "sswx-shell-v2";
 const STATIC = "sswx-static-v1";
-const LAST = "sswx-last-v1";
+const LAST = "sswx-last-v2";
 const KEEP = [SHELL, STATIC, LAST];
 const SHELL_FILES = [
   "/offline",
@@ -16,10 +17,9 @@ const SHELL_FILES = [
 ];
 /** Caps (entries): code ~300 files, last-visit copies ~120 (about 15 MB at most). */
 const MAX = { [STATIC]: 300, [LAST]: 120 };
-const WAIT_MS = 1500;
 /** Always live: warnings, alerts, lightning, storm reports, the account, billing, admin. */
 const LIVE =
-  /^\/api\/(warnings|notify|lightning|reports|me|auth|stripe|admin|cron|push|human|contact)(\/|$)|^\/(admin|auth|login|signup|welcome)(\/|$)/;
+  /^\/api\/(warnings|notify|lightning|reports|me|auth|stripe|admin|cron|push|human|contact)(\/|$)|^\/(admin|auth|login|signup|welcome|version\.json)(\/|$)/;
 
 self.addEventListener("install", (e) => {
   e.waitUntil(
@@ -60,68 +60,63 @@ async function keep(name, req, res) {
   await trim(name);
 }
 
-/** When each client's page or data came from a saved copy (it asks once it has loaded). */
-const staleFor = new Map();
-function noteStale(clientId, savedAt) {
+/** Tells a page its data came from the last visit because the network was gone. */
+function noteOffline(clientId, savedAt) {
   if (!clientId) return;
-  const prev = staleFor.get(clientId);
-  if (!prev || savedAt < prev) staleFor.set(clientId, savedAt);
   self.clients.get(clientId).then((c) => {
-    if (c)
-      c.postMessage({ type: "sswx-stale", savedAt: staleFor.get(clientId) });
+    if (c) c.postMessage({ type: "sswx-offline", savedAt });
   });
 }
 
-self.addEventListener("message", (e) => {
-  if (e.data?.type === "sswx-stale?" && e.source) {
-    const at = staleFor.get(e.source.id);
-    if (at) e.source.postMessage({ type: "sswx-stale", savedAt: at });
-  }
-});
-
 /**
- * Live first. A good answer is saved (stamped with when) and returned; with no answer in
- * WAIT_MS, or no network, the saved copy is returned and the page told its age. The live
- * answer still lands in the cache for next time.
+ * Live, always. A good answer is saved (stamped with when) and returned. Only when the
+ * network fails is the saved copy returned, and the page told it is offline.
  */
 function liveOrLast(e, clientId) {
   const req = e.request;
-  const live = fetch(req).then((res) => {
-    const type = res.headers.get("content-type") || "";
-    if (
-      res.ok &&
-      res.type === "basic" &&
-      (req.mode === "navigate" || type.includes("json"))
-    ) {
-      const h = new Headers(res.headers);
-      // When the server made it: a copy the browser's own cache answered with keeps its age.
-      h.set(
-        "x-sswx-saved",
-        String(Date.parse(res.headers.get("date") || "") || Date.now()),
-      );
-      res
-        .clone()
-        .blob()
-        .then((b) =>
-          keep(LAST, req, new Response(b, { status: res.status, headers: h })),
+  return fetch(req)
+    .then((res) => {
+      const type = res.headers.get("content-type") || "";
+      if (
+        res.ok &&
+        res.type === "basic" &&
+        (req.mode === "navigate" || type.includes("json"))
+      ) {
+        const h = new Headers(res.headers);
+        h.set(
+          "x-sswx-saved",
+          String(Date.parse(res.headers.get("date") || "") || Date.now()),
         );
-    }
-    return res;
-  });
-  e.waitUntil(live.catch(() => undefined));
-  const saved = () =>
-    caches
-      .open(LAST)
-      .then((c) => c.match(req))
-      .then((hit) => {
-        if (!hit) return hit;
-        const at = Number(hit.headers.get("x-sswx-saved")) || 0;
-        noteStale(clientId, at);
-        if (req.mode !== "navigate") return hit;
-        // The page learns its own age from a tag in its head (React leaves unknown head tags be).
-        return hit
-          .text()
-          .then(
+        e.waitUntil(
+          res
+            .clone()
+            .blob()
+            .then((b) =>
+              keep(
+                LAST,
+                req,
+                new Response(b, { status: res.status, headers: h }),
+              ),
+            )
+            .catch(() => undefined),
+        );
+      }
+      return res;
+    })
+    .catch(() =>
+      caches
+        .open(LAST)
+        .then((c) => c.match(req))
+        .then((hit) => {
+          if (!hit)
+            return req.mode === "navigate"
+              ? caches.match("/offline")
+              : Response.error();
+          const at = Number(hit.headers.get("x-sswx-saved")) || 0;
+          noteOffline(clientId, at);
+          if (req.mode !== "navigate") return hit;
+          // The page learns it came from a saved copy from a tag in its head.
+          return hit.text().then(
             (html) =>
               new Response(
                 html.replace(
@@ -131,40 +126,8 @@ function liveOrLast(e, clientId) {
                 { status: hit.status, headers: hit.headers },
               ),
           );
-      });
-  return new Promise((resolve) => {
-    let done = false;
-    const finish = (r) => {
-      if (!done && r) {
-        done = true;
-        resolve(r);
-      }
-    };
-    const timer = setTimeout(() => saved().then(finish), WAIT_MS);
-    live
-      .then((r) => {
-        clearTimeout(timer);
-        // Already answered from the saved copy: tell the page newer data is ready.
-        if (done && r.ok && clientId)
-          self.clients.get(clientId).then((c) => {
-            if (c) c.postMessage({ type: "sswx-fresh" });
-          });
-        finish(r);
-      })
-      .catch(() => {
-        clearTimeout(timer);
-        saved().then((hit) =>
-          finish(
-            hit ||
-              (req.mode === "navigate"
-                ? caches.match("/offline")
-                : Response.error()),
-          ),
-        );
-      });
-    // If the saved copy was missing at the deadline, the live answer still finishes it.
-    live.then(finish, () => undefined);
-  });
+        }),
+    );
 }
 
 self.addEventListener("fetch", (e) => {

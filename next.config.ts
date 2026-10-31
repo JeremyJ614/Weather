@@ -1,6 +1,14 @@
+import { readFileSync } from "node:fs";
 import type { NextConfig } from "next";
 
+/** The build stamp (scripts/build-id.mjs): open pages compare it with /version.json. */
+let build = "dev";
+try {
+  build = JSON.parse(readFileSync("public/version.json", "utf8")).id ?? "dev";
+} catch {}
+
 const nextConfig: NextConfig = {
+  env: { SSWX_BUILD: build },
   // Off until measured against the performance budget (it adds shared JS).
   reactCompiler: false,
   poweredByHeader: false,

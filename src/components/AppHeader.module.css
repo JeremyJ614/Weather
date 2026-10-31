@@ -26,6 +26,15 @@
   left: auto;
   right: 14px;
 }
+/* A menu in the top-right corner: the place stacks under a smaller logo. */
+:global(html[data-top-right]) .logo,
+:global(html[data-logo-side="right"]) .logo {
+  top: calc(8px + env(safe-area-inset-top, 0px));
+}
+:global(html[data-top-right]) .logo img,
+:global(html[data-logo-side="right"]) .logo img {
+  height: 19px;
+}
 .logo img {
   display: block;
   height: 24px;

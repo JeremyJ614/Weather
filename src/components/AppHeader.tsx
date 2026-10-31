@@ -1,10 +1,12 @@
 /* eslint-disable @next/next/no-img-element -- small local logo */
 import Link from "next/link";
+import { HeaderLocation } from "@/features/location/LazyHeaderLocation";
 import s from "./AppHeader.module.css";
 
 /**
  * SSWX Weather Center masthead: a live radar emblem and a metal wordmark in the
- * center, the StormSync logo small in whichever top corner no menu uses.
+ * center, the StormSync logo small in whichever top corner no menu uses, and the
+ * reader's place: top right when free, else under the logo.
  */
 export function AppHeader() {
   return (
@@ -41,6 +43,7 @@ export function AppHeader() {
           <span className={s.center}>Weather Center</span>
         </span>
       </Link>
+      <HeaderLocation />
       <span className={s.rule} aria-hidden />
     </header>
   );

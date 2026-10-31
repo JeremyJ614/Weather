@@ -28,17 +28,19 @@ const CHECKED = new Set<FieldId>(["blizz", "first", "bound"]);
 
 /**
  * GET ?e=<engine id>: one model-driven engine's map and list,
- * served from storage (lib/engines/stored.ts) and held at the edge for 5 minutes.
+ * served from storage (lib/engines/stored.ts) and held at the edge for 5 minutes. `v` (a
+ * refresh key press) skips the server's own copy and reads the stored map.
  */
 export async function GET(req: Request) {
-  const e = new URL(req.url).searchParams.get("e") as FieldId;
+  const q = new URL(req.url).searchParams;
+  const e = q.get("e") as FieldId;
   if (!IDS.includes(e)) return new Response("Bad request", { status: 400 });
   // Switched off or hidden in admin → Extras: nothing is computed for it.
   if (!isLive((await getSiteDefaults()).extras, e))
     return new Response("Not found", { status: 404 });
   try {
     const [{ map, later }, stats, reports] = await Promise.all([
-      storedField(e),
+      storedField(e, q.has("v")),
       CHECKED.has(e) ? engineStats(e).catch(() => null) : null,
       e === "sunset" ? reportSummary(e).catch(() => null) : null,
     ]);

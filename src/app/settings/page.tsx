@@ -9,6 +9,7 @@ import { getSiteDefaults } from "@/lib/settings";
 import { supabaseServer } from "@/lib/supabase/server";
 import { AccountPanels, type PlanSummary } from "./AccountPanels";
 import { SettingsView } from "./SettingsView";
+import { InstallGuideLinks } from "./InstallGuideLinks";
 
 export const metadata: Metadata = pageMeta(
   "/settings",
@@ -85,7 +86,9 @@ export default async function Settings() {
           signedIn={viewer.signedIn}
           defaults={{ menus: defaults.menus, theme: defaults.theme }}
         />
-        {account && <AccountPanels {...account} />}
+        {account && (
+          <AccountPanels {...account} guides={<InstallGuideLinks />} />
+        )}
       </div>
     </main>
   );

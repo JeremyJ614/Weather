@@ -150,7 +150,16 @@ export function UsMap({
   actions = true,
   zoomable = true,
   view,
+  maxZoom = 10,
+  focus,
+  towns = false,
 }: {
+  /** Deepest zoom (10× by default; tornado tracks go to 60×). */
+  maxZoom?: number;
+  /** Glides here whenever `key` changes (a picked track, say). */
+  focus?: { x: number; y: number; w: number; key: string };
+  /** Load small towns too, for maps that zoom far in. */
+  towns?: boolean;
   /** Open framed on a part of the canvas instead of the whole country. */
   view?: { x: number; y: number; w: number };
   /** Still at first; "Zoom & pan" makes it grab-, pinch- and wheel-zoomable. */
@@ -176,20 +185,39 @@ export function UsMap({
   const [busy, setBusy] = useState(false);
   const svg = useRef<SVGSVGElement>(null);
   const [live, setLive] = useState(false);
-  const z = useZoom(svg, W, H, live, onTap, view);
+  const z = useZoom(svg, W, H, live, onTap, view, maxZoom);
+  const now = useRef({ view: z.view, jump: z.jump });
+  useEffect(() => {
+    now.current = { view: z.view, jump: z.jump };
+  });
+  useEffect(() => {
+    if (!focus) return;
+    let stop = () => {};
+    let gone = false;
+    import("./glide").then((m) => {
+      if (!gone)
+        stop = m.glide(now.current.view, focus, now.current.jump, H / W);
+    });
+    return () => {
+      gone = true;
+      stop();
+    };
+    // Only a new key moves the map.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focus?.key]);
   const [cities, setCities] = useState<City[] | null>(null);
   const deep = zoomable && z.view.w < W / 1.4;
   useEffect(() => {
     if (!deep || cities) return;
     let off = false;
-    fetch("/api/maps/cities")
+    fetch(towns ? "/api/maps/cities?n=12000" : "/api/maps/cities")
       .then((r) => (r.ok ? r.json() : []))
       .then((c: City[]) => !off && setCities(c))
       .catch(() => {});
     return () => {
       off = true;
     };
-  }, [deep, cities]);
+  }, [deep, cities, towns]);
   // Canvas units per screen pixel, so city names stay a readable 11px at any zoom.
   const [cssW, setCssW] = useState(360);
   useEffect(() => {
@@ -255,7 +283,11 @@ export function UsMap({
           viewBox={vb}
           xmlns="http://www.w3.org/2000/svg"
           className={`${s.svg} ${onTap ? s.picker : ""} ${live ? s.live : ""}`}
-          style={{ ["--zs" as string]: z.view.w / W }}
+          style={{
+            ["--zs" as string]: z.view.w / W,
+            // Canvas units per screen pixel: lines sized in screen pixels at any zoom.
+            ["--px" as string]: (zoomable ? z.view.w : W) / cssW,
+          }}
           {...(zoomable ? z.handlers : {})}
           onClick={(e) => {
             const el = svg.current;

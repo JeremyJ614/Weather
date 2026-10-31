@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   GeoJSONSource,
   Map as MaplibreMap,
@@ -30,6 +30,7 @@ import {
   Zap,
 } from "lucide-react";
 import { WeatherMap, type ReadyMap } from "@/features/map/WeatherMap";
+import { RefreshKey } from "@/components/ui/RefreshKey";
 import { pick, type Colors } from "@/lib/colors/pick";
 import { stateOf, type ExtrasStates } from "@/lib/extras/items";
 import {
@@ -573,6 +574,17 @@ async function blindImage(colors: Colors) {
 }
 
 /** What a listed spot's time means, by engine and view. */
+/** One field engine's map, unpacked. */
+async function fetchField(id: FieldId, v?: string): Promise<FieldData> {
+  const r = await fetch(`/api/engines/field?e=${id}${v ? `&v=${v}` : ""}`);
+  if (!r.ok) throw new Error(String(r.status));
+  const d: FieldData = await r.json();
+  return { ...d, areas: unpackAreas(d.areas), alt: unpackAreas(d.alt) };
+}
+
+/** Which build of the analogs a page shows. */
+const analogStamp = (a: AnalogData) => a.made_at ?? a.cycle ?? a.day;
+
 const whenLabel = (e: Engine, view: number) =>
   e === "first"
     ? "First storms around"
@@ -665,6 +677,21 @@ export function EnginesTab({
     engineRef.current = engine;
   });
 
+  // Refresh keys (Fix list 2026-10-30 #1): each engine looks for newer data in the background
+  // and lights its key's marker; what is on screen only changes when the key is pressed.
+  const [fresh, setFresh] = useState<Partial<Record<Engine, boolean>>>({});
+  const [pulling, setPulling] = useState(false);
+  const waiting = useRef<
+    Partial<Record<Engine, Record<string, () => unknown>>>
+  >({});
+  /** Newer data for `e` (from source `slot`) is in hand or one fetch away: hold it. */
+  const hold = useCallback((e: Engine, slot: string, apply: () => unknown) => {
+    waiting.current[e] = { ...waiting.current[e], [slot]: apply };
+    setFresh((f) => (f[e] ? f : { ...f, [e]: true }));
+  }, []);
+  /** What each engine is showing (its scan time or model run), to compare news against. */
+  const stamps = useRef<Partial<Record<string, string>>>({});
+
   const torColor = (i: number) =>
     pick(colors, `engine:tor:${i}`, TOR_BINS[i].color);
   const blindColor = (i: number) =>
@@ -688,66 +715,88 @@ export function EnginesTab({
   const pyroColor = (i: number) =>
     pick(colors, `engine:pyrocb:${i}`, PYRO_BINS[i].color);
 
-  // A model engine's map is read once per visit (the server keeps it 30 minutes).
+  // A model engine's map is read once per visit (the server keeps it 30 minutes); `v` (a
+  // refresh) reads the stored map past the server's own copy.
+  const loadField = useCallback(
+    (id: FieldId, v?: string) =>
+      fetchField(id, v).then((d) => setFields((f) => ({ ...f, [id]: d }))),
+    [],
+  );
   const want = isField(engine) && !fields[engine] ? engine : null;
   useEffect(() => {
     if (!want) return;
     let live = true;
-    fetch(`/api/engines/field?e=${want}`)
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then(
-        (d: FieldData) =>
-          live &&
-          setFields((f) => ({
-            ...f,
-            [want]: {
-              ...d,
-              areas: unpackAreas(d.areas),
-              alt: unpackAreas(d.alt),
-            },
-          })),
-      )
+    fetchField(want)
+      .then((d) => live && setFields((f) => ({ ...f, [want]: d })))
       .catch(() => live && setFields((f) => ({ ...f, [want]: "error" })));
     return () => {
       live = false;
     };
   }, [want]);
 
+  // A newer model run stored for the open field engine lights its key (checked every 5 min).
+  const fieldOpen = isField(engine) ? engine : null;
+  useEffect(() => {
+    if (!fieldOpen) return;
+    const check = () =>
+      document.visibilityState === "visible" &&
+      fetch(`/api/engines/stamp?e=${fieldOpen}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d: { cycle: string | null } | null) => {
+          const shown = stamps.current[fieldOpen];
+          if (d?.cycle && shown && d.cycle !== shown)
+            hold(fieldOpen, "field", () => loadField(fieldOpen, d.cycle!));
+        })
+        .catch(() => undefined);
+    const t = setInterval(check, 300_000);
+    return () => clearInterval(t);
+  }, [fieldOpen, hold, loadField]);
+
   // Lightning surges every two minutes while that engine is open and the page is visible.
   useEffect(() => {
     if (engine !== "surge") return;
     let live = true;
-    const load = () =>
+    const load = (first: boolean) =>
       document.visibilityState === "visible" &&
       fetch("/api/engines/surge")
         .then((r) => (r.ok ? r.json() : Promise.reject()))
-        .then((d: SurgeData) => live && setSurge(d))
+        .then((d: SurgeData) => {
+          if (!live) return;
+          if (first || !stamps.current.surge) setSurge(d);
+          else if (d.at !== stamps.current.surge)
+            hold("surge", "live", () => setSurge(d));
+        })
         .catch(() => live && setSurge((x) => x ?? "error"));
-    load();
-    const t = setInterval(load, 120_000);
+    load(true);
+    const t = setInterval(() => load(false), 120_000);
     return () => {
       live = false;
       clearInterval(t);
     };
-  }, [engine]);
+  }, [engine, hold]);
 
   // The rotating storms' rain-wrap, every two minutes while that engine is open.
   useEffect(() => {
     if (engine !== "rwrap") return;
     let live = true;
-    const load = () =>
+    const load = (first: boolean) =>
       document.visibilityState === "visible" &&
       fetch("/api/engines/rainwrap")
         .then((r) => (r.ok ? r.json() : Promise.reject()))
-        .then((d) => live && setWraps(d))
+        .then((d: { at: string; storms: WrapStorm[] }) => {
+          if (!live) return;
+          if (first || !stamps.current.wraps) setWraps(d);
+          else if (d.at !== stamps.current.wraps)
+            hold("rwrap", "live", () => setWraps(d));
+        })
         .catch(() => live && setWraps((x) => x ?? "error"));
-    load();
-    const t = setInterval(load, 120_000);
+    load(true);
+    const t = setInterval(() => load(false), 120_000);
     return () => {
       live = false;
       clearInterval(t);
     };
-  }, [engine]);
+  }, [engine, hold]);
 
   // Severe Analogs: today's or tomorrow's matches once per visit, and a picked day's reports.
   const wantAnalog = engine === "analog" && !analogs[view] ? view : null;
@@ -789,24 +838,44 @@ export function EnginesTab({
   useEffect(() => {
     if (engine !== "rainbow") return;
     let live = true;
-    const load = () =>
+    const load = (first: boolean) =>
       document.visibilityState === "visible" &&
       fetch("/api/engines/rainbow")
         .then((r) => (r.ok ? r.json() : Promise.reject()))
-        .then((d: RainbowData) => live && setRainbow(d))
+        .then((d: RainbowData) => {
+          if (!live) return;
+          if (first || !stamps.current.rainbow) setRainbow(d);
+          else if (d.at !== stamps.current.rainbow)
+            hold("rainbow", "live", () => setRainbow(d));
+        })
         .catch(() => live && setRainbow((x) => x ?? "error"));
-    load();
-    const t = setInterval(load, 300_000);
+    load(true);
+    const t = setInterval(() => load(false), 300_000);
     return () => {
       live = false;
       clearInterval(t);
     };
-  }, [engine]);
+  }, [engine, hold]);
 
   // Deer and fishing maps once per visit (per species), and the chosen place's three days.
   const mapKey =
     engine === "deer" ? "deer" : engine === "fish" ? `fish:${species}` : null;
   const needMap = mapKey && !placeMaps[mapKey] ? mapKey : null;
+  /** Shows a Deer/Fishing outlook; a newer one also renews the picked place's days. */
+  const showPlaceMap = (key: string, d: PlaceMap) => {
+    setPlaceMaps((m) => ({
+      ...m,
+      [key]: {
+        ...d,
+        days: d.days.map((x) => ({ ...x, areas: unpackAreas(x.areas) })),
+      },
+    }));
+    setDetail((m) =>
+      Object.fromEntries(
+        Object.entries(m).filter(([k]) => !k.startsWith(`${key}@`)),
+      ),
+    );
+  };
   useEffect(() => {
     if (!needMap) return;
     let live = true;
@@ -856,23 +925,134 @@ export function EnginesTab({
   useEffect(() => {
     if (engine !== "tor") return;
     let live = true;
-    const load = () =>
+    const load = (first: boolean) =>
       document.visibilityState === "visible" &&
       fetch("/api/engines/probsevere")
         .then((r) => (r.ok ? r.json() : Promise.reject()))
         .then((d: Data) => {
           if (!live) return;
-          setData(d);
           setFailed(false);
+          if (first || !stamps.current.tor) setData(d);
+          else if (d.at !== stamps.current.tor)
+            hold("tor", "live", () => setData(d));
         })
-        .catch(() => live && setFailed(true));
-    load();
-    const t = setInterval(load, 120_000);
+        .catch(() => live && first && setFailed(true));
+    load(true);
+    const t = setInterval(() => load(false), 120_000);
     return () => {
       live = false;
       clearInterval(t);
     };
-  }, [engine]);
+  }, [engine, hold]);
+
+  // Analogs and the Deer/Fishing outlooks are looked at again every 30 minutes while open.
+  const slowKey = engine === "analog" ? `analog:${view}` : mapKey;
+  useEffect(() => {
+    if (!slowKey) return;
+    const [kind, part] = slowKey.split(":");
+    const url =
+      kind === "analog"
+        ? `/api/engines/analogs?d=${Number(part) + 1}`
+        : `/api/engines/place?e=${kind}${part ? `&sp=${part}` : ""}`;
+    const check = () =>
+      document.visibilityState === "visible" &&
+      fetch(url)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d: (AnalogData & PlaceMap) | null) => {
+          const shown = stamps.current[slowKey];
+          const now = d && (kind === "analog" ? analogStamp(d) : d.at);
+          if (!d || !shown || !now || now === shown) return;
+          hold(engine, "slow", () =>
+            kind === "analog"
+              ? setAnalogs((m) => ({ ...m, [Number(part)]: d }))
+              : showPlaceMap(slowKey, d),
+          );
+        })
+        .catch(() => undefined);
+    const t = setInterval(check, 1_800_000);
+    return () => clearInterval(t);
+  }, [slowKey, engine, hold]);
+
+  // What is on screen, for the checks above.
+  useEffect(() => {
+    const at = <T extends { at: string }>(x: T | "error" | null) =>
+      x && x !== "error" ? x.at : undefined;
+    const st: Partial<Record<string, string>> = {
+      tor: data?.at,
+      surge: at(surge),
+      wraps: at(wraps),
+      rainbow: at(rainbow),
+    };
+    for (const [k, v] of Object.entries(fields))
+      if (v && v !== "error") st[k] = v.cycle;
+    for (const [k, v] of Object.entries(placeMaps))
+      if (v && v !== "error") st[k] = v.at;
+    for (const [k, v] of Object.entries(analogs))
+      if (v && v !== "error") st[`analog:${k}`] = analogStamp(v);
+    stamps.current = st;
+  });
+
+  /** A refresh with nothing held: fetch the engine's newest data now, past the edge copies. */
+  const pull = async (e: Engine) => {
+    const r = `r=${Date.now()}`;
+    const get = async <T,>(u: string): Promise<T> => {
+      const x = await fetch(u);
+      if (!x.ok) throw new Error(String(x.status));
+      return x.json();
+    };
+    const jobs: Promise<unknown>[] = [];
+    if (e === "tor")
+      jobs.push(
+        get<Data>(`/api/engines/probsevere?${r}`).then((d) => {
+          setData(d);
+          setFailed(false);
+        }),
+      );
+    if (e === "surge")
+      jobs.push(get<SurgeData>(`/api/engines/surge?${r}`).then(setSurge));
+    if (e === "rwrap")
+      jobs.push(
+        get<{ at: string; storms: WrapStorm[] }>(
+          `/api/engines/rainwrap?${r}`,
+        ).then(setWraps),
+      );
+    if (e === "rainbow")
+      jobs.push(get<RainbowData>(`/api/engines/rainbow?${r}`).then(setRainbow));
+    if (isField(e)) jobs.push(loadField(e, String(Date.now())));
+    if (e === "analog")
+      jobs.push(
+        get<AnalogData>(`/api/engines/analogs?d=${view + 1}&${r}`).then((d) =>
+          setAnalogs((m) => ({ ...m, [view]: d })),
+        ),
+      );
+    if (mapKey && (e === "deer" || e === "fish")) {
+      const [k, sp] = mapKey.split(":");
+      jobs.push(
+        get<PlaceMap>(
+          `/api/engines/place?e=${k}${sp ? `&sp=${sp}` : ""}&${r}`,
+        ).then((d) => showPlaceMap(mapKey, d)),
+      );
+    }
+    await Promise.all(jobs);
+  };
+  const refresh = async () => {
+    const e = engine;
+    const held = waiting.current[e];
+    delete waiting.current[e];
+    setFresh((f) => ({ ...f, [e]: false }));
+    setPulling(true);
+    const start = Date.now();
+    try {
+      if (held) await Promise.all(Object.values(held).map((f) => f()));
+      else await pull(e);
+    } catch {
+      // What is shown stays; the key can be pressed again.
+    }
+    // Long enough to see the key work.
+    const rest = 650 - (Date.now() - start);
+    if (rest > 0) await new Promise((ok) => setTimeout(ok, rest));
+    setPulling(false);
+  };
 
   const onReady = ({ map: any }: ReadyMap) => {
     const m = any as unknown as MaplibreMap;
@@ -1350,7 +1530,9 @@ export function EnginesTab({
                         setBeam(null);
                       }}
                     >
-                      {e.icon}
+                      <span className={s.power} aria-hidden>
+                        {e.icon}
+                      </span>
                       <b>{e.name}</b>
                       <small>{off ? "Off for now" : e.sub}</small>
                     </button>
@@ -1372,6 +1554,15 @@ export function EnginesTab({
         <span className={s.badge}>
           <FlaskConical aria-hidden /> Experimental
         </span>
+        {engine !== "blind" && (
+          <RefreshKey
+            className={s.refresh}
+            onPress={refresh}
+            busy={pulling}
+            fresh={!!fresh[engine]}
+            label={`Refresh ${shown.find((x) => x.id === engine)?.name ?? "this engine"}`}
+          />
+        )}
       </div>
       <div className={s.legend}>
         {legend.map(([label, color]) => (
