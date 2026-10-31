@@ -57,6 +57,9 @@ export function slideIn(el: Element | null | undefined, dir: number) {
  * `segment`: a dark segmented control whose active pill carries the beam.
  * `pills`: a sideways-scrolling row of dark pills (second-level tabs).
  * `arcade`: big cards; the active one wears a spinning multicolor rim.
+ * `deck`: every tab in view at once as icon tiles (no sideways scroll); the active one wears
+ * the multicolor ring and the "Xerox scan" (a dimmed fill rising and a sheen sweeping
+ * across, after Nodws's Aura Button Effects #18, MIT). Fix list 2026-10-30 follow-up #1.
  */
 export function HomeTabs({
   tabs,
@@ -65,7 +68,7 @@ export function HomeTabs({
 }: {
   tabs: Tab[];
   label?: string;
-  variant?: "underline" | "segment" | "pills" | "arcade";
+  variant?: "underline" | "segment" | "pills" | "arcade" | "deck";
 }) {
   const [active, setActive] = useState(tabs[0]?.id);
   const [seen, setSeen] = useState(() => new Set([tabs[0]?.id]));
@@ -115,18 +118,21 @@ export function HomeTabs({
             ? s.segment
             : variant === "pills"
               ? s.pills
-              : variant === "arcade"
-                ? s.arcade
-                : s.underline
+              : variant === "deck"
+                ? s.deck
+                : variant === "arcade"
+                  ? s.arcade
+                  : s.underline
         }
         style={
-          variant === "pills" || variant === "arcade"
+          variant === "pills" || variant === "arcade" || variant === "deck"
             ? undefined
             : { gridTemplateColumns: `repeat(${tabs.length}, 1fr)` }
         }
       >
-        {variant === "pills" || variant === "arcade" ? null : variant ===
-          "segment" ? (
+        {variant === "pills" ||
+        variant === "arcade" ||
+        variant === "deck" ? null : variant === "segment" ? (
           <Beam
             still="fade"
             className={s.pill}
@@ -167,6 +173,36 @@ export function HomeTabs({
                 {t.sub && <small>{t.sub}</small>}
               </span>
             </button>
+          ) : variant === "deck" ? (
+            t.id === active ? (
+              <Beam key={t.id} className={s.deckBeam} still="ring">
+                <button
+                  role="tab"
+                  id={`tab-${t.id}`}
+                  aria-selected
+                  aria-controls={`panel-${t.id}`}
+                  className={`${s.tile} ${s.scan}`}
+                >
+                  <i className={s.scanFill} aria-hidden />
+                  <i className={s.scanSheen} aria-hidden />
+                  {t.icon}
+                  <span>{t.label}</span>
+                </button>
+              </Beam>
+            ) : (
+              <button
+                key={t.id}
+                role="tab"
+                id={`tab-${t.id}`}
+                aria-selected={false}
+                aria-controls={`panel-${t.id}`}
+                onClick={() => select(t.id)}
+                className={s.tile}
+              >
+                {t.icon}
+                <span>{t.label}</span>
+              </button>
+            )
           ) : variant === "pills" && t.id === active ? (
             <Beam key={t.id} className={s.pillBeam} still="ring">
               <button
