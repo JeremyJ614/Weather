@@ -41,7 +41,7 @@ export function RadarView({ colors }: { colors: Colors }) {
       <p className={s.foot}>
         Sources: NEXRAD mosaic tiles (Iowa Environmental Mesonet), MRMS and GOES
         (SSEC RealEarth), model maps rendered from NOAA&apos;s HRRR, GFS and
-        HREF files (AWS Open Data and NOMADS), and model forecasts from
+        REFS files (AWS Open Data and NOMADS), and model forecasts from
         Open-Meteo.
       </p>
     </div>
@@ -49,7 +49,7 @@ export function RadarView({ colors }: { colors: Colors }) {
 }
 
 function ModelRuns() {
-  const [tab, setTab] = useState<"hrrr" | "gfs" | "href" | "now">("hrrr");
+  const [tab, setTab] = useState<"hrrr" | "gfs" | "refs" | "now">("hrrr");
   return (
     <div className="grid gap-3">
       <div className={s.modelTabs} role="group" aria-label="Model">
@@ -57,7 +57,7 @@ function ModelRuns() {
           [
             ["hrrr", "HRRR · 3 km"],
             ["gfs", "GFS · 25 km"],
-            ["href", "Ensemble · HREF"],
+            ["refs", "Ensemble · REFS"],
             ["now", "Nowcast · 15 min"],
           ] as const
         ).map(([k, l]) => (
@@ -73,8 +73,8 @@ function ModelRuns() {
       </div>
       {tab === "now" ? <Nowcast /> : <ModelViewer key={tab} model={tab} />}
       <p className={s.muted}>
-        {tab === "href"
-          ? "HREF: NOAA's high-resolution ensemble. Each map is the chance, out of 100, that the threshold is met near a point."
+        {tab === "refs"
+          ? "REFS: NOAA's 14-member, 3 km ensemble, the successor to HREF. Chance maps show how likely, out of 100, the threshold is met near a point; mean and PMM maps show the ensemble's best single picture."
           : tab === "now"
             ? ""
             : "Rendered from NOAA's own model files, field by field, the moment you ask: smooth between grid points, never beyond a value the model produced."}
