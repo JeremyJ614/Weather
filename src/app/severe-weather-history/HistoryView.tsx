@@ -1,7 +1,13 @@
 "use client";
 
 import { useEffect, useId, useMemo, useState } from "react";
-import { Crosshair, MapPinned, Siren, Tornado } from "lucide-react";
+import {
+  CalendarRange,
+  Crosshair,
+  MapPinned,
+  Siren,
+  Tornado,
+} from "lucide-react";
 import { HomeTabs } from "@/features/news/HomeTabs";
 import { UsMap, W, H } from "@/features/maps/UsMap";
 import { pick, type Colors } from "@/lib/colors/pick";
@@ -141,6 +147,116 @@ function Range({
   );
 }
 
+/**
+ * The two filters every History map takes (owner's follow-up #3): a date range and a state
+ * checklist, side by side so nobody has to hunt for them.
+ */
+function Filters({
+  what,
+  dates,
+  custom,
+  min,
+  maxDays,
+  onDates,
+  counts,
+  only,
+  setOnly,
+}: {
+  what: string;
+  dates: string;
+  custom: boolean;
+  min: string;
+  maxDays: number;
+  onDates: (from: string, to: string) => void;
+  counts: [string, number][];
+  only: Set<string> | null;
+  setOnly: (v: Set<string> | null) => void;
+}) {
+  const [open, setOpen] = useState<"dates" | "states" | null>(null);
+  const toggle = (k: "dates" | "states") =>
+    setOpen((o) => (o === k ? null : k));
+  const all = counts.map(([x]) => x);
+  return (
+    <div className="grid gap-2">
+      <div className={s.filters}>
+        <button
+          type="button"
+          aria-expanded={open === "dates"}
+          data-on={custom || undefined}
+          onClick={() => toggle("dates")}
+        >
+          <CalendarRange aria-hidden />
+          <span>
+            <small>Dates</small>
+            {custom ? dates : "Pick from / to"}
+          </span>
+        </button>
+        <button
+          type="button"
+          aria-expanded={open === "states"}
+          data-on={only ? true : undefined}
+          onClick={() => toggle("states")}
+        >
+          <MapPinned aria-hidden />
+          <span>
+            <small>States</small>
+            {only
+              ? only.size
+                ? `${[...only].slice(0, 4).join(", ")}${only.size > 4 ? ` +${only.size - 4}` : ""}`
+                : "None"
+              : "All states"}
+          </span>
+        </button>
+      </div>
+      {open === "dates" && (
+        <Range
+          min={min}
+          maxDays={maxDays}
+          onPick={(from, to) => {
+            onDates(from, to);
+            setOpen(null);
+          }}
+        />
+      )}
+      {open === "states" && (
+        <div className={s.statePanel}>
+          <div className={s.stateTools}>
+            <button type="button" onClick={() => setOnly(null)}>
+              All
+            </button>
+            <button type="button" onClick={() => setOnly(new Set())}>
+              None
+            </button>
+            <button type="button" onClick={() => setOpen(null)}>
+              Done
+            </button>
+          </div>
+          <div className={s.stateGrid} role="group" aria-label="States">
+            {counts.map(([st, n]) => (
+              <label key={st}>
+                <input
+                  type="checkbox"
+                  checked={!only || only.has(st)}
+                  onChange={(e) => {
+                    const next = new Set(only ?? all);
+                    if (e.target.checked) next.add(st);
+                    else next.delete(st);
+                    setOnly(next.size === all.length ? null : next);
+                  }}
+                />
+                {st} <small>{n.toLocaleString("en-US")}</small>
+              </label>
+            ))}
+            {!counts.length && (
+              <p className={s.muted}>States show once the {what} load.</p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** Severe Weather History: tornado tracks and the warning archive. */
 export function HistoryView({
   colors,
@@ -194,7 +310,6 @@ function Tornadoes({ colors, year: built }: { colors: Colors; year: number }) {
   );
   // Opens on this year, always (Fix list 2026-10-30 #7).
   const [chosen, setChosen] = useState<string | null>(null);
-  const [dates, setDates] = useState(false);
   const period = chosen ?? `year=${year}`;
   const [hide, setHide] = useState<Set<string>>(new Set());
   const [only, setOnly] = useState<Set<string> | null>(null);
@@ -292,9 +407,8 @@ function Tornadoes({ colors, year: built }: { colors: Colors; year: number }) {
           <button
             key={p.id}
             type="button"
-            aria-pressed={!dates && p.id === period}
+            aria-pressed={p.id === period}
             onClick={() => {
-              setDates(false);
               setChosen(p.id);
               setFocus(null);
             }}
@@ -302,62 +416,24 @@ function Tornadoes({ colors, year: built }: { colors: Colors; year: number }) {
             {p.label}
           </button>
         ))}
-        <button
-          type="button"
-          aria-pressed={dates || Boolean(chosen?.startsWith("from="))}
-          onClick={() => setDates((v) => !v)}
-        >
-          Dates…
-        </button>
       </div>
-      {dates && (
-        <Range
-          min="2000-01-01"
-          maxDays={731}
-          onPick={(from, to) => {
-            setChosen(`from=${from}&to=${to}`);
-            setDates(false);
-            setFocus(null);
-          }}
-        />
-      )}
-      <details className={s.states}>
-        <summary>
-          <MapPinned aria-hidden />
-          {only
-            ? `${only.size} ${only.size === 1 ? "state" : "states"}: ${[...only].slice(0, 6).join(", ")}${only.size > 6 ? "…" : ""}`
-            : "All states"}
-        </summary>
-        <div className={s.stateTools}>
-          <button type="button" onClick={() => setOnly(null)}>
-            All
-          </button>
-          <button type="button" onClick={() => setOnly(new Set())}>
-            None
-          </button>
-        </div>
-        <div className={s.stateGrid} role="group" aria-label="States">
-          {stateCounts.map(([st, n]) => (
-            <label key={st}>
-              <input
-                type="checkbox"
-                checked={!only || only.has(st)}
-                onChange={(e) => {
-                  const next = new Set(only ?? stateCounts.map(([x]) => x));
-                  if (e.target.checked) next.add(st);
-                  else next.delete(st);
-                  setOnly(next.size === stateCounts.length ? null : next);
-                  setFocus(null);
-                }}
-              />
-              {st} <small>{n}</small>
-            </label>
-          ))}
-          {!stateCounts.length && (
-            <p className={s.muted}>States show once tracks load.</p>
-          )}
-        </div>
-      </details>
+      <Filters
+        what="tracks"
+        dates={label ?? ""}
+        custom={Boolean(chosen?.startsWith("from="))}
+        min="2000-01-01"
+        maxDays={731}
+        onDates={(from, to) => {
+          setChosen(`from=${from}&to=${to}`);
+          setFocus(null);
+        }}
+        counts={stateCounts}
+        only={only}
+        setOnly={(v) => {
+          setOnly(v);
+          setFocus(null);
+        }}
+      />
       <div className={s.band}>
         <div>
           <b>{data ? shown.length.toLocaleString("en-US") : "–"}</b>
@@ -559,7 +635,7 @@ function Warnings({ colors }: { colors: Colors }) {
   const [win, setWin] = useState<
     { days: number } | { from: string; to: string }
   >({ days: 3 });
-  const [dates, setDates] = useState(false);
+  const [only, setOnly] = useState<Set<string> | null>(null);
   const short = "days" in win && win.days <= 30;
   const range = useMemo(() => {
     if (short) return null;
@@ -576,11 +652,23 @@ function Warnings({ colors }: { colors: Colors }) {
     short && "days" in win ? `/api/history/warnings?days=${win.days}` : null,
   );
   const long = useMonths(range);
-  const polys = short
-    ? quick && quick !== "error"
-      ? quick.polys
-      : []
-    : (long?.polys ?? []);
+  const loaded = useMemo(
+    () =>
+      short
+        ? quick && quick !== "error"
+          ? quick.polys
+          : []
+        : (long?.polys ?? []),
+    [short, quick, long],
+  );
+  const stateCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const p of loaded) if (p.st) m.set(p.st, (m.get(p.st) ?? 0) + 1);
+    return [...m.entries()].sort(
+      (a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1),
+    );
+  }, [loaded]);
+  const polys = only ? loaded.filter((p) => only.has(p.st ?? "")) : loaded;
   const c = (k: keyof typeof KIND) =>
     pick(colors, `warn:${KIND[k]}`, WARN[KIND[k]]);
   const tagC = (t: WarnTag) => pick(colors, `warntag:${t}`, TAG_COLOR[t]);
@@ -624,33 +712,24 @@ function Warnings({ colors }: { colors: Colors }) {
           <button
             key={d}
             type="button"
-            aria-pressed={!dates && "days" in win && d === win.days}
-            onClick={() => {
-              setDates(false);
-              setWin({ days: Number(d) });
-            }}
+            aria-pressed={"days" in win && d === win.days}
+            onClick={() => setWin({ days: Number(d) })}
           >
             {l}
           </button>
         ))}
-        <button
-          type="button"
-          aria-pressed={dates || "from" in win}
-          onClick={() => setDates((v) => !v)}
-        >
-          Dates…
-        </button>
       </div>
-      {dates && (
-        <Range
-          min="2008-01-01"
-          maxDays={366}
-          onPick={(from, to) => {
-            setWin({ from, to });
-            setDates(false);
-          }}
-        />
-      )}
+      <Filters
+        what="warnings"
+        dates={label}
+        custom={"from" in win}
+        min="2008-01-01"
+        maxDays={366}
+        onDates={(from, to) => setWin({ from, to })}
+        counts={stateCounts}
+        only={only}
+        setOnly={setOnly}
+      />
       {!short && long && long.done < long.of && (
         <p className={s.muted} role="status">
           Loading month {long.done + 1} of {long.of}… the map fills in as each
@@ -689,10 +768,22 @@ function Warnings({ colors }: { colors: Colors }) {
       )}
       <UsMap
         title={`Severe warnings · ${label}`}
-        legend={(Object.keys(KIND) as (keyof typeof KIND)[]).map((k) => ({
-          label: KIND[k],
-          color: c(k),
-        }))}
+        // Only what is on the map, with counts (owner's follow-up #3).
+        legend={[
+          ...(Object.keys(KIND) as (keyof typeof KIND)[])
+            .filter((k) => n(k))
+            .map((k) => ({
+              label: `${KIND[k]} · ${n(k).toLocaleString("en-US")}`,
+              color: c(k),
+            })),
+          ...tags
+            .filter((x) => x.n)
+            .map(({ t, n: k }) => ({
+              label: `${TAG_LABEL[t]} · ${k.toLocaleString("en-US")}`,
+              color: tagC(t),
+              outline: true,
+            })),
+        ]}
         status={status}
         file={`sswx-warnings-${"days" in win ? `${win.days}d` : `${win.from}-${win.to}`}`}
       >
@@ -723,23 +814,6 @@ function Warnings({ colors }: { colors: Colors }) {
           ))
         )}
       </UsMap>
-      <section className={s.card} aria-labelledby="tag-legend">
-        <h3 id="tag-legend">Outlines: the strongest wording on each warning</h3>
-        <ul className={s.tagLegend}>
-          {tags.map(({ t, n: k }) => (
-            <li key={t} style={{ ["--c" as string]: tagC(t) }}>
-              <i />
-              <span>{TAG_LABEL[t]}</span>
-              <b>{status === "loading" ? "–" : k.toLocaleString("en-US")}</b>
-            </li>
-          ))}
-        </ul>
-        <p className={s.muted}>
-          A warning without a tag is outlined in its own color. Emergencies are
-          the rarest and most severe; PDS and destructive mean the worst damage
-          is expected. Colors can be changed in admin → Map &amp; data colors.
-        </p>
-      </section>
     </div>
   );
 }
