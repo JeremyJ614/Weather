@@ -5,9 +5,9 @@ import { groupDays } from "./auto";
 import type { AutoDay, Survey } from "./group";
 
 /**
- * The NWS Surveyed list's days before 2023 (owner, 2026-11-02): every F4 and F5 before 2000,
- * and from 2000 through 2022 every violent or significant tornado, from SPC's database
- * (scripts/archive/build_spc_surveyed.py). Each qualifying tornado's neighbours ride along,
+ * The NWS Surveyed list's days through SPC's last published year (owner, 2026-11-02): every F4
+ * and F5 before 2000, every violent or significant tornado from 2000 through 2022, and every
+ * tornado from 2023, from SPC's database (scripts/archive/build_spc_surveyed.py). Each qualifying tornado's neighbours ride along,
  * so a day replays with its whole outbreak. Grouped into storm events exactly as surveyed
  * days are; only events holding a qualifying tornado are listed. Nothing is stored in the
  * database: this file ships with the app.

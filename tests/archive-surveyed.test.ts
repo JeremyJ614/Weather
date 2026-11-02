@@ -15,16 +15,23 @@ describe("statesIn", () => {
   });
 });
 
-describe("the NWS Surveyed days before 2023", () => {
+describe("the NWS Surveyed days from SPC's database", () => {
   const days = spcDays();
 
   it("stop where the live NWS survey list takes over", () => {
-    expect(SPC_THROUGH).toBe("2022-12-31");
-    expect(days.every((d) => d.day <= "2023-01-01")).toBe(true);
+    expect(SPC_THROUGH).toBe("2025-12-31");
+    expect(days.every((d) => d.day <= "2026-01-01")).toBe(true);
   });
 
-  it("hold every F4/F5 before 2000 and only significant tornadoes after", () => {
+  it("hold every F4/F5 before 2000, significant ones to 2022, and every one since", () => {
     expect(days.length).toBeGreaterThan(400);
+    // Every 2024 storm day, January through April included (the old backfill stalled there).
+    const months = new Set(
+      days
+        .filter((d) => d.day.startsWith("2024"))
+        .map((d) => d.day.slice(5, 7)),
+    );
+    expect(months.size).toBe(12);
     for (const d of days) {
       const ev = spcEvent(d.id)!;
       expect(ev.torn.length).toBe(d.count);
@@ -32,7 +39,7 @@ describe("the NWS Surveyed days before 2023", () => {
         ...ev.torn.map((t) => Number(t.ef.replace("EF", "")) || -1),
       );
       if (d.day < "2000-01-01") expect(best).toBeGreaterThanOrEqual(4);
-      else expect(best).toBeGreaterThanOrEqual(2);
+      else if (d.day < "2023-01-01") expect(best).toBeGreaterThanOrEqual(2);
     }
   });
 

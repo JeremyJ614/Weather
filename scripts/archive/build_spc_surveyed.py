@@ -1,10 +1,11 @@
-"""Builds src/data/archive/spc-surveyed.json: the NWS Surveyed list's days before 2023.
+"""Builds src/data/archive/spc-surveyed.json: the NWS Surveyed list's days through the last
+year SPC has published.
 
 The owner's rules (Fix-It list, 2026-11-02): every F4 and F5 before 2000; from 2000 through
 2022 every violent or significant tornado (EF4 and EF5, EF3s that ran 20 miles or more or
-killed someone, and EF2s that killed someone). From 2023 the list holds every tornado the NWS
-surveys, straight from the Damage Assessment Toolkit (src/lib/archive/auto.ts), so this file
-stops at 2022.
+killed someone, and EF2s that killed someone); from 2023 every tornado. SPC's database holds
+every one of them complete; after its last year the list takes the NWS surveys live from the
+Damage Assessment Toolkit (src/lib/archive/auto.ts).
 
 Each qualifying tornado comes with every other tornado from SPC's database that touched down
 within six hours and 400 km of it, so a day replays with its whole outbreak around it. The
@@ -24,14 +25,16 @@ from datetime import datetime, timedelta, timezone
 
 URL = "https://www.spc.noaa.gov/wcm/data/1950-2025_actual_tornadoes.csv"
 OUT = "src/data/archive/spc-surveyed.json"
-LAST_YEAR = 2022
+LAST_YEAR = 2025
 CST = timezone(timedelta(hours=-6))
 
 
 def qualifies(y, mag, miles, deaths):
     if y < 2000:
         return mag >= 4
-    return mag >= 4 or (mag == 3 and (miles >= 20 or deaths >= 1)) or (mag == 2 and deaths >= 1)
+    if y < 2023:
+        return mag >= 4 or (mag == 3 and (miles >= 20 or deaths >= 1)) or (mag == 2 and deaths >= 1)
+    return True
 
 
 def km(a, b):
@@ -100,7 +103,7 @@ def main():
     out = {
         "source": URL.rsplit("/", 1)[1],
         "through": LAST_YEAR,
-        "rules": "F4+ before 2000; 2000-2022: EF4+, EF3 >=20 mi or deadly, EF2 deadly; with nearby same-day tornadoes",
+        "rules": "F4+ before 2000; 2000-2022: EF4+, EF3 >=20 mi or deadly, EF2 deadly; every tornado from 2023; with nearby same-day tornadoes",
         # [start, end, rating (-9 unrated), lon0, lat0, lon1, lat1, miles, yards, killed, injured, state, qualifies]
         "t": [
             [r["t0"], r["t1"], r["mag"], *r["a"], *r["b"], r["len"], r["wid"], r["fat"], r["inj"], r["st"], 1 if r["q"] else 0]

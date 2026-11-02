@@ -2,6 +2,7 @@ import { getColors } from "@/lib/colors/server";
 import {
   MODELS,
   REGIONS,
+  frameOf,
   rampColors,
   recentCycles,
   type ModelId,
@@ -27,7 +28,11 @@ export async function GET(req: Request) {
       res: m.res,
       cycles,
       hours: m.hours,
-      regions: Object.entries(REGIONS).map(([id, r]) => ({ id, ...r })),
+      regions: Object.entries(REGIONS).map(([id, r]) => ({
+        id,
+        ...r,
+        f: frameOf(model, r.b),
+      })),
       params: m.params.map((p) => ({
         key: p.key,
         label: p.label,

@@ -60,7 +60,7 @@ export default function ArchiveReplay({
       note={
         !auto
           ? null
-          : id < "2023"
+          : id < "2026"
             ? "From NOAA's Storm Prediction Center tornado database, drawn on the NWS survey's path wherever one exists."
             : "Added automatically from the NWS survey; it updates when the survey does."
       }

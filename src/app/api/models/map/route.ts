@@ -2,6 +2,7 @@ import { getColors } from "@/lib/colors/server";
 import {
   MODELS,
   REGIONS,
+  frameOf,
   rampColors,
   fieldFor,
   paint,
@@ -71,7 +72,7 @@ export async function GET(req: Request) {
       f,
       p,
       rampColors(p, colors),
-      detail ?? region.b,
+      detail ?? frameOf(model, region.b),
       detail ? 1600 : region.label === "CONUS" ? 2400 : 2000,
     );
     return new Response(new Uint8Array(png), {

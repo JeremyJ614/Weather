@@ -77,6 +77,20 @@ export const REGIONS: Record<string, { label: string; b: number[] }> = {
   southeast: { label: "Southeast", b: [-95, 24, -75, 37.5] },
 };
 
+/**
+ * The box a region's frames are painted over. HRRR and REFS fill their own domain; GFS is
+ * global, so its frames reach well past the view and no rectangle edge shows.
+ */
+export function frameOf(model: ModelId, b: number[]) {
+  if (model !== "gfs") return b;
+  return [
+    Math.max(-180, b[0] - 14),
+    Math.max(-70, b[1] - 10),
+    Math.min(180, b[2] + 14),
+    Math.min(72, b[3] + 8),
+  ];
+}
+
 const UA = { "User-Agent": "StormSync Weather (https://weather.sswx.space)" };
 const pad = (n: number) => String(n).padStart(2, "0");
 const ymdh = (d: Date) =>
@@ -227,8 +241,32 @@ function thetaE(t: number, td: number, p: number) {
   return th * Math.exp((3036 / tl - 1.78) * r * (1 + 0.448 * r));
 }
 
+/**
+ * The last few fields read, by model, run, hour and parameter: a frame, its city values and a
+ * zoomed-in render arrive together, and one download from NOAA serves them all. Runs never
+ * change once published, so there is nothing to go stale.
+ */
+const recent = new Map<string, Promise<Field>>();
+
 /** The field a parameter plots, converted to its display unit. */
-export async function fieldFor(
+export function fieldFor(
+  model: ModelId,
+  cycle: string,
+  fh: number,
+  p: Param,
+): Promise<Field> {
+  const k = `${model}|${cycle}|${fh}|${p.key}`;
+  let f = recent.get(k);
+  if (!f) {
+    f = loadField(model, cycle, fh, p);
+    recent.set(k, f);
+    f.catch(() => recent.delete(k));
+    while (recent.size > 6) recent.delete(recent.keys().next().value!);
+  }
+  return f;
+}
+
+async function loadField(
   model: ModelId,
   cycle: string,
   fh: number,
@@ -372,14 +410,36 @@ const mercY = (lat: number) =>
   Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360));
 const unMercY = (y: number) => (Math.atan(Math.sinh(y)) * 180) / Math.PI;
 
-/** Shades along the ramp, and fading steps for a partial field's lowest edge. */
-const SHADES = 240;
+/** A field's value at a point (bilinear between the four grid cells around it), or null. */
+export function sampleAt(f: Field, lat: number, lon: number): number | null {
+  const [gw, gh] = gridSize(f.grid);
+  const [fi, fj] = locator(f.grid)(lat, lon);
+  if (!(fi >= 0 && fj >= 0 && fi <= gw - 1 && fj <= gh - 1)) return null;
+  const i = Math.min(gw - 2, Math.floor(fi));
+  const j = Math.min(gh - 2, Math.floor(fj));
+  const ti = fi - i;
+  const tj = fj - j;
+  const v = f.values;
+  const a = v[j * gw + i];
+  const b = v[j * gw + i + 1];
+  const c = v[(j + 1) * gw + i];
+  const d = v[(j + 1) * gw + i + 1];
+  const val =
+    a * (1 - ti) * (1 - tj) +
+    b * ti * (1 - tj) +
+    c * (1 - ti) * tj +
+    d * ti * tj;
+  return Number.isFinite(val) ? val : null;
+}
+
+/** Shades along the ramp, and fading steps for a partial field's open edge (255 in all). */
+const SHADES = 224;
 const FADES = 15;
 
 /** Paint a field over a region as a transparent Web-Mercator PNG (`width` px across). */
 export function paint(
   f: Field,
-  p: Pick<Param, "levels" | "full">,
+  p: Pick<Param, "levels" | "full" | "clearAbove">,
   /** One color per level (rampColors). */
   colors: string[],
   b: number[],
@@ -400,7 +460,8 @@ export function paint(
   const lv = p.levels;
   const last = lv.length - 1;
   const rgb = colors.map(hex);
-  // The palette: 0 clear; 1..SHADES along the ramp; then the first color fading in.
+  // The palette: 0 clear; 1..SHADES along the ramp; then the first color fading in, then
+  // the last color fading out.
   const shade = (u: number) => {
     const x = u * last;
     const k = Math.min(Math.max(0, last - 1), Math.floor(x));
@@ -413,8 +474,15 @@ export function paint(
   for (let i = 0; i < SHADES; i++) pal.push([...shade(i / (SHADES - 1)), 255]);
   for (let i = 1; i <= FADES; i++)
     pal.push([...rgb[0], Math.round((255 * i) / (FADES + 1))]);
-  // A partial field (radar, CAPE...) fades in over half its first step instead of a hard cut.
-  const edge = last > 0 ? (lv[1] - lv[0]) / 2 : 1;
+  for (let i = 1; i <= FADES; i++)
+    pal.push([...rgb[last], Math.round((255 * i) / (FADES + 1))]);
+  // A partial field (radar, CAPE...) fades in over half its first step instead of a hard cut;
+  // one cleared above (CIN, visibility) fades out over half its last step.
+  // Never across zero: "no rain" or "no inhibition" stays clear.
+  let edge = last > 0 ? (lv[1] - lv[0]) / 2 : 1;
+  if (lv[0] > 0) edge = Math.min(edge, lv[0] / 2);
+  let topEdge = last > 0 ? (lv[last] - lv[last - 1]) / 2 : 1;
+  if (lv[last] < 0) topEdge = Math.min(topEdge, -lv[last] / 2);
   const indexOf = (val: number) => {
     if (Number.isNaN(val)) return 0;
     if (val < lv[0]) {
@@ -424,7 +492,15 @@ export function paint(
         ? 0
         : 1 + SHADES + Math.min(FADES - 1, Math.floor(a * FADES));
     }
-    if (val >= lv[last]) return SHADES;
+    if (val >= lv[last]) {
+      if (!p.clearAbove) return SHADES;
+      const a = 1 - (val - lv[last]) / topEdge;
+      return a <= 0
+        ? 0
+        : a >= 1
+          ? SHADES
+          : 1 + SHADES + FADES + Math.min(FADES - 1, Math.floor(a * FADES));
+    }
     let k = 0;
     while (k < last - 1 && val >= lv[k + 1]) k++;
     const u = (k + (val - lv[k]) / (lv[k + 1] - lv[k])) / Math.max(1, last);

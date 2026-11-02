@@ -12,8 +12,12 @@ import { groupSurveys, type AutoDay, type Survey } from "./group";
 const DAT =
   "https://services.dat.noaa.gov/arcgis/rest/services/nws_damageassessmenttoolkit/DamageViewer/FeatureServer/1/query";
 const PAGE = 2000;
-/** The backfill walks back to here, a month per call. */
-export const BACKFILL_FROM = "2023-01";
+/**
+ * The backfill walks back to here, a month per call. Days through the last year in SPC's
+ * database come from it instead (lib/archive/spc.ts), so this only covers the current year;
+ * it stalled at April 2024, a month too big to read in one call.
+ */
+export const BACKFILL_FROM = "2026-01";
 
 let rows: ReturnType<typeof parsePlaces> | null = null;
 const EF = (v: unknown) => {

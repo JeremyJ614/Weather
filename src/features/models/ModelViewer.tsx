@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ImageSource, Map as MaplibreMap } from "maplibre-gl";
 import { ChevronLeft, ChevronRight, Pause, Play } from "lucide-react";
 import { WeatherMap, type ReadyMap } from "@/features/map/WeatherMap";
+import { MODEL_CITIES } from "@/lib/models/cities";
 import s from "./Models.module.css";
 
 type P = {
@@ -20,7 +21,8 @@ type Run = {
   res: string;
   cycles: string[];
   hours: number[];
-  regions: { id: string; label: string; b: number[] }[];
+  /** b: the view; f: the box frames are painted over (wider for the global GFS). */
+  regions: { id: string; label: string; b: number[]; f?: number[] }[];
   params: P[];
 };
 const GROUPS = ["Severe Weather", "Surface & Precipitation", "Upper Air"];
@@ -40,6 +42,13 @@ const validLabel = (c: string, fh: number) =>
     hour: "numeric",
     minute: "2-digit",
   });
+/** The outline casing: the model frames are slipped in under it, so the lines stay on top. */
+const UNDER = "us-lines-case";
+/** A frame's city values, from its map URL. */
+const pointsUrl = (u: string) =>
+  u
+    .replace("/api/models/map?", "/api/models/points?")
+    .replace(/&region=[^&]*/, "");
 const corners = (b: number[]) =>
   [
     [b[0], b[3]],
@@ -47,6 +56,20 @@ const corners = (b: number[]) =>
     [b[2], b[1]],
     [b[0], b[1]],
   ] as [[number, number], [number, number], [number, number], [number, number]];
+
+/** The city labels for one frame: the value over the name, or the name alone where none. */
+const cityLabels = (v: (number | null)[] | null) => ({
+  type: "FeatureCollection" as const,
+  features: MODEL_CITIES.map(([name, lat, lon, tier], k) => ({
+    type: "Feature" as const,
+    properties: {
+      name,
+      tier,
+      ...(v && v[k] !== null ? { v: String(v[k]) } : {}),
+    },
+    geometry: { type: "Point" as const, coordinates: [lon, lat] },
+  })),
+});
 
 /**
  * VIP's Model Runs, on our own map: pick a model, a run, a field and a region; the frames
@@ -64,6 +87,25 @@ export function ModelViewer({ model }: { model: "hrrr" | "gfs" | "refs" }) {
   const [loaded, setLoaded] = useState<Record<string, "ok" | "err">>({});
   const map = useRef<MaplibreMap | null>(null);
   const [ready, setReady] = useState(false);
+  // City values per frame (/api/models/points), fetched alongside the frames; a failed one
+  // is tried once more.
+  const values = useRef(new Map<string, (number | null)[]>());
+  const asked = useRef(new Set<string>());
+  const [valuesFor, setValuesFor] = useState("");
+  const want = useCallback(function ask(pu: string, again = true) {
+    if (values.current.has(pu) || asked.current.has(pu)) return;
+    asked.current.add(pu);
+    fetch(pu)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((d: { v: (number | null)[] }) => {
+        values.current.set(pu, d.v);
+        setValuesFor(pu);
+      })
+      .catch(() => {
+        asked.current.delete(pu);
+        if (again) setTimeout(() => ask(pu, false), 2000);
+      });
+  }, []);
 
   useEffect(() => {
     let live = true;
@@ -106,6 +148,7 @@ export function ModelViewer({ model }: { model: "hrrr" | "gfs" | "refs" }) {
       const img = new Image();
       img.onload = () => {
         if (live) setLoaded((m) => ({ ...m, [u]: "ok" }));
+        if (live) want(pointsUrl(u));
         one();
       };
       img.onerror = () => {
@@ -118,32 +161,39 @@ export function ModelViewer({ model }: { model: "hrrr" | "gfs" | "refs" }) {
     return () => {
       live = false;
     };
-  }, [urls]);
+  }, [urls, want]);
 
   const cur = urls[Math.min(i, urls.length - 1)];
   useEffect(() => {
     const m = map.current;
     if (!m || !ready || !cur || !reg || loaded[cur] !== "ok") return;
+    const box = corners(reg.f ?? reg.b);
     const src = m.getSource("model") as ImageSource | undefined;
-    if (src) src.updateImage({ url: cur, coordinates: corners(reg.b) });
+    if (src) src.updateImage({ url: cur, coordinates: box });
     else {
-      m.addSource("model", {
-        type: "image",
-        url: cur,
-        coordinates: corners(reg.b),
-      });
-      const label = m.getStyle().layers.find((l) => l.type === "symbol")?.id;
+      m.addSource("model", { type: "image", url: cur, coordinates: box });
       m.addLayer(
         {
           id: "model",
           type: "raster",
           source: "model",
-          paint: { "raster-opacity": 0.9, "raster-fade-duration": 0 },
+          paint: { "raster-opacity": 1, "raster-fade-duration": 0 },
         },
-        label,
+        UNDER,
       );
     }
   }, [cur, ready, reg, loaded]);
+
+  // The current frame's city values (names alone until they arrive, never another hour's).
+  useEffect(() => {
+    const m = map.current;
+    if (!m || !ready || !cur) return;
+    const src = m.getSource("model-cities") as
+      { setData: (d: unknown) => void } | undefined;
+    const pu = pointsUrl(cur);
+    src?.setData(cityLabels(values.current.get(pu) ?? null));
+    if (loaded[cur] === "ok") want(pu);
+  }, [cur, ready, valuesFor, loaded, want]);
 
   // Paused and zoomed in (Fix list 2026-10-30 #8): the frame is redrawn just for the view,
   // snapped to half degrees, and laid over the loop's frame, so fields stay crisp up close.
@@ -187,15 +237,14 @@ export function ModelViewer({ model }: { model: "hrrr" | "gfs" | "refs" }) {
           url: detail,
           coordinates: corners(view),
         });
-        const label = m.getStyle().layers.find((l) => l.type === "symbol")?.id;
         m.addLayer(
           {
             id: "model-detail",
             type: "raster",
             source: "model-detail",
-            paint: { "raster-opacity": 0.9, "raster-fade-duration": 0 },
+            paint: { "raster-opacity": 1, "raster-fade-duration": 0 },
           },
-          label,
+          UNDER,
         );
       }
       m.setLayoutProperty("model-detail", "visibility", "visible");
@@ -230,8 +279,84 @@ export function ModelViewer({ model }: { model: "hrrr" | "gfs" | "refs" }) {
     return () => clearInterval(t);
   }, [playing, urls, loaded, speed]);
 
-  const onReady = ({ map: any }: ReadyMap) => {
-    map.current = any as unknown as MaplibreMap;
+  const onReady = ({ map: any, provider }: ReadyMap) => {
+    const m = any as unknown as MaplibreMap;
+    map.current = m;
+    // Like Max Velocity's maps: the field solid, the states, coasts and borders drawn bright
+    // over it, and our own city values instead of the base map's labels.
+    for (const l of m.getStyle().layers)
+      if (l.type === "symbol") m.setLayoutProperty(l.id, "visibility", "none");
+    m.addSource("us-lines", { type: "geojson", data: "/geo/us-lines.json" });
+    const width = (state: number, nation: number) =>
+      [
+        "interpolate",
+        ["linear"],
+        ["zoom"],
+        3,
+        ["match", ["get", "kind"], "nation", nation, state],
+        8,
+        ["match", ["get", "kind"], "nation", nation * 2, state * 2],
+      ] as unknown as number;
+    m.addLayer({
+      id: UNDER,
+      type: "line",
+      source: "us-lines",
+      layout: { "line-join": "round", "line-cap": "round" },
+      paint: {
+        "line-color": "#05060a",
+        "line-opacity": 0.55,
+        "line-width": width(2.6, 3.2),
+      },
+    });
+    m.addLayer({
+      id: "us-lines",
+      type: "line",
+      source: "us-lines",
+      layout: { "line-join": "round", "line-cap": "round" },
+      paint: {
+        "line-color": "#ffffff",
+        "line-opacity": 0.92,
+        "line-width": width(1.1, 1.5),
+      },
+    });
+    m.addSource("model-cities", {
+      type: "geojson",
+      data: cityLabels(null),
+    });
+    m.addLayer({
+      id: "model-cities",
+      type: "symbol",
+      source: "model-cities",
+      layout: {
+        "text-field": [
+          "case",
+          ["has", "v"],
+          [
+            "format",
+            ["get", "v"],
+            { "font-scale": 1.3 },
+            "\n",
+            {},
+            ["get", "name"],
+            { "font-scale": 0.78 },
+          ],
+          ["format", ["get", "name"], { "font-scale": 0.78 }],
+        ] as unknown as string,
+        "text-font":
+          provider === "mapbox"
+            ? ["DIN Pro Bold", "Arial Unicode MS Bold"]
+            : ["Noto Sans Bold"],
+        "text-size": 13,
+        "text-line-height": 1.05,
+        "text-padding": 3,
+        "symbol-sort-key": ["get", "tier"],
+      },
+      paint: {
+        "text-color": "#ffffff",
+        "text-halo-color": "rgba(5, 6, 10, 0.85)",
+        "text-halo-width": 1.6,
+      },
+    });
     setReady(true);
   };
 
