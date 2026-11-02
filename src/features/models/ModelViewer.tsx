@@ -5,20 +5,23 @@ import type { ImageSource, Map as MaplibreMap } from "maplibre-gl";
 import { ChevronLeft, ChevronRight, Pause, Play } from "lucide-react";
 import { WeatherMap, type ReadyMap } from "@/features/map/WeatherMap";
 import { MODEL_CITIES } from "@/lib/models/cities";
+import type { Recipe } from "@/lib/models/core";
+import { fill } from "@/lib/models/tpl";
+import { canDraw, drawFrame } from "./frames";
 import s from "./Models.module.css";
 
-type P = {
-  key: string;
+type P = Recipe & {
   label: string;
   group: string;
   unit: string;
-  levels: number[];
   full: boolean;
   colors: string[];
 };
 type Run = {
   label: string;
   res: string;
+  /** HRRR and GFS: the model file's address, read and drawn on this device. */
+  tpl: string | null;
   cycles: string[];
   hours: number[];
   /** b: the view; f: the box frames are painted over (wider for the global GFS). */
@@ -137,37 +140,60 @@ export function ModelViewer({ model }: { model: "hrrr" | "gfs" | "refs" }) {
     [r, p, cycle, region, model],
   );
 
-  // Frames arrive as in-memory copies (keyed by their URL) with their city values in a header,
-  // so one request serves both. The frame on screen is fetched first, the rest three at a time
-  // onward from the playhead, so the loop is ready where it plays next; moving the slider puts
-  // that frame at the front of the line.
+  // HRRR and GFS frames are drawn on this device from NOAA's own files (frame.worker.ts), so
+  // they cost the server nothing (owner, 2026-11-02, after Vercel paused the project for going
+  // over its free usage). REFS frames come from the server, which alone can read NOAA's REFS
+  // feed: only the hour on screen and the next one, more while the loop plays.
+  // Either way a frame is kept as an in-memory copy (keyed by its URL) with its city values.
+  // The frame on screen is first in line, then onward from the playhead.
+  const direct = !!r?.tpl && canDraw();
   const blobs = useRef(new Map<string, string>());
   const at = useRef(0);
+  const looping = useRef(false);
   const kick = useRef(() => {});
   useEffect(() => {
-    if (!urls.length) return;
+    if (!urls.length || !r || !p || !reg) return;
     let live = true;
     const store = blobs.current;
     const started = new Set<string>();
     const made = new Map<string, string>();
     let busy = 0;
+    const box = reg.f ?? reg.b;
+    const width = reg.id === "conus" ? 2400 : 2000;
+    const fetchFrame = async (u: string) => {
+      if (direct) {
+        const fh = r.hours[urls.indexOf(u)];
+        const d = await drawFrame({
+          url: fill(r.tpl!, cycle.slice(0, 8), cycle.slice(8), fh),
+          recipe: p,
+          colors: p.colors,
+          box,
+          width,
+          cities: true,
+        });
+        return { blob: d.png, cities: d.cities };
+      }
+      const res = await fetch(u);
+      if (!res.ok) throw new Error(String(res.status));
+      const v = res.headers.get("X-City-Values");
+      return {
+        blob: await res.blob(),
+        cities:
+          v === null
+            ? null
+            : v.split(",").map((x) => (x === "" ? null : Number(x))),
+      };
+    };
     const load = (u: string) => {
       started.add(u);
       busy++;
-      fetch(u)
-        .then(async (res) => {
-          if (!res.ok) throw new Error(String(res.status));
-          const cities = res.headers.get("X-City-Values");
-          const blob = await res.blob();
+      fetchFrame(u)
+        .then(({ blob, cities }) => {
           if (!live) return;
           const local = URL.createObjectURL(blob);
           made.set(u, local);
           store.set(u, local);
-          if (cities !== null)
-            values.current.set(
-              pointsUrl(u),
-              cities.split(",").map((x) => (x === "" ? null : Number(x))),
-            );
+          if (cities) values.current.set(pointsUrl(u), cities);
           setLoaded((m) => ({ ...m, [u]: "ok" }));
         })
         .catch(() => live && setLoaded((m) => ({ ...m, [u]: "err" })))
@@ -180,7 +206,9 @@ export function ModelViewer({ model }: { model: "hrrr" | "gfs" | "refs" }) {
       const n = urls.length;
       const here = Math.min(at.current, n - 1);
       if (!started.has(urls[here])) load(urls[here]);
-      for (let k = 1; k < n && busy < 3; k++) {
+      // Server frames: just ahead of the playhead.
+      const reach = direct ? n : looping.current ? 4 : 2;
+      for (let k = 1; k < reach && busy < 3; k++) {
         const u = urls[(here + k) % n];
         if (!started.has(u)) load(u);
       }
@@ -199,11 +227,14 @@ export function ModelViewer({ model }: { model: "hrrr" | "gfs" | "refs" }) {
         }
       }, 15000);
     };
+    // `urls` stands for the model, run, field and region.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [urls]);
   useEffect(() => {
     at.current = i;
+    looping.current = playing;
     kick.current();
-  }, [i]);
+  }, [i, playing]);
 
   const cur = urls[Math.min(i, urls.length - 1)];
   useEffect(() => {
@@ -260,42 +291,63 @@ export function ModelViewer({ model }: { model: "hrrr" | "gfs" | "refs" }) {
       m.off("moveend", look);
     };
   }, [ready, reg]);
-  const detail =
-    !playing && view && cur ? `${cur}&bbox=${view.join(",")}` : null;
+  // Drawn on the device only (HRRR, GFS): a zoomed REFS redraw would be another server render.
+  const detail = direct && !playing && view && cur ? cur : null;
   useEffect(() => {
     const m = map.current;
     if (!m || !ready) return;
     const src = m.getSource("model-detail") as ImageSource | undefined;
-    if (!detail || !view) {
+    if (!detail || !view || !r?.tpl || !p) {
       if (m.getLayer("model-detail"))
         m.setLayoutProperty("model-detail", "visibility", "none");
       return;
     }
-    const img = new Image();
-    img.onload = () => {
-      if (src) src.updateImage({ url: detail, coordinates: corners(view) });
-      else {
-        m.addSource("model-detail", {
-          type: "image",
-          url: detail,
-          coordinates: corners(view),
-        });
-        m.addLayer(
-          {
-            id: "model-detail",
-            type: "raster",
-            source: "model-detail",
-            paint: { "raster-opacity": 1, "raster-fade-duration": 0 },
-          },
-          UNDER,
-        );
-      }
-      m.setLayoutProperty("model-detail", "visibility", "visible");
-    };
-    img.src = detail;
+    let live = true;
+    let local = "";
+    drawFrame({
+      url: fill(
+        r.tpl,
+        cycle.slice(0, 8),
+        cycle.slice(8),
+        r.hours[urls.indexOf(detail)],
+      ),
+      recipe: p,
+      colors: p.colors,
+      box: view,
+      width: 1600,
+      cities: false,
+    })
+      .then((d) => {
+        if (!live) return;
+        local = URL.createObjectURL(d.png);
+        const url = local;
+        if (src) src.updateImage({ url, coordinates: corners(view) });
+        else {
+          m.addSource("model-detail", {
+            type: "image",
+            url,
+            coordinates: corners(view),
+          });
+          m.addLayer(
+            {
+              id: "model-detail",
+              type: "raster",
+              source: "model-detail",
+              paint: { "raster-opacity": 1, "raster-fade-duration": 0 },
+            },
+            UNDER,
+          );
+        }
+        m.setLayoutProperty("model-detail", "visibility", "visible");
+      })
+      .catch(() => {});
     return () => {
-      img.onload = null;
+      live = false;
+      // Let the map finish taking the picture before its copy goes.
+      if (local) setTimeout(() => URL.revokeObjectURL(local), 15000);
     };
+    // `detail` and `view` stand for the frame and box being redrawn.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [detail, view, ready]);
 
   useEffect(() => {

@@ -66,6 +66,13 @@ export async function GET(req: Request) {
     !m.hours.includes(fh)
   )
     return new Response("Bad request", { status: 400 });
+  // HRRR and GFS are drawn in the viewer from NOAA's own files; only REFS is drawn here, so
+  // the server's free usage stays small (owner, 2026-11-02).
+  if (m.tpl)
+    return new Response("Drawn in the browser", {
+      status: 410,
+      headers: { "Cache-Control": "public, s-maxage=86400" },
+    });
   try {
     const [f, colors] = await Promise.all([
       fieldFor(model, cycle, fh, p),
