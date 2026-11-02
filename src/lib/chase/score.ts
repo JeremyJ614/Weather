@@ -364,16 +364,21 @@ export function derive(h: Hour): Derived {
   };
 }
 
-/** Where today sits in the year (1–5): VIP's "chance this is the year's best". */
+/**
+ * Where today sits in the year (1–5): VIP's "chance this is the year's best". Mostly where it
+ * ranks among the year's other days, but a day the score bands call "Worth a look" (50+) is
+ * never a 1, whose words ("not one you drive for") would contradict them (owner, 2026-11-02).
+ * With no other days yet (early January) the bands alone decide.
+ */
 export function yearRank(score: number, year: number[]): number {
-  if (score < 30 || !year.length) return 1;
+  if (score < 30) return 1;
+  if (!year.length)
+    return score >= 85 ? 4 : score >= 70 ? 3 : score >= 50 ? 2 : 1;
   const best = Math.max(...year);
   const pct = percentile(score, year);
   if (score >= best * 0.95 && score >= 50) return 5;
-  if (pct >= 90) return 4;
-  if (pct >= 75) return 3;
-  if (pct >= 50) return 2;
-  return 1;
+  const r = pct >= 90 ? 4 : pct >= 75 ? 3 : pct >= 50 ? 2 : 1;
+  return score >= 50 ? Math.max(2, r) : r;
 }
 
 export const YEARLY_MEANING: Record<number, { title: string; body: string }> = {
