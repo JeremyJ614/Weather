@@ -1,6 +1,7 @@
 import "server-only";
 import { PLACES } from "@/lib/geo/places.data";
 import { STATES, nearestPlace, parsePlaces } from "@/lib/geo/search";
+import { DAT_TORNADOES, isDatTornado } from "@/lib/dat/tornado";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { groupSurveys, type AutoDay, type Survey } from "./group";
 
@@ -34,7 +35,7 @@ const stamp = (d: Date) =>
 export async function fetchSurveys(from: Date, to: Date): Promise<Survey[]> {
   const out: Survey[] = [];
   // stormdate is the storm's date; a day either side catches storms across UTC midnight.
-  const where = `stormdate >= ${stamp(new Date(from.getTime() - 864e5))} AND stormdate < ${stamp(new Date(to.getTime() + 864e5))}`;
+  const where = `stormdate >= ${stamp(new Date(from.getTime() - 864e5))} AND stormdate < ${stamp(new Date(to.getTime() + 864e5))} AND ${DAT_TORNADOES}`;
   for (let offset = 0; offset < 40_000; offset += PAGE) {
     const qs = new URLSearchParams({
       where,
@@ -65,6 +66,7 @@ export async function fetchSurveys(from: Date, to: Date): Promise<Survey[]> {
     const page = j.features ?? [];
     for (const f of page) {
       const a = f.attributes;
+      if (!isDatTornado(a.efscale)) continue;
       const start = Math.round(Number(a.starttime) / 1000);
       if (!Number.isFinite(start)) continue;
       if (start < from.getTime() / 1000 || start >= to.getTime() / 1000)
@@ -144,13 +146,19 @@ export async function refresh(from: Date, to: Date) {
   return { from: lo, to: hi, days: keep.length };
 }
 
+/**
+ * Where the backfill has got to. A new key starts it over: v2 rebuilds 2026's months once
+ * the wind and hail paths were filtered out (2026-11-02).
+ */
+const PROGRESS = "archive_backfill_v2";
+
 /** One month further back per call, until BACKFILL_FROM. */
 export async function backfillMonth() {
   const db = supabaseAdmin();
   const { data } = await db
     .from("app_config")
     .select("value")
-    .eq("key", "archive_backfill")
+    .eq("key", PROGRESS)
     .maybeSingle();
   const now = new Date();
   const first = new Date(
@@ -165,8 +173,6 @@ export async function backfillMonth() {
   const to = new Date(Date.UTC(y, m, 1));
   const res = await refresh(from, to);
   const prev = new Date(Date.UTC(y, m - 2, 1)).toISOString().slice(0, 7);
-  await db
-    .from("app_config")
-    .upsert({ key: "archive_backfill", value: { next: prev } });
+  await db.from("app_config").upsert({ key: PROGRESS, value: { next: prev } });
   return { ...res, next: prev };
 }

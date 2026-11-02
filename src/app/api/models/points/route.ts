@@ -1,9 +1,8 @@
-import { MODEL_CITIES } from "@/lib/models/cities";
 import {
   MODELS,
+  cityValues,
   fieldFor,
   paramOf,
-  sampleAt,
   type ModelId,
 } from "@/lib/models/render";
 
@@ -11,9 +10,9 @@ export const maxDuration = 30;
 
 /**
  * GET /api/models/points?model=&cycle=&fh=&p= → the field's value at each city in
- * MODEL_CITIES (same order), printed on the map like Max Velocity's (owner, 2026-11-02).
- * A value is left out where the map draws nothing (radar under its first level, CIN near
- * zero), so a city never shows a number the map doesn't. Cached at the edge for a day.
+ * MODEL_CITIES (same order; see `cityValues`). The viewer now gets them with each frame
+ * (/api/models/map's X-City-Values header); this stays for a frame that came without them.
+ * Cached at the edge for a day.
  */
 export async function GET(req: Request) {
   const q = new URL(req.url).searchParams;
@@ -31,19 +30,7 @@ export async function GET(req: Request) {
   )
     return new Response("Bad request", { status: 400 });
   try {
-    const f = await fieldFor(model, cycle, fh, p);
-    const lv = p.levels;
-    const lo = lv[0];
-    const hi = lv[lv.length - 1];
-    // Small ranges (inches of water, thousands of feet) read to a tenth; the rest whole.
-    const tenth = hi - lo <= 10;
-    const v = MODEL_CITIES.map(([, lat, lon]) => {
-      const x = sampleAt(f, lat, lon);
-      if (x === null) return null;
-      if (!p.full && !p.clearAbove && x < lo) return null;
-      if (p.clearAbove && x > hi) return null;
-      return tenth ? Math.round(x * 10) / 10 : Math.round(x);
-    });
+    const v = cityValues(await fieldFor(model, cycle, fh, p), p);
     return Response.json(
       { v },
       {

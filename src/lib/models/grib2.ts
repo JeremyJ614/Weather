@@ -54,12 +54,20 @@ class Bits {
   ) {
     this.pos = start * 8;
   }
+  /** The next n bits as an unsigned number, taken a byte (or what is left of one) at a time. */
   read(n: number) {
     let v = 0;
-    for (let i = 0; i < n; i++) {
-      const p = this.pos++;
-      v = v * 2 + ((this.b[p >> 3] >> (7 - (p & 7))) & 1);
+    let p = this.pos;
+    while (n > 0) {
+      const room = 8 - (p & 7);
+      const take = n < room ? n : room;
+      v =
+        v * (1 << take) +
+        ((this.b[p >> 3] >> (room - take)) & ((1 << take) - 1));
+      p += take;
+      n -= take;
     }
+    this.pos = p;
     return v;
   }
   align() {
@@ -115,7 +123,9 @@ function unpack(
   const D = sm(s5, 17, 2);
   const nbits = s5[19];
   const out = new Float32Array(n);
-  const scale = (x: number) => (R + x * 2 ** E) / 10 ** D;
+  const e2 = 2 ** E;
+  const d10 = 10 ** D;
+  const scale = (x: number) => (R + x * e2) / d10;
   if (tpl === 0) {
     if (!nbits) return out.fill(R / 10 ** D);
     const bits = new Bits(s7, 5);
@@ -162,17 +172,17 @@ function unpack(
   // Raw values per point; NaN for missing.
   const raw = new Float64Array(n);
   let k = 0;
+  const allOnesRef = 2 ** nbits - 1;
   for (let g = 0; g < ng && k < n; g++) {
     const w = widths[g];
     const ref = refs[g];
-    const allOnesRef = 2 ** nbits - 1;
+    const ones = 2 ** w - 1;
     for (let i = 0; i < lens[g] && k < n; i++) {
       if (!w) {
         raw[k++] = mvm && ref === allOnesRef ? NaN : ref;
         continue;
       }
       const v = bits.read(w);
-      const ones = 2 ** w - 1;
       raw[k++] =
         mvm === 1 && v === ones
           ? NaN
@@ -284,6 +294,68 @@ export function locator(
   return (lat, lon) => {
     const [x, y] = xy(lat, lon);
     return [(x - x0) / grid.dx, (y - y0) / grid.dy];
+  };
+}
+
+/**
+ * The same grid positions `locator` gives, a whole row of pixels at a time (`lons` fixed per
+ * map): the trigonometry runs once per row and once per column instead of once per pixel, and
+ * nothing is allocated per pixel. Each number is computed with the same operations as
+ * `locator`, so a frame painted either way is identical.
+ */
+export function rowLocator(grid: Grid, lons: Float64Array) {
+  const w = lons.length;
+  if (grid.kind === "latlon") {
+    const fi = new Float64Array(w);
+    for (let x = 0; x < w; x++) {
+      let dl = lons[x] - grid.lon1;
+      dl = ((dl % 360) + 360) % 360;
+      fi[x] = dl / grid.di;
+    }
+    return (lat: number, outI: Float64Array, outJ: Float64Array) => {
+      const j = grid.southward
+        ? (grid.lat1 - lat) / grid.dj
+        : (lat - grid.lat1) / grid.dj;
+      outI.set(fi);
+      outJ.fill(j);
+    };
+  }
+  const rad = Math.PI / 180;
+  const p1 = grid.latin1 * rad;
+  const p2 = grid.latin2 * rad;
+  const n =
+    Math.abs(p1 - p2) < 1e-9
+      ? Math.sin(p1)
+      : Math.log(Math.cos(p1) / Math.cos(p2)) /
+        Math.log(
+          Math.tan(Math.PI / 4 + p2 / 2) / Math.tan(Math.PI / 4 + p1 / 2),
+        );
+  const F = (Math.cos(p1) * Math.tan(Math.PI / 4 + p1 / 2) ** n) / n;
+  const rho = (lat: number) =>
+    (grid.radius * F) / Math.tan(Math.PI / 4 + (lat * rad) / 2) ** n;
+  const rho0 = rho(grid.lad);
+  const angle = (lon: number) => {
+    let d = lon - grid.lov;
+    d = ((((d + 180) % 360) + 360) % 360) - 180;
+    return n * d * rad;
+  };
+  const r1 = rho(grid.lat1);
+  const x0 = r1 * Math.sin(angle(grid.lon1));
+  const y0 = rho0 - r1 * Math.cos(angle(grid.lon1));
+  const sin = new Float64Array(w);
+  const cos = new Float64Array(w);
+  for (let x = 0; x < w; x++) {
+    const a = angle(lons[x]);
+    sin[x] = Math.sin(a);
+    cos[x] = Math.cos(a);
+  }
+  const { dx, dy } = grid;
+  return (lat: number, outI: Float64Array, outJ: Float64Array) => {
+    const r = rho(lat);
+    for (let x = 0; x < w; x++) {
+      outI[x] = (r * sin[x] - x0) / dx;
+      outJ[x] = (rho0 - r * cos[x] - y0) / dy;
+    }
   };
 }
 

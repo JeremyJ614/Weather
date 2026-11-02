@@ -19,6 +19,7 @@
  * reports, matched by place and time, and damage is attributed by which track
  * it is nearest to.
  */
+import { DAT_TORNADOES } from "@/lib/dat/tornado";
 import type {
   DamageContour,
   DamagePoint,
@@ -147,7 +148,9 @@ async function queryLayer(
   const day = 86_400_000;
   const where =
     `stormdate >= ${stamp(new Date(from.getTime() - day))}` +
-    ` AND stormdate < ${stamp(new Date(to.getTime() + day))}`;
+    ` AND stormdate < ${stamp(new Date(to.getTime() + day))}` +
+    // Tracks only: the lines layer also holds wind and hail paths.
+    (layer === LAYER.lines ? ` AND ${DAT_TORNADOES}` : "");
 
   const out: {
     attributes: Record<string, unknown>;

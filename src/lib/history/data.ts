@@ -5,6 +5,7 @@ import { project } from "@/lib/map/usAlbers";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { stateAt } from "./states";
 import type { WarnTag } from "@/lib/warnings/style";
+import { DAT_TORNADOES, isDatTornado } from "@/lib/dat/tornado";
 
 export { linePath };
 
@@ -52,7 +53,7 @@ export async function tornadoTracks(
   revalidate: number,
 ): Promise<Track[]> {
   const where = encodeURIComponent(
-    `stormdate >= date '${start}' AND stormdate < date '${end}'`,
+    `stormdate >= date '${start}' AND stormdate < date '${end}' AND ${DAT_TORNADOES}`,
   );
   const out: Track[] = [];
   // DAT sometimes lists one track twice (an edit saved as a new feature): keep one.
@@ -73,6 +74,7 @@ export async function tornadoTracks(
       if (!d || seen.has(d)) continue;
       seen.add(d);
       const p = x.properties;
+      if (!isDatTornado(p.efscale)) continue;
       // The first vertex, for tracks whose start point wasn't filled in.
       const first = String(
         (x.geometry as { coordinates?: unknown }).coordinates ?? "",

@@ -74,7 +74,7 @@ const cityLabels = (v: (number | null)[] | null) => ({
 /**
  * VIP's Model Runs, on our own map: pick a model, a run, a field and a region; the frames
  * are rendered from NOAA's GRIB2 on demand (/api/models/map) and play as a loop. Frames
- * preload ahead of the playhead, and playback waits for a frame rather than skipping it.
+ * preload from the playhead onward, and playback waits for a frame rather than skipping it.
  */
 export function ModelViewer({ model }: { model: "hrrr" | "gfs" | "refs" }) {
   const [run, setRun] = useState<Run | "error" | null>(null);
@@ -87,8 +87,8 @@ export function ModelViewer({ model }: { model: "hrrr" | "gfs" | "refs" }) {
   const [loaded, setLoaded] = useState<Record<string, "ok" | "err">>({});
   const map = useRef<MaplibreMap | null>(null);
   const [ready, setReady] = useState(false);
-  // City values per frame (/api/models/points), fetched alongside the frames; a failed one
-  // is tried once more.
+  // City values per frame: they come with the frame; /api/models/points is asked only for a
+  // frame that came without them, and a failed ask is tried once more.
   const values = useRef(new Map<string, (number | null)[]>());
   const asked = useRef(new Set<string>());
   const [valuesFor, setValuesFor] = useState("");
@@ -137,41 +137,84 @@ export function ModelViewer({ model }: { model: "hrrr" | "gfs" | "refs" }) {
     [r, p, cycle, region, model],
   );
 
-  // Preload every frame, a few at a time, so the loop never waits long.
+  // Frames arrive as in-memory copies (keyed by their URL) with their city values in a header,
+  // so one request serves both. The frame on screen is fetched first, the rest three at a time
+  // onward from the playhead, so the loop is ready where it plays next; moving the slider puts
+  // that frame at the front of the line.
+  const blobs = useRef(new Map<string, string>());
+  const at = useRef(0);
+  const kick = useRef(() => {});
   useEffect(() => {
     if (!urls.length) return;
     let live = true;
-    let next = 0;
-    const one = () => {
-      const u = urls[next++];
-      if (!u || !live) return;
-      const img = new Image();
-      img.onload = () => {
-        if (live) setLoaded((m) => ({ ...m, [u]: "ok" }));
-        if (live) want(pointsUrl(u));
-        one();
-      };
-      img.onerror = () => {
-        if (live) setLoaded((m) => ({ ...m, [u]: "err" }));
-        one();
-      };
-      img.src = u;
+    const store = blobs.current;
+    const started = new Set<string>();
+    const made = new Map<string, string>();
+    let busy = 0;
+    const load = (u: string) => {
+      started.add(u);
+      busy++;
+      fetch(u)
+        .then(async (res) => {
+          if (!res.ok) throw new Error(String(res.status));
+          const cities = res.headers.get("X-City-Values");
+          const blob = await res.blob();
+          if (!live) return;
+          const local = URL.createObjectURL(blob);
+          made.set(u, local);
+          store.set(u, local);
+          if (cities !== null)
+            values.current.set(
+              pointsUrl(u),
+              cities.split(",").map((x) => (x === "" ? null : Number(x))),
+            );
+          setLoaded((m) => ({ ...m, [u]: "ok" }));
+        })
+        .catch(() => live && setLoaded((m) => ({ ...m, [u]: "err" })))
+        .finally(() => {
+          busy--;
+          if (live) pump();
+        });
     };
-    for (let k = 0; k < 3; k++) one();
+    const pump = () => {
+      const n = urls.length;
+      const here = Math.min(at.current, n - 1);
+      if (!started.has(urls[here])) load(urls[here]);
+      for (let k = 1; k < n && busy < 3; k++) {
+        const u = urls[(here + k) % n];
+        if (!started.has(u)) load(u);
+      }
+    };
+    kick.current = pump;
+    pump();
     return () => {
       live = false;
+      kick.current = () => {};
+      // The map keeps showing the last frame until the next set's first frame replaces it,
+      // so the old copies are let go a little later.
+      setTimeout(() => {
+        for (const [u, local] of made) {
+          if (store.get(u) === local) store.delete(u);
+          URL.revokeObjectURL(local);
+        }
+      }, 15000);
     };
-  }, [urls, want]);
+  }, [urls]);
+  useEffect(() => {
+    at.current = i;
+    kick.current();
+  }, [i]);
 
   const cur = urls[Math.min(i, urls.length - 1)];
   useEffect(() => {
     const m = map.current;
     if (!m || !ready || !cur || !reg || loaded[cur] !== "ok") return;
     const box = corners(reg.f ?? reg.b);
+    const url = blobs.current.get(cur) ?? cur;
     const src = m.getSource("model") as ImageSource | undefined;
-    if (src) src.updateImage({ url: cur, coordinates: box });
+    if (src) src.updateImage({ url, coordinates: box });
     else {
-      m.addSource("model", { type: "image", url: cur, coordinates: box });
+      m.addSource("model", { type: "image", url, coordinates: box });
       m.addLayer(
         {
           id: "model",
