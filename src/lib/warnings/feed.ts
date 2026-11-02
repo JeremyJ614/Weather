@@ -137,8 +137,7 @@ const WWA =
 // The national layer is over Next's 2 MB fetch-cache limit, so keep the built map briefly here.
 const built = new Map<string, { at: number; v: Promise<WarnMap> }>();
 type WarnMap = {
-  /** k: the polygon's alert type, as its index in `legend` (for the page's type filter). */
-  polys: { c: string; d: string; k: number }[];
+  polys: { c: string; d: string }[];
   legend: { label: string; color: string }[];
 };
 
@@ -178,12 +177,8 @@ async function buildWarningMap(only?: "flood"): Promise<WarnMap> {
     })
     .filter((p) => p.d && p.ev && !isMarine(p.ev))
     .sort((a, b) => b.r - a.r);
-  const labels = [...new Set(polys.map((p) => p.ev))].sort(
-    (a, b) => rankOf(a) - rankOf(b),
-  );
-  const legend = labels.map((label) => ({ label, color: col(label) }));
-  return {
-    polys: polys.map(({ c, d, ev }) => ({ c, d, k: labels.indexOf(ev) })),
-    legend,
-  };
+  const legend = [...new Set(polys.map((p) => p.ev))]
+    .sort((a, b) => rankOf(a) - rankOf(b))
+    .map((label) => ({ label, color: col(label) }));
+  return { polys: polys.map(({ c, d }) => ({ c, d })), legend };
 }

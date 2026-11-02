@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ChevronDown,
   CloudLightning,
-  SlidersHorizontal,
   Flame,
   Siren,
   Snowflake,
@@ -21,55 +20,7 @@ import { Polys } from "@/features/maps/useLayer";
 import type { Warning } from "@/lib/warnings/feed";
 import s from "./Warn.module.css";
 
-type MapData = {
-  /** k: the polygon's alert type, as its index in `legend`. */
-  polys: { c: string; d: string; k?: number }[];
-  legend: Swatch[];
-};
-
-/**
- * Which alert types the viewer hides (owner, 2026-11-02): kept on this device, so the page
- * opens filtered the way they left it. Hidden types are listed, so an alert type that shows
- * up later appears until they hide it too; "Warnings only" is a switch of its own.
- */
-type Hide = { hide: string[]; warningsOnly?: boolean };
-const HIDE_KEY = "sswx-warn-hide";
-const listeners = new Set<() => void>();
-let memory: string | null = null;
-const subscribe = (f: () => void) => {
-  listeners.add(f);
-  addEventListener("storage", f);
-  return () => {
-    listeners.delete(f);
-    removeEventListener("storage", f);
-  };
-};
-const readHide = () => {
-  if (memory !== null) return memory;
-  try {
-    return localStorage.getItem(HIDE_KEY) ?? "";
-  } catch {
-    return "";
-  }
-};
-const writeHide = (v: Hide) => {
-  memory = v.hide.length || v.warningsOnly ? JSON.stringify(v) : "";
-  try {
-    if (memory) localStorage.setItem(HIDE_KEY, memory);
-    else localStorage.removeItem(HIDE_KEY);
-  } catch {
-    /* private browsing: kept for this visit */
-  }
-  listeners.forEach((f) => f());
-};
-const parseHide = (raw: string): Hide => {
-  try {
-    const v = JSON.parse(raw) as Hide;
-    return Array.isArray(v.hide) ? v : { hide: [] };
-  } catch {
-    return { hide: [] };
-  }
-};
+type MapData = { polys: { c: string; d: string }[]; legend: Swatch[] };
 
 const TYPES: {
   id: string;
@@ -248,46 +199,13 @@ export function WarningsView({
     () => [...new Set(items.flatMap((w) => w.states))].sort(),
     [items],
   );
-  const hideRaw = useSyncExternalStore(subscribe, readHide, () => "");
-  const hide = useMemo(() => parseHide(hideRaw), [hideRaw]);
-  const [picking, setPicking] = useState(false);
-  // Every alert type active now, most serious first, with how many of each.
-  const kinds = useMemo(() => {
-    const m = new Map<string, { n: number; rank: number }>();
-    for (const w of items) {
-      const k = m.get(w.event) ?? { n: 0, rank: w.rank };
-      m.set(w.event, { n: k.n + 1, rank: Math.min(k.rank, w.rank) });
-    }
-    return [...m].sort((a, b) => a[1].rank - b[1].rank);
-  }, [items]);
-  const wanted = (event: string) =>
-    !hide.hide.includes(event) &&
-    (!hide.warningsOnly || /Warning$/.test(event));
-  const hiddenNow = kinds.filter(([e]) => !wanted(e)).length;
-  const toggleKind = (event: string) =>
-    writeHide({
-      ...hide,
-      hide: hide.hide.includes(event)
-        ? hide.hide.filter((e) => e !== event)
-        : [...hide.hide, event],
-    });
   const shown = items.filter(
     (w) =>
-      wanted(w.event) &&
       (!state || w.states.includes(state)) &&
       (!type || TYPES.find((t) => t.id === type)!.re.test(w.event)),
   );
   const count = (re: RegExp) => items.filter((w) => re.test(w.event)).length;
-  const top = items.filter((w) => w.rank <= 9 && wanted(w.event)).slice(0, 5);
-  const mapShown =
-    map && map !== "err"
-      ? {
-          polys: map.polys.filter(
-            (p) => p.k === undefined || wanted(map.legend[p.k]?.label ?? ""),
-          ),
-          legend: map.legend.filter((l) => wanted(l.label)),
-        }
-      : null;
+  const top = items.filter((w) => w.rank <= 9).slice(0, 5);
 
   return (
     <div className={s.wrap} data-calm={calm || undefined}>
@@ -329,20 +247,20 @@ export function WarningsView({
       <UsMap
         title="Active watches, warnings & advisories"
         sub={null}
-        legend={mapShown ? mapShown.legend : []}
+        legend={map && map !== "err" ? map.legend : []}
         status={
           map === null
             ? "loading"
             : map === "err"
               ? "error"
-              : mapShown?.polys.length
+              : map.polys.length
                 ? "ready"
                 : "empty"
         }
         file="sswx-warnings"
         zoomable
       >
-        {mapShown && <Polys polys={mapShown.polys} />}
+        {map && map !== "err" && <Polys polys={map.polys} />}
       </UsMap>
 
       {top.length > 0 && (
@@ -377,65 +295,6 @@ export function WarningsView({
               </Chip>
             ))}
           </div>
-          <button
-            type="button"
-            className={s.typesToggle}
-            aria-expanded={picking}
-            onClick={() => setPicking(!picking)}
-          >
-            <SlidersHorizontal aria-hidden />
-            <span>
-              Alert types
-              <small>
-                {hiddenNow
-                  ? `${hiddenNow} hidden${hide.warningsOnly ? " · warnings only" : ""}`
-                  : "Showing every type"}
-              </small>
-            </span>
-            <ChevronDown
-              className={picking ? s.chevOpen : s.chev}
-              aria-hidden
-            />
-          </button>
-          {picking && (
-            <div className={s.types}>
-              <p className={s.muted}>
-                Tap a type to hide it from the list and the map. Kept on this
-                device.
-              </p>
-              <div className={s.typesQuick}>
-                <Chip
-                  pressed={!!hide.warningsOnly}
-                  onClick={() =>
-                    writeHide({ ...hide, warningsOnly: !hide.warningsOnly })
-                  }
-                >
-                  Warnings only
-                </Chip>
-                <Chip pressed={false} onClick={() => writeHide({ hide: [] })}>
-                  Show every type
-                </Chip>
-              </div>
-              <div
-                className={s.typesList}
-                role="group"
-                aria-label="Alert types"
-              >
-                {kinds.map(([event, k]) => (
-                  <button
-                    key={event}
-                    type="button"
-                    aria-pressed={wanted(event)}
-                    disabled={!!hide.warningsOnly && !/Warning$/.test(event)}
-                    onClick={() => toggleKind(event)}
-                  >
-                    <span>{event}</span>
-                    <b>{k.n}</b>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
         <p className="eyebrow">
           {shown.length} active {shown.length === 1 ? "alert" : "alerts"}
