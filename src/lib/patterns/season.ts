@@ -1,3 +1,4 @@
+import { DAT_TORNADOES } from "@/lib/dat/tornado";
 import "server-only";
 import { tornadoSummary } from "@/lib/climo/server";
 import { ledgerSince, type DayReports } from "./data";
@@ -214,7 +215,7 @@ export async function surveyTiles(
   year: number,
   on = new Date(),
 ): Promise<Tile[]> {
-  const where = `stormdate >= DATE '${year}-01-01'`;
+  const where = `stormdate >= DATE '${year}-01-01' AND ${DAT_TORNADOES}`;
   const [stats, ef3] = await Promise.all([
     dat({
       where,

@@ -1,3 +1,4 @@
+import { DAT_TORNADOES } from "@/lib/dat/tornado";
 import "server-only";
 import { PLACES } from "@/lib/geo/places.data";
 import { nearestPlace, parsePlaces } from "@/lib/geo/search";
@@ -84,7 +85,7 @@ export async function surveysBetween(
   const t0 = Date.parse(`${from}T12:00:00Z`);
   const t1 = Date.parse(`${to}T12:00:00Z`) + DAY;
   // `stormdate` is the office's local date: pad a day each side, then keep by start time.
-  const where = `stormdate >= ${stamp(t0 - DAY)} AND stormdate < ${stamp(t1 + DAY)}`;
+  const where = `stormdate >= ${stamp(t0 - DAY)} AND stormdate < ${stamp(t1 + DAY)} AND ${DAT_TORNADOES}`;
   const rows: Row[] = [];
   try {
     for (let offset = 0; offset < 20 * PAGE; offset += PAGE) {
