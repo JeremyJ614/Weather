@@ -9,3 +9,5 @@ src/lib/geo/places.data.ts
 src/lib/library/library.json
 public/archive/
 public/samples/
+# Built by scripts/archive/build_spc_surveyed.py; kept compact.
+src/data/archive/

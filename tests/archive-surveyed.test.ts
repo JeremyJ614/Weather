@@ -3,9 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 const { statesIn } = await import("@/lib/archive/list");
-const { spcDays, spcEvent, scaleOf, SPC_THROUGH } = await import(
-  "@/lib/archive/spc"
-);
+const { spcDays, spcEvent, scaleOf, SPC_THROUGH } =
+  await import("@/lib/archive/spc");
 
 describe("statesIn", () => {
   it("reads state names without mistaking one inside another", () => {
