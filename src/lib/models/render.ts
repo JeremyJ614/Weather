@@ -11,9 +11,12 @@ import { GFS, HRRR, REFS, SCALES, type Param } from "./params";
  * transparent Web-Mercator PNG for the map. Frames are immutable per run, so the CDN
  * keeps each one after the first request.
  *
- * The look is VIP's: discrete color bands on the model's contour levels, and the field
- * sampled with a clamped Catmull-Rom (smooth through the grid, never past a real value),
- * which is what turns GFS's 25 km cells from a mosaic into a smooth map.
+ * The look (owner, 2026-11-02, after Max Velocity's HRRR pages): continuous shading, the color
+ * gliding between the field's levels instead of filling flat bands, so every gradient and the
+ * terrain's fingerprints show at the model's full 3 km detail. The field is sampled with a
+ * clamped Catmull-Rom (smooth through the grid, never past a real value), which is what turns
+ * GFS's 25 km cells from a mosaic into a smooth map. Frames are palette PNGs: 240 shades along
+ * the field's ramp, about a fifth the size of full color.
  */
 export type ModelId = "hrrr" | "gfs" | "refs";
 type Def = {
@@ -261,49 +264,7 @@ export async function fieldFor(
   let max = -Infinity;
   for (const v of out) if (v > max) max = v;
   for (let i = 0; i < n; i++) out[i] = convert(p.key, out[i], max);
-  // 3 km fields carry grid-scale speckle; one light pass keeps every feature a forecaster
-  // reads and drops the single-pixel noise (Fix list 2026-10-30 #8). Storm-scale fields
-  // (radar, updrafts, lightning, ensemble chances) keep their full detail.
-  if (model !== "gfs" && !SHARP.test(p.key)) {
-    const [gw, gh] = gridSize(a.grid);
-    return { grid: a.grid, values: despeckle(out, gw, gh) };
-  }
   return { grid: a.grid, values: out };
-}
-
-/** Fields drawn at full detail: radar, tops, updraft helicity and speed, lightning, chances. */
-const SHARP =
-  /^(p_|pm_|lp_)|refc|refd|refl|retop|uphl|uh|ltng|lightning|uvv|prate|smoke|vis|cldbase|ptype/;
-
-/** One 1-2-1 binomial pass in each direction over a grid, skipping missing cells. */
-function despeckle(v: Float32Array, w: number, h: number) {
-  const tmp = new Float32Array(v.length);
-  const out = new Float32Array(v.length);
-  const pass = (
-    src: Float32Array,
-    dst: Float32Array,
-    dx: number,
-    dy: number,
-  ) => {
-    for (let j = 0; j < h; j++)
-      for (let i = 0; i < w; i++) {
-        const k = j * w + i;
-        const c = src[k];
-        if (Number.isNaN(c)) {
-          dst[k] = c;
-          continue;
-        }
-        const a =
-          i - dx >= 0 && j - dy >= 0 ? src[k - dy * w - dx] : Number.NaN;
-        const b = i + dx < w && j + dy < h ? src[k + dy * w + dx] : Number.NaN;
-        const sa = Number.isNaN(a) ? c : a;
-        const sb = Number.isNaN(b) ? c : b;
-        dst[k] = (sa + 2 * c + sb) / 4;
-      }
-  };
-  pass(v, tmp, 1, 0);
-  pass(tmp, out, 0, 1);
-  return out;
 }
 
 const hex = (c: string) => {
@@ -311,15 +272,16 @@ const hex = (c: string) => {
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 };
 
-/** One color per band: a scale's stops spread across the bands (listed scales by index). */
-export function bandColors(p: Param, colors: Colors) {
+/** One color per contour level: the scale's stops spread across the field's levels (the
+ * shading glides between them). Listed scales (radar) keep their colors in order. */
+export function rampColors(p: Param, colors: Colors) {
   const stops = (SCALES[p.cmap] ?? SCALES.prob).map((c, i) =>
     pick(colors, `model:${p.cmap}:${i}`, c),
   );
-  const bands = p.levels.length + (p.full ? 1 : 0);
+  const n = p.levels.length;
   const listed = p.cmap === "refl";
-  return Array.from({ length: bands }, (_, b) => {
-    const f = bands > 1 ? b / (bands - 1) : 0;
+  return Array.from({ length: n }, (_, b) => {
+    const f = n > 1 ? b / (n - 1) : 0;
     if (listed) return stops[Math.round(f * (stops.length - 1))];
     const x = f * (stops.length - 1);
     const k = Math.min(stops.length - 2, Math.floor(x));
@@ -361,21 +323,47 @@ function chunk(type: string, data: Buffer) {
   crc.writeUInt32BE((c ^ 0xffffffff) >>> 0);
   return Buffer.concat([len, td, crc]);
 }
-function png(w: number, h: number, rgba: Uint8Array) {
-  const raw = Buffer.alloc((w * 4 + 1) * h);
-  for (let y = 0; y < h; y++)
-    Buffer.from(rgba.buffer, rgba.byteOffset + y * w * 4, w * 4).copy(
-      raw,
-      y * (w * 4 + 1) + 1,
-    );
+/**
+ * A palette PNG (one byte per pixel) with transparency per palette entry. Each row takes the
+ * filter (none, left or up) that leaves the smallest residue: the palette runs in order along
+ * the ramp, so neighbouring pixels differ by small steps and deflate packs them tightly.
+ */
+function png(w: number, h: number, idx: Uint8Array, pal: number[][]) {
+  const raw = Buffer.alloc((w + 1) * h);
+  const cand = [Buffer.alloc(w), Buffer.alloc(w), Buffer.alloc(w)];
+  for (let y = 0; y < h; y++) {
+    const row = idx.subarray(y * w, (y + 1) * w);
+    const up = y > 0 ? idx.subarray((y - 1) * w, y * w) : null;
+    let best = 0;
+    let bestCost = Infinity;
+    for (let f = 0; f < 3; f++) {
+      const c = cand[f];
+      let cost = 0;
+      for (let x = 0; x < w; x++) {
+        const prev =
+          f === 1 ? (x > 0 ? row[x - 1] : 0) : f === 2 && up ? up[x] : 0;
+        const v = (row[x] - prev) & 255;
+        c[x] = v;
+        cost += v < 128 ? v : 256 - v;
+      }
+      if (cost < bestCost) {
+        bestCost = cost;
+        best = f;
+      }
+    }
+    raw[y * (w + 1)] = best;
+    cand[best].copy(raw, y * (w + 1) + 1);
+  }
   const ihdr = Buffer.alloc(13);
   ihdr.writeUInt32BE(w, 0);
   ihdr.writeUInt32BE(h, 4);
-  ihdr.set([8, 6, 0, 0, 0], 8);
+  ihdr.set([8, 3, 0, 0, 0], 8);
   return Buffer.concat([
     Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
     chunk("IHDR", ihdr),
-    chunk("IDAT", deflateSync(raw, { level: 6 })),
+    chunk("PLTE", Buffer.from(pal.flatMap((c) => c.slice(0, 3)))),
+    chunk("tRNS", Buffer.from(pal.map((c) => c[3]))),
+    chunk("IDAT", deflateSync(raw, { level: 9 })),
     chunk("IEND", Buffer.alloc(0)),
   ]);
 }
@@ -384,10 +372,15 @@ const mercY = (lat: number) =>
   Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360));
 const unMercY = (y: number) => (Math.atan(Math.sinh(y)) * 180) / Math.PI;
 
+/** Shades along the ramp, and fading steps for a partial field's lowest edge. */
+const SHADES = 240;
+const FADES = 15;
+
 /** Paint a field over a region as a transparent Web-Mercator PNG (`width` px across). */
 export function paint(
   f: Field,
   p: Pick<Param, "levels" | "full">,
+  /** One color per level (rampColors). */
   colors: string[],
   b: number[],
   width: number,
@@ -399,16 +392,45 @@ export function paint(
   const bot = mercY(s);
   const W = width;
   const H = Math.round((W * (top - bot)) / (((e - w) * Math.PI) / 180));
-  const rgba = new Uint8Array(W * H * 4);
   const loc = locator(f.grid);
   const [gw, gh] = gridSize(f.grid);
   const v = f.values;
   const at = (i: number, j: number) =>
     v[Math.min(gh - 1, Math.max(0, j)) * gw + Math.min(gw - 1, Math.max(0, i))];
-  const rgb = colors.map(hex);
   const lv = p.levels;
-  // Pass 1: the field at every pixel (NaN where there is none).
-  const vals = new Float32Array(W * H).fill(Number.NaN);
+  const last = lv.length - 1;
+  const rgb = colors.map(hex);
+  // The palette: 0 clear; 1..SHADES along the ramp; then the first color fading in.
+  const shade = (u: number) => {
+    const x = u * last;
+    const k = Math.min(Math.max(0, last - 1), Math.floor(x));
+    const t = last > 0 ? x - k : 0;
+    const a = rgb[k];
+    const c = rgb[Math.min(last, k + 1)];
+    return a.map((ch, q) => Math.round(ch + (c[q] - ch) * t));
+  };
+  const pal: number[][] = [[0, 0, 0, 0]];
+  for (let i = 0; i < SHADES; i++) pal.push([...shade(i / (SHADES - 1)), 255]);
+  for (let i = 1; i <= FADES; i++)
+    pal.push([...rgb[0], Math.round((255 * i) / (FADES + 1))]);
+  // A partial field (radar, CAPE...) fades in over half its first step instead of a hard cut.
+  const edge = last > 0 ? (lv[1] - lv[0]) / 2 : 1;
+  const indexOf = (val: number) => {
+    if (Number.isNaN(val)) return 0;
+    if (val < lv[0]) {
+      if (p.full) return 1;
+      const a = (val - (lv[0] - edge)) / edge;
+      return a <= 0
+        ? 0
+        : 1 + SHADES + Math.min(FADES - 1, Math.floor(a * FADES));
+    }
+    if (val >= lv[last]) return SHADES;
+    let k = 0;
+    while (k < last - 1 && val >= lv[k + 1]) k++;
+    const u = (k + (val - lv[k]) / (lv[k + 1] - lv[k])) / Math.max(1, last);
+    return 1 + Math.round(u * (SHADES - 1));
+  };
+  const idx = new Uint8Array(W * H);
   for (let y = 0; y < H; y++) {
     const lat = unMercY(top - ((y + 0.5) / H) * (top - bot));
     for (let x = 0; x < W; x++) {
@@ -420,77 +442,21 @@ export function paint(
       const j = Math.floor(fj);
       const ti = fi - i;
       const tj = fj - j;
-      const c11 = at(i, j);
-      const c21 = at(i + 1, j);
-      const c12 = at(i, j + 1);
-      const c22 = at(i + 1, j + 1);
       let val: number;
-      if (Number.isNaN(c11 + c21 + c12 + c22)) {
+      if (
+        Number.isNaN(at(i, j) + at(i + 1, j) + at(i, j + 1) + at(i + 1, j + 1))
+      ) {
         val = at(Math.round(fi), Math.round(fj));
       } else {
         const row = (jj: number) =>
           cr(at(i - 1, jj), at(i, jj), at(i + 1, jj), at(i + 2, jj), ti);
         val = cr(row(j - 1), row(j), row(j + 1), row(j + 2), tj);
-        if (Number.isNaN(val)) val = c11;
+        if (Number.isNaN(val)) val = at(i, j);
       }
-      vals[y * W + x] = val;
+      idx[y * W + x] = indexOf(val);
     }
   }
-  // Band of a value: -1 = nothing drawn (under the first level of a partial field).
-  const bandOf = (val: number) => {
-    if (val < lv[0]) return p.full ? 0 : -1;
-    let k = lv.length - 1;
-    while (k > 0 && val < lv[k]) k--;
-    return k + (p.full ? 1 : 0);
-  };
-  // Pass 2 (Fix list 2026-10-30 #8): each band edge is anti-aliased across a pixel (the
-  // pixel's distance to the contour, from the local gradient, blends the two bands) and
-  // traced with a thin dark line, so edges stay crisp and defined instead of stair-stepped.
-  const LINE = 0.75;
-  for (let y = 0; y < H; y++)
-    for (let x = 0; x < W; x++) {
-      const o = y * W + x;
-      const val = vals[o];
-      if (Number.isNaN(val)) continue;
-      const band = bandOf(val);
-      const l = x > 0 ? vals[o - 1] : val;
-      const r = x < W - 1 ? vals[o + 1] : val;
-      const u = y > 0 ? vals[o - W] : val;
-      const d = y < H - 1 ? vals[o + W] : val;
-      const gx = (Number.isNaN(r) ? val : r) - (Number.isNaN(l) ? val : l);
-      const gy = (Number.isNaN(d) ? val : d) - (Number.isNaN(u) ? val : u);
-      const g = Math.hypot(gx, gy) / 2;
-      // The nearest contour: the level at this band's floor or ceiling.
-      const k = band - (p.full ? 1 : 0);
-      const floor = k >= 0 ? lv[k] : -Infinity;
-      const ceil = k + 1 < lv.length ? lv[k + 1] : Infinity;
-      const below = val - floor;
-      const above = ceil - val;
-      const dist = g > 0 ? Math.min(below, above) / g : Infinity;
-      let c = band >= 0 ? rgb[band] : null;
-      let alpha = band >= 0 ? 255 : 0;
-      if (dist < 0.5) {
-        const other = bandOf(below < above ? floor - 1e-6 : ceil);
-        const t = 0.5 - dist;
-        const oc = other >= 0 ? rgb[other] : null;
-        if (c && oc) c = c.map((ch, q) => Math.round(ch + (oc[q] - ch) * t));
-        else if (c) alpha = Math.round(255 * (1 - t));
-        else if (oc) {
-          c = oc;
-          alpha = Math.round(255 * t);
-        }
-      }
-      if (!c || alpha === 0) continue;
-      if (dist < LINE) {
-        const dark = 0.38 * (1 - dist / LINE);
-        c = c.map((ch) => Math.round(ch * (1 - dark)));
-      }
-      rgba[o * 4] = c[0];
-      rgba[o * 4 + 1] = c[1];
-      rgba[o * 4 + 2] = c[2];
-      rgba[o * 4 + 3] = alpha;
-    }
-  return { png: png(W, H, rgba), w: W, h: H };
+  return { png: png(W, H, idx, pal), w: W, h: H };
 }
 
 export const paramOf = (model: ModelId, key: string) =>

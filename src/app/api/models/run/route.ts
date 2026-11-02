@@ -2,7 +2,7 @@ import { getColors } from "@/lib/colors/server";
 import {
   MODELS,
   REGIONS,
-  bandColors,
+  rampColors,
   recentCycles,
   type ModelId,
 } from "@/lib/models/render";
@@ -35,7 +35,7 @@ export async function GET(req: Request) {
         unit: p.unit,
         levels: p.levels,
         full: !!p.full,
-        colors: bandColors(p, colors),
+        colors: rampColors(p, colors),
       })),
     },
     {
