@@ -345,11 +345,11 @@ function Surveyed({
   return (
     <div className={s.wrap}>
       <p className={s.lede}>
-        Every tornado the National Weather Service has surveyed since January
-        2023, added automatically as surveys are published and revised; before
-        that, every F4 and F5 since 1950 and the violent and significant
-        tornadoes of 2000 to 2022 (EF3s that ran 20 miles or killed, deadly
-        EF2s), from NOAA&rsquo;s Storm Prediction Center database.
+        Every tornado since January 2023 (NOAA&rsquo;s Storm Prediction Center
+        database through 2025, then each NWS survey as it&rsquo;s published and
+        revised); before that, every F4 and F5 since 1950 and the violent and
+        significant tornadoes of 2000 to 2022 (EF3s that ran 20 miles or killed,
+        deadly EF2s).
       </p>
       <div className={s.tools}>
         <input
