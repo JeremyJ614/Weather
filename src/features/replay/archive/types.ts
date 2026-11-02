@@ -23,6 +23,8 @@ export interface ArchiveIndexEntry {
   strongest: string;
   fatalities: number;
   source: "surveyed" | "reconstructed";
+  /** Listed under NWS Surveyed instead of Historic (the owner picks the Historic events). */
+  surveyed?: boolean;
 }
 
 export interface ArchiveTornado {

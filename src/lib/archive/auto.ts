@@ -13,7 +13,7 @@ const DAT =
   "https://services.dat.noaa.gov/arcgis/rest/services/nws_damageassessmenttoolkit/DamageViewer/FeatureServer/1/query";
 const PAGE = 2000;
 /** The backfill walks back to here, a month per call. */
-export const BACKFILL_FROM = "2024-01";
+export const BACKFILL_FROM = "2023-01";
 
 let rows: ReturnType<typeof parsePlaces> | null = null;
 const EF = (v: unknown) => {
@@ -92,7 +92,10 @@ export async function fetchSurveys(from: Date, to: Date): Promise<Survey[]> {
   return out;
 }
 
-export function groupDays(list: Survey[]): AutoDay[] {
+export function groupDays(
+  list: Survey[],
+  members?: (day: AutoDay, tracks: Survey[]) => void,
+): AutoDay[] {
   rows ??= parsePlaces(PLACES);
   const places = rows;
   return groupSurveys(
@@ -102,6 +105,7 @@ export function groupDays(list: Survey[]): AutoDay[] {
       return n ? { place: n.hit.name, st: n.hit.st } : null;
     },
     (st) => STATES[st] ?? st,
+    members,
   );
 }
 
