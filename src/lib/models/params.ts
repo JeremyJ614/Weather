@@ -17,6 +17,8 @@ export type Param = {
   levels: number[];
   /** True when values under the first level still mean something (no transparency). */
   full?: boolean;
+  /** Clear above the last level instead (CIN near zero, visibility in clear air). */
+  clearAbove?: boolean;
   /** Which of an ensemble's product files holds it (REFS: prob, mean, pmmn, lpmm). */
   file?: "prob" | "mean" | "pmmn" | "lpmm";
 };
@@ -84,6 +86,15 @@ export const SCALES: Record<string, string[]> = {
     "#d5e3ee",
     "#f2f6fa",
   ],
+  fog: [
+    "#f4f6f8",
+    "#dfe6ee",
+    "#c3d2e2",
+    "#9fb6cf",
+    "#7a98ba",
+    "#5a7aa1",
+    "#3e5d85",
+  ],
   cape: [
     "#1f7a3a",
     "#38a34a",
@@ -147,6 +158,9 @@ export const SCALES: Record<string, string[]> = {
     "#8a4ff0",
   ],
   cin: ["#5a1a2e", "#8e2433", "#c0442f", "#e07a3f", "#f0b77a"],
+  li: ["#9b46e0", "#c42a6b", "#e2452b", "#f0841c", "#f5b52a", "#f2e33c"],
+  haines: ["#f2d23a", "#f0841c", "#d6322e"],
+  rise: ["#e040fb", "#9b46e0", "#3b6fd0", "#1f9fbf", "#22ad7e", "#7cc443"],
   pwat: [
     "#7a5a3a",
     "#b38b46",
@@ -319,6 +333,16 @@ export const HRRR: Param[] = [
     full: true,
   },
   {
+    key: "tmp2m",
+    label: "2 m Temperature",
+    group: "Surface & Precipitation",
+    match: ":TMP:2 m above ground:",
+    unit: "\u00b0F",
+    cmap: "temp",
+    levels: [-10, 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110],
+    full: true,
+  },
+  {
     key: "dpt2m",
     label: "2 m Dew Point",
     group: "Surface & Precipitation",
@@ -384,7 +408,7 @@ export const HRRR: Param[] = [
     match: ":USTM:0-6000 m above ground:",
     unit: "kt",
     cmap: "wind",
-    levels: [5, 10, 15, 20, 25, 30, 35, 40, 50],
+    levels: [5, 10, 15, 20, 25, 30, 35, 40, 50, 60, 70],
     extra: [":VSTM:0-6000 m above ground:"],
     combine: "mag",
   },
@@ -394,9 +418,9 @@ export const HRRR: Param[] = [
     group: "Severe Weather",
     match: ":4LFTX:180-0 mb above ground:",
     unit: "\u00b0C",
-    cmap: "cin",
-    levels: [-10, -8, -6, -4, -2, 0, 2, 4],
-    full: true,
+    cmap: "li",
+    levels: [-10, -8, -6, -4, -2, 0],
+    clearAbove: true,
   },
   {
     key: "lclhgt",
@@ -494,7 +518,7 @@ export const GFS: Param[] = [
     unit: "J/kg",
     cmap: "cin",
     levels: [-300, -200, -150, -100, -75, -50, -25, -10],
-    full: true,
+    clearAbove: true,
   },
   {
     key: "pwat",
@@ -551,7 +575,10 @@ export const GFS: Param[] = [
     match: ":HGT:500 mb:",
     unit: "dam",
     cmap: "hgt",
-    levels: [516, 522, 528, 534, 540, 546, 552, 558, 564, 570, 576],
+    levels: [
+      504, 510, 516, 522, 528, 534, 540, 546, 552, 558, 564, 570, 576, 582, 588,
+      594,
+    ],
     full: true,
   },
   {
@@ -597,9 +624,9 @@ export const GFS: Param[] = [
     group: "Severe Weather",
     match: ":4LFTX:surface:",
     unit: "\u00b0C",
-    cmap: "cin",
-    levels: [-10, -8, -6, -4, -2, 0, 2, 4],
-    full: true,
+    cmap: "li",
+    levels: [-10, -8, -6, -4, -2, 0],
+    clearAbove: true,
   },
   {
     key: "srh3",
@@ -617,7 +644,7 @@ export const GFS: Param[] = [
     match: ":USTM:6000-0 m above ground:",
     unit: "kt",
     cmap: "wind",
-    levels: [5, 10, 15, 20, 25, 30, 35, 40, 50],
+    levels: [5, 10, 15, 20, 25, 30, 35, 40, 50, 60, 70],
     extra: [":VSTM:6000-0 m above ground:"],
     combine: "mag",
   },
@@ -658,7 +685,7 @@ export const GFS: Param[] = [
     unit: "J/kg",
     cmap: "cin",
     levels: [-300, -200, -150, -100, -75, -50, -25, -10],
-    full: true,
+    clearAbove: true,
   },
   {
     key: "refc",
@@ -748,6 +775,7 @@ export const GFS: Param[] = [
     unit: "ft",
     cmap: "lcl",
     levels: [500, 1000, 1500, 2000, 3000, 4000, 6000, 8000, 12000],
+    clearAbove: true,
   },
   {
     key: "fzlvl",
@@ -798,7 +826,7 @@ export const GFS: Param[] = [
     match: ":HGT:850 mb:",
     unit: "m",
     cmap: "hgt",
-    levels: [1300, 1360, 1400, 1440, 1480, 1520, 1560, 1600],
+    levels: [1200, 1260, 1320, 1380, 1440, 1500, 1560, 1620],
     full: true,
   },
   {
@@ -816,9 +844,9 @@ export const GFS: Param[] = [
     group: "Upper Air",
     match: ":VVEL:700 mb:",
     unit: "Pa/s",
-    cmap: "press",
-    levels: [-1.2, -0.8, -0.5, -0.3, -0.15, -0.05, 0.05, 0.2, 0.5],
-    full: true,
+    cmap: "rise",
+    levels: [-2, -1.5, -1, -0.6, -0.4, -0.25],
+    clearAbove: true,
   },
   {
     key: "rh850",
@@ -844,7 +872,7 @@ export const GFS: Param[] = [
     group: "Surface & Precipitation",
     match: ":PRATE:surface:",
     unit: "mm/h",
-    cmap: "pwat",
+    cmap: "qpf",
     levels: [0.1, 0.4, 1, 2.5, 5, 10, 20, 35, 50],
   },
   {
@@ -853,9 +881,9 @@ export const GFS: Param[] = [
     group: "Surface & Precipitation",
     match: ":VIS:surface:",
     unit: "mi",
-    cmap: "cloud",
-    levels: [0.25, 0.5, 1, 2, 3, 5, 7, 10],
-    full: true,
+    cmap: "fog",
+    levels: [0.25, 0.5, 1, 2, 3, 5, 7],
+    clearAbove: true,
   },
   {
     key: "haines",
@@ -863,9 +891,8 @@ export const GFS: Param[] = [
     group: "Surface & Precipitation",
     match: ":HINDEX:surface:",
     unit: "",
-    cmap: "smoke",
-    levels: [2, 3, 4, 5, 6],
-    full: true,
+    cmap: "haines",
+    levels: [4, 5, 6],
   },
 ];
 
@@ -991,7 +1018,7 @@ export const REFS: Param[] = [
     unit: "J/kg",
     cmap: "cin",
     levels: [-300, -200, -150, -100, -75, -50, -25, -10],
-    full: true,
+    clearAbove: true,
     file: "mean",
   },
   chance(
@@ -1274,7 +1301,10 @@ export const REFS: Param[] = [
     match: ":HGT:500 mb:",
     unit: "dam",
     cmap: "hgt",
-    levels: [516, 522, 528, 534, 540, 546, 552, 558, 564, 570, 576],
+    levels: [
+      504, 510, 516, 522, 528, 534, 540, 546, 552, 558, 564, 570, 576, 582, 588,
+      594,
+    ],
     full: true,
     file: "mean",
   },

@@ -11,3 +11,5 @@ public/archive/
 public/samples/
 # Built by scripts/archive/build_spc_surveyed.py; kept compact.
 src/data/archive/
+# Built by scripts/build-us-lines.py; kept compact.
+public/geo/
