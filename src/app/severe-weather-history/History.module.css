@@ -61,6 +61,19 @@
   flex-wrap: wrap;
   gap: 6px;
 }
+/* Captioned chip rows (the warning filters). */
+.chipRows {
+  display: grid;
+  gap: 6px;
+}
+.chipRows > span {
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
 .chips button {
   display: inline-flex;
   align-items: center;

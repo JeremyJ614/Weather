@@ -30,6 +30,14 @@ const KIND = {
   FF: "Flash Flood Warning",
 } as const;
 const MONTHS = "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split(" ");
+/** Short names for the impact chips (the legend keeps the full ones). */
+const TAG_CHIP: Record<WarnTag, string> = {
+  emergency: "Emergency",
+  pds: "PDS",
+  destructive: "Destructive",
+  considerable: "Considerable",
+  observed: "Tornado observed",
+};
 const day = (iso: string) =>
   new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-US", {
     month: "short",
@@ -636,6 +644,10 @@ function Warnings({ colors }: { colors: Colors }) {
     { days: number } | { from: string; to: string }
   >({ days: 3 });
   const [only, setOnly] = useState<Set<string> | null>(null);
+  // Which warnings to show (owner, 2026-11-02): by type, and by the impact wording NWS put on
+  // them ("none" = a plain warning). Everything shows until a chip is switched off.
+  const [hideKind, setHideKind] = useState<Set<string>>(new Set());
+  const [hideTag, setHideTag] = useState<Set<string>>(new Set());
   const short = "days" in win && win.days <= 30;
   const range = useMemo(() => {
     if (short) return null;
@@ -668,7 +680,22 @@ function Warnings({ colors }: { colors: Colors }) {
       (a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1),
     );
   }, [loaded]);
-  const polys = only ? loaded.filter((p) => only.has(p.st ?? "")) : loaded;
+  const inStates = only ? loaded.filter((p) => only.has(p.st ?? "")) : loaded;
+  const tagOf = (p: WarnPoly) => p.tag ?? "none";
+  // Each chip counts what it would add, given the other row's choices.
+  const kindCount = (k: string) =>
+    inStates.filter((p) => p.kind === k && !hideTag.has(tagOf(p))).length;
+  const tagCount = (t: string) =>
+    inStates.filter((p) => tagOf(p) === t && !hideKind.has(p.kind)).length;
+  const polys = inStates.filter(
+    (p) => !hideKind.has(p.kind) && !hideTag.has(tagOf(p)),
+  );
+  const flip = (set: Set<string>, key: string) => {
+    const n = new Set(set);
+    if (n.has(key)) n.delete(key);
+    else n.add(key);
+    return n;
+  };
   const c = (k: keyof typeof KIND) =>
     pick(colors, `warn:${KIND[k]}`, WARN[KIND[k]]);
   const tagC = (t: WarnTag) => pick(colors, `warntag:${t}`, TAG_COLOR[t]);
@@ -730,6 +757,54 @@ function Warnings({ colors }: { colors: Colors }) {
         only={only}
         setOnly={setOnly}
       />
+      <div className={s.chipRows}>
+        <span>Warning types</span>
+        <div className={s.chips} role="group" aria-label="Show warning types">
+          {(Object.keys(KIND) as (keyof typeof KIND)[]).map((k) => (
+            <button
+              key={k}
+              type="button"
+              aria-pressed={!hideKind.has(k)}
+              onClick={() => setHideKind(flip(hideKind, k))}
+              style={{ ["--c" as string]: c(k) }}
+            >
+              <i />
+              {KIND[k].replace(" Warning", "")}{" "}
+              <small>{kindCount(k).toLocaleString("en-US")}</small>
+            </button>
+          ))}
+        </div>
+        <span>Impact wording</span>
+        <div
+          className={s.chips}
+          role="group"
+          aria-label="Show warnings by impact wording"
+        >
+          <button
+            type="button"
+            aria-pressed={!hideTag.has("none")}
+            onClick={() => setHideTag(flip(hideTag, "none"))}
+            style={{ ["--c" as string]: "var(--muted)" }}
+          >
+            <i />
+            Base warning{" "}
+            <small>{tagCount("none").toLocaleString("en-US")}</small>
+          </button>
+          {WARN_TAGS.map((t) => (
+            <button
+              key={t}
+              type="button"
+              aria-pressed={!hideTag.has(t)}
+              onClick={() => setHideTag(flip(hideTag, t))}
+              style={{ ["--c" as string]: tagC(t) }}
+              title={TAG_LABEL[t]}
+            >
+              <i />
+              {TAG_CHIP[t]} <small>{tagCount(t).toLocaleString("en-US")}</small>
+            </button>
+          ))}
+        </div>
+      </div>
       {!short && long && long.done < long.of && (
         <p className={s.muted} role="status">
           Loading month {long.done + 1} of {long.of}… the map fills in as each
