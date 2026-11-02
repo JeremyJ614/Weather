@@ -1,7 +1,14 @@
 import "server-only";
 import { deflateSync } from "node:zlib";
 import { pick, type Colors } from "@/lib/colors/pick";
-import { decodeGrib2, gridSize, locator, type Field } from "./grib2";
+import { MODEL_CITIES } from "./cities";
+import {
+  decodeGrib2,
+  gridSize,
+  locator,
+  rowLocator,
+  type Field,
+} from "./grib2";
 import { GFS, HRRR, REFS, SCALES, type Param } from "./params";
 
 /**
@@ -110,41 +117,48 @@ export async function exists(url: string) {
   }
 }
 
-/** The newest cycle whose last forecast hour has been published ("YYYYMMDDHH"). */
-export async function latestCycle(model: ModelId, from = Date.now()) {
+/** Is this cycle's last forecast hour out (on the main feed or the fallback)? */
+async function complete(model: ModelId, id: string) {
   const m = MODELS[model];
   const last = m.hours[m.hours.length - 1];
+  const [d, h] = [id.slice(0, 8), id.slice(8)];
+  return (
+    (await exists(m.url(d, h, last))) ||
+    (!!m.alt && (await exists(m.alt(d, h, last))))
+  );
+}
+
+/** The model's cycle ids within 36 hours before `from`, newest first. */
+function candidates(model: ModelId, from: number) {
+  const m = MODELS[model];
   const t = new Date(from);
   t.setUTCMinutes(0, 0, 0);
+  const out: string[] = [];
   for (let back = 0; back < 36; back++) {
     const c = new Date(t.getTime() - back * 3600_000);
-    if (!m.cycles.includes(c.getUTCHours())) continue;
-    const id = ymdh(c);
-    const [d, h] = [id.slice(0, 8), id.slice(8)];
-    if (
-      (await exists(m.url(d, h, last))) ||
-      (m.alt && (await exists(m.alt(d, h, last))))
-    )
-      return id;
+    if (m.cycles.includes(c.getUTCHours())) out.push(ymdh(c));
   }
+  return out;
+}
+
+/** The newest cycle whose last forecast hour has been published ("YYYYMMDDHH"). */
+export async function latestCycle(model: ModelId, from = Date.now()) {
+  for (const id of candidates(model, from))
+    if (await complete(model, id)) return id;
   return null;
 }
 
-/** Newest few cycles with their last hour published, newest first (the archive list). */
+/**
+ * Newest few complete cycles, newest first (the run list). Cycles are checked four at a time
+ * rather than one by one, so the list comes back in a couple of round trips to NOAA.
+ */
 export async function recentCycles(model: ModelId, n = 4) {
   const out: string[] = [];
-  let from = Date.now();
-  while (out.length < n) {
-    const c = await latestCycle(model, from);
-    if (!c) break;
-    out.push(c);
-    from =
-      Date.UTC(
-        +c.slice(0, 4),
-        +c.slice(4, 6) - 1,
-        +c.slice(6, 8),
-        +c.slice(8),
-      ) - 3600_000;
+  const list = candidates(model, Date.now());
+  for (let k = 0; k < list.length && out.length < n; k += 4) {
+    const batch = list.slice(k, k + 4);
+    const ok = await Promise.all(batch.map((id) => complete(model, id)));
+    batch.forEach((id, j) => ok[j] && out.length < n && out.push(id));
   }
   return out;
 }
@@ -179,32 +193,33 @@ export async function record(url: string, match: string, also?: string) {
 const K2F = (k: number) => ((k - 273.15) * 9) / 5 + 32;
 const MS2KT = 1.943844;
 
-/** Unit changes, by parameter key (VIP's `convert`); ensemble mean/PMM keys as their base. */
-function convert(raw: string, v: number, max: number) {
+/** Unit changes, by parameter key (VIP's `convert`); ensemble mean/PMM keys as their base.
+ * Resolved once per field, so the per-point work is just the arithmetic. */
+function converter(raw: string, max: number): ((v: number) => number) | null {
   const key = raw.replace(/^(m|pm|lp)_/, "");
   switch (key) {
     case "qpf":
-      return v / 25.4;
+      return (v) => v / 25.4;
     case "gust":
-      return v * 2.236936;
+      return (v) => v * 2.236936;
     case "dpt2m":
     case "tmp2m":
-      return K2F(v);
+      return K2F;
     case "pwat":
-      return v / 25.4;
+      return (v) => v / 25.4;
     case "absv500":
     case "absv850":
-      return v * 1e5;
+      return (v) => v * 1e5;
     case "vort02":
-      return v * 1e3;
+      return (v) => v * 1e3;
     case "mslp":
-      return v / 100;
+      return (v) => v / 100;
     case "hgt500":
-      return v / 10;
+      return (v) => v / 10;
     case "tmp850":
     case "tmp700":
     case "tmp500":
-      return v - 273.15;
+      return (v) => v - 273.15;
     case "shear01":
     case "shear06":
     case "stmmot":
@@ -212,22 +227,22 @@ function convert(raw: string, v: number, max: number) {
     case "wind850":
     case "wind500":
     case "wind250":
-      return v * MS2KT;
+      return (v) => v * MS2KT;
     case "retop":
     case "lclhgt":
-      return v / 304.8;
+      return (v) => v / 304.8;
     case "cldbase":
     case "fzlvl":
-      return v * 3.28084;
+      return (v) => v * 3.28084;
     case "prate":
-      return v * 3600;
+      return (v) => v * 3600;
     case "vis":
-      return v / 1609.344;
+      return (v) => v / 1609.344;
     case "smoke":
-      return v * 1e9;
+      return (v) => v * 1e9;
   }
-  if (key.startsWith("p_")) return max <= 1.01 ? v * 100 : v;
-  return v;
+  if (key.startsWith("p_") && max <= 1.01) return (v) => v * 100;
+  return null;
 }
 
 /** Bolton (1980) equivalent potential temperature from T, Td (K) and pressure (Pa). */
@@ -301,7 +316,8 @@ async function loadField(
   }
   let max = -Infinity;
   for (const v of out) if (v > max) max = v;
-  for (let i = 0; i < n; i++) out[i] = convert(p.key, out[i], max);
+  const to = converter(p.key, max);
+  if (to) for (let i = 0; i < n; i++) out[i] = to(out[i]);
   return { grid: a.grid, values: out };
 }
 
@@ -365,6 +381,8 @@ function chunk(type: string, data: Buffer) {
  * A palette PNG (one byte per pixel) with transparency per palette entry. Each row takes the
  * filter (none, left or up) that leaves the smallest residue: the palette runs in order along
  * the ramp, so neighbouring pixels differ by small steps and deflate packs them tightly.
+ * Deflate runs at its middle level: the top level took three quarters of a frame's time for
+ * files about 6% smaller (measured 2026-11-02); the picture is the same either way.
  */
 function png(w: number, h: number, idx: Uint8Array, pal: number[][]) {
   const raw = Buffer.alloc((w + 1) * h);
@@ -401,7 +419,7 @@ function png(w: number, h: number, idx: Uint8Array, pal: number[][]) {
     chunk("IHDR", ihdr),
     chunk("PLTE", Buffer.from(pal.flatMap((c) => c.slice(0, 3)))),
     chunk("tRNS", Buffer.from(pal.map((c) => c[3]))),
-    chunk("IDAT", deflateSync(raw, { level: 9 })),
+    chunk("IDAT", deflateSync(raw, { level: 6 })),
     chunk("IEND", Buffer.alloc(0)),
   ]);
 }
@@ -452,7 +470,6 @@ export function paint(
   const bot = mercY(s);
   const W = width;
   const H = Math.round((W * (top - bot)) / (((e - w) * Math.PI) / 180));
-  const loc = locator(f.grid);
   const [gw, gh] = gridSize(f.grid);
   const v = f.values;
   const at = (i: number, j: number) =>
@@ -483,6 +500,8 @@ export function paint(
   if (lv[0] > 0) edge = Math.min(edge, lv[0] / 2);
   let topEdge = last > 0 ? (lv[last] - lv[last - 1]) / 2 : 1;
   if (lv[last] < 0) topEdge = Math.min(topEdge, -lv[last] / 2);
+  // Levels rise, so the step a value falls in is found by halving (the same step a walk
+  // up the list stops at).
   const indexOf = (val: number) => {
     if (Number.isNaN(val)) return 0;
     if (val < lv[0]) {
@@ -501,25 +520,56 @@ export function paint(
           ? SHADES
           : 1 + SHADES + FADES + Math.min(FADES - 1, Math.floor(a * FADES));
     }
-    let k = 0;
-    while (k < last - 1 && val >= lv[k + 1]) k++;
+    let lo = 0;
+    let hi = Math.max(0, last - 1);
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1;
+      if (val >= lv[mid]) lo = mid;
+      else hi = mid - 1;
+    }
+    const k = lo;
     const u = (k + (val - lv[k]) / (lv[k + 1] - lv[k])) / Math.max(1, last);
     return 1 + Math.round(u * (SHADES - 1));
   };
   const idx = new Uint8Array(W * H);
+  const lons = new Float64Array(W);
+  for (let x = 0; x < W; x++) lons[x] = w + ((x + 0.5) / W) * (e - w);
+  const locRow = rowLocator(f.grid, lons);
+  const fiRow = new Float64Array(W);
+  const fjRow = new Float64Array(W);
   for (let y = 0; y < H; y++) {
     const lat = unMercY(top - ((y + 0.5) / H) * (top - bot));
+    locRow(lat, fiRow, fjRow);
     for (let x = 0; x < W; x++) {
-      const lon = w + ((x + 0.5) / W) * (e - w);
-      if (keep && !keep(lat, lon)) continue;
-      const [fi, fj] = loc(lat, lon);
+      if (keep && !keep(lat, lons[x])) continue;
+      const fi = fiRow[x];
+      const fj = fjRow[x];
       if (fi < 0 || fj < 0 || fi > gw - 1 || fj > gh - 1) continue;
       const i = Math.floor(fi);
       const j = Math.floor(fj);
       const ti = fi - i;
       const tj = fj - j;
       let val: number;
-      if (
+      if (i >= 1 && j >= 1 && i + 2 <= gw - 1 && j + 2 <= gh - 1) {
+        // Inside the grid's edge: read the 4×4 neighbourhood straight from the array.
+        const b = j * gw + i;
+        const v00 = v[b];
+        if (Number.isNaN(v00 + v[b + 1] + v[b + gw] + v[b + gw + 1])) {
+          val = v[Math.round(fj) * gw + Math.round(fi)];
+        } else {
+          const a = b - gw;
+          const c = b + gw;
+          const d = c + gw;
+          val = cr(
+            cr(v[a - 1], v[a], v[a + 1], v[a + 2], ti),
+            cr(v[b - 1], v00, v[b + 1], v[b + 2], ti),
+            cr(v[c - 1], v[c], v[c + 1], v[c + 2], ti),
+            cr(v[d - 1], v[d], v[d + 1], v[d + 2], ti),
+            tj,
+          );
+          if (Number.isNaN(val)) val = v00;
+        }
+      } else if (
         Number.isNaN(at(i, j) + at(i + 1, j) + at(i, j + 1) + at(i + 1, j + 1))
       ) {
         val = at(Math.round(fi), Math.round(fj));
@@ -533,6 +583,29 @@ export function paint(
     }
   }
   return { png: png(W, H, idx, pal), w: W, h: H };
+}
+
+/**
+ * The field's value at each city in MODEL_CITIES (same order), printed on the map like Max
+ * Velocity's (owner, 2026-11-02). A value is left out where the map draws nothing (radar under
+ * its first level, CIN near zero), so a city never shows a number the map doesn't.
+ */
+export function cityValues(
+  f: Field,
+  p: Pick<Param, "levels" | "full" | "clearAbove">,
+) {
+  const lv = p.levels;
+  const lo = lv[0];
+  const hi = lv[lv.length - 1];
+  // Small ranges (inches of water, thousands of feet) read to a tenth; the rest whole.
+  const tenth = hi - lo <= 10;
+  return MODEL_CITIES.map(([, lat, lon]) => {
+    const x = sampleAt(f, lat, lon);
+    if (x === null) return null;
+    if (!p.full && !p.clearAbove && x < lo) return null;
+    if (p.clearAbove && x > hi) return null;
+    return tenth ? Math.round(x * 10) / 10 : Math.round(x);
+  });
 }
 
 export const paramOf = (model: ModelId, key: string) =>

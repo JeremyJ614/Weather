@@ -2,6 +2,7 @@ import { getColors } from "@/lib/colors/server";
 import {
   MODELS,
   REGIONS,
+  cityValues,
   frameOf,
   rampColors,
   fieldFor,
@@ -14,8 +15,10 @@ export const maxDuration = 30;
 
 /**
  * GET /api/models/map?model=&cycle=YYYYMMDDHH&fh=&p=&region= → one model field as a
- * transparent Web-Mercator PNG over the region. A run never changes once published, so
- * each frame is cached at the edge for a day.
+ * transparent Web-Mercator PNG over the region, with the field's value at each map city in
+ * the X-City-Values header (comma-separated, empty where none), so one request and one
+ * download from NOAA serve both. A run never changes once published, so each frame is cached
+ * at the edge for a day and in the browser for an hour.
  */
 export async function GET(req: Request) {
   const q = new URL(req.url).searchParams;
@@ -78,7 +81,15 @@ export async function GET(req: Request) {
     return new Response(new Uint8Array(png), {
       headers: {
         "Content-Type": "image/png",
-        "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=86400",
+        "Cache-Control":
+          "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400",
+        ...(detail
+          ? {}
+          : {
+              "X-City-Values": cityValues(f, p)
+                .map((v) => (v === null ? "" : String(v)))
+                .join(","),
+            }),
       },
     });
   } catch {
