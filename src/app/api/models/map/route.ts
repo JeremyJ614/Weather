@@ -2,7 +2,7 @@ import { getColors } from "@/lib/colors/server";
 import {
   MODELS,
   REGIONS,
-  bandColors,
+  rampColors,
   fieldFor,
   paint,
   paramOf,
@@ -70,7 +70,7 @@ export async function GET(req: Request) {
     const { png } = paint(
       f,
       p,
-      bandColors(p, colors),
+      rampColors(p, colors),
       detail ?? region.b,
       detail ? 1600 : region.label === "CONUS" ? 2400 : 2000,
     );

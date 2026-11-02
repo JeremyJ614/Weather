@@ -138,7 +138,7 @@ export function ModelViewer({ model }: { model: "hrrr" | "gfs" | "refs" }) {
           id: "model",
           type: "raster",
           source: "model",
-          paint: { "raster-opacity": 0.82, "raster-fade-duration": 0 },
+          paint: { "raster-opacity": 0.9, "raster-fade-duration": 0 },
         },
         label,
       );
@@ -193,7 +193,7 @@ export function ModelViewer({ model }: { model: "hrrr" | "gfs" | "refs" }) {
             id: "model-detail",
             type: "raster",
             source: "model-detail",
-            paint: { "raster-opacity": 0.82, "raster-fade-duration": 0 },
+            paint: { "raster-opacity": 0.9, "raster-fade-duration": 0 },
           },
           label,
         );
@@ -400,13 +400,14 @@ export function ModelViewer({ model }: { model: "hrrr" | "gfs" | "refs" }) {
           {p.label}
           {p.unit ? ` (${p.unit})` : ""}
         </small>
-        <div className={s.bar}>
-          {p.colors.map((c, k) => (
-            <i key={k} style={{ background: c }} />
-          ))}
-        </div>
+        <div
+          className={s.bar}
+          style={{
+            background: `linear-gradient(to right, ${p.colors.join(", ")})`,
+          }}
+        />
         <div className={s.ticks}>
-          {(p.full ? ["<", ...p.levels] : p.levels).map((v, k) => (
+          {p.levels.map((v, k) => (
             <span key={k}>{v}</span>
           ))}
         </div>

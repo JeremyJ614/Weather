@@ -706,7 +706,7 @@ export const GROUPS: Group[] = [
   {
     id: "models",
     label: "Model maps",
-    note: "Color scales on the HRRR, GFS and REFS maps in Radar & Model Runs. Each scale's stops spread across that field's contour bands.",
+    note: "Color scales on the HRRR, GFS and REFS maps in Radar & Model Runs. Each scale's stops spread across that field's levels, and the map shades smoothly between them.",
     entries: Object.entries(SCALES).flatMap(([scale, stops]) =>
       stops.map((c, i) => ({
         key: `model:${scale}:${i}`,

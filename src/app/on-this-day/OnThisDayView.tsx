@@ -10,6 +10,8 @@ import { KIND } from "@/lib/warnings/reports";
 import s from "./OnThisDay.module.css";
 
 export type Drawn = {
+  /** Where the map opens: framed on the event (canvas units), or the whole country. */
+  view?: { x: number; y: number; w: number };
   tracks: { d: string; mag: number }[];
   reports: { k: "torn" | "wind" | "hail"; x: number; y: number }[];
   storm: {
@@ -68,7 +70,7 @@ export function OnThisDayView({
             color: ef(m),
           })),
         ...(["wind", "hail"] as const)
-          .filter((k) => f.reports.some((r) => r.k === k))
+          .filter((k) => drawn.reports.some((r) => r.k === k))
           .map((k) => ({ label: `${KIND[k].label} reports`, color: rep(k) })),
       ];
 
@@ -131,12 +133,14 @@ export function OnThisDayView({
         title={
           f.storm
             ? `${story?.title ?? f.label}: its track`
-            : `${date}, ${f.year}: ${f.tracks.length ? "tornado tracks" : ""}${f.tracks.length && f.reports.length ? " and " : ""}${f.reports.length ? "storm reports" : ""}`
+            : `${date}, ${f.year}: ${f.tracks.length ? "tornado tracks" : ""}${f.tracks.length && drawn.reports.length ? " and " : ""}${drawn.reports.length ? "storm reports" : ""}`
         }
         sub={null}
         legend={legend}
         status="ready"
         file={`sswx-on-this-day-${f.year}-${md}`}
+        view={drawn.view}
+        maxZoom={30}
       >
         {drawn.reports.map((r, i) => (
           <circle

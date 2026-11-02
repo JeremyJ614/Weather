@@ -5,8 +5,9 @@ export const maxDuration = 60;
 
 /**
  * Tornado Archive auto-update (pg_cron "archive-auto", every 6 hours): rebuilds the last 60
- * days of NWS-surveyed tornado days. With ?backfill=1 ("archive-backfill", twice an hour) it
- * walks back a month at a time to 2024 and then does nothing.
+ * days of NWS-surveyed tornado days, then (time allowing) steps the backfill one month further
+ * toward January 2023, so the backfill finishes even if its own schedule was retired. With
+ * ?backfill=1 ("archive-backfill", twice an hour) it only steps the backfill.
  */
 export async function GET(request: Request) {
   if (!(await cronAuthorized(request)))
@@ -18,7 +19,13 @@ export async function GET(request: Request) {
     const from = new Date(to.getTime() - 61 * 864e5);
     from.setUTCHours(0, 0, 0, 0);
     to.setUTCHours(0, 0, 0, 0);
-    return Response.json(await refresh(from, to));
+    const began = Date.now();
+    const recent = await refresh(from, to);
+    const back =
+      Date.now() - began < 25_000
+        ? await backfillMonth().catch((e: Error) => ({ error: e.message }))
+        : null;
+    return Response.json({ ...recent, backfill: back });
   } catch (e) {
     return Response.json(
       { error: e instanceof Error ? e.message : "failed" },

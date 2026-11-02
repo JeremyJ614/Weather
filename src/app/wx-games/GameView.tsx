@@ -25,6 +25,7 @@ import {
   SEVERE_PLACES,
   TORNADO_BULLSEYE,
   TORNADO_PLACES,
+  roundScoresAt,
   secondsToReset,
 } from "@/lib/game/score";
 import { savePins, type SaveState } from "./actions";
@@ -99,11 +100,14 @@ export function GameView({
   today,
   mine,
   last,
+  waiting,
 }: {
   signedIn: boolean;
   today: string;
   mine: Guess | null;
   last: Guess | null;
+  /** Yesterday's pins, not scored yet: SPC's storm day hasn't closed or the score is on its way. */
+  waiting: Guess | null;
 }) {
   const { layer, status } = useLayer("spc1");
   const left = useResetClock();
@@ -315,6 +319,31 @@ export function GameView({
         </form>
       )}
 
+      {waiting && (
+        <section className={s.result}>
+          <p className="eyebrow">
+            {new Date(`${waiting.guess_date}T12:00:00Z`).toLocaleDateString(
+              "en-US",
+              { month: "short", day: "numeric", timeZone: "UTC" },
+            )}{" "}
+            round · being scored
+          </p>
+          <p className={s.fine}>
+            Your pins are locked in. They&apos;re scored once SPC&apos;s storm
+            day closes, from about{" "}
+            <b>
+              {roundScoresAt(waiting.guess_date).toLocaleTimeString("en-US", {
+                hour: "numeric",
+                minute: "2-digit",
+                timeZone: "America/New_York",
+              })}{" "}
+              ET
+            </b>{" "}
+            today, so every overnight report counts.
+          </p>
+        </section>
+      )}
+
       {last && last.points !== null && (
         <section className={s.result}>
           <p className="eyebrow">
@@ -401,8 +430,10 @@ export function GameView({
         One round per day on the Eastern clock. Move your pins as often as you
         like until midnight ET; whatever is on the map then is your call. Rounds
         are scored the next morning against SPC&apos;s storm reports for the
-        convective day (12Z to 12Z). The month&apos;s and the year&apos;s top
-        scorers are crowned in the Champions Hall.
+        convective day (12Z to 12Z), as soon as that day closes: about 7:30 AM
+        ET in winter, 8:30 AM in summer. Trivia and Weatherdle points count the
+        moment you answer. The month&apos;s and the year&apos;s top scorers are
+        crowned in the Champions Hall.
       </p>
     </div>
   );

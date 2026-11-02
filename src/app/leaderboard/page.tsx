@@ -7,7 +7,9 @@ import { PageHero } from "@/components/ui/PageHero";
 import { HomeTabs } from "@/features/news/HomeTabs";
 import { getViewer } from "@/lib/auth/viewer";
 import { supabaseServer } from "@/lib/supabase/server";
+import { after } from "next/server";
 import { gameDate } from "@/lib/game/score";
+import { scoreIfDue } from "@/lib/game/run";
 import { Hall, Podium, type Board, type Title } from "./Boards";
 import s from "./Leaderboard.module.css";
 
@@ -54,6 +56,7 @@ export default async function Leaderboard() {
       </main>
     );
 
+  after(() => scoreIfDue().catch(() => null));
   const sb = await supabaseServer();
   const p = periods(today);
   const board = (from: string) =>

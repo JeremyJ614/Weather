@@ -96,4 +96,15 @@ describe("chase composites", () => {
     expect(yearRank(40, year)).toBe(1);
     expect(yearRank(20, [10, 15])).toBe(1);
   });
+
+  it("never calls a Worth a look day a 1, and copes with an empty year", () => {
+    // A busy year: most days scored above 60.
+    const busy = Array.from({ length: 100 }, (_, i) => 40 + i * 0.5);
+    expect(yearRank(60, busy)).toBe(2);
+    expect(yearRank(45, busy)).toBe(1);
+    // January 1st, nothing to compare against yet.
+    expect(yearRank(90, [])).toBe(4);
+    expect(yearRank(60, [])).toBe(2);
+    expect(yearRank(35, [])).toBe(1);
+  });
 });

@@ -180,17 +180,15 @@
   overflow: hidden;
   border-radius: 6px;
 }
-.bar i {
-  flex: 1;
-}
 .ticks {
   display: flex;
+  justify-content: space-between;
   font-family: var(--font-mono);
   font-size: 10px;
   color: var(--muted);
 }
 .ticks span {
-  flex: 1;
+  flex: none;
 }
 .now {
   display: grid;
