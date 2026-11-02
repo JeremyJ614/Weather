@@ -116,6 +116,22 @@ export function gameDate(at: Date = new Date()) {
   }).format(at);
 }
 
+/** Yesterday on the game's (Eastern) clock. */
+export function previousGameDate(at: Date = new Date()) {
+  return gameDate(new Date(at.getTime() - 86_400_000));
+}
+
+/**
+ * When a round can be scored: SPC's convective day for that date runs 12Z to 12Z, and its
+ * report files settle within half an hour, so 12:30Z the next day (7:30 AM ET in winter,
+ * 8:30 AM in summer).
+ */
+export function roundScoresAt(ymd: string): Date {
+  const d = new Date(`${ymd}T12:30:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d;
+}
+
 /** Seconds until the next round starts (midnight Eastern), when today's pins become final. */
 export function secondsToReset(at: Date = new Date()) {
   const p = new Intl.DateTimeFormat("en-US", {

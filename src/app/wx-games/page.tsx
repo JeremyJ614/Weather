@@ -8,7 +8,8 @@ import { HomeTabs } from "@/features/news/HomeTabs";
 import { getViewer } from "@/lib/auth/viewer";
 import { getSiteDefaults } from "@/lib/settings";
 import { supabaseServer } from "@/lib/supabase/server";
-import { gameDate } from "@/lib/game/score";
+import { gameDate, previousGameDate } from "@/lib/game/score";
+import { scoreIfDue } from "@/lib/game/run";
 import { healDay } from "@/lib/trivia/generate";
 import { getColors } from "@/lib/colors/server";
 import { healWord } from "@/lib/weatherdle/make";
@@ -51,8 +52,10 @@ export default async function WxGames() {
     getColors(),
   ]);
   const today = gameDate();
+  const yesterday = previousGameDate();
   let mine: Guess | null = null;
   let last: Guess | null = null;
+  let waiting: Guess | null = null;
   let trivia: TriviaQ[] = [];
   let word: WdState | null = null;
   let wordStats: WdStats | null = null;
@@ -77,10 +80,12 @@ export default async function WxGames() {
     const rows = (g.data ?? []) as (Guess & { guess_date: string })[];
     mine = rows.find((r) => r.guess_date === today) ?? null;
     last = rows.find((r) => r.points !== null) ?? null;
+    waiting =
+      rows.find((r) => r.guess_date === yesterday && r.points === null) ?? null;
     trivia = (t.data ?? []) as TriviaQ[];
   } else if (viewer.signedIn) {
     const sb = await supabaseServer();
-    const [a, b, t, wd, plays] = await Promise.all([
+    const [a, b, t, wd, plays, y] = await Promise.all([
       sb
         .from("game_guesses")
         .select(SELECT)
@@ -103,7 +108,15 @@ export default async function WxGames() {
         .eq("user_id", viewer.id!)
         .order("day", { ascending: false })
         .limit(400),
+      sb
+        .from("game_guesses")
+        .select(SELECT)
+        .eq("user_id", viewer.id!)
+        .eq("guess_date", yesterday)
+        .is("points", null)
+        .maybeSingle(),
     ]);
+    waiting = y.data as Guess | null;
     word = (wd.data as WdState | null) ?? null;
     if (!wd.error && word && word.length == null) after(() => healWord(today));
     wordStats = weatherdleStats(
@@ -119,6 +132,8 @@ export default async function WxGames() {
     trivia = (t.data ?? []) as TriviaQ[];
     if (!t.error && !trivia.length) after(() => healDay(today));
   }
+  // Yesterday's Forecast Game round is scored by the first visit after SPC's day closes.
+  if (viewer.signedIn) after(() => scoreIfDue().catch(() => null));
   return (
     <main className="mx-auto max-w-2xl px-4 pt-4 pb-28">
       <PageHero
@@ -167,6 +182,7 @@ export default async function WxGames() {
                 today={today}
                 mine={mine}
                 last={last}
+                waiting={waiting}
               />
             ),
           },
