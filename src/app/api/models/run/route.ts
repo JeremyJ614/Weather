@@ -26,6 +26,8 @@ export async function GET(req: Request) {
     {
       label: m.label,
       res: m.res,
+      // HRRR and GFS: the viewer reads NOAA's files and draws the frames itself.
+      tpl: m.tpl ?? null,
       cycles,
       hours: m.hours,
       regions: Object.entries(REGIONS).map(([id, r]) => ({
@@ -40,6 +42,12 @@ export async function GET(req: Request) {
         unit: p.unit,
         levels: p.levels,
         full: !!p.full,
+        clearAbove: !!p.clearAbove,
+        // How to read the field from the model file (for frames drawn in the browser).
+        match: p.match,
+        also: p.also,
+        extra: p.extra,
+        combine: p.combine,
         colors: rampColors(p, colors),
       })),
     },
