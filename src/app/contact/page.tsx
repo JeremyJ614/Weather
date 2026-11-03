@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/site";
 import { Mail } from "lucide-react";
 import { PageHero } from "@/components/ui/PageHero";
 import { getViewer } from "@/lib/auth/viewer";
@@ -6,7 +7,11 @@ import { getContactForms } from "@/lib/help/forms";
 import { supabaseServer } from "@/lib/supabase/server";
 import { ContactView } from "./ContactView";
 
-export const metadata: Metadata = { title: "Contact Us · StormSync Weather" };
+export const metadata: Metadata = pageMeta(
+  "/contact",
+  "Contact Us",
+  "Questions, ideas or a problem with your account. We read every message and reply by email.",
+);
 
 /** The owner's Contact Us forms (admin → Contact forms); messages land in admin → Contact inbox. */
 export default async function Contact({

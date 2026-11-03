@@ -1,0 +1,190 @@
+/* Install guides (Fix list 2026-10-30 #4): numbered steps, each with the button to look for. */
+.wrap {
+  display: grid;
+  gap: 14px;
+}
+.lead {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+.jump {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.jump a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+}
+.jump a svg {
+  width: 15px;
+  color: var(--accent);
+}
+.guide {
+  display: grid;
+  gap: 12px;
+  padding: 16px 14px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: var(--surface);
+  scroll-margin-top: 84px;
+}
+.guide[data-mine="true"] {
+  border-color: var(--lit-line);
+  box-shadow: 0 0 22px -12px var(--accent);
+}
+.guide > header {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.guide > header > svg {
+  flex: none;
+  width: 22px;
+  margin-top: 2px;
+  color: var(--accent);
+}
+.guide h2 {
+  font-family: var(--font-display);
+  font-size: 20px;
+  line-height: 1.15;
+}
+.guide > header p {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.mine {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border: 1px solid var(--lit-line);
+  border-radius: 999px;
+  color: var(--accent);
+  font-family: var(--font-body);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  vertical-align: middle;
+}
+.steps {
+  display: grid;
+  gap: 10px;
+  counter-reset: step;
+}
+.steps li {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  counter-increment: step;
+}
+.steps li::before {
+  content: counter(step);
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--lit-line);
+  border-radius: 50%;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+}
+.steps li > div > b {
+  display: block;
+  font-size: 14.5px;
+  line-height: 1.35;
+}
+.steps p b {
+  color: var(--text);
+}
+.steps p {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+/* The button to look for, drawn as a little key. */
+.key {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 2px;
+  padding: 1px 7px;
+  border: 1px solid rgb(255 255 255 / 0.18);
+  border-radius: 7px;
+  background: rgb(255 255 255 / 0.06);
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  vertical-align: 1px;
+}
+.key svg {
+  width: 13px;
+  height: 13px;
+}
+.tips {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 1px dashed var(--line);
+  border-radius: 16px;
+}
+.tips h3 {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.tips p {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.tips p b {
+  color: var(--text);
+}
+.download {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 18px;
+  border: 1px solid var(--lit-line);
+  border-radius: 999px;
+  background: var(--lit);
+  color: var(--accent);
+  font-size: 15px;
+  font-weight: 800;
+  box-shadow: 0 0 22px -10px var(--accent);
+}
+.download svg {
+  width: 18px;
+}
+.facts {
+  color: var(--muted);
+  font-size: 12px;
+}
+.lead a,
+.tips a,
+.steps a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}

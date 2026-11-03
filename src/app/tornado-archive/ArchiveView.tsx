@@ -1,17 +1,24 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { History, Radar } from "lucide-react";
+import { History, Radar, SendHorizontal, X } from "lucide-react";
+import { Button } from "@/components/ui/Button";
 import { HomeTabs } from "@/features/news/HomeTabs";
 import type { ArchiveIndexEntry } from "@/features/replay/archive/types";
 import { ratingLabel } from "@/features/replay/archive/types";
 import type { ReplayEntry } from "@/features/replay/entries";
-import type { AutoEntry } from "@/lib/archive/list";
+import type { SurveyedEntry } from "@/lib/archive/list";
 import { EF_COLORS } from "@/lib/colors/ef";
 import { pick, type Colors } from "@/lib/colors/pick";
+import { STATES } from "@/lib/geo/search";
+import type { ContactTab } from "@/lib/help/forms";
 import s from "./Archive.module.css";
+
+const ContactForm = dynamic(() =>
+  import("@/features/contact/ContactForm").then((m) => m.ContactForm),
+);
 
 const ArchiveReplay = dynamic(
   () => import("@/features/replay/hosts/ArchiveReplay"),
@@ -21,21 +28,11 @@ const ArchiveReplay = dynamic(
   },
 );
 
-const FLOORS = [
-  { id: -1, label: "All" },
-  { id: 1, label: "EF1+" },
-  { id: 2, label: "EF2+" },
-  { id: 3, label: "EF3+" },
-];
-const RANK: Record<string, number> = {
-  EFU: -1,
-  EF0: 0,
-  EF1: 1,
-  EF2: 2,
-  EF3: 3,
-  EF4: 4,
-  EF5: 5,
-};
+const RATINGS = ["EF5", "EF4", "EF3", "EF2", "EF1", "EF0", "EFU"];
+const MONTHS =
+  "January February March April May June July August September October November December".split(
+    " ",
+  );
 
 const pretty = (day: string, month = "long") =>
   new Date(`${day.slice(0, 10)}T12:00:00Z`).toLocaleDateString("en-US", {
@@ -45,20 +42,49 @@ const pretty = (day: string, month = "long") =>
     year: "numeric",
   });
 
+/** The NWS Surveyed list, fetched once per visit: it's large, so it stays off the page's HTML. */
+let pending: Promise<SurveyedEntry[]> | null = null;
+const loadSurveyed = () =>
+  (pending ??= fetch("/api/archive/list")
+    .then((r) => (r.ok ? r.json() : Promise.reject()))
+    .catch((e) => {
+      pending = null;
+      throw e;
+    }));
+
 export function ArchiveView({
   famous,
-  auto,
+  request,
   colors,
 }: {
   famous: ArchiveIndexEntry[];
-  auto: AutoEntry[];
+  /** The owner's Tornado Archive Request form (admin → Contact forms), when it's switched on. */
+  request: ContactTab | null;
   colors: Colors;
 }) {
   const router = useRouter();
   const path = usePathname();
   const open = useSearchParams().get("e");
+  const [surveyed, setSurveyed] = useState<SurveyedEntry[] | "error" | null>(
+    null,
+  );
+  const [asking, setAsking] = useState(false);
+  useEffect(() => {
+    let live = true;
+    loadSurveyed().then(
+      (l) => live && setSurveyed(l),
+      () => live && setSurveyed("error"),
+    );
+    return () => {
+      live = false;
+    };
+  }, []);
   const ef = (k: string) =>
     pick(colors, `ef:${k}`, EF_COLORS[k] ?? EF_COLORS.EFU);
+  const list = useMemo(
+    () => (Array.isArray(surveyed) ? surveyed : []),
+    [surveyed],
+  );
 
   const entries = useMemo<ReplayEntry[]>(
     () => [
@@ -72,7 +98,7 @@ export function ArchiveView({
         fatalities: e.fatalities,
         date: e.id.slice(0, 10),
       })),
-      ...auto.map((e) => ({
+      ...list.map((e) => ({
         id: e.id,
         kind: "archive" as const,
         title: e.name,
@@ -81,10 +107,10 @@ export function ArchiveView({
         strongest: e.strongest,
         fatalities: e.fatalities,
         date: e.day,
-        auto: true,
+        auto: e.auto,
       })),
     ],
-    [famous, auto],
+    [famous, list],
   );
 
   const go = (id: string) =>
@@ -93,6 +119,15 @@ export function ArchiveView({
 
   return (
     <>
+      {request && (
+        <div className={s.request}>
+          <p>Know a tornado that belongs here?</p>
+          <Button variant="secondary" onClick={() => setAsking(true)}>
+            <SendHorizontal className="size-4" aria-hidden />
+            Request an event
+          </Button>
+        </div>
+      )}
       <HomeTabs
         label="Tornado Archive"
         variant="segment"
@@ -107,7 +142,7 @@ export function ArchiveView({
             id: "auto",
             label: "NWS surveyed",
             icon: <Radar className="size-4" aria-hidden />,
-            panel: <Surveyed list={auto} ef={ef} onOpen={go} />,
+            panel: <Surveyed list={surveyed} ef={ef} onOpen={go} />,
           },
         ]}
       />
@@ -124,7 +159,50 @@ export function ArchiveView({
           onBack={close}
         />
       )}
+      {asking && request && (
+        <RequestForm tab={request} onClose={() => setAsking(false)} />
+      )}
     </>
+  );
+}
+
+/** The Tornado Archive Request form, right on the archive page. */
+function RequestForm({
+  tab,
+  onClose,
+}: {
+  tab: ContactTab;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    addEventListener("keydown", key);
+    const was = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      removeEventListener("keydown", key);
+      document.body.style.overflow = was;
+    };
+  }, [onClose]);
+  return (
+    <div
+      className={s.sheetBack}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="request-title"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <section className={s.sheet}>
+        <header>
+          <h2 id="request-title">{tab.title}</h2>
+          <button type="button" onClick={onClose} aria-label="Close">
+            <X className="size-5" aria-hidden />
+          </button>
+        </header>
+        {tab.intro && <p className={s.sheetIntro}>{tab.intro}</p>}
+        <ContactForm tab={tab} />
+      </section>
+    </div>
   );
 }
 
@@ -157,8 +235,8 @@ function Famous({
   return (
     <div className={s.wrap}>
       <p className={s.lede}>
-        {list.length} named events, each one the tornado it is named after and
-        what was happening around it, replayed on the clock they happened on
+        {list.length} hand-picked events, each one the tornado it is named after
+        and what was happening around it, replayed on the clock they happened on
         with every damage point, survey, hail report and warning the archives
         hold.
       </p>
@@ -211,40 +289,67 @@ function Surveyed({
   ef,
   onOpen,
 }: {
-  list: AutoEntry[];
+  list: SurveyedEntry[] | "error" | null;
   ef: (k: string) => string;
   onOpen: (id: string) => void;
 }) {
-  const [floor, setFloor] = useState(1);
   const [q, setQ] = useState("");
+  const [st, setSt] = useState("");
+  const [year, setYear] = useState("");
+  const [month, setMonth] = useState("");
+  const [rating, setRating] = useState("");
   const [shown, setShown] = useState(60);
+  const rows = useMemo(() => (Array.isArray(list) ? list : []), [list]);
+  const states = useMemo(
+    () =>
+      [...new Set(rows.flatMap((e) => e.states))]
+        .map((c) => ({ c, n: STATES[c] ?? c }))
+        .sort((a, b) => a.n.localeCompare(b.n)),
+    [rows],
+  );
+  const years = useMemo(
+    () => [...new Set(rows.map((e) => e.day.slice(0, 4)))].sort().reverse(),
+    [rows],
+  );
+  if (list === null)
+    return <p className={s.lede}>Loading the surveyed days…</p>;
+  if (list === "error")
+    return (
+      <p className={s.lede}>
+        The surveyed days couldn&rsquo;t load. Check the connection and open
+        this tab again.
+      </p>
+    );
   const words = q.toLowerCase().split(/\s+/).filter(Boolean);
-  const keep = list.filter(
+  const keep = rows.filter(
     (e) =>
-      (RANK[e.strongest] ?? -1) >= floor &&
+      (!st || e.states.includes(st)) &&
+      (!year || e.day.startsWith(year)) &&
+      (!month || e.day.slice(5, 7) === month) &&
+      (!rating || e.strongest === rating) &&
       words.every((w) =>
         `${e.name} ${e.region} ${e.day}`.toLowerCase().includes(w),
       ),
   );
-  const months = new Map<string, AutoEntry[]>();
+  const filtered = !!(q || st || year || month || rating);
+  const months = new Map<string, SurveyedEntry[]>();
   for (const e of keep.slice(0, shown)) {
     const m = e.day.slice(0, 7);
     months.set(m, [...(months.get(m) ?? []), e]);
   }
-  if (!list.length)
-    return (
-      <p className={s.lede}>
-        No surveyed days have been added yet. The archive checks the National
-        Weather Service&rsquo;s damage surveys every six hours and adds each new
-        tornado day here.
-      </p>
-    );
+  const pickOne =
+    (set: (v: string) => void) => (e: { target: { value: string } }) => {
+      set(e.target.value);
+      setShown(60);
+    };
   return (
     <div className={s.wrap}>
       <p className={s.lede}>
-        Every tornado the National Weather Service surveys, grouped by storm,
-        added automatically and refreshed every six hours as surveys are
-        published and revised.
+        Every tornado since January 2023 (NOAA&rsquo;s Storm Prediction Center
+        database through 2025, then each NWS survey as it&rsquo;s published and
+        revised); before that, every F4 and F5 since 1950 and the violent and
+        significant tornadoes of 2000 to 2022 (EF3s that ran 20 miles or killed,
+        deadly EF2s).
       </p>
       <div className={s.tools}>
         <input
@@ -252,23 +357,65 @@ function Surveyed({
           type="search"
           placeholder="Search a town, state or date"
           value={q}
-          onChange={(e) => setQ(e.target.value)}
+          onChange={pickOne(setQ)}
           aria-label="Search surveyed days"
         />
-        <div className={s.floors} role="group" aria-label="Strongest rating">
-          {FLOORS.map((f) => (
-            <button
-              key={f.id}
-              type="button"
-              aria-pressed={floor === f.id}
-              onClick={() => setFloor(f.id)}
-            >
-              {f.label}
-            </button>
-          ))}
+        <div className={s.filters}>
+          <select value={st} onChange={pickOne(setSt)} aria-label="State">
+            <option value="">All states</option>
+            {states.map(({ c, n }) => (
+              <option key={c} value={c}>
+                {n}
+              </option>
+            ))}
+          </select>
+          <select value={year} onChange={pickOne(setYear)} aria-label="Year">
+            <option value="">All years</option>
+            {years.map((y) => (
+              <option key={y}>{y}</option>
+            ))}
+          </select>
+          <select value={month} onChange={pickOne(setMonth)} aria-label="Month">
+            <option value="">All months</option>
+            {MONTHS.map((m, i) => (
+              <option key={m} value={String(i + 1).padStart(2, "0")}>
+                {m}
+              </option>
+            ))}
+          </select>
+          <select
+            value={rating}
+            onChange={pickOne(setRating)}
+            aria-label="Strongest rating"
+          >
+            <option value="">Any rating</option>
+            {RATINGS.map((r) => (
+              <option key={r} value={r}>
+                {r === "EFU" ? "Unrated" : `${r.replace("EF", "F")} / ${r}`}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
-      <p className={s.count}>{keep.length.toLocaleString("en-US")} days</p>
+      <p className={s.count}>
+        {keep.length.toLocaleString("en-US")} days
+        {filtered && (
+          <button
+            type="button"
+            className={s.clear}
+            onClick={() => {
+              setQ("");
+              setSt("");
+              setYear("");
+              setMonth("");
+              setRating("");
+              setShown(60);
+            }}
+          >
+            Clear filters
+          </button>
+        )}
+      </p>
       {[...months].map(([m, days]) => (
         <section key={m} className={s.month}>
           <h3>
@@ -286,7 +433,11 @@ function Surveyed({
                   className={s.row}
                   onClick={() => onOpen(e.id)}
                 >
-                  <Rating ef={e.strongest} scale="EF" color={ef(e.strongest)} />
+                  <Rating
+                    ef={e.strongest}
+                    scale={e.scale}
+                    color={ef(e.strongest)}
+                  />
                   <span className={s.rowMain}>
                     <b>{e.name}</b>
                     <small>

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/site";
 import { Snowflake } from "lucide-react";
 import { ModuleOff } from "@/components/ops/ModuleOff";
 import { PageHero } from "@/components/ui/PageHero";
@@ -13,7 +14,11 @@ import {
 } from "@/lib/winter/data";
 import { WinterView } from "./WinterView";
 
-export const metadata: Metadata = { title: "Winter Center · StormSync Media" };
+export const metadata: Metadata = pageMeta(
+  "/winter-center",
+  "Winter Center",
+  "How bad winter weather gets and where, the odds of heavy snow and ice, what is in effect, and hour by hour where you are.",
+);
 export const revalidate = 900;
 
 export default async function WinterCenter() {

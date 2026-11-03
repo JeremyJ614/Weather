@@ -1,0 +1,206 @@
+/* Keycaps: mechanical keys on a tilted plate with a light under them. Transform and opacity only. */
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 64;
+  background: color-mix(in srgb, var(--bg) 80%, transparent);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.3s,
+    visibility 0s 0.35s;
+}
+.on .scrim {
+  opacity: 1;
+  visibility: visible;
+  transition:
+    opacity 0.3s,
+    visibility 0s;
+}
+.wrap {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+  z-index: 65;
+  max-width: 480px;
+  margin: 0 auto;
+  perspective: 900px;
+  pointer-events: none;
+}
+.plate {
+  position: relative;
+  max-height: calc(100dvh - 190px);
+  overflow-y: auto;
+  scrollbar-width: none;
+  padding: 26px 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--metal) 22%, var(--line));
+  border-radius: 22px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface2) 80%, var(--metal) 8%),
+    var(--surface)
+  );
+  box-shadow:
+    0 30px 50px -18px #000,
+    inset 0 1px 0 rgb(255 255 255 / 0.08);
+  opacity: 0;
+  transform: rotateX(64deg) translateY(120px);
+  transform-origin: 50% 100%;
+  transition:
+    transform 0.65s cubic-bezier(0.25, 1.2, 0.45, 1),
+    opacity 0.3s;
+}
+.on .plate {
+  opacity: 1;
+  transform: rotateX(18deg);
+  pointer-events: auto;
+}
+.led {
+  position: absolute;
+  top: 11px;
+  left: 18px;
+  right: 18px;
+  height: 4px;
+  border-radius: 3px;
+  background: linear-gradient(
+    90deg,
+    var(--accent),
+    var(--accent2),
+    var(--accent)
+  );
+  box-shadow: 0 0 10px var(--accent);
+  opacity: 0.8;
+}
+.title {
+  margin: 4px 4px 10px;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+.key {
+  position: relative;
+  height: 84px;
+  border-radius: 12px;
+  background: var(--bg);
+  opacity: 0;
+  transform: translateY(-26px);
+  -webkit-tap-highlight-color: transparent;
+}
+.on .key {
+  opacity: 1;
+  transform: none;
+  transition:
+    transform 0.5s cubic-bezier(0.3, 1.5, 0.5, 1) calc(0.1s + var(--i) * 45ms),
+    opacity 0.3s calc(0.1s + var(--i) * 45ms);
+}
+/* The light under each key, breathing in turn. */
+.key::after {
+  content: "";
+  position: absolute;
+  inset: 6px -2px -6px;
+  z-index: -1;
+  border-radius: 14px;
+  background: var(--glow);
+  opacity: 0.12;
+  animation: under 3.2s ease-in-out infinite paused;
+  animation-delay: calc(var(--i) * 0.22s);
+}
+.on .key::after {
+  animation-play-state: running;
+}
+.cap {
+  position: absolute;
+  inset: 0 0 7px;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 4px;
+  padding: 6px;
+  border-radius: 12px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface2) 70%, var(--metal) 12%),
+    var(--surface2)
+  );
+  box-shadow:
+    0 7px 0 color-mix(in srgb, var(--bg) 70%, #000),
+    0 9px 12px -2px #000,
+    inset 0 1px 0 rgb(255 255 255 / 0.1);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.1;
+  text-align: center;
+  transition: transform 0.07s;
+}
+.cap em {
+  position: absolute;
+  left: 8px;
+  top: 6px;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-style: normal;
+}
+.key:active .cap {
+  transform: translateY(6px);
+}
+.key[aria-current="page"] .cap,
+.key[data-here] .cap {
+  color: var(--accent);
+}
+.ic {
+  width: 20px;
+  height: 20px;
+  color: var(--accent);
+}
+.fab {
+  position: fixed;
+  z-index: 67;
+  width: 58px;
+  height: 58px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bg) 70%, #000);
+  -webkit-tap-highlight-color: transparent;
+}
+.fab span {
+  position: absolute;
+  inset: 0 0 6px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: linear-gradient(180deg, var(--surface2), var(--surface));
+  box-shadow:
+    0 6px 0 color-mix(in srgb, var(--bg) 70%, #000),
+    0 0 16px -4px var(--accent),
+    inset 0 1px 0 rgb(255 255 255 / 0.1);
+  color: var(--accent);
+  transition: transform 0.07s;
+}
+.fab:active span {
+  transform: translateY(5px);
+}
+.fab svg {
+  width: 22px;
+  height: 22px;
+}
+@keyframes under {
+  0%,
+  100% {
+    opacity: 0.08;
+  }
+  40% {
+    opacity: 0.45;
+  }
+}
+:global(html[data-tier="low"]) .key::after {
+  animation: none;
+}

@@ -172,11 +172,29 @@ export const ALL_PAGES: NavPage[] = [...MAIN_NAV, ...SECOND_NAV].flatMap(
 
 export const href = (page: NavPage) => `/${page.slug}`;
 
+/**
+ * The public front door (review round): the best pages open to guests and to search engines,
+ * each with a sign-up card, so a shared link or a search lands somewhere real.
+ */
+export const FRONT_DOOR = [
+  "sswxcon",
+  "spc-probability",
+  "on-this-day",
+  "weather-glossary",
+  "free-content-library",
+];
 /** Pages anyone can open without an account (everything else asks them to sign up). */
-export const GUEST_PAGES = ["", "disaster-response", "donate", "join", "login"];
+export const GUEST_PAGES = [
+  "",
+  ...FRONT_DOOR,
+  "disaster-response",
+  "donate",
+  "join",
+  "login",
+];
 /** Paths a guest may request; the proxy sends everything else to the signup gate. */
 export const GUEST_PATHS =
-  /^\/(?:$|disaster-response|donate|join|login|signup|welcome|auth|privacy|news|offline|sswxcon|contact|faq|closed|api)(?:\/|$)/;
+  /^\/(?:$|disaster-response|donate|join|login|signup|welcome|auth|privacy|news|offline|sswxcon|spc-probability|on-this-day|weather-glossary|free-content-library|contact|faq|closed|api|feed\.xml|sitemap\.xml|robots\.txt|llms\.txt|opengraph-image|twitter-image)(?:\/|$|\?)/;
 
 /**
  * Groups as a given viewer may see them. Signed-in members see "My Account" instead of

@@ -8,6 +8,10 @@ export function DeviceSetup() {
   useEffect(() => {
     if ("serviceWorker" in navigator && process.env.NODE_ENV === "production") {
       navigator.serviceWorker.register("/sw.js").catch(() => {});
+      // New versions load by themselves; an offline copy says so and reloads when back.
+      import("@/features/offline/fresh").then((m) =>
+        m.watchFresh(navigator.serviceWorker),
+      );
     }
     const nav = navigator as Navigator & {
       deviceMemory?: number;

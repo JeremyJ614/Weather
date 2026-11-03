@@ -258,3 +258,122 @@
     animation: none;
   }
 }
+
+/* ── deck: every tab in view as icon tiles; the active one lit by the "Xerox scan" ── */
+.deck {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+.deck > * {
+  flex: 0 0 calc((100% - 24px) / 4);
+}
+@media (min-width: 640px) {
+  .deck > * {
+    flex: 1 1 0;
+  }
+}
+.deckBeam {
+  display: flex;
+  border-radius: 16px;
+}
+.tile {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 5px;
+  width: 100%;
+  min-height: 62px;
+  padding: 8px 4px;
+  overflow: hidden;
+  isolation: isolate;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--bg) 70%, #000);
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1.15;
+  text-align: center;
+  transition: transform var(--t-fast) var(--ease);
+}
+.tile:active {
+  transform: scale(0.96);
+}
+.tile svg {
+  width: 17px;
+  height: 17px;
+}
+.tile span {
+  position: relative;
+  z-index: 1;
+}
+.tile svg {
+  position: relative;
+  z-index: 1;
+}
+.scan {
+  border-color: transparent;
+  color: #fff;
+  box-shadow:
+    0 0 10px -2px rgb(255 95 143 / 0.35),
+    0 0 22px -6px rgb(76 201 240 / 0.35);
+}
+/* The fill rises from the bottom once, then holds (dimmed from the original's #fff6). */
+.scanFill {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(
+    100deg,
+    rgb(255 95 143 / 0.2),
+    rgb(255 181 71 / 0.16) 25%,
+    rgb(110 231 168 / 0.15) 50%,
+    rgb(76 201 240 / 0.17) 72%,
+    rgb(167 139 250 / 0.22)
+  );
+  transform: translateY(100%);
+  animation: scanRise 0.3s var(--ease) forwards;
+}
+/* A soft sheen sweeps across on arrival and every few seconds after. */
+.scanSheen {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(
+    120deg,
+    transparent 30%,
+    rgb(255 255 255 / 0.28) 50%,
+    transparent 70%
+  );
+  transform: translateX(-110%);
+  animation: scanSweep 3.6s var(--ease) 0.15s infinite;
+}
+@keyframes scanRise {
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes scanSweep {
+  0% {
+    transform: translateX(-110%);
+  }
+  18%,
+  100% {
+    transform: translateX(110%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .scanFill {
+    animation: none;
+    transform: none;
+  }
+  .scanSheen {
+    display: none;
+  }
+}
+:global(html[data-tier="low"]) .scanSheen {
+  animation-iteration-count: 1;
+}

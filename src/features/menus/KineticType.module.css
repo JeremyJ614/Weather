@@ -1,0 +1,211 @@
+/* Kinetic Type: big-type index, masked reveals, lines that lean with the scroll. Transform and opacity only. */
+.panel {
+  position: fixed;
+  inset: 0;
+  z-index: 65;
+  overflow: hidden;
+  background: var(--bg);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.35s,
+    visibility 0s 0.4s;
+}
+.on .panel {
+  opacity: 1;
+  visibility: visible;
+  transition:
+    opacity 0.3s,
+    visibility 0s;
+}
+.ghost {
+  position: absolute;
+  top: 42%;
+  left: 0;
+  white-space: nowrap;
+  font-family: var(--font-display);
+  font-weight: var(--display-weight);
+  text-transform: uppercase;
+  font-size: clamp(120px, 40vw, 260px);
+  line-height: 1;
+  color: transparent;
+  -webkit-text-stroke: 1px color-mix(in srgb, var(--accent) 26%, transparent);
+  animation: drift 28s linear infinite paused;
+  pointer-events: none;
+}
+.on .ghost {
+  animation-play-state: running;
+}
+.scroll {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+  padding: calc(70px + env(safe-area-inset-top, 0px)) 18px
+    calc(110px + env(safe-area-inset-bottom, 0px));
+}
+.list {
+  position: relative;
+  max-width: 760px;
+  margin: 0 auto;
+  transform-origin: 0 50%;
+}
+.row {
+  display: block;
+  width: 100%;
+  padding: 10px 0 8px;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
+  text-align: left;
+  transition:
+    transform 0.55s var(--ease),
+    opacity 0.35s;
+  -webkit-tap-highlight-color: transparent;
+}
+.meta {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 2px;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  opacity: 0;
+  transition: opacity 0.4s calc(var(--d, 0s) + 0.25s);
+}
+.on .meta {
+  opacity: 1;
+}
+.mask {
+  display: block;
+  overflow: hidden;
+}
+.word {
+  display: block;
+  font-family: var(--font-display);
+  font-weight: var(--display-weight);
+  text-transform: uppercase;
+  font-size: clamp(30px, 9.2vw, 56px);
+  line-height: 1.02;
+  transform: translateY(105%);
+  transition:
+    transform 0.75s cubic-bezier(0.2, 0.9, 0.2, 1) var(--d, 0s),
+    color 0.2s;
+}
+.on .word {
+  transform: none;
+}
+.row:focus-visible .word,
+.row[data-here] .word,
+.row[aria-current="page"] .word {
+  color: var(--accent);
+  text-shadow: 0 0 24px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+@media (hover: hover) {
+  .row:hover .word {
+    color: var(--accent);
+  }
+}
+/* A section picked: the others sweep away and it rises to the top. */
+.panel[data-sel] .row {
+  opacity: 0;
+  transform: translateX(-110%);
+  pointer-events: none;
+}
+.panel[data-sel] .row[data-pick] {
+  opacity: 1;
+  transform: translateY(var(--up, 0px));
+}
+.panel[data-sel] .row[data-pick] .word {
+  color: var(--accent);
+}
+.pages {
+  position: absolute;
+  left: 0;
+  right: 0;
+}
+.pages a {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  width: 100%;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+}
+.pages a[aria-current="page"] {
+  color: var(--accent);
+}
+.pages em {
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-style: normal;
+}
+.pages svg {
+  width: 18px;
+  flex: none;
+  align-self: center;
+  color: var(--muted);
+}
+.pm {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+.pw {
+  display: block;
+  font-family: var(--font-display);
+  font-weight: var(--display-weight);
+  text-transform: uppercase;
+  font-size: clamp(20px, 6vw, 34px);
+  line-height: 1.05;
+  transform: translateY(110%);
+  animation: rise 0.6s cubic-bezier(0.2, 0.9, 0.2, 1) forwards;
+  animation-delay: calc(0.35s + var(--i) * 55ms);
+}
+.back {
+  position: absolute;
+  left: 18px;
+  top: calc(28px + env(safe-area-inset-top, 0px));
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.back svg {
+  width: 14px;
+}
+.fab {
+  position: fixed;
+  z-index: 67;
+  display: flex;
+  align-items: center;
+  height: 44px;
+  padding: 0 18px;
+  border: 1px solid var(--lit-line);
+  border-radius: 999px;
+  background: var(--lit);
+  box-shadow: var(--glow);
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.3em;
+  -webkit-tap-highlight-color: transparent;
+}
+@keyframes drift {
+  to {
+    transform: translateX(-50%);
+  }
+}
+@keyframes rise {
+  to {
+    transform: none;
+  }
+}
+:global(html[data-tier="low"]) .ghost {
+  display: none;
+}

@@ -11,7 +11,7 @@ import { moduleIds } from "@/lib/ops/modules";
 import { cleanForm } from "@/lib/auth/signup-form";
 import { ICON_NAMES } from "@/components/NavIcon";
 import { cleanLayout } from "@/lib/nav/layout";
-import { ALL_PAGES } from "@/lib/nav/registry";
+import { EVERY_PAGE } from "@/lib/nav/extras";
 
 const UUID = /^[0-9a-f-]{36}$/;
 
@@ -226,7 +226,7 @@ export async function saveMenuLayout(raw: unknown): Promise<SaveState> {
       ? {}
       : cleanLayout(
           raw,
-          new Set(ALL_PAGES.map((p) => p.slug)),
+          new Set(EVERY_PAGE.map((p) => p.slug)),
           new Set(ICON_NAMES),
         );
   if (!layout) return { error: "Every menu needs at least one section." };
@@ -273,7 +273,8 @@ export async function startLens(fd: FormData) {
   redirect("/");
 }
 
-export async function stopLens() {
+export async function stopLens(form?: FormData) {
+  const toMembers = form?.get("to") === "members";
   const store = await cookies();
   const id = store.get(LENS_COOKIE)?.value;
   store.delete(LENS_COOKIE);
@@ -285,7 +286,7 @@ export async function stopLens() {
       p_target: id,
       p_detail: { member: id },
     });
-    redirect(`/admin/members/${id}`);
+    redirect(toMembers ? "/admin/members" : `/admin/members/${id}`);
   }
-  redirect("/admin");
+  redirect(toMembers ? "/admin/members" : "/admin");
 }

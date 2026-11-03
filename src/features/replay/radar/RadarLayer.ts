@@ -16,7 +16,8 @@ import type {
   CustomRenderMethodInput,
   Map as MapLibreMap,
 } from "maplibre-gl";
-import { chaserStops, decodeTile } from "./decode";
+import { chaserStops } from "./decode";
+import { loadTile } from "./tiles";
 import { tileUrl } from "./source";
 import { reportError } from "@/features/replay/report";
 
@@ -312,70 +313,17 @@ export class RadarLayer implements CustomLayerInterface {
     this.tiles.set(key, tile);
 
     try {
-      const res = await fetch(tileUrl(epoch, z, x, y), { mode: "cors" });
-      if (!res.ok) {
+      // Fetched and read back off the main thread where the browser can (tiles.ts).
+      const r = await loadTile(tileUrl(epoch, z, x, y));
+      if ("empty" in r) {
         tile.state = "empty";
         return false;
       }
-      const blob = await res.blob();
-
-      /*
-       * Decoded byte-exact, which takes saying so twice.
-       *
-       * This reads pixels back to recover a palette index, so a colour that
-       * drifts by one is not a slightly different colour — it is a different
-       * measurement, or none. Both the decoder and the canvas will quietly
-       * alter it unless told not to: `createImageBitmap` colour-manages and
-       * premultiplies by default, and a 2D context will convert to its own
-       * colour space on the way in.
-       *
-       * With the defaults, about one pixel in forty still matched the palette
-       * and the rest decoded as no data, so a storm arrived as a scatter of
-       * stray returns at thirty below.
-       */
-      const bitmap = await createImageBitmap(blob, {
-        colorSpaceConversion: "none",
-        premultiplyAlpha: "none",
-      });
-
-      /*
-       * The size, taken before the bitmap is closed.
-       *
-       * `ImageBitmap.close()` releases the image and its width and height
-       * both become 0 — so reading them afterwards to size the texture
-       * uploads a 0x0 one. Everything upstream still looks perfect: the tile
-       * fetches, the palette reverses, the decode reports thirty-five
-       * thousand pixels of returns up to 71 dBZ, the quads draw in exactly
-       * the right place. The texture is simply empty, so every sample is
-       * zero, so every fragment is discarded, so the map is blank.
-       */
-      const tw = bitmap.width;
-      const th = bitmap.height;
-
-      const canvas = document.createElement("canvas");
-      canvas.width = tw;
-      canvas.height = th;
-      const ctx = canvas.getContext("2d", {
-        willReadFrequently: true,
-        colorSpace: "srgb",
-      });
-      if (!ctx) {
+      if ("error" in r) {
         tile.state = "failed";
         return false;
       }
-      ctx.drawImage(bitmap, 0, 0);
-      const rgba = ctx.getImageData(0, 0, tw, th, { colorSpace: "srgb" }).data;
-      bitmap.close();
-
-      const data = decodeTile(rgba);
-      let withData = 0;
-      let maxIndex = 0;
-      for (let i = 0; i < data.length; i += 1) {
-        if (data[i]! > 0) {
-          withData += 1;
-          if (data[i]! > maxIndex) maxIndex = data[i]!;
-        }
-      }
+      const { data, w: tw, h: th, withData, maxIndex } = r;
       this.stats.decoded.push({
         key,
         of: data.length,

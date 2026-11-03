@@ -72,8 +72,15 @@ export async function serviceLayer<P>(
   return j.features ?? [];
 }
 
-/** A track (LineString or MultiLineString) as an SVG path on the national canvas. */
-export function linePath(g: Geometry | null | undefined, tol = 0.6): string {
+/**
+ * A track (LineString or MultiLineString) as an SVG path on the national canvas. `digits`
+ * sets the precision (1 decimal ≈ 0.5 km; 2 keeps tracks true when a map zooms far in).
+ */
+export function linePath(
+  g: Geometry | null | undefined,
+  tol = 0.6,
+  digits = 1,
+): string {
   if (!g) return "";
   const lines =
     g.type === "LineString"
@@ -97,7 +104,7 @@ export function linePath(g: Geometry | null | undefined, tol = 0.6): string {
         Math.abs(y - ly) < tol
       )
         return;
-      d += `${n ? "L" : "M"}${x.toFixed(1)} ${y.toFixed(1)}`;
+      d += `${n ? "L" : "M"}${x.toFixed(digits)} ${y.toFixed(digits)}`;
       lx = x;
       ly = y;
       n++;

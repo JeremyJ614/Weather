@@ -3,7 +3,7 @@ import Link from "next/link";
 import { CloudOff } from "lucide-react";
 import { PageHero } from "@/components/ui/PageHero";
 
-export const metadata: Metadata = { title: "Not found · StormSync Weather" };
+export const metadata: Metadata = { title: "Not found" };
 
 /** Any address with no page behind it (and pages a viewer may not open), in the app's own look. */
 export default function NotFound() {

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/site";
 import { Settings2 } from "lucide-react";
 import { PageHero } from "@/components/ui/PageHero";
 import { getRealViewer, getViewer } from "@/lib/auth/viewer";
@@ -8,10 +9,14 @@ import { getSiteDefaults } from "@/lib/settings";
 import { supabaseServer } from "@/lib/supabase/server";
 import { AccountPanels, type PlanSummary } from "./AccountPanels";
 import { SettingsView } from "./SettingsView";
+import { InstallGuideLinks } from "./InstallGuideLinks";
 
-export const metadata: Metadata = {
-  title: "Account Settings · StormSync Media",
-};
+export const metadata: Metadata = pageMeta(
+  "/settings",
+  "Account Settings",
+  "Your menus, theme and intro, your plan, your PIN, and your data.",
+  { noindex: true },
+);
 export const dynamic = "force-dynamic";
 
 /** Account Settings: menus, theme and intro, then plan, security, install and your data. */
@@ -81,7 +86,9 @@ export default async function Settings() {
           signedIn={viewer.signedIn}
           defaults={{ menus: defaults.menus, theme: defaults.theme }}
         />
-        {account && <AccountPanels {...account} />}
+        {account && (
+          <AccountPanels {...account} guides={<InstallGuideLinks />} />
+        )}
       </div>
     </main>
   );

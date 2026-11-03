@@ -119,13 +119,11 @@ export function Board({
 /** Weatherdle: today's weather word, any length, six tries, graded by the database. */
 export function WeatherdleView({
   signedIn,
-  lens,
   initial,
   stats,
   colors,
 }: {
   signedIn: boolean;
-  lens: boolean;
   initial: WdState | null;
   stats: WdStats | null;
   colors: Colors;
@@ -207,13 +205,6 @@ export function WeatherdleView({
           <Button variant="primary">Sign in to play</Button>
         </Link>
       </section>
-    );
-  if (lens)
-    return (
-      <p className={s.note}>
-        Weatherdle is played by members themselves; View as can&apos;t play it
-        for them.
-      </p>
     );
   if (!st?.length)
     return (

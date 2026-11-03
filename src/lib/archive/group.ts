@@ -17,6 +17,10 @@ export type Survey = {
   lengthMi: number;
   /** [lon, lat] points along the surveyed path. */
   path: [number, number][];
+  /** SPC database rows only (days before 2023): width, state and whether it earns the day a place. */
+  widthYd?: number;
+  st?: string;
+  key?: boolean;
 };
 
 export type AutoDay = {
@@ -70,6 +74,8 @@ export function groupSurveys(
   list: Survey[],
   name: Namer,
   stateName: (st: string) => string,
+  /** Told each day's own tracks, for callers that keep them (the SPC days). */
+  members?: (day: AutoDay, tracks: Survey[]) => void,
 ): AutoDay[] {
   const s = [...list].sort((a, b) => a.start - b.start);
   const parent = s.map((_, i) => i);
@@ -121,7 +127,7 @@ export function groupSurveys(
     taken.set(id, n);
     if (n > 1) id = `${id}-${n}`;
     const pts = g.flatMap((t) => t.path);
-    days.push({
+    const d: AutoDay = {
       id,
       day,
       name: place,
@@ -137,7 +143,9 @@ export function groupSurveys(
       strongest: lead.ef,
       fatalities: g.reduce((a, t) => a + t.fat, 0),
       injuries: g.reduce((a, t) => a + t.inj, 0),
-    });
+    };
+    days.push(d);
+    members?.(d, g);
   }
   return days.sort((a, b) => b.t0 - a.t0);
 }

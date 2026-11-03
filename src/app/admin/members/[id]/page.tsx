@@ -8,7 +8,8 @@ import { setMember, startLens } from "../../actions";
 import { Tools } from "./Tools";
 import { Access } from "./Access";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { getBilling, SELLABLE } from "@/lib/billing/server";
+import { getBilling, SELLABLE, sellableNow } from "@/lib/billing/server";
+import { getSiteDefaults } from "@/lib/settings";
 import { tierPages, type TierId } from "@/lib/billing/plans";
 import { getColors } from "@/lib/colors/server";
 import type { Badge } from "@/lib/badges";
@@ -203,7 +204,7 @@ export default async function Member({
         cycle={sub?.cycle ?? "month"}
         status={sub?.comped ? "comped" : (sub?.status ?? "free")}
         tiers={billing.tiers.map((t) => ({ id: t.id, name: t.name }))}
-        pages={SELLABLE.map((x) => ({
+        pages={sellableNow((await getSiteDefaults()).extras).map((x) => ({
           slug: x.slug,
           label: x.label,
           icon: x.icon,

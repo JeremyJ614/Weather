@@ -12,7 +12,12 @@ import type { Colors } from "./pick";
 import { BANDS } from "@/lib/sswxcon/score";
 import { WORDLE_COLORS } from "@/lib/weatherdle/colors";
 import { EXTREME_COLORS } from "@/lib/extremes/colors";
-import { COLOR as WARN } from "@/lib/warnings/style";
+import {
+  COLOR as WARN,
+  TAG_COLOR,
+  TAG_LABEL,
+  WARN_TAGS,
+} from "@/lib/warnings/style";
 import { RARITY } from "@/lib/badges";
 import { GAUGE_LEVELS } from "@/lib/rivers/style";
 import { SHELTER_COLORS } from "@/lib/disaster/style";
@@ -35,7 +40,7 @@ import {
   BOUND_POINTS,
   FIRST_TIME_BANDS,
   OUTDOOR_BANDS,
-  OUTDOOR_RANKS,
+  OUTMAP_BANDS,
   PYRO_BINS,
   SURGE_BANDS,
   TOR_BINS,
@@ -158,6 +163,16 @@ export const GROUPS: Group[] = [
       key: `warn:${k}`,
       label: k,
       def: v,
+    })),
+  },
+  {
+    id: "warntags",
+    label: "Warning outlines (impact tags)",
+    note: "Severe Weather History · the strongest wording on each warning",
+    entries: WARN_TAGS.map((t) => ({
+      key: `warntag:${t}`,
+      label: TAG_LABEL[t],
+      def: TAG_COLOR[t],
     })),
   },
   {
@@ -379,13 +394,23 @@ export const GROUPS: Group[] = [
     note:
       id === "rainbow"
         ? "Extras → Weather Engines map bands and charts."
-        : "Extras → Weather Engines: the hour-by-hour bars, and the map's dots ranked against today's typical spot.",
+        : "Extras → Weather Engines: a place's hour-by-hour bars.",
     entries: OUTDOOR_BANDS[id].labels.map((l, i) => ({
       key: `engine:${id}:${i}`,
-      label: id === "rainbow" ? l : `${l} · map: ${OUTDOOR_RANKS[i]}`,
+      label: l,
       def: OUTDOOR_BANDS[id].colors[i],
     })),
   })),
+  {
+    id: "engine-outmap",
+    label: "Deer & Fishing outlooks",
+    note: "Extras → Weather Engines: the Day 1–3 maps of the lower 48, drawn like SPC's outlooks.",
+    entries: OUTMAP_BANDS.labels.map((l, i) => ({
+      key: `engine:outmap:${i}`,
+      label: l,
+      def: OUTMAP_BANDS.colors[i],
+    })),
+  },
   {
     id: "engine-analog",
     label: "Severe Analogs",
@@ -681,7 +706,7 @@ export const GROUPS: Group[] = [
   {
     id: "models",
     label: "Model maps",
-    note: "Color scales on the HRRR, GFS and HREF maps in Radar & Model Runs. Each scale's stops spread across that field's contour bands.",
+    note: "Color scales on the HRRR, GFS and REFS maps in Radar & Model Runs. Each scale's stops spread across that field's levels, and the map shades smoothly between them.",
     entries: Object.entries(SCALES).flatMap(([scale, stops]) =>
       stops.map((c, i) => ({
         key: `model:${scale}:${i}`,

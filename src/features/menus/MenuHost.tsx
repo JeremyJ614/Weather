@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useSyncExternalStore } from "react";
+import { useRouter } from "next/navigation";
 import { useIsImmersive } from "@/lib/immersive";
-import { visibleNav, type NavGroup } from "@/lib/nav/registry";
+import { href, visibleNav, type NavGroup } from "@/lib/nav/registry";
 import { ADMIN_SECTIONS } from "@/lib/admin/sections";
 import { resolvePlacements } from "@/lib/nav/spots";
 import { quickGroups } from "@/lib/nav/quick";
@@ -89,6 +90,7 @@ export function MenuHost({
   );
   const bar = [mp, sp].some((p) => p.id === "bottom-bar");
   const topLeft = [mp, sp].some((p) => p.id.startsWith("top-left"));
+  const topRight = [mp, sp].some((p) => p.id.startsWith("top-right"));
   useEffect(() => {
     // Pages keep their last lines clear of a full-width bottom bar.
     const root = document.documentElement;
@@ -97,7 +99,10 @@ export function MenuHost({
     // The header's logo takes whichever top corner no menu uses.
     if (topLeft) root.dataset.logoSide = "right";
     else delete root.dataset.logoSide;
-  }, [bar, topLeft]);
+    // The header's place leaves a top-right menu its corner (HeaderLocation).
+    if (topRight) root.dataset.topRight = "";
+    else delete root.dataset.topRight;
+  }, [bar, topLeft, topRight]);
   // Admin-only pages are listed only for admins; the pages themselves check on the server.
   const { isAdmin, signedIn, adminShortcuts, pending, locked } = useViewer();
   const guest = !signedIn && !pending;
@@ -113,6 +118,36 @@ export function MenuHost({
         Array.isArray(picks) ? picks : [],
         { isAdmin, locked: locked ?? [] },
       );
+  // Preload the Quick Menu's pages once the phone is idle on Wi-Fi (never on cellular or data
+  // saver, nor where the browser can't say), so they open almost at once.
+  const router = useRouter();
+  const quickHrefs = guest
+    ? ""
+    : seconds
+        .flatMap((g) => g.pages)
+        .slice(0, 10)
+        .map(href)
+        .join(" ");
+  useEffect(() => {
+    const c = (
+      navigator as Navigator & {
+        connection?: { type?: string; saveData?: boolean };
+      }
+    ).connection;
+    if (
+      !quickHrefs ||
+      !c ||
+      c.saveData ||
+      !/^(wifi|ethernet)$/.test(c.type ?? "")
+    )
+      return;
+    const go = () => quickHrefs.split(" ").forEach((h) => router.prefetch(h));
+    const t = setTimeout(
+      () => ("requestIdleCallback" in window ? requestIdleCallback(go) : go()),
+      4000,
+    );
+    return () => clearTimeout(t);
+  }, [quickHrefs, router]);
   // Guests can replay the showcase from the second menu.
   if (guest) seconds.push(SHOWCASE_GROUP);
   // The owner's switchable Admin shortcuts group (admin → Overview).

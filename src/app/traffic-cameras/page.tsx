@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/site";
 import { notFound } from "next/navigation";
 import { Cctv } from "lucide-react";
 import { ModuleOff } from "@/components/ops/ModuleOff";
@@ -8,9 +9,11 @@ import { getColors } from "@/lib/colors/server";
 import { getSiteDefaults } from "@/lib/settings";
 import { TrafficView } from "./TrafficView";
 
-export const metadata: Metadata = {
-  title: "Traffic Cameras · StormSync Media",
-};
+export const metadata: Metadata = pageMeta(
+  "/traffic-cameras",
+  "Traffic Cameras",
+  "Live stills from road, road-weather and wildfire cameras: the ones near you, the ones inside active warnings, and every one on the map.",
+);
 
 export default async function TrafficCameras() {
   if (!(await canSeeCams())) notFound();

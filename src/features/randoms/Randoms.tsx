@@ -2,24 +2,37 @@
 
 import { useState } from "react";
 import {
+  Bird,
   Droplet,
   Gem,
+  Hourglass,
   Images,
   Orbit,
+  Palette,
   Sparkles,
   Tornado,
   Waves,
+  Telescope,
+  Sunrise,
+  Atom,
 } from "lucide-react";
 import {
   AuraScene,
   FieldScene,
+  FlockScene,
+  GalaxyScene,
   HorizonScene,
+  InkScene,
   MorphScene,
+  OceanScene,
   OrbScene,
+  SandScene,
   SliderScene,
+  SpacetimeScene,
   StormScene,
 } from "./Scenes";
-import { stateOf, type ExtrasStates } from "@/lib/extras/items";
+import { useViewer } from "@/features/account/useViewer";
+import { awaiting, stateOf, type ExtrasStates } from "@/lib/extras/items";
 import s from "./Randoms.module.css";
 
 const LIST = [
@@ -73,6 +86,48 @@ const LIST = [
     Icon: Sparkles,
     C: MorphScene,
   },
+  {
+    id: "ink",
+    name: "Ink Flow",
+    blurb: "A real fluid you stir with your finger.",
+    Icon: Palette,
+    C: InkScene,
+  },
+  {
+    id: "flock",
+    name: "Murmuration",
+    blurb: "Thousands of starlings wheeling at dusk.",
+    Icon: Bird,
+    C: FlockScene,
+  },
+  {
+    id: "sand",
+    name: "Falling Sand",
+    blurb: "Pour sand, water, fire and seeds.",
+    Icon: Hourglass,
+    C: SandScene,
+  },
+  {
+    id: "galaxy",
+    name: "Galaxy Forge",
+    blurb: "A spiral galaxy, then two colliding.",
+    Icon: Telescope,
+    C: GalaxyScene,
+  },
+  {
+    id: "ocean",
+    name: "Ocean Day Cycle",
+    blurb: "Dawn to storm to moonlit night on a shader sea.",
+    Icon: Sunrise,
+    C: OceanScene,
+  },
+  {
+    id: "spacetime",
+    name: "Curved Spacetime",
+    blurb: "Throw stars and black holes across a bending grid.",
+    Icon: Atom,
+    C: SpacetimeScene,
+  },
 ] as const;
 
 const CREDITS = [
@@ -106,12 +161,41 @@ const CREDITS = [
     "Russell Henderson",
     "https://codepen.io/russell-henderson/pen/jEVVqBe",
   ],
+  [
+    "WebGL Fluid Simulation, behind Ink Flow's shading",
+    "Pavel Dobryakov",
+    "https://github.com/PavelDoGreat/WebGL-Fluid-Simulation",
+  ],
+  [
+    "Ocean Shader 6-Scene Day Cycle",
+    "Margarita",
+    "https://codepen.io/Margarita-the-solid/pen/xbgrWpd",
+  ],
+  [
+    "Curved Spacetime",
+    "Guilherme Zeni",
+    "https://github.com/Guillhermm/web-ai-experiments",
+  ],
 ] as const;
 
 /** Randoms: one visual runs at a time; the rest stay unloaded. */
-export function Randoms({ items = {} }: { items?: ExtrasStates }) {
-  const shown = LIST.filter((x) => stateOf(items, x.id) !== "hidden");
-  const usable = shown.filter((x) => stateOf(items, x.id) === "on");
+export function Randoms({
+  items = {},
+  only,
+}: {
+  items?: ExtrasStates;
+  /** One Random on a page of its own, without the picker. */
+  only?: string;
+}) {
+  // A new Random waiting on the owner's approval shows to admins only, marked as a preview.
+  const viewer = useViewer();
+  const preview = (id: string) => viewer.isAdmin && awaiting(items, id);
+  const shown = only
+    ? LIST.filter((x) => x.id === only)
+    : LIST.filter((x) => stateOf(items, x.id) !== "hidden" || preview(x.id));
+  const usable = only
+    ? shown
+    : shown.filter((x) => stateOf(items, x.id) === "on" || preview(x.id));
   const [id, setId] = useState<(typeof LIST)[number]["id"]>(
     usable[0]?.id ?? "storm",
   );
@@ -124,9 +208,10 @@ export function Randoms({ items = {} }: { items?: ExtrasStates }) {
     );
   return (
     <div className="grid gap-3">
-      <div className={s.picker}>
+      <div className={s.picker} hidden={!!only}>
         {shown.map((x) => {
           const off = stateOf(items, x.id) === "off";
+          const early = preview(x.id);
           return (
             <button
               key={x.id}
@@ -139,7 +224,13 @@ export function Randoms({ items = {} }: { items?: ExtrasStates }) {
               <b>
                 <x.Icon aria-hidden /> {x.name}
               </b>
-              <small>{off ? "Off for now" : x.blurb}</small>
+              <small>
+                {early
+                  ? "Preview: only admins see this until it's switched on in admin → Extras."
+                  : off
+                    ? "Off for now"
+                    : x.blurb}
+              </small>
             </button>
           );
         })}

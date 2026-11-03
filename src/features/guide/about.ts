@@ -47,7 +47,7 @@ export const ABOUT: Record<string, string> = {
   "severe-weather-history":
     "Every surveyed tornado and storm report by year or window, on the map and in numbers.",
   "radar-model-runs":
-    "Live radar and HRRR, GFS and HREF maps drawn from NOAA's data, plus a side-by-side model comparison.",
+    "Live radar and HRRR, GFS and REFS maps drawn from NOAA's data, plus a side-by-side model comparison.",
   "river-flood-gauges":
     "River gauges with their forecast crests and flood stages.",
   "3d-soundings":

@@ -2,15 +2,10 @@
 
 import { useMemo, useState } from "react";
 import { Link2, Search, X } from "lucide-react";
-import { CATEGORIES, slug, TERMS } from "@/lib/glossary/terms";
+import { CATEGORIES, TERMS, termIds } from "@/lib/glossary/terms";
 import s from "./Glossary.module.css";
 
-/** Unique anchor per entry; a term filed under two categories gets the category added. */
-const IDS = TERMS.map((t, i) =>
-  TERMS.findIndex((x) => x.term === t.term) === i
-    ? slug(t.term)
-    : `${slug(t.term)}-${slug(t.category)}`,
-);
+const IDS = termIds();
 
 /** Weather Glossary: search, filter by topic, jump by letter, link any term. */
 export function GlossaryView() {

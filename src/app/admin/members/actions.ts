@@ -4,7 +4,7 @@ import { randomBytes } from "node:crypto";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { ALL_PAGES } from "@/lib/nav/registry";
+import { EVERY_PAGE } from "@/lib/nav/extras";
 import { requireAdmin } from "@/lib/auth/admin-guard";
 import { normEmail, pinPassword } from "@/lib/auth/pin";
 import { checkSignup } from "@/lib/auth/signup";
@@ -212,7 +212,7 @@ export async function setMemberPage(
   state: "plan" | "on" | "off",
 ): Promise<ToolState> {
   const { supabase } = await requireAdmin("members");
-  if (!uuid(id) || !ALL_PAGES.some((p) => p.slug === slug))
+  if (!uuid(id) || !EVERY_PAGE.some((p) => p.slug === slug))
     return { error: "That page couldn't be changed." };
   const { error } =
     state === "plan"

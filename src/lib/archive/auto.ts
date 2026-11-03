@@ -1,6 +1,7 @@
 import "server-only";
 import { PLACES } from "@/lib/geo/places.data";
 import { STATES, nearestPlace, parsePlaces } from "@/lib/geo/search";
+import { DAT_TORNADOES, isDatTornado } from "@/lib/dat/tornado";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { groupSurveys, type AutoDay, type Survey } from "./group";
 
@@ -12,8 +13,12 @@ import { groupSurveys, type AutoDay, type Survey } from "./group";
 const DAT =
   "https://services.dat.noaa.gov/arcgis/rest/services/nws_damageassessmenttoolkit/DamageViewer/FeatureServer/1/query";
 const PAGE = 2000;
-/** The backfill walks back to here, a month per call. */
-export const BACKFILL_FROM = "2024-01";
+/**
+ * The backfill walks back to here, a month per call. Days through the last year in SPC's
+ * database come from it instead (lib/archive/spc.ts), so this only covers the current year;
+ * it stalled at April 2024, a month too big to read in one call.
+ */
+export const BACKFILL_FROM = "2026-01";
 
 let rows: ReturnType<typeof parsePlaces> | null = null;
 const EF = (v: unknown) => {
@@ -30,7 +35,7 @@ const stamp = (d: Date) =>
 export async function fetchSurveys(from: Date, to: Date): Promise<Survey[]> {
   const out: Survey[] = [];
   // stormdate is the storm's date; a day either side catches storms across UTC midnight.
-  const where = `stormdate >= ${stamp(new Date(from.getTime() - 864e5))} AND stormdate < ${stamp(new Date(to.getTime() + 864e5))}`;
+  const where = `stormdate >= ${stamp(new Date(from.getTime() - 864e5))} AND stormdate < ${stamp(new Date(to.getTime() + 864e5))} AND ${DAT_TORNADOES}`;
   for (let offset = 0; offset < 40_000; offset += PAGE) {
     const qs = new URLSearchParams({
       where,
@@ -61,6 +66,7 @@ export async function fetchSurveys(from: Date, to: Date): Promise<Survey[]> {
     const page = j.features ?? [];
     for (const f of page) {
       const a = f.attributes;
+      if (!isDatTornado(a.efscale)) continue;
       const start = Math.round(Number(a.starttime) / 1000);
       if (!Number.isFinite(start)) continue;
       if (start < from.getTime() / 1000 || start >= to.getTime() / 1000)
@@ -92,7 +98,10 @@ export async function fetchSurveys(from: Date, to: Date): Promise<Survey[]> {
   return out;
 }
 
-export function groupDays(list: Survey[]): AutoDay[] {
+export function groupDays(
+  list: Survey[],
+  members?: (day: AutoDay, tracks: Survey[]) => void,
+): AutoDay[] {
   rows ??= parsePlaces(PLACES);
   const places = rows;
   return groupSurveys(
@@ -102,6 +111,7 @@ export function groupDays(list: Survey[]): AutoDay[] {
       return n ? { place: n.hit.name, st: n.hit.st } : null;
     },
     (st) => STATES[st] ?? st,
+    members,
   );
 }
 
@@ -136,13 +146,19 @@ export async function refresh(from: Date, to: Date) {
   return { from: lo, to: hi, days: keep.length };
 }
 
+/**
+ * Where the backfill has got to. A new key starts it over: v2 rebuilds 2026's months once
+ * the wind and hail paths were filtered out (2026-11-02).
+ */
+const PROGRESS = "archive_backfill_v2";
+
 /** One month further back per call, until BACKFILL_FROM. */
 export async function backfillMonth() {
   const db = supabaseAdmin();
   const { data } = await db
     .from("app_config")
     .select("value")
-    .eq("key", "archive_backfill")
+    .eq("key", PROGRESS)
     .maybeSingle();
   const now = new Date();
   const first = new Date(
@@ -157,8 +173,6 @@ export async function backfillMonth() {
   const to = new Date(Date.UTC(y, m, 1));
   const res = await refresh(from, to);
   const prev = new Date(Date.UTC(y, m - 2, 1)).toISOString().slice(0, 7);
-  await db
-    .from("app_config")
-    .upsert({ key: "archive_backfill", value: { next: prev } });
+  await db.from("app_config").upsert({ key: PROGRESS, value: { next: prev } });
   return { ...res, next: prev };
 }

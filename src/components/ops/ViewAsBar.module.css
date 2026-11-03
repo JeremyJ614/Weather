@@ -5,7 +5,7 @@
   z-index: 70;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
   max-width: calc(100vw - 24px);
   padding: 6px 6px 6px 14px;
   border: 1px solid var(--lit-line);
@@ -49,13 +49,21 @@
   align-items: center;
   gap: 6px;
   min-height: 36px;
-  padding: 0 14px;
+  padding: 0 12px;
   border: 1px solid var(--lit-line);
   border-radius: 999px;
   background: var(--lit);
   color: var(--accent);
   font-size: 13px;
   font-weight: 800;
+}
+.wide {
+  display: none;
+}
+@media (min-width: 480px) {
+  .wide {
+    display: inline;
+  }
 }
 .back:active {
   transform: scale(0.95);

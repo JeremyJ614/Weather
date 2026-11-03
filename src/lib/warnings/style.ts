@@ -152,3 +152,30 @@ export const statesOf = (ugc: string[] = []) =>
 
 /** NWS alert ids are CAP OIDs with a hex hash, e.g. urn:oid:2.49.0.1.840.0.9fa2….001.1 */
 export const isAlertId = (id: string) => /^urn:oid:[0-9a-f.]+$/i.test(id);
+
+/**
+ * The outlines on Severe Weather History's warnings (Fix list 2026-10-30 #7): the strongest
+ * wording NWS put on each warning, strongest first. Editable in admin → Map & data colors.
+ */
+export const WARN_TAGS = [
+  "emergency",
+  "pds",
+  "destructive",
+  "considerable",
+  "observed",
+] as const;
+export type WarnTag = (typeof WARN_TAGS)[number];
+export const TAG_LABEL: Record<WarnTag, string> = {
+  emergency: "Tornado / flash flood emergency",
+  pds: "PDS (particularly dangerous)",
+  destructive: "Destructive / catastrophic",
+  considerable: "Considerable",
+  observed: "Tornado observed",
+};
+export const TAG_COLOR: Record<WarnTag, string> = {
+  emergency: "#ff2bd6",
+  pds: "#ff3b30",
+  destructive: "#ffffff",
+  considerable: "#38bdf8",
+  observed: "#a3e635",
+};

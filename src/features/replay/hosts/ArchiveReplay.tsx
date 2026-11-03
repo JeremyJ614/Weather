@@ -58,9 +58,11 @@ export default function ArchiveReplay({
       progress={null}
       error={ready ? (got.error ?? null) : null}
       note={
-        auto
-          ? "Added automatically from the NWS survey; it updates when the survey does."
-          : null
+        !auto
+          ? null
+          : id < "2026"
+            ? "From NOAA's Storm Prediction Center tornado database, drawn on the NWS survey's path wherever one exists."
+            : "Added automatically from the NWS survey; it updates when the survey does."
       }
       entries={entries}
       onPick={onPick}

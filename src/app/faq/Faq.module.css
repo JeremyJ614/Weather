@@ -151,3 +151,23 @@
     transition: none;
   }
 }
+/* A search for installing points at the built-in guides. */
+.guideHit {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 12px 14px;
+  color: var(--accent);
+  font-size: 15px;
+  font-weight: 700;
+  text-align: left;
+}
+.guideHit svg {
+  width: 18px;
+  flex: none;
+}
+button.item {
+  display: block;
+  width: 100%;
+}

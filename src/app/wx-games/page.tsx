@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/site";
 import { after } from "next/server";
 import { CircleHelp, Gamepad2, Grid3x3, Radar } from "lucide-react";
 import { ModuleOff } from "@/components/ops/ModuleOff";
@@ -7,15 +8,21 @@ import { HomeTabs } from "@/features/news/HomeTabs";
 import { getViewer } from "@/lib/auth/viewer";
 import { getSiteDefaults } from "@/lib/settings";
 import { supabaseServer } from "@/lib/supabase/server";
-import { gameDate } from "@/lib/game/score";
+import { gameDate, previousGameDate } from "@/lib/game/score";
+import { scoreIfDue } from "@/lib/game/run";
 import { healDay } from "@/lib/trivia/generate";
 import { getColors } from "@/lib/colors/server";
 import { healWord } from "@/lib/weatherdle/make";
-import { GameView, type Guess } from "./GameView";
-import { TriviaView, type TriviaQ } from "./TriviaView";
+import type { Guess } from "./GameView";
+import type { TriviaQ } from "./TriviaView";
+import { GameView, TriviaView } from "./Lazy";
 import { WeatherdleView, type WdState, type WdStats } from "./WeatherdleView";
 
-export const metadata: Metadata = { title: "WX Games · StormSync Media" };
+export const metadata: Metadata = pageMeta(
+  "/wx-games",
+  "WX Games",
+  "Guess the day's weather word, call where today's severe weather and tornadoes will hit, and test your weather knowledge. Every point counts toward the Leaderboard.",
+);
 
 const SELECT =
   "guess_date,lat,lon,city_label,tor_lat,tor_lon,tor_city_label,severe_points,tornado_points,points";
@@ -45,25 +52,40 @@ export default async function WxGames() {
     getColors(),
   ]);
   const today = gameDate();
+  const yesterday = previousGameDate();
   let mine: Guess | null = null;
   let last: Guess | null = null;
+  let waiting: Guess | null = null;
   let trivia: TriviaQ[] = [];
   let word: WdState | null = null;
   let wordStats: WdStats | null = null;
   if (viewer.lens) {
     // The owner viewing as a member: the member's rounds, through owner-only functions.
     const sb = await supabaseServer();
-    const [g, t] = await Promise.all([
+    const [g, t, wd, plays] = await Promise.all([
       sb.rpc("lens_guesses", { p_user: viewer.id! }),
       sb.rpc("lens_trivia_today", { p_user: viewer.id! }),
+      sb.rpc("lens_weatherdle_state", { p_user: viewer.id! }),
+      sb.rpc("lens_weatherdle_plays", { p_user: viewer.id! }),
     ]);
+    word = (wd.data as WdState | null) ?? null;
+    wordStats = weatherdleStats(
+      (plays.data ?? []) as {
+        day: string;
+        solved: boolean;
+        guesses: string[];
+      }[],
+      today,
+    );
     const rows = (g.data ?? []) as (Guess & { guess_date: string })[];
     mine = rows.find((r) => r.guess_date === today) ?? null;
     last = rows.find((r) => r.points !== null) ?? null;
+    waiting =
+      rows.find((r) => r.guess_date === yesterday && r.points === null) ?? null;
     trivia = (t.data ?? []) as TriviaQ[];
   } else if (viewer.signedIn) {
     const sb = await supabaseServer();
-    const [a, b, t, wd, plays] = await Promise.all([
+    const [a, b, t, wd, plays, y] = await Promise.all([
       sb
         .from("game_guesses")
         .select(SELECT)
@@ -86,7 +108,15 @@ export default async function WxGames() {
         .eq("user_id", viewer.id!)
         .order("day", { ascending: false })
         .limit(400),
+      sb
+        .from("game_guesses")
+        .select(SELECT)
+        .eq("user_id", viewer.id!)
+        .eq("guess_date", yesterday)
+        .is("points", null)
+        .maybeSingle(),
     ]);
+    waiting = y.data as Guess | null;
     word = (wd.data as WdState | null) ?? null;
     if (!wd.error && word && word.length == null) after(() => healWord(today));
     wordStats = weatherdleStats(
@@ -102,6 +132,8 @@ export default async function WxGames() {
     trivia = (t.data ?? []) as TriviaQ[];
     if (!t.error && !trivia.length) after(() => healDay(today));
   }
+  // Yesterday's Forecast Game round is scored by the first visit after SPC's day closes.
+  if (viewer.signedIn) after(() => scoreIfDue().catch(() => null));
   return (
     <main className="mx-auto max-w-2xl px-4 pt-4 pb-28">
       <PageHero
@@ -113,8 +145,8 @@ export default async function WxGames() {
       {viewer.lens && (
         <p className="mb-4 rounded-2xl border border-[var(--lit-line)] bg-[var(--lit)] p-3 text-sm">
           You&apos;re playing as <b className="text-accent">{viewer.name}</b>.
-          Pins and answers go in as theirs and count toward their points; each
-          one is recorded in the audit log under your name.
+          Weatherdle guesses, pins and answers go in as theirs and count toward
+          their points; each one is recorded in the audit log under your name.
         </p>
       )}
       <HomeTabs
@@ -131,7 +163,6 @@ export default async function WxGames() {
             ) : (
               <WeatherdleView
                 signedIn={viewer.signedIn}
-                lens={Boolean(viewer.lens)}
                 initial={word}
                 stats={wordStats}
                 colors={colors}
@@ -151,6 +182,7 @@ export default async function WxGames() {
                 today={today}
                 mine={mine}
                 last={last}
+                waiting={waiting}
               />
             ),
           },

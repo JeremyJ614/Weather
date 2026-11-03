@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { LocationSheet } from "@/features/location/LocationSheet";
+import { LocationSheet } from "@/features/location/LazyLocationSheet";
 import { usePlaces } from "@/features/location/usePlaces";
 import { useWeather } from "@/features/weather/useWeather";
 import { WeatherIcon } from "@/features/weather/WeatherIcon";

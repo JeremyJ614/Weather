@@ -32,8 +32,9 @@
   position: relative;
   width: min(100%, 300px);
   aspect-ratio: 1;
-  /* the ring is open at the bottom: pull the text below it up */
-  margin-bottom: -15%;
+  /* The ring is open at the bottom, but its ends and the comet reach ~84% of
+     the height: pull the text up only into the clear space below them. */
+  margin-bottom: -10%;
 }
 .sweep {
   position: absolute;

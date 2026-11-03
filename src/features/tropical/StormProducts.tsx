@@ -57,7 +57,15 @@ const GRAPHICS = [
   },
 ] as const;
 
-function Graphic({ id, names }: { id: string; names: readonly string[] }) {
+function Graphic({
+  id,
+  names,
+  label,
+}: {
+  id: string;
+  names: readonly string[];
+  label: string;
+}) {
   const atcf = id.toUpperCase();
   const urls = names.map((n) => `${NHC}/${atcf.slice(0, 4)}/${atcf}_${n}`);
   // Failures are tracked by address, so one image failing twice can't skip the next.
@@ -75,8 +83,11 @@ function Graphic({ id, names }: { id: string; names: readonly string[] }) {
       <img
         key={src}
         src={src}
-        alt=""
+        alt={`NHC ${label} graphic for ${atcf}`}
+        width={897}
+        height={736}
         loading="lazy"
+        decoding="async"
         className={s.graphic}
         onError={() => setFailed((f) => (f.has(src) ? f : new Set(f).add(src)))}
       />
@@ -112,7 +123,12 @@ export function StormGraphics({ storm }: { storm: Storm }) {
         ))}
       </div>
       <p className={s.blurb}>{g.blurb}</p>
-      <Graphic key={`${storm.id}-${g.key}`} id={storm.id} names={g.names} />
+      <Graphic
+        key={`${storm.id}-${g.key}`}
+        id={storm.id}
+        names={g.names}
+        label={g.label}
+      />
       {storm.basin === "CP" && (
         <p className={s.blurb}>
           NHC doesn&apos;t publish model-track graphics for the Central Pacific;

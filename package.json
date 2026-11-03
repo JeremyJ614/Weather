@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "predev": "node scripts/vendor-maplibre.mjs",
+    "predev": "node scripts/vendor-maplibre.mjs && node scripts/build-id.mjs --dev",
     "dev": "next dev",
-    "prebuild": "node scripts/vendor-maplibre.mjs",
+    "prebuild": "node scripts/vendor-maplibre.mjs && node scripts/build-id.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",

@@ -1,10 +1,42 @@
-import { warningHistory } from "@/lib/history/data";
+import { monthDone, warningHistory, warningMonth } from "@/lib/history/data";
 
 export const maxDuration = 60;
 
-/** GET /api/history/warnings?days=1|3|7|30 → projected TO/SV/FF warning polygons. */
+/**
+ * GET /api/history/warnings?days=1|3|7|30 → projected TO/SV/FF warning polygons.
+ * GET ?month=YYYY-MM → one month (2008 on), for windows past 30 days: the page asks for each
+ * month it needs. A finished month never changes, so it is held at the edge for a week.
+ */
 export async function GET(req: Request) {
-  const days = Number(new URL(req.url).searchParams.get("days"));
+  const q = new URL(req.url).searchParams;
+  const month = q.get("month");
+  if (month) {
+    const now = new Date().toISOString().slice(0, 7);
+    if (
+      !/^\d{4}-(0[1-9]|1[0-2])$/.test(month) ||
+      month < "2008-01" ||
+      month > now
+    )
+      return Response.json({ error: "Pick a month." }, { status: 400 });
+    try {
+      const polys = await warningMonth(month);
+      const ttl = monthDone(month) ? 7 * 86400 : 1800;
+      return Response.json(
+        { month, polys },
+        {
+          headers: {
+            "Cache-Control": `public, s-maxage=${ttl}, stale-while-revalidate=${ttl}`,
+          },
+        },
+      );
+    } catch {
+      return Response.json(
+        { error: "The warning archive isn't answering right now." },
+        { status: 502 },
+      );
+    }
+  }
+  const days = Number(q.get("days"));
   if (![1, 3, 7, 30].includes(days))
     return Response.json({ error: "Pick a window." }, { status: 400 });
   // Round to the hour so everyone in the same hour shares one cached answer.

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/site";
 import { Suspense } from "react";
 import { Route } from "lucide-react";
 import { ModuleOff } from "@/components/ops/ModuleOff";
@@ -9,9 +10,11 @@ import { getSiteDefaults } from "@/lib/settings";
 import { supabaseServer } from "@/lib/supabase/server";
 import { ChaseLogView, type ChaseRow } from "./ChaseLogView";
 
-export const metadata: Metadata = {
-  title: "Storm Chasing Log · StormSync Media",
-};
+export const metadata: Metadata = pageMeta(
+  "/chasing-log",
+  "Storm Chasing Log",
+  "Add your chase tracks and replay each day against every tornado the NWS surveyed near you, in 2D or a 3D chase camera.",
+);
 
 export default async function ChasingLog() {
   const [viewer, { disabled }, colors] = await Promise.all([

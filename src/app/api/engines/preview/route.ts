@@ -3,7 +3,8 @@ import { analogAreas, dayReports, type Analog } from "@/lib/analogs/analogs";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { surges } from "@/lib/engines/surge";
 import { rainbowNow } from "@/lib/engines/rainbow";
-import { placeMap } from "@/lib/engines/places";
+import { storedOutdoor } from "@/lib/engines/outmap";
+import { unpackAreas } from "@/lib/engines/pack";
 import {
   ANALOG_BANDS,
   BOUND_POINTS,
@@ -67,14 +68,10 @@ export async function GET(req: Request) {
     const d = await rainbowNow().catch(() => null);
     return Response.json({ polys: polys(d?.maps[0], "rainbow") });
   }
-  if (e === "deer" || e === "fish") {
-    const d = await placeMap(e).catch(() => null);
+  if (e === "outmap") {
+    const d = await storedOutdoor("deer").catch(() => null);
     return Response.json({
-      dots: (d?.points ?? []).map((p) => ({
-        lat: p.lat,
-        lon: p.lon,
-        key: `engine:${e}:${p.rank}`,
-      })),
+      polys: polys(unpackAreas(d?.map.days[0]?.areas), "outmap"),
     });
   }
   if (e === "boundpt") {

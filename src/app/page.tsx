@@ -7,6 +7,14 @@ import { HomeTabs } from "@/features/news/HomeTabs";
 import { SswxNews } from "@/features/news/SswxNews";
 import { AppUpdates } from "@/features/news/AppUpdates";
 import { coverUrl, excerpt, getPublishedPosts } from "@/lib/news/posts";
+import { pageMeta, SITE } from "@/lib/seo/site";
+
+export const metadata = {
+  ...pageMeta("/", SITE.name, SITE.description),
+  title: {
+    absolute: `${SITE.name}: live radar, SPC outlooks and storm chasing`,
+  },
+};
 
 export default async function Home() {
   const [{ disabled }, posts] = await Promise.all([
@@ -22,6 +30,9 @@ export default async function Home() {
   }));
   return (
     <main className="mx-auto grid max-w-5xl gap-5 px-4 pt-2 pb-28">
+      <h1 className="sr-only">
+        {SITE.name}: live radar, SPC outlooks, warnings and storm chasing
+      </h1>
       {!disabled.includes("weather") && <WeatherClock />}
       <div className="mx-auto grid w-full max-w-xl gap-5">
         {disabled.includes("weather") ? (

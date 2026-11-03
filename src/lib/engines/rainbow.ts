@@ -256,7 +256,11 @@ async function build(): Promise<RainbowMap & { grids: Float32Array[] }> {
   const levels = OUTDOOR_BANDS.rainbow.levels;
   places ??= parsePlaces(PLACES);
   const rows = places;
-  const spots = grids.map((g, n) => {
+  // The list, the map and the alerts all read the same softened field, so a spot's chance
+  // always lands in the band the map draws there (a raw 93% peak used to be averaged into
+  // "Good" on the map while the list still said 93%).
+  const soft = grids.map((g) => soften(g, LW, LH, 1));
+  const spots = soft.map((g, n) => {
     const t = new Date(now + n * 30 * 60_000);
     const all: { lat: number; lon: number; value: number }[] = [];
     for (let j = 0; j < LH; j += 2)
@@ -287,12 +291,11 @@ async function build(): Promise<RainbowMap & { grids: Float32Array[] }> {
   });
   return {
     at: new Date(now).toISOString(),
-    maps: grids.map((g) =>
-      latticeAreas(soften(g, LW, LH, 1), LW, LH, W, N, STEP, levels),
-    ),
+    // Small minimum area: a listed spot's peak is often only a cell or two across.
+    maps: soft.map((g) => latticeAreas(g, LW, LH, W, N, STEP, levels, 0.25)),
     spots,
     lowSun,
-    grids,
+    grids: soft,
   };
 }
 

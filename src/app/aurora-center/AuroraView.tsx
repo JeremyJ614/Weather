@@ -449,7 +449,10 @@ function OvalImage() {
       <img
         src={`https://services.swpc.noaa.gov/images/animations/ovation/${pole}/latest.jpg?t=${t}`}
         alt={`NOAA OVATION aurora forecast, ${pole}ern hemisphere`}
-        className="w-full rounded-2xl"
+        width={800}
+        height={800}
+        decoding="async"
+        className="h-auto w-full rounded-2xl"
       />
       <a
         className={s.download}

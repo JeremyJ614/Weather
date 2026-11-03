@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/site";
 import Link from "next/link";
 import { UserRound } from "lucide-react";
 import { PageHero } from "@/components/ui/PageHero";
@@ -10,7 +11,12 @@ import { supabaseServer } from "@/lib/supabase/server";
 import type { Badge } from "@/lib/badges";
 import { ProfileView, type ProfileData } from "./ProfileView";
 
-export const metadata: Metadata = { title: "My Profile · StormSync Media" };
+export const metadata: Metadata = pageMeta(
+  "/profile",
+  "My Profile",
+  "Sign in to see your stats, badges and places.",
+  { noindex: true },
+);
 export const dynamic = "force-dynamic";
 
 /** Days in a row (ending today or yesterday) with a forecast guess or a trivia answer. */
@@ -58,9 +64,13 @@ export default async function Profile() {
       </main>
     );
   const id = viewer.id;
-  const db = await supabaseServer();
+  // Viewing as a member (owner verified by getViewer): their rows, read server-side.
+  const lens = Boolean(viewer.lens);
+  const db = lens ? supabaseAdmin() : await supabaseServer();
   // Anything earned since the last hourly award is given now, so it shows on this visit.
-  const { data: fresh } = await db.rpc("award_my_badges");
+  const { data: fresh } = lens
+    ? await db.rpc("award_badges", { p_user: id })
+    : await db.rpc("award_my_badges");
   const [
     { data: p },
     { data: points },
@@ -90,7 +100,9 @@ export default async function Profile() {
       .select(
         "id, name, description, icon, rarity, grp, rule_metric, rule_goal",
       ),
-    db.rpc("my_badge_progress"),
+    lens
+      ? db.rpc("badge_metrics", { p_user: id })
+      : db.rpc("my_badge_progress"),
     db
       .from("game_titles")
       .select("kind, period, name, points")
@@ -160,7 +172,9 @@ export default async function Profile() {
       .map((b) => ({ ...b, at: owned.get(b.id)! }))
       .sort((a, b) => b.at.localeCompare(a.at)),
     badgeTotal: badges?.length ?? 0,
-    fresh: ((fresh ?? []) as string[]).filter((x) => typeof x === "string"),
+    fresh: ((fresh ?? []) as (string | { badge_id: string })[])
+      .map((x) => (typeof x === "string" ? x : x?.badge_id))
+      .filter((x): x is string => typeof x === "string"),
     toEarn: ((badges ?? []) as Badge[])
       .filter((b) => b.rule_metric && b.rule_goal && !owned.has(b.id))
       .map((b) => ({
@@ -184,6 +198,13 @@ export default async function Profile() {
   };
   return (
     <main className="mx-auto max-w-2xl px-4 pt-4 pb-28">
+      {lens && (
+        <p className="mb-4 rounded-2xl border border-[var(--lit-line)] bg-[var(--lit)] p-3 text-sm">
+          This is <b className="text-accent">{data.name}</b>&apos;s profile.
+          Edits save to their account and are recorded in the audit log under
+          your name.
+        </p>
+      )}
       <ProfileView data={data} colors={colors} />
     </main>
   );

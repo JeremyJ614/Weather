@@ -1,13 +1,13 @@
 import { surges } from "@/lib/engines/surge";
 import { engineStats } from "@/lib/engines/verify";
-import { stateOf } from "@/lib/extras/items";
+import { isLive } from "@/lib/extras/items";
 import { getSiteDefaults } from "@/lib/settings";
 
 export const maxDuration = 60;
 
 /** Lightning Surge Detector: storms whose lightning is jumping, and the engine's hit rate. */
 export async function GET() {
-  if (stateOf((await getSiteDefaults()).extras, "surge") !== "on")
+  if (!isLive((await getSiteDefaults()).extras, "surge"))
     return new Response("Not found", { status: 404 });
   try {
     const [d, stats] = await Promise.all([

@@ -74,6 +74,9 @@
   color: var(--muted);
 }
 .term {
+  /* Off-screen rows skip drawing until scrolled near (find-in-page still sees them). */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 150px;
   position: relative;
   display: grid;
   gap: 8px;

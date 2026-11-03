@@ -1,7 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
-import { Button } from "@/components/ui/Button";
+import { useActionState, useState } from "react";
+import { PaperPlaneButton } from "@/components/ui/PaperPlaneButton";
 import type { ContactTab, FormField } from "@/lib/help/forms";
 import { sendContact } from "./actions";
 
@@ -65,7 +65,16 @@ export function ContactForm({
   prefill?: Record<string, string>;
 }) {
   const [state, action, pending] = useActionState(sendContact, null);
-  if (state?.sent)
+  // The paper plane flies on each send; the thank-you shows once it has landed.
+  const [flight, setFlight] = useState(0);
+  const [landed, setLanded] = useState(0);
+  const [reset, setReset] = useState(0);
+  const [seenError, setSeenError] = useState(state);
+  if (state !== seenError) {
+    setSeenError(state);
+    if (state?.error) setReset((n) => n + 1);
+  }
+  if (state?.sent && landed === flight)
     return (
       <p
         role="status"
@@ -75,7 +84,11 @@ export function ContactForm({
       </p>
     );
   return (
-    <form action={action} className="grid gap-3">
+    <form
+      action={action}
+      onSubmit={() => setFlight((n) => n + 1)}
+      className="grid gap-3"
+    >
       <input type="hidden" name="form" value={tab.id} />
       <input
         name="website"
@@ -100,9 +113,13 @@ export function ContactForm({
           {state.error}
         </p>
       )}
-      <Button type="submit" variant="primary" disabled={pending}>
-        {pending ? "Sending…" : "Send message"}
-      </Button>
+      <PaperPlaneButton
+        label="Send message"
+        flight={flight}
+        reset={reset}
+        onLanded={() => setLanded(flight)}
+        disabled={pending}
+      />
     </form>
   );
 }

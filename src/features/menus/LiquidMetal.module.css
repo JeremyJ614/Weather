@@ -1,0 +1,228 @@
+/* Liquid Metal: droplets bud off the button through a metaball filter. Transform and opacity only. */
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 64;
+  background: radial-gradient(
+    120% 80% at 50% 100%,
+    color-mix(in srgb, var(--accent) 10%, var(--bg)),
+    color-mix(in srgb, var(--bg) 95%, transparent) 62%
+  );
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.45s 0.1s,
+    visibility 0s 0.55s;
+}
+.on .scrim {
+  opacity: 1;
+  visibility: visible;
+  transition:
+    opacity 0.4s,
+    visibility 0s;
+}
+.defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+.goo {
+  position: fixed;
+  inset: 0;
+  z-index: 65;
+  pointer-events: none;
+}
+/* Plain shapes; the filter recolors them (and slow phones see these colors without it). */
+.blob,
+.pool,
+.core {
+  position: absolute;
+  left: 0;
+  top: 0;
+  border: 1.5px solid var(--accent);
+  border-radius: 50%;
+  background: var(--surface2);
+  will-change: transform;
+}
+.blob {
+  transition: transform 0.8s cubic-bezier(0.3, 1.35, 0.6, 1);
+}
+.pool {
+  border-radius: 36px;
+  transform-origin: 0 0;
+  opacity: 0;
+  transition:
+    transform 0.6s var(--ease),
+    opacity 0s 0.6s;
+}
+.pool[data-on] {
+  opacity: 1;
+  transition:
+    transform 0.65s var(--ease) 0.25s,
+    opacity 0s;
+}
+.core {
+  width: 64px;
+  height: 64px;
+  transition: transform 0.55s var(--spring);
+}
+.labels {
+  position: fixed;
+  inset: 0;
+  z-index: 66;
+  pointer-events: none;
+}
+.lab {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.15;
+  text-align: center;
+  text-wrap: balance;
+  opacity: 0;
+  transition: opacity 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+.on .labels:not([aria-hidden="true"]) .lab {
+  opacity: 1;
+  pointer-events: auto;
+  transition: opacity 0.35s var(--d, 0s);
+}
+.o {
+  display: grid;
+  place-items: center;
+  width: var(--D);
+  height: var(--D);
+}
+.ic {
+  width: 26px;
+  height: 26px;
+  color: var(--accent);
+  filter: drop-shadow(
+    0 0 6px color-mix(in srgb, var(--accent) 60%, transparent)
+  );
+}
+.lab[data-here] .ic,
+.lab[aria-current="page"] .ic {
+  filter: drop-shadow(0 0 10px var(--accent));
+}
+.pages {
+  position: fixed;
+  z-index: 66;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 16px 8px;
+  animation: fade 0.35s 0.45s both;
+}
+.pages header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.pages header button {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex: none;
+  border: 1px solid var(--lit-line);
+  border-radius: 12px;
+  color: var(--accent);
+}
+.pages header button svg {
+  width: 18px;
+}
+.pages h2 {
+  font-family: var(--font-display);
+  font-weight: var(--display-weight);
+  text-transform: var(--display-case);
+  font-size: 20px;
+  line-height: 1.05;
+}
+.pages ul {
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.pages li {
+  transform-origin: top;
+  animation: drip 0.55s var(--spring) both;
+  animation-delay: calc(0.5s + var(--i) * 45ms);
+}
+.pages a {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 16%, transparent);
+  font-weight: 700;
+}
+.pages a[aria-current="page"] {
+  color: var(--accent);
+}
+.pic {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  color: var(--accent);
+}
+.go {
+  width: 16px;
+  margin-left: auto;
+  color: var(--muted);
+}
+.fab {
+  position: fixed;
+  z-index: 67;
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  color: var(--accent);
+  -webkit-tap-highlight-color: transparent;
+}
+.fab svg {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  transition:
+    transform 0.4s var(--spring),
+    opacity 0.2s;
+}
+.x {
+  opacity: 0;
+  transform: rotate(-90deg) scale(0.4);
+}
+.on .m {
+  opacity: 0;
+  transform: rotate(90deg) scale(0.4);
+}
+.on .x {
+  opacity: 1;
+  transform: none;
+}
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes drip {
+  from {
+    opacity: 0;
+    transform: translateY(-14px) scaleY(0.6);
+  }
+}
+/* Slow phones: droplets without the liquid filter. */
+:global(html[data-tier="low"]) .goo {
+  filter: none !important;
+}
+:global(html[data-tier="low"]) .ic {
+  filter: none;
+}

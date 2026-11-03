@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/site";
 import { getRealViewer } from "@/lib/auth/viewer";
 import { activePromos, cheapestTier } from "@/lib/billing/plans";
 import {
@@ -6,16 +7,19 @@ import {
   SELLABLE_SLUGS,
   getBilling,
   getClaims,
+  sellableNow,
   today,
 } from "@/lib/billing/server";
+import { getSiteDefaults } from "@/lib/settings";
 import { stripeOn } from "@/lib/billing/stripe";
 import { supabaseServer } from "@/lib/supabase/server";
 import { JoinView } from "./JoinView";
 
-export const metadata: Metadata = {
-  title: "Join · StormSync Weather",
-  description: "Pick a plan, build your own, or start free.",
-};
+export const metadata: Metadata = pageMeta(
+  "/join",
+  "Join",
+  "Pick a plan, build your own, or start free.",
+);
 
 export default async function Join({
   searchParams,
@@ -24,10 +28,11 @@ export default async function Join({
 }) {
   const sp = await searchParams;
   const lockedSlug = sp.locked;
-  const [billing, claims, viewer] = await Promise.all([
+  const [billing, claims, viewer, { extras }] = await Promise.all([
     getBilling(),
     getClaims(),
     getRealViewer(),
+    getSiteDefaults(),
   ]);
   let current = null;
   let billingOpen = false;
@@ -53,7 +58,7 @@ export default async function Join({
       claims={claims}
       promos={activePromos(billing, claims, today())}
       today={today()}
-      pages={SELLABLE.map(({ slug, label, icon, phase }) => ({
+      pages={sellableNow(extras).map(({ slug, label, icon, phase }) => ({
         slug,
         label,
         icon,

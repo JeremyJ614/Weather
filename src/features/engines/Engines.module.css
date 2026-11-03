@@ -19,8 +19,10 @@
   text-align: center;
 }
 .picker button svg {
-  width: 20px;
-  color: var(--muted);
+  position: relative;
+  width: 18px;
+  color: #9a9aa6;
+  transition: color 150ms;
 }
 .picker b {
   font-size: 12.5px;
@@ -35,13 +37,82 @@
   opacity: 0.45;
   cursor: not-allowed;
 }
+/* Fix list 2026-10-30 #2: every tile's icon sits in a 3D power button (Ashley Watson-Nolan's
+   "3D power button toggles", the glowing dark version); the engine you're on is pushed in and
+   lit royal purple. The lit rings are a layer that fades in (opacity); the push is a transform. */
+.picker {
+  --royal: #7b3fe4;
+  --royal-hi: #b39dff;
+}
+.power {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  margin: 4px 0 5px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 30%, #2e2e38, #17171d 62%, #0f0f13);
+  box-shadow:
+    0 5px 10px 0 #000,
+    0 0 0 3px #2a2a30,
+    0 0 0 6px #5c5c66;
+  transition: transform 150ms;
+}
+/* The power ring around the icon, grey until lit. */
+.power::before {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px #44444d;
+  transition: opacity 150ms;
+}
+.power::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  box-shadow:
+    0 0 8px 0 #4c1d95,
+    0 0 0 3px var(--royal),
+    0 0 16px 1px rgb(139 92 246 / 0.75),
+    0 0 30px 0 var(--royal),
+    0 0 0 6px #6d6d78,
+    inset 0 0 0 7px #17171d,
+    inset 0 0 0 8.5px var(--royal-hi),
+    inset 0 0 12px 2px rgb(123 63 228 / 0.55);
+  opacity: 0;
+  transition: opacity 150ms;
+  pointer-events: none;
+}
+.picker button:hover:not(:disabled) .power::before {
+  box-shadow: inset 0 0 0 1.5px #5d5d68;
+}
+.picker button:active:not(:disabled) .power {
+  transform: scale(0.92);
+}
 .picker button[aria-selected="true"] {
-  border-color: var(--lit-line);
-  background: var(--lit);
-  box-shadow: 0 0 16px -6px var(--accent);
+  border-color: color-mix(in srgb, var(--royal) 70%, transparent);
+  box-shadow:
+    0 0 18px -6px var(--royal),
+    inset 0 0 22px -12px var(--royal);
+}
+.picker button[aria-selected="true"] .power {
+  transform: translateY(1px) scale(0.96);
+}
+.picker button[aria-selected="true"] .power::before {
+  opacity: 0;
+}
+.picker button[aria-selected="true"] .power::after {
+  opacity: 1;
 }
 .picker button[aria-selected="true"] svg {
-  color: var(--accent);
+  color: var(--royal-hi);
+  filter: drop-shadow(0 0 4px var(--royal));
+}
+.picker button[aria-selected="true"] b {
+  color: #e4dcff;
 }
 .mapBox {
   position: relative;
@@ -364,4 +435,11 @@
 }
 .photo input {
   display: none;
+}
+/* The engine's refresh key (Fix list 2026-10-30 #1), opposite the Experimental badge. */
+.refresh {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
 }

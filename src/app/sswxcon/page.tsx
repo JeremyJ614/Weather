@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/site";
 import { BookOpen, Gauge, LineChart } from "lucide-react";
 import { ModuleOff } from "@/components/ops/ModuleOff";
+import { FrontDoorCta } from "@/features/account/FrontDoorCta";
 import { PageHero } from "@/components/ui/PageHero";
 import { HomeTabs } from "@/features/news/HomeTabs";
 import { getSiteDefaults } from "@/lib/settings";
@@ -12,7 +14,11 @@ import { LocalCard } from "./Local";
 import { Ladder, Trend } from "./Trend";
 import s from "./Con.module.css";
 
-export const metadata: Metadata = { title: "SSWXCon Score · StormSync Media" };
+export const metadata: Metadata = pageMeta(
+  "/sswxcon",
+  "SSWXCon Score",
+  "How stormy the whole country is right now, on one 0\u2013250 scale: every active warning, weighted by danger, plus the setup SPC sees coming.",
+);
 
 const WEIGHTS: [string, string, number][] = [
   [
@@ -70,6 +76,7 @@ export default async function SswxCon() {
         title="SSWXCon Score"
         subtitle="How stormy the whole country is right now, on one 0–250 scale: every active warning, weighted by danger, plus the setup SPC sees coming."
       />
+      <FrontDoorCta what="SSWXCon" />
       {!national ? (
         <p className={s.empty}>
           The National Weather Service alert feed isn&apos;t answering right

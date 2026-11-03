@@ -35,6 +35,9 @@ const EDGE: Placement[] = [
   { id: "right-edge", zones: ["right"] },
   { id: "left-edge", zones: ["left"] },
 ];
+const EDGE_LEFT: Placement[] = [EDGE[1], EDGE[0]];
+// A pill wider than the round buttons: never centered, where it would sit off center.
+const PILL: Placement[] = [FLOAT_CENTER[1], FLOAT_CENTER[2]];
 
 const S = (
   id: string,
@@ -44,6 +47,36 @@ const S = (
 ): MenuStyle => ({ id, name, placements, Component });
 
 export const MENU_STYLES: Record<string, MenuStyle> = {
+  liquid: S(
+    "liquid",
+    "Liquid Metal",
+    FLOAT_CENTER,
+    lazy(() => import("./LiquidMetal").then((m) => m.LiquidMetal)),
+  ),
+  kinetic: S(
+    "kinetic",
+    "Kinetic Type",
+    PILL,
+    lazy(() => import("./KineticType").then((m) => m.KineticType)),
+  ),
+  jelly: S(
+    "jelly",
+    "Jelly Drawer",
+    EDGE_LEFT,
+    lazy(() => import("./JellyDrawer").then((m) => m.JellyDrawer)),
+  ),
+  switcher: S(
+    "switcher",
+    "Switcher",
+    FLOAT_CENTER,
+    lazy(() => import("./Switcher").then((m) => m.Switcher)),
+  ),
+  keycaps: S(
+    "keycaps",
+    "Keycaps",
+    FLOAT_RIGHT,
+    lazy(() => import("./Keycaps").then((m) => m.Keycaps)),
+  ),
   hive: S(
     "hive",
     "Hive",
@@ -67,12 +100,6 @@ export const MENU_STYLES: Record<string, MenuStyle> = {
     "Ribbon Fold",
     TOP,
     lazy(() => import("./RibbonFold").then((m) => m.RibbonFold)),
-  ),
-  fan: S(
-    "fan",
-    "Card Fan",
-    FLOAT_RIGHT,
-    lazy(() => import("./CardFan").then((m) => m.CardFan)),
   ),
   island: S(
     "island",
@@ -115,12 +142,6 @@ export const MENU_STYLES: Record<string, MenuStyle> = {
     "Bento Board",
     TOP,
     lazy(() => import("./BentoBoard").then((m) => m.BentoBoard)),
-  ),
-  bentolive: S(
-    "bentolive",
-    "Live Bento",
-    TOP,
-    lazy(() => import("./LiveBento").then((m) => m.LiveBento)),
   ),
   tabsheet: S(
     "tabsheet",

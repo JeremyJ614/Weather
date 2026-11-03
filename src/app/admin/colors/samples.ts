@@ -3,7 +3,13 @@ import { project } from "@/lib/map/usAlbers";
 import { PROB_STEPS } from "@/lib/colors/spc";
 import { hazardKind } from "@/lib/hazards/style";
 import { tierOf } from "@/lib/tropical/style";
-import { FIELD_BANDS, OUTDOOR_BANDS, type FieldId } from "@/lib/engines/colors";
+import { COLOR as WARN } from "@/lib/warnings/style";
+import {
+  FIELD_BANDS,
+  OUTDOOR_BANDS,
+  OUTMAP_BANDS,
+  type FieldId,
+} from "@/lib/engines/colors";
 
 /**
  * Fixed example maps for the color editor (Fix-It List #17): real archived days, each
@@ -27,6 +33,8 @@ export type Sample = {
   /** Drawn over the states, unclipped (oceans, tracks). */
   over: Shape[];
   dots: Dot[];
+  /** Numbered markers (x, y on the canvas) whose key list doubles as the legend. */
+  marks?: { k: string; label: string; x: number; y: number }[];
 };
 
 const CAT = ["TSTM", "MRGL", "SLGT", "ENH", "MDT", "HIGH"];
@@ -121,6 +129,96 @@ async function tornadoes(): Promise<Sample> {
       .filter((s) => s.d),
     dots: [],
   };
+}
+
+/** Warnings of the 26–28 April 2024 outbreak, outlined by their strongest impact tag. */
+async function warnTags(): Promise<Sample> {
+  const j = await json<{
+    warnings: { k: "TO" | "SV" | "FF"; t?: string; c: number[][] }[];
+  }>("/samples/warnings-20240426.json");
+  const name = {
+    TO: "Tornado Warning",
+    SV: "Severe Thunderstorm Warning",
+    FF: "Flash Flood Warning",
+  };
+  const rank = { FF: 0, SV: 1, TO: 2 };
+  const ws = j.warnings.sort((a, b) => rank[a.k] - rank[b.k]);
+  const shape = (c: number[][]) =>
+    geoPath({ type: "Polygon", coordinates: [c] }, 0.4);
+  return {
+    title:
+      "Warnings of 26–28 April 2024 (Elkhorn and Lincoln): outlines by impact tag",
+    view: { x: 360, y: 150, w: 330 },
+    under: ws.map((w) => ({ k: `warn:${name[w.k]}`, d: shape(w.c), o: 0.45 })),
+    over: ws
+      .filter((w) => w.t)
+      .map((w) => ({ k: `warntag:${w.t}`, d: shape(w.c), w: 1.8 }))
+      .filter((s) => s.d),
+    dots: [],
+  };
+}
+
+type Base = {
+  states: { id: string; d: string }[];
+  labels: { abbr: string; x: number; y: number }[];
+};
+const OFFSHORE = new Set(["AK", "HI", "PR", "DC"]);
+const WARN_KINDS = Object.keys(WARN);
+const WARN_MAPS = 3;
+
+/**
+ * Every Warnings-map color on the Severe Weather History map, a third per map: each warning
+ * type fills one state, picked evenly across the country (west to east in bands, north to
+ * south), with a numbered marker that matches the legend.
+ */
+async function warnMap(part: number): Promise<Sample> {
+  const b = await json<Base>("/api/maps/base");
+  const at = new Map(b.labels.map((l) => [l.abbr, l]));
+  const per = Math.ceil(WARN_KINDS.length / WARN_MAPS);
+  const kinds = WARN_KINDS.slice(part * per, (part + 1) * per);
+  // Serpentine order through four bands, so neighbors in the list are neighbors on the map.
+  const states = b.states
+    .filter((st) => !OFFSHORE.has(st.id) && at.has(st.id))
+    .map((st) => ({ ...st, ...at.get(st.id)! }));
+  const ys = states.map((st) => st.y).sort((a, c) => a - c);
+  const band = (y: number) =>
+    Math.min(3, Math.floor((ys.indexOf(y) / ys.length) * 4));
+  states.sort((a, c) => {
+    const ba = band(a.y);
+    const bc = band(c.y);
+    return ba !== bc ? ba - bc : ba % 2 ? c.x - a.x : a.x - c.x;
+  });
+  const picked = kinds.map(
+    (k, i) =>
+      [
+        k,
+        states[Math.floor(((i + 0.5) * states.length) / kinds.length)],
+      ] as const,
+  );
+  const first = part * per + 1;
+  return {
+    title: `Warning colors ${first}–${first + kinds.length - 1} of ${WARN_KINDS.length}, one state each`,
+    under: picked.map(([k, st]) => ({ k: `warn:${k}`, d: st.d, o: 0.85 })),
+    over: [],
+    dots: [],
+    marks: picked.map(([k, st], i) => ({
+      k: `warn:${k}`,
+      label: `${first + i}. ${k}`,
+      x: st.x,
+      y: st.y,
+    })),
+  };
+}
+
+/** Groups whose colors are spread over several example maps, picked with chips. */
+export function samplesFor(
+  id: string,
+): { label: string; load: () => Promise<Sample> }[] | null {
+  if (id !== "warnings") return null;
+  return Array.from({ length: WARN_MAPS }, (_, i) => ({
+    label: `Map ${i + 1}`,
+    load: () => warnMap(i),
+  }));
 }
 
 async function drought(): Promise<Sample> {
@@ -350,6 +448,8 @@ export function sampleFor(id: string): (() => Promise<Sample>) | null {
         field,
         OUTDOOR_BANDS[field as keyof typeof OUTDOOR_BANDS].levels.length,
       );
+  if (id === "engine-outmap")
+    return () => engineAreas("outmap", OUTMAP_BANDS.labels.length);
   if (id.startsWith("spc-")) {
     const k = id.slice(4);
     return k in FROM ? () => spc(k) : null;
@@ -359,6 +459,8 @@ export function sampleFor(id: string): (() => Promise<Sample>) | null {
       return () => spc("prob");
     case "ef":
       return tornadoes;
+    case "warntags":
+      return warnTags;
     case "usdm":
       return drought;
     case "fire":

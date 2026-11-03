@@ -4,27 +4,59 @@ import { revalidatePath, updateTag } from "next/cache";
 import { requireAdmin } from "@/lib/auth/admin-guard";
 import {
   cleanItems,
+  defaultState,
   EXTRAS_ITEMS,
   ITEM_STATES,
   type ItemState,
 } from "@/lib/extras/items";
 import { SITE_DEFAULTS_TAG } from "@/lib/settings";
+import { cleanBilling } from "@/lib/billing/plans";
+import { BILLING_TAG, SELLABLE_SLUGS } from "@/lib/billing/server";
 
-/** Sets one Extras item to on, off or hidden. */
+type Db = Awaited<ReturnType<typeof requireAdmin>>["supabase"];
+
+/**
+ * A page that leaves Extras starts on the same plans as the Extras page, so nobody who could
+ * open it yesterday is locked out today; the owner changes that in Pricing.
+ */
+async function inheritPlans(supabase: Db, slug: string) {
+  const { data } = await supabase
+    .from("app_config")
+    .select("value")
+    .eq("key", "billing")
+    .maybeSingle();
+  if (!data) return;
+  const b = cleanBilling(data.value, new Set(SELLABLE_SLUGS));
+  let changed = false;
+  for (const t of b.tiers)
+    if (t.pages.includes("extras") && !t.pages.includes(slug)) {
+      t.pages.push(slug);
+      changed = true;
+    }
+  if (!changed) return;
+  const { error } = await supabase
+    .from("app_config")
+    .update({ value: b, updated_at: new Date().toISOString() })
+    .eq("key", "billing");
+  if (!error) updateTag(BILLING_TAG);
+}
+
+/** Sets one Extras item to on, off, hidden or its own page. */
 export async function setExtrasItem(
   id: string,
   state: ItemState,
 ): Promise<{ error?: string }> {
   const { supabase } = await requireAdmin("extras");
-  if (!EXTRAS_ITEMS.some((i) => i.id === id) || !ITEM_STATES.includes(state))
-    return { error: "Unknown item." };
+  const item = EXTRAS_ITEMS.find((i) => i.id === id);
+  if (!item || !ITEM_STATES.includes(state)) return { error: "Unknown item." };
   const { data } = await supabase
     .from("app_config")
     .select("value")
     .eq("key", "extras_items")
     .maybeSingle();
   const next: Record<string, ItemState> = { ...cleanItems(data?.value) };
-  if (state === "on") delete next[id];
+  const was = next[id] ?? defaultState(id);
+  if (state === defaultState(id)) delete next[id];
   else next[id] = state;
   const { error } = await supabase
     .from("app_config")
@@ -36,8 +68,13 @@ export async function setExtrasItem(
     p_target: id,
     p_detail: { state },
   });
+  if (state === "page" && was !== "page")
+    await inheritPlans(supabase, item.slug);
   updateTag(SITE_DEFAULTS_TAG);
   revalidatePath("/extras");
+  revalidatePath(`/${item.slug}`);
+  // The menus live in the root layout.
+  if ((state === "page") !== (was === "page")) revalidatePath("/", "layout");
   return {};
 }
 

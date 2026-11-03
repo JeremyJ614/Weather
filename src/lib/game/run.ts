@@ -3,6 +3,8 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import {
   gameDate,
   parseReports,
+  previousGameDate,
+  roundScoresAt,
   scoreSevere,
   scoreTornado,
   type PinSet,
@@ -11,8 +13,12 @@ import {
 
 const UA = { "User-Agent": "StormSync Weather (https://weather.sswx.space)" };
 
-/** The SPC storm reports for one convective day (12Z to 12Z), by kind. */
-export async function dayReports(ymd: string): Promise<Report[]> {
+/**
+ * The SPC storm reports for one convective day (12Z to 12Z), by kind, or null when any of
+ * the three files couldn't be read (not posted yet, or SPC down). A day with no reports of a
+ * kind still has its file, holding only the header, so null never means "a quiet day".
+ */
+export async function dayReports(ymd: string): Promise<Report[] | null> {
   const yymmdd = ymd.slice(2).replace(/-/g, "");
   const kinds: Report["kind"][] = ["torn", "hail", "wind"];
   const parts = await Promise.all(
@@ -26,13 +32,13 @@ export async function dayReports(ymd: string): Promise<Report[]> {
             signal: AbortSignal.timeout(15000),
           },
         );
-        return r.ok ? parseReports(await r.text(), kind) : [];
+        return r.ok ? parseReports(await r.text(), kind) : null;
       } catch {
-        return [];
+        return null;
       }
     }),
   );
-  return parts.flat();
+  return parts.some((p) => p === null) ? null : (parts as Report[][]).flat();
 }
 
 type Row = {
@@ -59,6 +65,9 @@ export async function scoreRound(ymd: string) {
   if (!field.some((g) => g.points === null))
     return { scored: 0, entrants: field.length, reports: 0 };
   const all = await dayReports(ymd);
+  // Never score against missing data: the next page view or the daily job tries again.
+  if (!all)
+    return { scored: 0, entrants: field.length, reports: -1, waiting: true };
   const torn = all.filter((p) => p.kind === "torn");
   const pins: PinSet[] = field.map((g) => ({
     lat: g.lat,
@@ -103,6 +112,22 @@ export async function scoreRound(ymd: string) {
     scored++;
   }
   return { scored, entrants: field.length, reports: all.length };
+}
+
+/** The last round this server instance found fully scored, so page views stop asking. */
+let settled = "";
+
+/**
+ * Scores yesterday's round once SPC's storm day has closed (roundScoresAt), from whichever
+ * comes first: a member opening WX Games or the Leaderboard, or the daily job (13:20 UTC,
+ * which stays as the backstop). Safe to run any number of times: rows are paid only once.
+ */
+export async function scoreIfDue(at = new Date()) {
+  const yesterday = previousGameDate(at);
+  if (settled === yesterday || at < roundScoresAt(yesterday)) return null;
+  const r = await scoreRound(yesterday);
+  if (!("waiting" in r)) settled = yesterday;
+  return r;
 }
 
 /** Crowns one period's champion once: the top total across all WX Games points. */

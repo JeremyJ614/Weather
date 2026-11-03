@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/site";
 import { CloudSun, Leaf, LayoutGrid, Map, Thermometer } from "lucide-react";
 import { ModuleOff } from "@/components/ops/ModuleOff";
 import { PageHero } from "@/components/ui/PageHero";
@@ -9,7 +10,11 @@ import { getFallReport } from "@/lib/weather/foliage";
 import { getSiteDefaults } from "@/lib/settings";
 import { heatRiskDays } from "@/lib/weather/wpc";
 
-export const metadata: Metadata = { title: "Dashboard · StormSync Media" };
+export const metadata: Metadata = pageMeta(
+  "/dashboard",
+  "Dashboard",
+  "Live conditions for your place, the national outlooks, and the color of the season.",
+);
 
 async function heatExtent(): Promise<[number, number] | null> {
   try {

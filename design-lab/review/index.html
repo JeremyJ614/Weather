@@ -1,0 +1,133 @@
+<title>StormSync Review Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,700;6..12,800&family=Russo+One&display=swap">
+<link rel="stylesheet" href="styles.css">
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand"><b>SSWX</b><small>Review Lab</small></div>
+    <span class="save" id="save" data-s="busy"><span class="dot"></span><span id="save-text">Connecting…</span></span>
+  </header>
+
+  <h1>Make StormSync Weather <em>exactly yours</em></h1>
+  <p class="lede">Everything you asked for, in the order you asked. Tap <b>Add</b> on anything you want built, try the 20 new menus and 5 Randoms live, and use the menu manager to keep, swap or remove menus. Your picks save as you go and I read them straight from here. Nothing in the app changes until you approve on the last tab.</p>
+  <div class="counter" id="counter"></div>
+
+  <nav class="tabs" role="tablist" aria-label="Review sections">
+    <button class="tab" role="tab" data-p="perf" aria-selected="true"><b>02</b>Speed<i data-c="perf"></i></button>
+    <button class="tab" role="tab" data-p="menus" aria-selected="false"><b>03</b>Menus<i data-c="menus"></i></button>
+    <button class="tab" role="tab" data-p="pages" aria-selected="false"><b>04</b>New pages<i data-c="pages"></i></button>
+    <button class="tab" role="tab" data-p="engines" aria-selected="false"><b>05</b>Engines<i data-c="engines"></i></button>
+    <button class="tab" role="tab" data-p="randoms" aria-selected="false"><b>06</b>Randoms<i data-c="randoms"></i></button>
+    <button class="tab" role="tab" data-p="review" aria-selected="false"><b>07</b>My review<i data-c="adds"></i></button>
+    <button class="tab" role="tab" data-p="picks" aria-selected="false"><b>✓</b>Your picks</button>
+  </nav>
+
+  <section class="panel" id="perf" role="tabpanel">
+    <h2>20 speed upgrades</h2>
+    <p class="sub">Each one in plain words, with what it gets you, what it costs, and what it does to your Supabase storage. You're in very good shape today:</p>
+    <div class="standing" id="standing"></div>
+    <div class="bar"><button class="btn small" data-all="perf">Add all 20</button><button class="btn small" data-none="perf">Clear</button></div>
+    <div class="grid" id="perf-list"></div>
+    <div class="notes"><label for="n-perf">Notes on speed</label><textarea id="n-perf" data-note="perf" placeholder="Anything to change about these?"></textarea></div>
+  </section>
+
+  <section class="panel" id="menus" role="tabpanel" hidden>
+    <h2>20 new menus</h2>
+    <p class="sub">Ten main menus that hold every page and ten Quick Menus for a short list, each a different kind of menu and none of them weather-themed. They run here with the app's real pages; tap around inside the phone. Your Hive and Ribbon Fold fixes and the two removals are queued for the build and aren't shown here.</p>
+    <div class="menus">
+      <div class="stage-col">
+        <div class="phone"><div class="stage" id="stage">
+          <div class="screen" id="screen">
+            <div class="scr-sb"><span>9:41</span><span>●●● 5G</span></div>
+            <div class="scr-hdr"><i>S</i><div><b>SSWX</b><small>WEATHER CENTER</small></div></div>
+            <div class="scr-hero"><small>Now viewing</small><div class="scr-title" id="scr-title"></div></div>
+            <div class="scr-line"></div>
+            <div class="scr-body"><div></div><div></div><div></div><div></div><div></div><div></div></div>
+          </div>
+          <div class="layer" id="layer"></div>
+        </div></div>
+        <div class="stage-tools">
+          <button class="btn small" id="m-prev" aria-label="Previous menu"></button>
+          <button class="btn small" id="m-replay"></button>
+          <button class="btn small" id="m-next" aria-label="Next menu"></button>
+        </div>
+      </div>
+      <div>
+        <div class="bar"><div class="switch" id="m-set"><button data-set="main" aria-pressed="true">Main menus (10)</button><button data-set="quick" aria-pressed="false">Quick Menus (10)</button></div></div>
+        <div class="chips" id="m-chips"></div>
+        <div class="minfo" id="m-info"></div>
+      </div>
+    </div>
+
+    <h2 style="margin-top:34px">Menu manager</h2>
+    <p class="sub">Every menu, old and new. Tick where each one should be offered: the Main list, the Quick list, both or neither. A menu with neither is removed from the app. Live Bento and Card Fan are already unticked, as you asked.</p>
+    <div class="bar"><button class="btn small" id="m-reset">Undo my menu changes</button></div>
+    <div class="mtable-wrap"><table class="mtable"><thead><tr><th>Menu</th><th>Main list</th><th>Quick list</th></tr></thead><tbody id="m-table"></tbody></table></div>
+    <div class="notes"><label for="n-menus">Notes on menus</label><textarea id="n-menus" data-note="menus" placeholder="Changes to any menu, or which one should be the default?"></textarea></div>
+  </section>
+
+  <section class="panel" id="pages" role="tabpanel" hidden>
+    <h2>15 new pages</h2>
+    <p class="sub">New pages and modules that would upgrade the app the most, where they'd sit in the menu, where their data comes from (all free) and what they'd store.</p>
+    <div class="bar"><button class="btn small" data-all="pages">Add all 15</button><button class="btn small" data-none="pages">Clear</button></div>
+    <div class="grid" id="pages-list"></div>
+    <div class="notes"><label for="n-pages">Notes on new pages</label><textarea id="n-pages" data-note="pages" placeholder="Changes, or a page idea of your own?"></textarea></div>
+  </section>
+
+  <section class="panel" id="engines" role="tabpanel" hidden>
+    <h2>Deer & Fishing fix</h2>
+    <p class="sub">Your first fix on this tab, so you can steer it before I build it.</p>
+    <div class="df" id="df"></div>
+    <h2 style="margin-top:28px">15 new engines for Extras</h2>
+    <p class="sub">Accuracy is what the method is known for; like the current engines, each one checks itself against what really happened from day one, and Admin → Extras shows its record. The four marked PY run in Python on GitHub Actions; the rest join the engines already reading the HRRR on our server, stored per run and overwritten, so storage stays flat.</p>
+    <div class="bar"><button class="btn small" data-all="engines">Add all 15</button><button class="btn small" data-none="engines">Clear</button></div>
+    <div class="grid" id="engines-list"></div>
+    <div class="notes"><label for="n-engines">Notes on engines</label><textarea id="n-engines" data-note="engines" placeholder="Changes to the Deer/Fishing plan or any engine?"></textarea></div>
+  </section>
+
+  <section class="panel" id="randoms" role="tabpanel" hidden>
+    <h2>5 new Randoms</h2>
+    <p class="sub">Live and interactive, built to run on phones. Touch and drag inside each one.</p>
+    <div class="bar"><div class="chips" id="r-chips"></div></div>
+    <div class="rstage" id="rstage"><div class="rhint" id="r-hint"></div><div class="rhud" id="r-hud"></div></div>
+    <div class="rinfo" id="r-info"></div>
+    <div class="notes"><label for="n-randoms">Notes on Randoms</label><textarea id="n-randoms" data-note="randoms" placeholder="Anything to change?"></textarea></div>
+  </section>
+
+  <section class="panel" id="review" role="tabpanel" hidden>
+    <h2>My review of the app</h2>
+    <p class="sub">What's good, what needs work, and the three things I'd add to make it way better.</p>
+    <div class="two">
+      <div class="box l"><h3 id="h-looked"></h3><ul id="looked"></ul></div>
+      <div class="box g"><h3 id="h-good"></h3><ul id="good"></ul></div>
+      <div class="box b"><h3 id="h-bad"></h3><ul id="bad"></ul></div>
+    </div>
+    <h2 style="margin-top:28px;font-family:var(--font-display);font-weight:400;text-transform:uppercase;font-size:24px">3 things I'd add</h2>
+    <div class="grid" id="adds-list" style="margin-top:12px"></div>
+    <div class="notes"><label for="n-review">Notes</label><textarea id="n-review" data-note="review" placeholder="Anything you disagree with?"></textarea></div>
+  </section>
+
+  <section class="panel" id="picks" role="tabpanel" hidden>
+    <h2>Your picks</h2>
+    <p class="sub">Everything you've chosen so far. When it looks right, approve it and tell me in chat; I'll build in this order: your fixes first (Hive, Ribbon Fold, the two removals, Deer and Fishing), then speed, menus, pages, engines and Randoms, pushing after each batch.</p>
+    <div class="sum" id="sum"></div>
+    <div class="notes"><label for="n-general">Anything else</label><textarea id="n-general" data-note="general" placeholder="Anything else for this round?"></textarea></div>
+    <div class="approve"><button class="btn lit" id="approve"></button><p id="approve-note"></p></div>
+  </section>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script src="icons.js"></script>
+<script src="nav.js"></script>
+<script src="data.js"></script>
+<script src="states.js"></script>
+<script src="kit.js"></script>
+<script src="menus-main-1.js"></script>
+<script src="menus-main-2.js"></script>
+<script src="menus-quick-1.js"></script>
+<script src="menus-quick-2.js"></script>
+<script src="randoms.js"></script>
+<script src="lab.js"></script>

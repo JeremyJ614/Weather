@@ -51,3 +51,4 @@ scripts/archive/spc.csv
 !/packaging/android/twa-manifest.json
 *.keystore
 *.jks
+/public/version.json

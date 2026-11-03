@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   GeoJSONSource,
   Map as MaplibreMap,
@@ -30,6 +30,7 @@ import {
   Zap,
 } from "lucide-react";
 import { WeatherMap, type ReadyMap } from "@/features/map/WeatherMap";
+import { RefreshKey } from "@/components/ui/RefreshKey";
 import { pick, type Colors } from "@/lib/colors/pick";
 import { stateOf, type ExtrasStates } from "@/lib/extras/items";
 import {
@@ -40,7 +41,7 @@ import {
   FIELD_BANDS,
   FIRST_TIME_BANDS,
   OUTDOOR_BANDS,
-  OUTDOOR_RANKS,
+  OUTMAP_BANDS,
   PYRO_BINS,
   SURGE_BANDS,
   TOR_BINS,
@@ -50,6 +51,7 @@ import {
   type OutdoorId,
 } from "@/lib/engines/colors";
 import type { SpeciesId } from "@/lib/engines/outdoor";
+import { unpackAreas } from "@/lib/engines/pack";
 import { read as readPlaces } from "@/features/location/store";
 import {
   PlacePanel,
@@ -93,6 +95,8 @@ const VIEWS: Partial<Record<Engine, string[]>> = {
   rainbow: ["Now", "+30 min", "+60 min"],
   analog: ["Today", "Tomorrow"],
   bound: ["Now", "In 3 hours"],
+  deer: ["Day 1", "Day 2", "Day 3"],
+  fish: ["Day 1", "Day 2", "Day 3"],
 };
 type Collision = {
   lat: number;
@@ -139,12 +143,12 @@ type RainbowData = {
   lowSun: boolean[];
   reports: Summary;
 };
+/** Deer and Fishing: the lower 48's outlook for Days 1–3 (SPC-style areas, best spots). */
 type PlaceMap = {
-  /** One dot per land spot: its best hour's score, when, and its rank against today's typical spot. */
-  points: { lat: number; lon: number; v: number; at: number; rank: number }[];
-  /** Today's typical spot's best-hour score. */
-  typical: number;
-  spots: Spot[];
+  cycle: string;
+  at: string;
+  levels: number[];
+  days: { date: string; areas: Areas; spots: Spot[]; typical: number }[];
   reports: Summary;
 };
 type Spot = {
@@ -155,6 +159,8 @@ type Spot = {
   water?: boolean;
   note?: string;
   at?: number;
+  /** Deer and Fishing: whether the spot's best window is its dawn or its dusk. */
+  window?: "dawn" | "dusk";
 };
 type Fire = {
   name: string;
@@ -332,13 +338,13 @@ const ENGINES: {
   {
     id: "deer",
     name: "Deer Activity",
-    sub: "Ohio and nearby, 3 days",
+    sub: "Lower 48, Days 1–3",
     icon: <Trees aria-hidden />,
   },
   {
     id: "fish",
     name: "Fishing Bite",
-    sub: "Ohio and nearby, 3 days",
+    sub: "Lower 48, Days 1–3",
     icon: <Fish aria-hidden />,
   },
   {
@@ -498,15 +504,17 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
     lead: "Points the right way; the effects are modest.",
     body: [
       "Deer move most at dawn and dusk, more after a cold snap, more as pressure rises behind a front, and less in strong wind or heavy rain. Studies that GPS-collared deer find these effects are real but modest; a sharp drop below recent temperatures is the best supported. The moon matters little, so it is left out.",
-      "From Open-Meteo's hourly forecast with the past week to compare, each hour gets a score: light 35%, colder than the past week 25%, pressure change 15%, wind 15%, rain 10%. The rut lifts the whole day (Ohio's runs late October to early December, peaking about November 5–20); outside it the best hour tops out at 80.",
-      "Tap the map (or use your place) for the next three days, legal shooting hours, today's season and where to sit with the wind. Season dates are kept in admin; always check the state's regulations. Log deer you see: reports tune the weights.",
+      "Each window gets a score: light 35%, colder than the two days before 25%, pressure change 15%, wind 15%, rain 10%. The rut lifts the whole day (the dates set in admin, Ohio's by default: late October to early December, peaking about November 5–20); outside it the best hour tops out at 80.",
+      "The map is an outlook for the lower 48, Days 1 to 3, drawn like SPC's: every half degree is scored at its own dawn and dusk from the GFS model's 3-hourly forecast (recomputed with each new run), and the better window counts. Categories run Fair, Good, Very good, Excellent and Peak.",
+      "Tap the map (or use your place) for that spot's next three days hour by hour from Open-Meteo, legal shooting hours, today's season and where to sit with the wind. Season dates are kept in admin; always check the state's regulations. Log deer you see: reports tune the weights.",
     ],
   },
   fish: {
     lead: "A conditions guide built on anglers' wisdom; reports make it better.",
     body: [
       "The science is thin: solunar theory has little evidence and the pressure effect is mostly anglers' rule of thumb. This scores what anglers swear by, hour by hour: low light at dawn and dusk (20%), the moon's major periods (overhead and underfoot) and minor ones (rise and set) (20%), pressure (25%: slowly falling ahead of a front is best, a fast rise behind one is worst), a light chop (10%) and clouds (10%) for the species that like them, and water in the species' comfortable range (15%).",
-      "Water temperature comes from the nearest USGS gauge that measures it, or is estimated from the past week's air. Pick a species; tap the map or use your place for three days, the best times and when the next front passes.",
+      "The map is an outlook for the lower 48, Days 1 to 3, drawn like SPC's: every half degree is scored at its own dawn and dusk from the GFS model's 3-hourly forecast (recomputed with each new run), with water estimated from five days of air temperature. Categories run Fair, Good, Very good, Excellent and Peak.",
+      "Pick a species; tap the map or use your place for three days hour by hour, with water from the nearest USGS gauge that measures it (or estimated from the past week's air), the best times and when the next front passes.",
       "Log your catches: they are compared with the score and tune the weights over time.",
     ],
   },
@@ -566,6 +574,17 @@ async function blindImage(colors: Colors) {
 }
 
 /** What a listed spot's time means, by engine and view. */
+/** One field engine's map, unpacked. */
+async function fetchField(id: FieldId, v?: string): Promise<FieldData> {
+  const r = await fetch(`/api/engines/field?e=${id}${v ? `&v=${v}` : ""}`);
+  if (!r.ok) throw new Error(String(r.status));
+  const d: FieldData = await r.json();
+  return { ...d, areas: unpackAreas(d.areas), alt: unpackAreas(d.alt) };
+}
+
+/** Which build of the analogs a page shows. */
+const analogStamp = (a: AnalogData) => a.made_at ?? a.cycle ?? a.day;
+
 const whenLabel = (e: Engine, view: number) =>
   e === "first"
     ? "First storms around"
@@ -581,6 +600,13 @@ const when = (t: number) =>
     minute: "2-digit",
   });
 
+/** "Mon" for a YYYY-MM-DD date. */
+const weekday = (d: string) =>
+  new Date(`${d}T12:00:00Z`).toLocaleDateString("en-US", {
+    weekday: "short",
+    timeZone: "UTC",
+  });
+
 const time = (iso: string) =>
   new Date(iso).toLocaleTimeString("en-US", {
     hour: "numeric",
@@ -590,13 +616,20 @@ const time = (iso: string) =>
 export function EnginesTab({
   colors,
   items = {},
+  only,
 }: {
   colors: Colors;
   /** The owner's switches (admin → Extras): hidden engines are left out, off ones greyed. */
   items?: ExtrasStates;
+  /** One engine on a page of its own, without the picker. */
+  only?: string;
 }) {
-  const shown = ENGINES.filter((e) => stateOf(items, e.id) !== "hidden");
-  const usable = shown.filter((e) => stateOf(items, e.id) === "on");
+  const shown = only
+    ? ENGINES.filter((e) => e.id === only)
+    : ENGINES.filter((e) => stateOf(items, e.id) !== "hidden");
+  const usable = only
+    ? shown
+    : shown.filter((e) => stateOf(items, e.id) === "on");
   const [engine, setEngine] = useState<Engine>(usable[0]?.id ?? "tor");
   const [data, setData] = useState<Data | null>(null);
   const [failed, setFailed] = useState(false);
@@ -644,12 +677,29 @@ export function EnginesTab({
     engineRef.current = engine;
   });
 
+  // Refresh keys (Fix list 2026-10-30 #1): each engine looks for newer data in the background
+  // and lights its key's marker; what is on screen only changes when the key is pressed.
+  const [fresh, setFresh] = useState<Partial<Record<Engine, boolean>>>({});
+  const [pulling, setPulling] = useState(false);
+  const waiting = useRef<
+    Partial<Record<Engine, Record<string, () => unknown>>>
+  >({});
+  /** Newer data for `e` (from source `slot`) is in hand or one fetch away: hold it. */
+  const hold = useCallback((e: Engine, slot: string, apply: () => unknown) => {
+    waiting.current[e] = { ...waiting.current[e], [slot]: apply };
+    setFresh((f) => (f[e] ? f : { ...f, [e]: true }));
+  }, []);
+  /** What each engine is showing (its scan time or model run), to compare news against. */
+  const stamps = useRef<Partial<Record<string, string>>>({});
+
   const torColor = (i: number) =>
     pick(colors, `engine:tor:${i}`, TOR_BINS[i].color);
   const blindColor = (i: number) =>
     pick(colors, `engine:blind:${i}`, BLIND_BANDS[i].color);
   const fieldColor = (id: FieldId | OutdoorId, i: number) =>
     pick(colors, `engine:${id}:${i}`, bandsOf(id).colors[i]);
+  const outColor = (i: number) =>
+    pick(colors, `engine:outmap:${i}`, OUTMAP_BANDS.colors[i]);
   const bandColor = (id: FieldId | OutdoorId, v: number) =>
     fieldColor(
       id,
@@ -665,55 +715,88 @@ export function EnginesTab({
   const pyroColor = (i: number) =>
     pick(colors, `engine:pyrocb:${i}`, PYRO_BINS[i].color);
 
-  // A model engine's map is read once per visit (the server keeps it 30 minutes).
+  // A model engine's map is read once per visit (the server keeps it 30 minutes); `v` (a
+  // refresh) reads the stored map past the server's own copy.
+  const loadField = useCallback(
+    (id: FieldId, v?: string) =>
+      fetchField(id, v).then((d) => setFields((f) => ({ ...f, [id]: d }))),
+    [],
+  );
   const want = isField(engine) && !fields[engine] ? engine : null;
   useEffect(() => {
     if (!want) return;
     let live = true;
-    fetch(`/api/engines/field?e=${want}`)
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((d: FieldData) => live && setFields((f) => ({ ...f, [want]: d })))
+    fetchField(want)
+      .then((d) => live && setFields((f) => ({ ...f, [want]: d })))
       .catch(() => live && setFields((f) => ({ ...f, [want]: "error" })));
     return () => {
       live = false;
     };
   }, [want]);
 
+  // A newer model run stored for the open field engine lights its key (checked every 5 min).
+  const fieldOpen = isField(engine) ? engine : null;
+  useEffect(() => {
+    if (!fieldOpen) return;
+    const check = () =>
+      document.visibilityState === "visible" &&
+      fetch(`/api/engines/stamp?e=${fieldOpen}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d: { cycle: string | null } | null) => {
+          const shown = stamps.current[fieldOpen];
+          if (d?.cycle && shown && d.cycle !== shown)
+            hold(fieldOpen, "field", () => loadField(fieldOpen, d.cycle!));
+        })
+        .catch(() => undefined);
+    const t = setInterval(check, 300_000);
+    return () => clearInterval(t);
+  }, [fieldOpen, hold, loadField]);
+
   // Lightning surges every two minutes while that engine is open and the page is visible.
   useEffect(() => {
     if (engine !== "surge") return;
     let live = true;
-    const load = () =>
+    const load = (first: boolean) =>
       document.visibilityState === "visible" &&
       fetch("/api/engines/surge")
         .then((r) => (r.ok ? r.json() : Promise.reject()))
-        .then((d: SurgeData) => live && setSurge(d))
+        .then((d: SurgeData) => {
+          if (!live) return;
+          if (first || !stamps.current.surge) setSurge(d);
+          else if (d.at !== stamps.current.surge)
+            hold("surge", "live", () => setSurge(d));
+        })
         .catch(() => live && setSurge((x) => x ?? "error"));
-    load();
-    const t = setInterval(load, 120_000);
+    load(true);
+    const t = setInterval(() => load(false), 120_000);
     return () => {
       live = false;
       clearInterval(t);
     };
-  }, [engine]);
+  }, [engine, hold]);
 
   // The rotating storms' rain-wrap, every two minutes while that engine is open.
   useEffect(() => {
     if (engine !== "rwrap") return;
     let live = true;
-    const load = () =>
+    const load = (first: boolean) =>
       document.visibilityState === "visible" &&
       fetch("/api/engines/rainwrap")
         .then((r) => (r.ok ? r.json() : Promise.reject()))
-        .then((d) => live && setWraps(d))
+        .then((d: { at: string; storms: WrapStorm[] }) => {
+          if (!live) return;
+          if (first || !stamps.current.wraps) setWraps(d);
+          else if (d.at !== stamps.current.wraps)
+            hold("rwrap", "live", () => setWraps(d));
+        })
         .catch(() => live && setWraps((x) => x ?? "error"));
-    load();
-    const t = setInterval(load, 120_000);
+    load(true);
+    const t = setInterval(() => load(false), 120_000);
     return () => {
       live = false;
       clearInterval(t);
     };
-  }, [engine]);
+  }, [engine, hold]);
 
   // Severe Analogs: today's or tomorrow's matches once per visit, and a picked day's reports.
   const wantAnalog = engine === "analog" && !analogs[view] ? view : null;
@@ -755,24 +838,44 @@ export function EnginesTab({
   useEffect(() => {
     if (engine !== "rainbow") return;
     let live = true;
-    const load = () =>
+    const load = (first: boolean) =>
       document.visibilityState === "visible" &&
       fetch("/api/engines/rainbow")
         .then((r) => (r.ok ? r.json() : Promise.reject()))
-        .then((d: RainbowData) => live && setRainbow(d))
+        .then((d: RainbowData) => {
+          if (!live) return;
+          if (first || !stamps.current.rainbow) setRainbow(d);
+          else if (d.at !== stamps.current.rainbow)
+            hold("rainbow", "live", () => setRainbow(d));
+        })
         .catch(() => live && setRainbow((x) => x ?? "error"));
-    load();
-    const t = setInterval(load, 300_000);
+    load(true);
+    const t = setInterval(() => load(false), 300_000);
     return () => {
       live = false;
       clearInterval(t);
     };
-  }, [engine]);
+  }, [engine, hold]);
 
   // Deer and fishing maps once per visit (per species), and the chosen place's three days.
   const mapKey =
     engine === "deer" ? "deer" : engine === "fish" ? `fish:${species}` : null;
   const needMap = mapKey && !placeMaps[mapKey] ? mapKey : null;
+  /** Shows a Deer/Fishing outlook; a newer one also renews the picked place's days. */
+  const showPlaceMap = (key: string, d: PlaceMap) => {
+    setPlaceMaps((m) => ({
+      ...m,
+      [key]: {
+        ...d,
+        days: d.days.map((x) => ({ ...x, areas: unpackAreas(x.areas) })),
+      },
+    }));
+    setDetail((m) =>
+      Object.fromEntries(
+        Object.entries(m).filter(([k]) => !k.startsWith(`${key}@`)),
+      ),
+    );
+  };
   useEffect(() => {
     if (!needMap) return;
     let live = true;
@@ -780,7 +883,15 @@ export function EnginesTab({
     fetch(`/api/engines/place?e=${e}${sp ? `&sp=${sp}` : ""}`)
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then(
-        (d: PlaceMap) => live && setPlaceMaps((m) => ({ ...m, [needMap]: d })),
+        (d: PlaceMap) =>
+          live &&
+          setPlaceMaps((m) => ({
+            ...m,
+            [needMap]: {
+              ...d,
+              days: d.days.map((x) => ({ ...x, areas: unpackAreas(x.areas) })),
+            },
+          })),
       )
       .catch(() => live && setPlaceMaps((m) => ({ ...m, [needMap]: "error" })));
     return () => {
@@ -814,23 +925,134 @@ export function EnginesTab({
   useEffect(() => {
     if (engine !== "tor") return;
     let live = true;
-    const load = () =>
+    const load = (first: boolean) =>
       document.visibilityState === "visible" &&
       fetch("/api/engines/probsevere")
         .then((r) => (r.ok ? r.json() : Promise.reject()))
         .then((d: Data) => {
           if (!live) return;
-          setData(d);
           setFailed(false);
+          if (first || !stamps.current.tor) setData(d);
+          else if (d.at !== stamps.current.tor)
+            hold("tor", "live", () => setData(d));
         })
-        .catch(() => live && setFailed(true));
-    load();
-    const t = setInterval(load, 120_000);
+        .catch(() => live && first && setFailed(true));
+    load(true);
+    const t = setInterval(() => load(false), 120_000);
     return () => {
       live = false;
       clearInterval(t);
     };
-  }, [engine]);
+  }, [engine, hold]);
+
+  // Analogs and the Deer/Fishing outlooks are looked at again every 30 minutes while open.
+  const slowKey = engine === "analog" ? `analog:${view}` : mapKey;
+  useEffect(() => {
+    if (!slowKey) return;
+    const [kind, part] = slowKey.split(":");
+    const url =
+      kind === "analog"
+        ? `/api/engines/analogs?d=${Number(part) + 1}`
+        : `/api/engines/place?e=${kind}${part ? `&sp=${part}` : ""}`;
+    const check = () =>
+      document.visibilityState === "visible" &&
+      fetch(url)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d: (AnalogData & PlaceMap) | null) => {
+          const shown = stamps.current[slowKey];
+          const now = d && (kind === "analog" ? analogStamp(d) : d.at);
+          if (!d || !shown || !now || now === shown) return;
+          hold(engine, "slow", () =>
+            kind === "analog"
+              ? setAnalogs((m) => ({ ...m, [Number(part)]: d }))
+              : showPlaceMap(slowKey, d),
+          );
+        })
+        .catch(() => undefined);
+    const t = setInterval(check, 1_800_000);
+    return () => clearInterval(t);
+  }, [slowKey, engine, hold]);
+
+  // What is on screen, for the checks above.
+  useEffect(() => {
+    const at = <T extends { at: string }>(x: T | "error" | null) =>
+      x && x !== "error" ? x.at : undefined;
+    const st: Partial<Record<string, string>> = {
+      tor: data?.at,
+      surge: at(surge),
+      wraps: at(wraps),
+      rainbow: at(rainbow),
+    };
+    for (const [k, v] of Object.entries(fields))
+      if (v && v !== "error") st[k] = v.cycle;
+    for (const [k, v] of Object.entries(placeMaps))
+      if (v && v !== "error") st[k] = v.at;
+    for (const [k, v] of Object.entries(analogs))
+      if (v && v !== "error") st[`analog:${k}`] = analogStamp(v);
+    stamps.current = st;
+  });
+
+  /** A refresh with nothing held: fetch the engine's newest data now, past the edge copies. */
+  const pull = async (e: Engine) => {
+    const r = `r=${Date.now()}`;
+    const get = async <T,>(u: string): Promise<T> => {
+      const x = await fetch(u);
+      if (!x.ok) throw new Error(String(x.status));
+      return x.json();
+    };
+    const jobs: Promise<unknown>[] = [];
+    if (e === "tor")
+      jobs.push(
+        get<Data>(`/api/engines/probsevere?${r}`).then((d) => {
+          setData(d);
+          setFailed(false);
+        }),
+      );
+    if (e === "surge")
+      jobs.push(get<SurgeData>(`/api/engines/surge?${r}`).then(setSurge));
+    if (e === "rwrap")
+      jobs.push(
+        get<{ at: string; storms: WrapStorm[] }>(
+          `/api/engines/rainwrap?${r}`,
+        ).then(setWraps),
+      );
+    if (e === "rainbow")
+      jobs.push(get<RainbowData>(`/api/engines/rainbow?${r}`).then(setRainbow));
+    if (isField(e)) jobs.push(loadField(e, String(Date.now())));
+    if (e === "analog")
+      jobs.push(
+        get<AnalogData>(`/api/engines/analogs?d=${view + 1}&${r}`).then((d) =>
+          setAnalogs((m) => ({ ...m, [view]: d })),
+        ),
+      );
+    if (mapKey && (e === "deer" || e === "fish")) {
+      const [k, sp] = mapKey.split(":");
+      jobs.push(
+        get<PlaceMap>(
+          `/api/engines/place?e=${k}${sp ? `&sp=${sp}` : ""}&${r}`,
+        ).then((d) => showPlaceMap(mapKey, d)),
+      );
+    }
+    await Promise.all(jobs);
+  };
+  const refresh = async () => {
+    const e = engine;
+    const held = waiting.current[e];
+    delete waiting.current[e];
+    setFresh((f) => ({ ...f, [e]: false }));
+    setPulling(true);
+    const start = Date.now();
+    try {
+      if (held) await Promise.all(Object.values(held).map((f) => f()));
+      else await pull(e);
+    } catch {
+      // What is shown stays; the key can be pressed again.
+    }
+    // Long enough to see the key work.
+    const rest = 650 - (Date.now() - start);
+    if (rest > 0) await new Promise((ok) => setTimeout(ok, rest));
+    setPulling(false);
+  };
 
   const onReady = ({ map: any }: ReadyMap) => {
     const m = any as unknown as MaplibreMap;
@@ -954,29 +1176,6 @@ export function EnginesTab({
         "circle-stroke-width": 1.5,
       },
     });
-    // Deer and Fishing: a dot per spot, colored by its best hour (a smooth field over a small
-    // region read as one flat block).
-    m.addSource("outdoor", { type: "geojson", data: EMPTY });
-    m.addLayer({
-      id: "outdoor",
-      type: "circle",
-      source: "outdoor",
-      paint: {
-        "circle-color": ["get", "c"],
-        "circle-radius": [
-          "interpolate",
-          ["exponential", 2],
-          ["zoom"],
-          5,
-          4,
-          8,
-          28,
-        ],
-        "circle-opacity": 0.9,
-        "circle-stroke-color": "#000000",
-        "circle-stroke-width": 1,
-      },
-    });
     m.addSource("pastday", { type: "geojson", data: EMPTY });
     m.addLayer({
       id: "pastday",
@@ -1078,9 +1277,8 @@ export function EnginesTab({
       m.setLayoutProperty(id, "visibility", on ? "visible" : "none");
     vis("torA-fill", e === "tor");
     vis("torA-line", e === "tor");
-    vis("fieldA-fill", isField(e) || e === "rainbow" || e === "analog");
-    vis("fieldA-line", isField(e) || e === "rainbow" || e === "analog");
-    vis("outdoor", e === "deer" || e === "fish");
+    vis("fieldA-fill", isField(e) || isPlace(e) || e === "analog");
+    vis("fieldA-line", isField(e) || isPlace(e) || e === "analog");
     vis("pastday", e === "analog");
     vis("collide", e === "bound");
     vis("tor-fill", e === "tor");
@@ -1093,6 +1291,23 @@ export function EnginesTab({
     vis("roads-hi", e === "blizz");
   };
 
+  // Deer and Fishing cover the lower 48: fit all of it on any screen.
+  useEffect(() => {
+    if (map && (engine === "deer" || engine === "fish"))
+      map.fitBounds(
+        [
+          [-125, 24.5],
+          [-66.5, 49.5],
+        ],
+        {
+          padding: 8,
+          duration: matchMedia("(prefers-reduced-motion: reduce)").matches
+            ? 0
+            : 800,
+        },
+      );
+  }, [map, engine]);
+
   useEffect(() => {
     if (!map) return;
     const f = isField(engine) ? fields[engine] : undefined;
@@ -1104,19 +1319,19 @@ export function EnginesTab({
       mapKey && placeMaps[mapKey] && placeMaps[mapKey] !== "error"
         ? (placeMaps[mapKey] as PlaceMap)
         : null;
-    if (engine === "deer" || engine === "fish")
-      (map.getSource("outdoor") as GeoJSONSource | undefined)?.setData(
-        pm
-          ? {
-              type: "FeatureCollection",
-              features: pm.points.map((p) => ({
-                type: "Feature",
-                properties: { c: fieldColor(engine, p.rank) },
-                geometry: { type: "Point", coordinates: [p.lon, p.lat] },
-              })),
-            }
-          : EMPTY,
+    if (engine === "deer" || engine === "fish") {
+      (map.getSource("fieldA") as GeoJSONSource | undefined)?.setData(
+        pm?.days[view]?.areas ?? EMPTY,
       );
+      const expr = [
+        "match",
+        ["get", "band"],
+        ...OUTMAP_BANDS.colors.map((_, i) => [i, outColor(i)]).flat(),
+        outColor(0),
+      ] as never;
+      map.setPaintProperty("fieldA-fill", "fill-color", expr);
+      map.setPaintProperty("fieldA-line", "line-color", expr);
+    }
     const an = engine === "analog" ? analogs[view] : undefined;
     if (engine === "analog") {
       const a = an && an !== "error" && an.areas ? an.areas : EMPTY;
@@ -1257,7 +1472,7 @@ export function EnginesTab({
             : engine === "blind"
               ? BLIND_BANDS.map((b, i) => [b.label, blindColor(i)])
               : engine === "deer" || engine === "fish"
-                ? OUTDOOR_RANKS.map((l, i) => [l, fieldColor(engine, i)])
+                ? OUTMAP_BANDS.labels.map((l, i) => [l, outColor(i)])
                 : bandsOf(engine).labels.map((l, i) => [
                     l,
                     fieldColor(engine, i),
@@ -1285,7 +1500,12 @@ export function EnginesTab({
 
   return (
     <div className="grid gap-3">
-      <div className={s.sections} role="tablist" aria-label="Weather engines">
+      <div
+        className={s.sections}
+        role="tablist"
+        aria-label="Weather engines"
+        hidden={!!only}
+      >
         {SECTIONS.map((sec) => {
           const list = sec.ids
             .map((id) => shown.find((e) => e.id === id))
@@ -1310,7 +1530,9 @@ export function EnginesTab({
                         setBeam(null);
                       }}
                     >
-                      {e.icon}
+                      <span className={s.power} aria-hidden>
+                        {e.icon}
+                      </span>
                       <b>{e.name}</b>
                       <small>{off ? "Off for now" : e.sub}</small>
                     </button>
@@ -1332,6 +1554,15 @@ export function EnginesTab({
         <span className={s.badge}>
           <FlaskConical aria-hidden /> Experimental
         </span>
+        {engine !== "blind" && (
+          <RefreshKey
+            className={s.refresh}
+            onPress={refresh}
+            busy={pulling}
+            fresh={!!fresh[engine]}
+            label={`Refresh ${shown.find((x) => x.id === engine)?.name ?? "this engine"}`}
+          />
+        )}
       </div>
       <div className={s.legend}>
         {legend.map(([label, color]) => (
@@ -1351,6 +1582,7 @@ export function EnginesTab({
               onClick={() => setView(v)}
             >
               {label}
+              {placeNow?.days[v] && ` · ${weekday(placeNow.days[v].date)}`}
             </button>
           ))}
         </div>
@@ -1943,38 +2175,30 @@ export function EnginesTab({
           <section className={s.card}>
             <header>
               <h3>
-                {engine === "deer" ? "Where deer move most" : "Best bite"} in
-                the next day
+                {engine === "deer" ? "Where deer move most" : "Best bite"},{" "}
+                {VIEWS[engine]![view]}
               </h3>
+              {placeNow && <small>GFS {placeNow.cycle.slice(8)}Z run</small>}
             </header>
             <p className={s.small}>
-              Each dot on the map is a spot about 35 miles from the next, across
-              Ohio and its neighbors, ranked by its best hour in the next 24
-              {engine === "fish"
-                ? " for the fish you picked"
-                : " for deer to move"}
-              : red-hot dots beat the typical spot today by 8 points or more,
-              dim ones fall 4 or more behind (the key under the map). Tap any
-              dot, or a place here, for its next three days.
+              An outlook for the lower 48 drawn like SPC&apos;s: each place is
+              scored at its own dawn and dusk from the GFS model&apos;s
+              forecast.{" "}
+              {engine === "deer"
+                ? "Deer move most when it turns colder than the days before, as pressure rises behind a front, in light wind and little rain, and the rut lifts the whole map in season."
+                : "Fish bite best as pressure falls slowly ahead of a front, with a light chop, some cloud and water in the comfortable range for the fish you picked, and near the moon's major and minor periods."}{" "}
+              The brighter the area, the better that day. Tap anywhere, or a
+              place here, for its next three days hour by hour.
             </p>
-            {placeNow && (
+            {placeNow?.days[view] && (
               <p className={s.small}>
-                Typical best hour today: <b>{placeNow.typical}</b> of 100 (
-                {
-                  OUTDOOR_BANDS[engine].labels[
-                    Math.max(
-                      0,
-                      OUTDOOR_BANDS[engine].levels.findLastIndex(
-                        (l) => placeNow.typical >= l,
-                      ),
-                    )
-                  ]
-                }
-                ). Dawn and dusk always score well; the weather makes the
-                difference from place to place.
-                {placeNow.points.filter((p) => p.rank === 1).length >=
-                  0.8 * placeNow.points.length &&
-                  " Today most spots are about the same: the weather isn't favoring one area."}
+                Typical spot: <b>{placeNow.days[view].typical}</b> of 100 (
+                {OUTMAP_BANDS.labels[
+                  placeNow.levels.findLastIndex(
+                    (l) => placeNow.days[view].typical >= l,
+                  )
+                ] ?? "Slow"}
+                ).
               </p>
             )}
             {mapKey && !placeMaps[mapKey] && (
@@ -1988,7 +2212,7 @@ export function EnginesTab({
             )}
             {mapKey && placeMaps[mapKey] && placeMaps[mapKey] !== "error" && (
               <ul className={s.storms}>
-                {(placeMaps[mapKey] as PlaceMap).spots.map((x) => (
+                {(placeMaps[mapKey] as PlaceMap).days[view]?.spots.map((x) => (
                   <li key={`${x.lat},${x.lon}`}>
                     <button
                       type="button"
@@ -1999,15 +2223,22 @@ export function EnginesTab({
                     >
                       <span className={s.where}>
                         <b>{x.place}</b>
-                        {x.at && (
-                          <small>
-                            {whenLabel(engine, view)} {when(x.at)}
-                          </small>
-                        )}
+                        {x.window && <small>Best at {x.window}</small>}
                         {x.note && <small>{x.note}</small>}
                       </span>
                       <span className={s.hail}>
-                        <i style={{ background: bandColor(engine, x.value) }} />
+                        <i
+                          style={{
+                            background: outColor(
+                              Math.max(
+                                0,
+                                (
+                                  placeMaps[mapKey] as PlaceMap
+                                ).levels.findLastIndex((l) => x.value >= l),
+                              ),
+                            ),
+                          }}
+                        />
                         <b>{x.value}</b>
                       </span>
                     </button>

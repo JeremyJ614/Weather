@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/site";
 import { Droplets } from "lucide-react";
 import { ModuleOff } from "@/components/ops/ModuleOff";
 import { PageHero } from "@/components/ui/PageHero";
@@ -7,9 +8,11 @@ import { getSiteDefaults } from "@/lib/settings";
 import { elevated, forecastFloods } from "@/lib/rivers/data";
 import { RiversView } from "./RiversView";
 
-export const metadata: Metadata = {
-  title: "River & Flood Gauges · StormSync Media",
-};
+export const metadata: Metadata = pageMeta(
+  "/river-flood-gauges",
+  "River & Flood Gauges",
+  "The five worst rivers in the country right now, the ones forecast to flood, and the gauges nearest you.",
+);
 export const revalidate = 600;
 
 export default async function RiverFloodGauges() {

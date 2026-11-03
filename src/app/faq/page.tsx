@@ -1,10 +1,18 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/site";
 import { CircleHelp } from "lucide-react";
 import { PageHero } from "@/components/ui/PageHero";
 import { getFaq } from "@/lib/help/faq";
 import { FaqView } from "./FaqView";
+import { InstallGuide } from "@/features/help/InstallGuide";
+import { JsonLd } from "@/components/seo/JsonLd";
+import { faqPage } from "@/lib/seo/schema";
 
-export const metadata: Metadata = { title: "FAQ · StormSync Weather" };
+export const metadata: Metadata = pageMeta(
+  "/faq",
+  "FAQ",
+  "Plans, alerts, your account, the data and how the app works.",
+);
 
 /** Frequently asked questions, written and arranged by the owner in admin → FAQ. */
 export default async function Faq({
@@ -21,7 +29,12 @@ export default async function Faq({
         title="FAQ"
         subtitle="Plans, alerts, your account, the data and how the app works."
       />
-      <FaqView faq={faq} initial={tab} />
+      <FaqView faq={faq} initial={tab} guide={<InstallGuide key="install" />} />
+      <JsonLd
+        data={faqPage(
+          faq.tabs.flatMap((t) => t.sections.flatMap((x) => x.items)),
+        )}
+      />
     </main>
   );
 }

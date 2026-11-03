@@ -97,7 +97,9 @@
   gap: 4px;
   width: var(--w);
   height: calc(var(--w) * 1.1547);
-  padding: 0 14%;
+  /* In px of the cell, not %: a percentage resolves against the whole row, which squeezed
+     the label to a sliver and pushed words off center on iPhones. */
+  padding: 0 calc(var(--w) * 0.12);
   color: var(--text);
   font-size: 11.5px;
   font-weight: 700;
@@ -163,6 +165,8 @@
 }
 .hex span {
   position: relative;
+  max-width: 100%;
+  text-wrap: balance;
 }
 .pages {
   position: absolute;

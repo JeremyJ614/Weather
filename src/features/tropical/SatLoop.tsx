@@ -18,7 +18,13 @@ const hhmm = (iso: string, long = false) =>
 /**
  * A GeoColor satellite loop that plays smoothly: every frame is downloaded and decoded
  * before playback starts, frames advance on animation frames rather than timers, and each
- * one dissolves into the next (opacity only). The newest frame holds a beat at the end.
+ * one dissolves into the next. The newest frame holds a beat at the end.
+ *
+ * Frames are kept as bitmaps sized to the screen and drawn onto one canvas (review round,
+ * speed pick "loops"), so a step is a copy on the graphics chip rather than an image
+ * swapped and decoded again, and a long loop holds screen-sized frames, not full-size ones
+ * (iPhones reloaded the page when they ran out of memory). Browsers without
+ * `createImageBitmap` draw the decoded images themselves.
  */
 export function SatLoop({
   src,
@@ -35,9 +41,44 @@ export function SatLoop({
   const [idx, setIdx] = useState(-1);
   const [playing, setPlaying] = useState(true);
   const [speed, setSpeed] = useState(1);
-  const base = useRef<HTMLImageElement>(null);
-  const top = useRef<HTMLImageElement>(null);
-  const keep = useRef<HTMLImageElement[]>([]);
+  const canvas = useRef<HTMLCanvasElement>(null);
+  const keep = useRef<(ImageBitmap | HTMLImageElement)[]>([]);
+
+  /** One frame at full strength, and optionally the next over it at `a`. */
+  const paint = (i: number, next = -1, a = 0) => {
+    const cv = canvas.current;
+    const ctx = cv?.getContext("2d");
+    if (!cv || !ctx) return;
+    const cover = (img: ImageBitmap | HTMLImageElement | undefined) => {
+      if (!img) return;
+      const w = img instanceof HTMLImageElement ? img.naturalWidth : img.width;
+      const h =
+        img instanceof HTMLImageElement ? img.naturalHeight : img.height;
+      if (!w || !h) return;
+      // object-fit: cover, centred.
+      const k = Math.max(cv.width / w, cv.height / h);
+      const sw = cv.width / k;
+      const sh = cv.height / k;
+      ctx.drawImage(
+        img,
+        (w - sw) / 2,
+        (h - sh) / 2,
+        sw,
+        sh,
+        0,
+        0,
+        cv.width,
+        cv.height,
+      );
+    };
+    ctx.globalAlpha = 1;
+    cover(keep.current[i]);
+    if (next >= 0 && a > 0) {
+      ctx.globalAlpha = a;
+      cover(keep.current[next]);
+      ctx.globalAlpha = 1;
+    }
+  };
 
   useEffect(() => {
     let live = true;
@@ -53,23 +94,60 @@ export function SatLoop({
       .then(async (d: Data) => {
         if (!live) return;
         setData(d);
-        setIdx(d.frames.length - 1);
-        // Decode four at a time, oldest first: the order they play in.
+        const last = d.frames.length - 1;
+        setIdx(last);
+        // The canvas at the screen's resolution (2x at most): frames are kept at this size.
+        const cv = canvas.current;
+        const dpr = Math.min(2, devicePixelRatio || 1);
+        if (cv) {
+          cv.width = Math.round(cv.clientWidth * dpr) || 600;
+          cv.height = Math.round(cv.clientHeight * dpr) || 360;
+        }
+        // The newest first (it shows while the rest load), then oldest first: the order they play in.
         const queue = d.frames.map((f, i) => ({ f, i }));
+        queue.unshift(queue.pop()!);
         const worker = async () => {
           for (let job = queue.shift(); job && live; job = queue.shift()) {
             const img = new Image();
             img.src = job.f.url;
             await img.decode().catch(() => {});
-            keep.current[job.i] = img;
-            if (live) setReady((n) => n + 1);
+            let frame: ImageBitmap | HTMLImageElement = img;
+            if (
+              typeof createImageBitmap === "function" &&
+              img.naturalWidth &&
+              cv
+            ) {
+              const k = Math.min(
+                1,
+                Math.max(
+                  cv.width / img.naturalWidth,
+                  cv.height / img.naturalHeight,
+                ),
+              );
+              frame = await createImageBitmap(img, {
+                resizeWidth: Math.max(1, Math.round(img.naturalWidth * k)),
+                resizeHeight: Math.max(1, Math.round(img.naturalHeight * k)),
+                resizeQuality: "high",
+              }).catch(() => img);
+            }
+            if (!live) {
+              if (!(frame instanceof HTMLImageElement)) frame.close();
+              return;
+            }
+            keep.current[job.i] = frame;
+            if (job.i === last) paint(last);
+            setReady((n) => n + 1);
           }
         };
         await Promise.all([worker(), worker(), worker(), worker()]);
       })
       .catch(() => live && setData("error"));
+    const frames = keep.current;
     return () => {
       live = false;
+      // Frames arrive out of order, so a loop closed early leaves gaps.
+      for (const f of frames.splice(0))
+        if (f && !(f instanceof HTMLImageElement)) f.close();
     };
   }, [src, url]);
 
@@ -78,30 +156,24 @@ export function SatLoop({
   const loaded = n > 0 && ready >= n;
 
   useEffect(() => {
-    if (!loaded || !playing || !base.current || !top.current) return;
+    if (!loaded || !playing) return;
     const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
     const per = 260 / speed;
     let i = idx < 0 || idx >= n - 1 ? 0 : idx;
     let t0 = performance.now();
     let raf = 0;
-    const b = base.current;
-    const t = top.current;
-    b.src = frames[i].url;
-    t.src = frames[(i + 1) % n].url;
-    t.style.opacity = "0";
+    paint(i);
     const tick = (now: number) => {
       const dur = i === n - 1 ? per + 1100 : per;
       const e = now - t0;
-      if (!calm && i !== n - 1)
-        t.style.opacity = String(
-          Math.max(0, Math.min(1, (e - dur * 0.35) / (dur * 0.65))),
-        );
+      if (!calm && i !== n - 1) {
+        const a = Math.max(0, Math.min(1, (e - dur * 0.35) / (dur * 0.65)));
+        if (a > 0) paint(i, i + 1, a);
+      }
       if (e >= dur) {
         i = (i + 1) % n;
         t0 = now;
-        b.src = frames[i].url;
-        t.style.opacity = "0";
-        t.src = frames[(i + 1) % n].url;
+        paint(i);
         setIdx(i);
       }
       raf = requestAnimationFrame(tick);
@@ -116,8 +188,7 @@ export function SatLoop({
     setPlaying(false);
     const k = (i + n) % n;
     setIdx(k);
-    if (base.current) base.current.src = frames[k].url;
-    if (top.current) top.current.style.opacity = "0";
+    paint(k);
   };
 
   if (data === "error")
@@ -135,25 +206,12 @@ export function SatLoop({
         className="relative overflow-hidden rounded-2xl border border-line bg-black"
         style={{ aspectRatio: ratio }}
       >
-        {cur && (
-          <>
-            {/* eslint-disable-next-line @next/next/no-img-element -- live NOAA frames, decoded ahead */}
-            <img
-              ref={base}
-              src={cur.url}
-              alt={`${label} at ${hhmm(cur.at, !!url)}`}
-              className="absolute inset-0 h-full w-full object-cover"
-            />
-            {/* eslint-disable-next-line @next/next/no-img-element -- the next frame, fading in */}
-            <img
-              ref={top}
-              src={cur.url}
-              alt=""
-              aria-hidden
-              className="absolute inset-0 h-full w-full object-cover opacity-0"
-            />
-          </>
-        )}
+        <canvas
+          ref={canvas}
+          role="img"
+          aria-label={cur ? `${label} at ${hhmm(cur.at, !!url)}` : label}
+          className="absolute inset-0 h-full w-full"
+        />
         {!loaded && (
           <div className="absolute inset-x-0 bottom-0 h-1 bg-black/40">
             <i

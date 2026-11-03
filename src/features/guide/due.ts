@@ -15,7 +15,7 @@ export function showcaseDue(now = Date.now()) {
 
 /** Bumped with each batch of "What's new": members who toured see the new items once. */
 export const NEWS_KEY = "sswx-news";
-export const NEWS_EDITION = "2026-10-25";
+export const NEWS_EDITION = "2026-10-27";
 
 /** A member who toured before an edition gets its short "What's new" (once per device). */
 export function newsDue() {

@@ -1,21 +1,32 @@
 import type { Metadata } from "next";
 import { requireAdmin } from "@/lib/auth/admin-guard";
-import { ALL_PAGES } from "@/lib/nav/registry";
+import { EVERY_PAGE } from "@/lib/nav/extras";
+import {
+  Area,
+  Bars,
+  Banner,
+  Card,
+  Note,
+  Page,
+  Tile,
+  Tiles,
+  TONE,
+} from "@/components/admin/Dash";
 
 export const metadata: Metadata = {
   title: "Page usage · Admin · StormSync Media",
 };
 
 const DAYS = 30;
-const label = new Map(ALL_PAGES.map((p) => [p.slug, p.label]));
+const label = new Map(EVERY_PAGE.map((p) => [p.slug, p.label]));
 const dayKey = (d: Date) =>
   d.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
-const today = () => new Date();
+const now = () => new Date();
 
 /** Which pages members open (VIP #45): by day, viewers per page, pages per member. */
 export default async function Usage() {
   const { supabase } = await requireAdmin("usage");
-  const start = new Date(today().getTime() - (DAYS - 1) * 86400000);
+  const start = new Date(now().getTime() - (DAYS - 1) * 86400000);
   const [{ data }, { data: people }] = await Promise.all([
     supabase
       .from("page_views")
@@ -54,87 +65,126 @@ export default async function Usage() {
     m.pages.add(r.slug);
     byMember.set(r.user_id, m);
   }
-  const peak = Math.max(1, ...[...byDay.values()].map((d) => d.people.size));
+  const series = days.map((d) => byDay.get(d)!.people.size);
+  const views = days.map((d) => byDay.get(d)!.views);
+  const half = Math.floor(DAYS / 2);
+  const sum = (a: number[]) => a.reduce((x, y) => x + y, 0);
+  const before = sum(series.slice(0, half));
+  const after = sum(series.slice(half));
+  const trend = before ? Math.round(((after - before) / before) * 100) : null;
+  const unique = byMember.size;
+  const totalViews = sum(views);
+  const today = series.at(-1) ?? 0;
   const pages = [...byPage].sort(
     (a, b) => b[1].people.size - a[1].people.size || b[1].views - a[1].views,
   );
   const members = [...byMember]
     .sort((a, b) => b[1].pages.size - a[1].pages.size)
-    .slice(0, 40);
+    .slice(0, 25);
   const pageName = (s: string) => label.get(s) ?? (s ? `/${s}` : "Homepage");
 
   return (
-    <main className="mx-auto grid max-w-2xl gap-4 px-4 pt-6 pb-24">
-      <div>
-        <h1 className="display text-3xl text-accent">Page usage</h1>
-        <p className="mt-1 text-sm text-muted">
-          Signed-in members over the last {DAYS} days (one count per page,
-          member and day; not while viewing as a member). Kept 180 days.
-        </p>
-      </div>
-      <section className="grid gap-2 rounded-2xl border border-line bg-surface p-4">
-        <h2 className="font-bold">Members each day</h2>
-        <div
-          className="flex h-28 items-end gap-[2px]"
-          role="img"
-          aria-label="Members per day"
-        >
-          {days.map((d) => {
-            const v = byDay.get(d)!;
-            return (
-              <span
-                key={d}
-                title={`${d}: ${v.people.size} members, ${v.views} views`}
-                className="flex-1 rounded-t bg-[var(--lit-line)]"
-                style={{
-                  height: `${Math.max(2, (v.people.size / peak) * 100)}%`,
-                }}
-              />
-            );
-          })}
-        </div>
-        <p className="flex justify-between text-[11px] text-muted">
-          <span>{days[0]}</span>
-          <span>peak {peak}</span>
-          <span>{days.at(-1)}</span>
-        </p>
-      </section>
-      <section className="grid gap-1 rounded-2xl border border-line bg-surface p-4">
-        <h2 className="mb-1 font-bold">Viewers per page</h2>
-        {!pages.length && (
-          <p className="text-sm text-muted">No visits counted yet.</p>
+    <Page
+      title="Page usage"
+      lead={`Signed-in members over the last ${DAYS} days: one count per page, member and day (not while viewing as a member). Kept 180 days.`}
+    >
+      <Banner
+        color={trend == null ? TONE.info : trend >= 0 ? TONE.good : TONE.warn}
+        title={
+          trend == null
+            ? `${unique} members opened pages this month`
+            : `Daily members ${trend >= 0 ? "up" : "down"} ${Math.abs(trend)}% on the first half of the month`
+        }
+        detail={`${totalViews.toLocaleString("en-US")} page views · ${pages.length} pages visited`}
+      />
+      <Tiles>
+        <Tile
+          hero
+          label="Active members"
+          value={unique}
+          sub={`in ${DAYS} days`}
+          color={TONE.good}
+        />
+        <Tile
+          label="Today"
+          value={today}
+          sub="members so far"
+          color={TONE.info}
+        />
+        <Tile
+          label="Daily average"
+          value={(sum(series) / DAYS).toFixed(1)}
+          sub="members a day"
+          color={TONE.violet}
+        />
+        <Tile
+          label="Views per member"
+          value={unique ? (totalViews / unique).toFixed(1) : "0"}
+          sub="over the month"
+          color={TONE.pink}
+        />
+      </Tiles>
+      <Card title="Members each day" meta={`${DAYS} days`}>
+        <Area
+          values={series}
+          from={days[0]}
+          to={days.at(-1) ?? ""}
+          label="Members per day"
+          color={TONE.good}
+        />
+      </Card>
+      <Card title="Most visited pages" meta="by members, then views">
+        {!pages.length ? (
+          <Note>No visits counted yet.</Note>
+        ) : (
+          <Bars
+            rows={pages.slice(0, 20).map(([slug, p]) => ({
+              label: pageName(slug),
+              value: p.people.size,
+              text: `${p.people.size} members · ${p.views} views · ${unique ? Math.round((p.people.size / unique) * 100) : 0}%`,
+              color: TONE.info,
+            }))}
+          />
         )}
-        {pages.map(([slug, p]) => (
-          <p
-            key={slug}
-            className="flex justify-between gap-3 text-sm tabular-nums"
-          >
-            <span className="min-w-0 truncate">{pageName(slug)}</span>
-            <span className="text-muted">
-              {p.people.size} members · {p.views} views
-            </span>
-          </p>
-        ))}
-      </section>
-      <section className="grid gap-1 rounded-2xl border border-line bg-surface p-4">
-        <h2 className="mb-1 font-bold">Pages per member</h2>
-        {!members.length && (
-          <p className="text-sm text-muted">No visits counted yet.</p>
+      </Card>
+      {pages.length > 20 && (
+        <Card title="Least visited" meta="pages members rarely open">
+          <Bars
+            rows={pages
+              .slice(-8)
+              .reverse()
+              .map(([slug, p]) => ({
+                label: pageName(slug),
+                value: p.people.size,
+                text: `${p.people.size} members · ${p.views} views`,
+                color: TONE.warn,
+              }))}
+          />
+        </Card>
+      )}
+      <Card title="Most active members" meta="pages each opened">
+        {!members.length ? (
+          <Note>No visits counted yet.</Note>
+        ) : (
+          <Bars
+            rows={members.map(([id, m]) => ({
+              label: (
+                <details>
+                  <summary className="cursor-pointer">
+                    {name.get(id) ?? "Removed member"}
+                  </summary>
+                  <small className="text-muted">
+                    {[...m.pages].map(pageName).join(", ")}
+                  </small>
+                </details>
+              ),
+              value: m.pages.size,
+              text: `${m.pages.size} pages · ${m.views} views`,
+              color: TONE.violet,
+            }))}
+          />
         )}
-        {members.map(([id, m]) => (
-          <details key={id}>
-            <summary className="flex cursor-pointer justify-between gap-3 text-sm tabular-nums">
-              <span>{name.get(id) ?? "Removed member"}</span>
-              <span className="text-muted">
-                {m.pages.size} pages · {m.views} views
-              </span>
-            </summary>
-            <p className="pb-2 text-xs text-muted">
-              {[...m.pages].map(pageName).join(", ")}
-            </p>
-          </details>
-        ))}
-      </section>
-    </main>
+      </Card>
+    </Page>
   );
 }

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/site";
 import { Newspaper } from "lucide-react";
 import { ModuleOff } from "@/components/ops/ModuleOff";
 import { PageHero } from "@/components/ui/PageHero";
@@ -7,7 +8,11 @@ import { getSiteDefaults } from "@/lib/settings";
 import { supabaseServer } from "@/lib/supabase/server";
 import { BriefClient } from "./BriefClient";
 
-export const metadata: Metadata = { title: "Daily Brief · StormSync Media" };
+export const metadata: Metadata = pageMeta(
+  "/daily-brief",
+  "Daily Brief",
+  "Everything that matters about today, on one page, and in your inbox every morning.",
+);
 
 export default async function DailyBrief() {
   const [viewer, { disabled }] = await Promise.all([

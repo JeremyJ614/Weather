@@ -5,8 +5,8 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 export type View = { x: number; y: number; w: number };
 type Pt = { x: number; y: number };
 
-function clamp(v: View, w: number, h: number): View {
-  const vw = Math.min(w, Math.max(w / 10, v.w));
+function clamp(v: View, w: number, h: number, max = 10): View {
+  const vw = Math.min(w, Math.max(w / max, v.w));
   const vh = (vw * h) / w;
   return {
     w: vw,
@@ -22,20 +22,23 @@ function zoomView(
   at: Pt | undefined,
   w: number,
   h: number,
+  max = 10,
 ) {
   const c = at ?? { x: v.x + v.w / 2, y: v.y + (v.w * h) / w / 2 };
-  const nw = Math.min(w, Math.max(w / 10, v.w * f));
+  const nw = Math.min(w, Math.max(w / max, v.w * f));
   const k = nw / v.w;
   return clamp(
     { w: nw, x: c.x - (c.x - v.x) * k, y: c.y - (c.y - v.y) * k },
     w,
     h,
+    max,
   );
 }
 
 /**
  * Pan and pinch-zoom for a fixed-aspect SVG canvas (w×h). Off until `live`;
  * a press that barely moves still counts as a tap (`onTap` in canvas units).
+ * `max` is the deepest zoom (10× by default); `jump` sets a view (glide.ts animates it).
  */
 export function useZoom(
   svg: RefObject<SVGSVGElement | null>,
@@ -44,6 +47,7 @@ export function useZoom(
   live: boolean,
   onTap?: (x: number, y: number) => void,
   init?: View,
+  max = 10,
 ) {
   const [view, setView] = useState<View>(init ?? { x: 0, y: 0, w });
   const ptrs = useRef(new Map<number, Pt>());
@@ -59,7 +63,7 @@ export function useZoom(
   };
 
   const zoomAt = (f: number, at?: Pt) =>
-    setView((v) => zoomView(v, f, at, w, h));
+    setView((v) => zoomView(v, f, at, w, h, max));
 
   useEffect(() => {
     const el = svg.current;
@@ -71,11 +75,11 @@ export function useZoom(
         ? new DOMPoint(e.clientX, e.clientY).matrixTransform(m.inverse())
         : undefined;
       const f = Math.exp(e.deltaY * 0.0015);
-      setView((v) => zoomView(v, f, at, w, h));
+      setView((v) => zoomView(v, f, at, w, h, max));
     };
     el.addEventListener("wheel", wheel, { passive: false });
     return () => el.removeEventListener("wheel", wheel);
-  }, [svg, live, w, h]);
+  }, [svg, live, w, h, max]);
 
   const handlers = {
     onPointerDown: (e: React.PointerEvent<SVGSVGElement>) => {
@@ -97,7 +101,7 @@ export function useZoom(
         travel.current += Math.abs(dx) + Math.abs(dy);
         setView((v) => {
           const k = v.w / rect.width;
-          return clamp({ ...v, x: v.x - dx * k, y: v.y - dy * k }, w, h);
+          return clamp({ ...v, x: v.x - dx * k, y: v.y - dy * k }, w, h, max);
         });
       } else if (pts.length === 2) {
         travel.current = 99;
@@ -132,6 +136,7 @@ export function useZoom(
     zoomIn: () => zoomAt(0.6),
     zoomOut: () => zoomAt(1 / 0.6),
     reset: () => setView({ x: 0, y: 0, w }),
+    jump: (v: View) => setView(clamp(v, w, h, max)),
     zoomed: view.w < w - 0.5,
   };
 }
