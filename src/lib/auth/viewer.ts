@@ -4,7 +4,8 @@ import { cookies } from "next/headers";
 import { supabaseServer } from "@/lib/supabase/server";
 import { LENS_COOKIE } from "./lens-cookie";
 
-export type Role = "member" | "admin" | "founder";
+/** recruit: SSWX Recruit, kept on the account (app_metadata.sswx_recruit), set in admin → Members. */
+export type Role = "member" | "admin" | "founder" | "recruit";
 export type Viewer = {
   id: string | null;
   signedIn: boolean;
@@ -48,6 +49,8 @@ export const getRealViewer = cache(async (): Promise<Viewer> => {
     supabase.from("user_roles").select("role").eq("user_id", user.id),
   ]);
   const r = (roles ?? []).map((x) => x.role as Role);
+  if ((c.app_metadata as { sswx_recruit?: boolean } | undefined)?.sswx_recruit)
+    r.push("recruit");
   const name = displayName(profile);
   return {
     id: user.id,

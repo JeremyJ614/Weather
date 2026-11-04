@@ -1,5 +1,6 @@
 "use server";
 
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { revalidatePath, updateTag } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -289,4 +290,23 @@ export async function stopLens(form?: FormData) {
     redirect(toMembers ? "/admin/members" : `/admin/members/${id}`);
   }
   redirect(toMembers ? "/admin/members" : "/admin");
+}
+
+/** SSWX Recruit: kept on the account itself, so every page and menu sees it at once. */
+export async function setRecruit(fd: FormData) {
+  const { supabase } = await requireAdmin("members");
+  const id = String(fd.get("userId") ?? "");
+  const on = fd.get("on") === "1";
+  if (!/^[0-9a-f-]{36}$/.test(id)) return;
+  const admin = supabaseAdmin();
+  const { data } = await admin.auth.admin.getUserById(id);
+  if (!data.user) return;
+  await admin.auth.admin.updateUserById(id, {
+    app_metadata: { ...data.user.app_metadata, sswx_recruit: on },
+  });
+  await supabase.rpc("log_admin", {
+    p_action: on ? "grant_recruit" : "remove_recruit",
+    p_target: String(fd.get("name") ?? ""),
+  });
+  revalidatePath(`/admin/members/${id}`);
 }

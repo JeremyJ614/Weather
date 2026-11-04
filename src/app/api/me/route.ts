@@ -12,7 +12,12 @@ const SELLABLE_SET = new Set(SELLABLE_SLUGS);
 export async function GET() {
   const v = await getViewer();
   let locked: string[] = [];
-  if (v.signedIn && !v.isAdmin) {
+  if (
+    v.signedIn &&
+    !v.isAdmin &&
+    !v.roles.includes("member") &&
+    !v.roles.includes("recruit")
+  ) {
     const { data } = await (
       await supabaseServer()
     ).rpc("page_gate", {

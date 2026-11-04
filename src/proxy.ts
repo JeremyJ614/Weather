@@ -59,7 +59,23 @@ export async function proxy(request: NextRequest) {
       to.search = `?page=${slug}`;
       return NextResponse.redirect(to);
     }
+    // SSWX Members and Recruits see every page (owner, 2026-11-04).
+    const sswx =
+      (claims?.claims?.app_metadata as { sswx_recruit?: boolean } | undefined)
+        ?.sswx_recruit ||
+      (gate?.locks &&
+        Boolean(
+          (
+            await supabase
+              .from("user_roles")
+              .select("role")
+              .eq("user_id", user.id)
+              .eq("role", "member")
+              .maybeSingle()
+          ).data,
+        ));
     if (
+      !sswx &&
       gate?.locks &&
       !planOpens(
         cleanBilling(gate.billing, SELLABLE_SET),

@@ -22,6 +22,8 @@ describe("search and sharing", () => {
       (f) =>
         f.endsWith("page.tsx") &&
         !f.includes("/admin/") &&
+        // The SSWX section is private (Members and Recruits only, noindex).
+        !f.includes("/sswx/") &&
         !f.includes("/api/"),
     );
     for (const f of pages) {
