@@ -29,15 +29,22 @@ export default async function Applications() {
         subtitle="Apply for a spot on the team, and follow every application you've sent."
       />
       <AppCenterView
-        apps={center.applications.filter((a) => a.open)}
+        apps={center.applications.filter((a) => a.open && !a.template)}
+        all={center.applications}
         statuses={center.statuses}
+        taken={subs.flatMap((x) => (x.slot ? [x.slot] : []))}
         mine={subs
           .filter((x) => x.user === v.id)
-          .map(({ id, appTitle, at, status }) => ({
-            id,
-            appTitle,
-            at,
-            status,
+          .map((x) => ({
+            id: x.id,
+            app: x.app,
+            appTitle: x.appTitle,
+            at: x.at,
+            status: x.status,
+            answers: x.answers,
+            fieldNotes: x.fieldNotes,
+            messages: x.messages,
+            slot: x.slot,
           }))}
         ctx={{
           team: center.team,

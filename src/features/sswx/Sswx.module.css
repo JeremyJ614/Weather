@@ -482,6 +482,10 @@
   align-items: center;
   gap: 10px;
 }
+.ico img {
+  width: 22px;
+  height: 22px;
+}
 .ico {
   display: grid;
   place-items: center;
@@ -534,87 +538,346 @@
   border-bottom: 1px solid var(--lit-line);
 }
 
-/* submit: morphing button with a 3D flip */
-.submit {
-  perspective: 900px;
+/* submit: submit-button.zip morph, then css3-3d-flip-button.zip flip */
+.flipWrap {
   justify-self: center;
-  width: min(300px, 100%);
+  width: 240px;
   height: 60px;
+  perspective: 1000px;
 }
-.submit button {
+.flipper {
   position: relative;
   width: 100%;
   height: 100%;
   transform-style: preserve-3d;
-  transition: transform 0.6s var(--ease);
+  transition: transform 0.6s cubic-bezier(0.37, 0.74, 0.15, 1.65);
 }
-.submit button:hover:not(:disabled),
-.submit button:focus-visible {
-  transform: rotateX(-90deg);
+.flipper[data-flip] {
+  transform: rotateX(90deg);
 }
-.face {
+.front,
+.back {
   position: absolute;
   inset: 0;
+  backface-visibility: hidden;
+}
+.front {
+  transform: rotateX(0deg) translateZ(30px);
+}
+.back {
   display: grid;
   place-items: center;
-  border: 1px solid var(--lit-line);
+  padding-right: 60px;
   border-radius: 30px;
-  background: var(--bg);
-  color: var(--accent);
+  background: #1ecd97;
+  color: #0b4f3a;
   font-weight: 900;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
-  backface-visibility: hidden;
-  transform: translateZ(30px);
+  transform: rotateX(-90deg) translateZ(30px);
 }
-.face + .face {
-  transform: rotateX(90deg) translateZ(30px);
-  color: var(--text);
-  box-shadow: 0 0 24px var(--lit-line);
-}
-.submit[data-s="sending"] button {
-  transform: none;
-}
-.submit[data-s="sending"] .face:first-child {
+.back i {
+  position: absolute;
+  top: 0;
+  right: 0;
   width: 60px;
-  margin: 0 auto;
-  border-color: transparent;
-  border-top-color: var(--accent);
-  color: transparent;
-  animation: spin 0.8s linear infinite;
-}
-.submit[data-s="done"] .face:first-child {
-  width: 60px;
-  margin: 0 auto;
-  color: var(--accent);
-  box-shadow: 0 0 24px var(--lit-line);
-  letter-spacing: 0;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  border-radius: 0 30px 30px 0;
+  font-style: normal;
   font-size: 26px;
+  color: #fff;
+  background: linear-gradient(
+    45deg,
+    #149a70 0%,
+    #1ecd97 50%,
+    #22d8a1 50%,
+    #1ecd97
+  );
 }
-.submit[data-s] .face + .face {
+.front svg {
+  position: absolute;
+  left: -20px;
+  top: -100px;
+  width: 240px;
+  height: 220px;
+  pointer-events: none;
+  overflow: visible;
+}
+.front rect {
+  fill: color-mix(in srgb, var(--surface) 80%, #fff);
+  transition: fill 0.5s cubic-bezier(0.445, 0.05, 0.55, 0.95);
+}
+.front path {
+  fill: none;
+  stroke: #1ecd97;
+  stroke-width: 4px;
+  stroke-linecap: round;
+  stroke-dashoffset: 0;
+  stroke-dasharray: 295px 1000px;
+  transition:
+    stroke-dashoffset 0.5s cubic-bezier(0.25, -0.25, 0.75, 1.25),
+    stroke-dasharray 0.5s cubic-bezier(0.25, -0.25, 0.75, 1.25),
+    stroke 0.5s;
+}
+.txt {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 200px;
+  height: 60px;
+  line-height: 60px;
+  color: var(--text);
+  font-size: 18px;
+  letter-spacing: 0.08em;
+  transition: opacity 0.5s;
+}
+.front:hover .txt {
+  opacity: 0.85;
+}
+.front[data-s] .txt {
   opacity: 0;
 }
+.front[data-s="start"] path {
+  stroke-dasharray: 10px 1000px;
+}
+.front[data-s="progress"] path {
+  stroke-dasharray: 10px 1000px;
+  transition: none;
+  animation: loader 1s linear infinite;
+}
+@keyframes loader {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: -150px;
+  }
+}
+.front[data-s="end"] path,
+.front[data-s="flip"] path {
+  stroke: #f5f6f7;
+}
+.front[data-s="end"] .top,
+.front[data-s="flip"] .top {
+  stroke-dasharray: 30px 1000px;
+  stroke-dashoffset: -518px;
+}
+.front[data-s="end"] .bot,
+.front[data-s="flip"] .bot {
+  stroke-dasharray: 10px 1000px;
+  stroke-dashoffset: -490px;
+}
+.front[data-s="end"] rect,
+.front[data-s="flip"] rect {
+  fill: #1ecd97;
+}
 
-/* status badge */
-.badge {
-  display: inline-flex;
+/* new question types */
+.rank {
+  display: grid;
+  gap: 6px;
+  list-style: none;
+  padding: 0;
+}
+.rank li {
+  display: grid;
+  grid-template-columns: 30px 1fr 36px 36px;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg);
+  animation: rise 0.35s var(--ease) both;
+}
+.rank b {
+  color: var(--accent);
+  font-family: var(--font-mono);
+  text-align: center;
+}
+.rank button {
+  min-height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+}
+.rank button:disabled {
+  opacity: 0.25;
+}
+.matrix {
+  display: grid;
+  gap: 8px;
+}
+.matrix div {
+  display: grid;
+  grid-template-columns: 1fr repeat(5, 28px);
   align-items: center;
   gap: 6px;
-  padding: 3px 10px;
-  border: 1px solid var(--b);
-  border-radius: 999px;
-  color: var(--b);
-  font-size: 12px;
-  font-weight: 800;
-  box-shadow: 0 0 12px color-mix(in srgb, var(--b) 35%, transparent);
 }
-.badge::before {
-  content: "";
-  width: 6px;
-  height: 6px;
+.matrix button {
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
-  background: var(--b);
-  animation: pulse 1.2s ease-in-out infinite alternate;
+  border: 2px solid var(--line);
+  transition: transform 0.2s var(--ease);
+}
+.matrix button[data-on] {
+  border-color: var(--accent);
+  background: var(--lit);
+  box-shadow: 0 0 10px var(--lit-line);
+  transform: scale(1.1);
+}
+.emoji {
+  display: flex;
+  gap: 8px;
+}
+.emoji button {
+  font-size: 32px;
+  filter: grayscale(1);
+  opacity: 0.6;
+  transition:
+    transform 0.3s var(--ease),
+    filter 0.3s;
+}
+.emoji button[aria-checked="true"] {
+  filter: none;
+  opacity: 1;
+  transform: scale(1.35) translateY(-4px);
+}
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.swatches button {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 2px solid transparent;
+  transition: transform 0.2s var(--ease);
+}
+.swatches button[aria-checked="true"] {
+  border-color: var(--text);
+  transform: scale(1.18) rotate(-6deg);
+  box-shadow: 0 0 14px var(--lit-line);
+}
+.swatches input {
+  width: 40px;
+  height: 36px;
+  background: none;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+}
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.tags > .pulse {
+  flex: 1 1 200px;
+}
+
+/* steps */
+.steps {
+  display: flex;
+  gap: 6px;
+}
+.steps i {
+  flex: 1;
+  height: 4px;
+  border-radius: 4px;
+  background: var(--line);
+  transition: background 0.3s;
+}
+.steps i[data-on] {
+  background: var(--a);
+  box-shadow: 0 0 10px var(--a);
+}
+.nav {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+.thread {
+  display: grid;
+  gap: 6px;
+}
+.thread p {
+  padding: 8px 12px;
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  background: var(--bg);
+  font-size: 14px;
+}
+.fnote {
+  color: #f59e0b;
+  font-size: 13px;
+}
+.slots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* status badge: a metal shield plate with a sheen sweeping across */
+.badge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 14px 5px 10px;
+  clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--b) 85%, #fff) 0%,
+    var(--b) 45%,
+    color-mix(in srgb, var(--b) 55%, #000) 100%
+  );
+  color: #fff;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+  white-space: nowrap;
+  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--b) 60%, transparent));
+}
+.badge > i {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.28);
+  font-style: normal;
+  font-size: 11px;
+}
+.badge::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  background: linear-gradient(
+    100deg,
+    transparent,
+    rgba(255, 255, 255, 0.55),
+    transparent
+  );
+  animation: sheen 3s ease-in-out infinite;
+}
+@keyframes sheen {
+  from {
+    transform: translateX(-120%);
+  }
+  60%,
+  to {
+    transform: translateX(320%);
+  }
 }
 
 /* application center */
@@ -720,172 +983,134 @@
   font-weight: 700;
 }
 
-/* ── roster ── */
-.roster {
+/* ── roster: vertical, compact (tree / pulse / circuit) ── */
+.rost {
   display: grid;
-  gap: 28px;
+  gap: 22px;
 }
-.dept {
-  --c: var(--d);
+.rost ul,
+.rost ol {
   display: grid;
-  gap: 12px;
+  gap: 8px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
 }
-.deptHead {
+.branch {
+  display: grid;
+  gap: 8px;
+}
+.trunk {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   font-family: var(--font-display);
-  font-size: 22px;
-  letter-spacing: 0.08em;
+  font-size: 17px;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--d);
-  text-shadow: 0 0 18px color-mix(in srgb, var(--d) 60%, transparent);
+  text-shadow: 0 0 16px color-mix(in srgb, var(--d) 70%, transparent);
 }
-.deptHead::after {
-  content: "";
-  flex: 1;
-  height: 1px;
-  background: linear-gradient(90deg, var(--d), transparent);
+.trunk i {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--d);
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--d) 18%, transparent),
+    0 0 18px var(--d);
 }
-.deptHead small {
+.trunk small {
+  margin-left: auto;
   font-family: var(--font-mono);
   font-size: 12px;
   color: var(--muted);
 }
-.track {
-  display: flex;
-  gap: 14px;
-  overflow-x: auto;
-  padding: 10px 4px 16px;
-  scroll-snap-type: x mandatory;
-  scrollbar-width: thin;
-}
-.card {
-  --c: var(--d);
-  flex: 0 0 min(300px, 82vw);
-  scroll-snap-align: start;
+.leaf {
+  position: relative;
   display: grid;
-  gap: 10px;
-  padding: 20px;
-  transform: perspective(800px) rotateX(var(--ry, 0deg))
-    rotateY(var(--rx, 0deg));
-  transition: transform 0.25s var(--ease);
-  animation: rise 0.6s var(--ease) both;
+  gap: 4px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  animation: rise 0.5s var(--ease) both;
+  overflow: hidden;
 }
-.card::before {
-  animation-duration: 5s;
-}
-.name {
+.leafName {
   font-family: var(--font-display);
-  font-size: 24px;
-  line-height: 1.1;
+  font-size: 18px;
+  line-height: 1.15;
   color: var(--n);
 }
-.posList {
+.leafPos {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 5px;
 }
-.posList span {
-  padding: 3px 10px;
+.leafPos span {
+  padding: 1px 8px;
   border: 1px solid color-mix(in srgb, var(--p) 70%, transparent);
   border-radius: 999px;
   color: var(--p);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
 }
-.where {
+.leafMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
   color: var(--muted);
-  font-size: 14px;
+  font-size: 13px;
 }
-.served {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
+.tenure {
+  display: inline-flex;
   gap: 6px;
-}
-.served div {
-  display: grid;
-  justify-items: center;
-  padding: 8px 0;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--bg);
-}
-.served b {
   font-family: var(--font-mono);
-  font-size: 20px;
+  font-size: 12px;
+}
+.tenure b {
   color: var(--d);
+  font-size: 14px;
+  margin-right: 1px;
 }
-.served span {
-  color: var(--muted);
-  font-size: 10px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-/* orbit style: each department a glowing ring, members as satellites */
-.orbitWrap {
-  display: grid;
-  gap: 20px;
-}
-.orbit {
-  --c: var(--d);
+/* tree: branches drawn from a glowing trunk */
+.tree .branch ul {
+  padding-left: 22px;
   position: relative;
-  display: grid;
-  gap: 12px;
-  padding: 22px;
 }
-.orbitRing {
-  position: absolute;
-  right: -60px;
-  top: -60px;
-  width: 220px;
-  height: 220px;
-  border: 1px dashed var(--d);
-  border-radius: 50%;
-  opacity: 0.35;
-  animation: spin 30s linear infinite;
-  pointer-events: none;
-}
-.orbitRing::after {
+.tree .branch ul::before {
   content: "";
   position: absolute;
-  top: 50%;
-  left: -5px;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
+  left: 6px;
+  top: -6px;
+  bottom: 24px;
+  width: 2px;
+  background: linear-gradient(
+    var(--d),
+    color-mix(in srgb, var(--d) 20%, transparent)
+  );
+}
+.tree .leaf {
+  overflow: visible;
+}
+.tree .leaf::before {
+  content: "";
+  position: absolute;
+  left: -16px;
+  top: 22px;
+  width: 15px;
+  height: 2px;
   background: var(--d);
-  box-shadow: 0 0 14px var(--d);
+  box-shadow: 0 0 10px var(--d);
 }
-.orbitGrid {
-  display: grid;
-  gap: 10px;
-}
-@media (min-width: 700px) {
-  .orbitGrid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-.sat {
-  display: grid;
-  gap: 6px;
-  padding: 14px;
-  border: 1px solid var(--line);
-  border-left: 3px solid var(--d);
-  border-radius: 14px;
-  background: var(--bg);
-  animation: rise 0.6s var(--ease) both;
-}
-
-/* ribbon style: a neon timeline running down the page */
-.ribbon {
+/* pulse: one timeline, oldest first, every node breathing */
+.pulseLine {
   position: relative;
-  display: grid;
-  gap: 18px;
-  padding-left: 26px;
+  padding-left: 26px !important;
 }
-.ribbon::before {
+.pulseLine::before {
   content: "";
   position: absolute;
   left: 8px;
@@ -894,33 +1119,50 @@
   width: 2px;
   background: linear-gradient(var(--accent), transparent);
 }
-.node {
-  position: relative;
-  display: grid;
-  gap: 8px;
-  padding: 16px;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: var(--surface);
-  animation: rise 0.6s var(--ease) both;
+.pulseLine .leaf {
+  overflow: visible;
 }
-.node::before {
+.pulseLine .leaf::before,
+.pulseLine .leaf::after {
   content: "";
   position: absolute;
-  left: -24px;
-  top: 22px;
+  left: -23px;
+  top: 18px;
   width: 12px;
   height: 12px;
   border-radius: 50%;
   background: var(--d);
-  box-shadow:
-    0 0 0 4px var(--bg),
-    0 0 18px var(--d);
 }
-.tick {
-  font-family: var(--font-mono);
-  font-size: 13px;
-  color: var(--d);
+.pulseLine .leaf::after {
+  animation: ping 2.2s ease-out infinite;
+}
+@keyframes ping {
+  to {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+/* circuit: a light runs along each member's trace */
+.circuit .leaf {
+  border-left: 3px solid var(--d);
+}
+.circuit .leaf::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 40%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--d), transparent);
+  animation: scan 3.2s linear infinite;
+}
+@keyframes scan {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(260%);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -928,8 +1170,9 @@
   .stage::after,
   .glow::before,
   .sparkle::before,
-  .orbitRing,
-  .badge::before,
+  .pulseLine .leaf::after,
+  .circuit .leaf::after,
+  .badge::after,
   .pulse:focus-within::after {
     animation: none;
   }
