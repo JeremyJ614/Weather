@@ -1,7 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { Answer, Field, Position, Social } from "@/lib/sswx/types";
+import {
+  iconSrc,
+  type Answer,
+  type Field,
+  type Position,
+  type Social,
+} from "@/lib/sswx/types";
 export { missing } from "@/lib/sswx/types";
 import s from "./Sswx.module.css";
 
@@ -43,7 +49,148 @@ export function FieldInput({ f, v, set, ctx }: Props) {
   );
   switch (f.type) {
     case "section":
+    case "page":
       return null;
+    case "rank": {
+      const opts = f.options ?? [];
+      const order = list(v).length ? (list(v) as string[]) : opts;
+      const mv = (i: number, d: number) => {
+        const c = [...order];
+        [c[i], c[i + d]] = [c[i + d], c[i]];
+        set(c);
+      };
+      return (
+        <ol className={s.rank}>
+          {order.map((o, i) => (
+            <li key={o} style={{ ["--i" as string]: i }}>
+              <b>{i + 1}</b>
+              <span>{o}</span>
+              <button
+                type="button"
+                aria-label={`Move ${o} up`}
+                disabled={!i}
+                onClick={() => mv(i, -1)}
+              >
+                ▲
+              </button>
+              <button
+                type="button"
+                aria-label={`Move ${o} down`}
+                disabled={i === order.length - 1}
+                onClick={() => mv(i, 1)}
+              >
+                ▼
+              </button>
+            </li>
+          ))}
+        </ol>
+      );
+    }
+    case "matrix": {
+      const m = (v ?? {}) as Record<string, string>;
+      return (
+        <div className={s.matrix}>
+          {(f.options ?? []).map((o) => (
+            <div key={o} role="radiogroup" aria-label={o}>
+              <span>{o}</span>
+              {[1, 2, 3, 4, 5].map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  role="radio"
+                  aria-checked={m[o] === String(n)}
+                  aria-label={`${o}: ${n}`}
+                  data-on={Number(m[o] ?? 0) >= n ? "" : undefined}
+                  onClick={() => set({ ...m, [o]: String(n) })}
+                />
+              ))}
+            </div>
+          ))}
+        </div>
+      );
+    }
+    case "emoji":
+      return (
+        <div className={s.emoji} role="radiogroup" aria-label={f.label}>
+          {["😖", "🙁", "😐", "🙂", "🤩"].map((e) => (
+            <button
+              key={e}
+              type="button"
+              role="radio"
+              aria-checked={v === e}
+              onClick={() => set(e)}
+            >
+              {e}
+            </button>
+          ))}
+        </div>
+      );
+    case "color":
+      return (
+        <div className={s.swatches} role="radiogroup" aria-label={f.label}>
+          {(f.options?.length
+            ? f.options
+            : [
+                "#ef4444",
+                "#f59e0b",
+                "#eab308",
+                "#22c55e",
+                "#06b6d4",
+                "#3b82f6",
+                "#8b5cf6",
+                "#ec4899",
+              ]
+          ).map((c) => (
+            <button
+              key={c}
+              type="button"
+              role="radio"
+              aria-checked={v === c}
+              aria-label={c}
+              style={{ background: c }}
+              onClick={() => set(c)}
+            />
+          ))}
+          <input
+            type="color"
+            aria-label="Custom color"
+            value={/^#[0-9a-f]{6}$/i.test(String(v)) ? String(v) : "#888888"}
+            onChange={(e) => set(e.target.value)}
+          />
+        </div>
+      );
+    case "tags": {
+      const t = list(v) as string[];
+      return (
+        <div className={s.tags}>
+          {t.map((x) => (
+            <button
+              key={x}
+              type="button"
+              className={s.chip}
+              aria-pressed
+              onClick={() => set(t.filter((y) => y !== x))}
+            >
+              {x} ✕
+            </button>
+          ))}
+          <span className={s.pulse}>
+            <input
+              id={id}
+              placeholder={f.placeholder || "Type and press Enter"}
+              onKeyDown={(e) => {
+                const x = e.currentTarget.value.trim();
+                if (e.key === "Enter" && x) {
+                  e.preventDefault();
+                  if (!t.includes(x) && t.length < 20) set([...t, x]);
+                  e.currentTarget.value = "";
+                }
+              }}
+            />
+          </span>
+        </div>
+      );
+    }
     case "short":
       return text("text", { maxLength: 200 });
     case "email":
@@ -273,7 +420,15 @@ export function FieldInput({ f, v, set, ctx }: Props) {
               style={{ ["--brand" as string]: x.color }}
             >
               <span className={s.ico} aria-hidden>
-                {x.name.slice(0, 2)}
+                {/* Brand marks from Simple Icons (or the owner's own image link). */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={iconSrc(x)}
+                  alt=""
+                  width={22}
+                  height={22}
+                  loading="lazy"
+                />
               </span>
               <span className={s.pulse}>
                 <input
@@ -410,6 +565,52 @@ function Signature({
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+/**
+ * The submit button: submit-button.zip's morph (the outline shrinks to a loader that circles,
+ * then draws a check as the pill turns green), then css3-3d-flip-button.zip's flip onto a green
+ * "Submitted" face. `state`: "" idle, "start", "progress", "end" (check), "flip".
+ */
+export function SubmitButton({
+  state,
+  label,
+  onClick,
+}: {
+  state: string;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <div className={s.flipWrap}>
+      <div className={s.flipper} data-flip={state === "flip" ? "" : undefined}>
+        <button
+          type="button"
+          className={s.front}
+          data-s={state || undefined}
+          onClick={onClick}
+          disabled={!!state}
+        >
+          <span className={s.txt}>{label}</span>
+          <svg viewBox="0 0 240 220" aria-hidden>
+            <rect x="20" y="100" width="200" height="60" rx="30" />
+            <path
+              className={s.top}
+              d="M60,100 L50,100 C33.4,100 20,113.4 20,130 L20,130 C20,146.6 33.4,160 50,160 L190,160 C206.6,160 220,146.6 220,130 L220,100 C220,-60 180,80 160,100 C140,120 100,160 100,160"
+            />
+            <path
+              className={s.bot}
+              d="M180,160 L190,160 C206.6,160 220,146.6 220,130 L220,130 C220,113.4 206.6,100 190,100 L50,100 C33.4,100 20,113.4 20,130 C20,130 20,120 20,140 C20,220 180,200 120,140 C100,120 80,100 80,100"
+            />
+          </svg>
+        </button>
+        <div className={s.back} aria-live="polite">
+          {state === "flip" ? "Submitted" : ""}
+          <i aria-hidden>✓</i>
+        </div>
+      </div>
     </div>
   );
 }

@@ -20,7 +20,8 @@ export type RosterMember = {
   joined: string;
   positions: string[];
 };
-export type RosterStyle = "holo" | "orbit" | "ribbon";
+export type RosterStyle = "tree" | "pulse" | "circuit";
+export const ROSTER_STYLES: RosterStyle[] = ["tree", "pulse", "circuit"];
 export type Roster = {
   /** In display order; members appear under the department of their first position. */
   departments: Department[];
@@ -51,7 +52,13 @@ export type FieldType =
   | "positions"
   | "signature"
   | "social"
-  | "section";
+  | "section"
+  | "page"
+  | "rank"
+  | "matrix"
+  | "emoji"
+  | "color"
+  | "tags";
 export type Field = {
   id: string;
   type: FieldType;
@@ -68,6 +75,8 @@ export type Field = {
   /** terms: the full text shown when the title is opened. */
   terms?: string;
   placeholder?: string;
+  /** Show only when an earlier answer equals (or includes) this value. */
+  showIf?: { field: string; is: string };
 };
 export type Application = {
   id: string;
@@ -76,14 +85,37 @@ export type Application = {
   accent: string;
   open: boolean;
   fields: Field[];
+  /** A template: never shown to applicants; "New from template" copies it. */
+  template?: boolean;
+  /** Optional interview booking: slots (YYYY-MM-DDTHH:mm) an applicant can pick. */
+  slots?: string[];
+  /** Badge awarded when a status marked "award" is set. */
+  badge?: string;
 };
-export type Status = { id: string; label: string; color: string };
+export type Status = {
+  id: string;
+  label: string;
+  color: string;
+  icon?: string;
+  /** Lets the applicant edit and resubmit. */
+  edit?: boolean;
+  /** Opens interview booking (when the application has slots). */
+  interview?: boolean;
+  /** Awards the application's badge. */
+  award?: boolean;
+};
 export type Social = {
   id: string;
   name: string;
   color: string;
   prefix: string;
+  /** A Simple Icons name (cdn.simpleicons.org) or an image link. */
+  icon?: string;
 };
+export const iconSrc = (x: Social) =>
+  x.icon?.startsWith("http")
+    ? x.icon
+    : `https://cdn.simpleicons.org/${x.icon || x.id}/ffffff`;
 export type AppCenter = {
   applications: Application[];
   statuses: Status[];
@@ -106,7 +138,32 @@ export type Submission = {
   status: string;
   note: string;
   answers: Record<string, Answer>;
+  /** The team's note on single answers (e.g. what to change). */
+  fieldNotes?: Record<string, string>;
+  /** Messages from the team, shown to the applicant. */
+  messages?: { at: string; text: string }[];
+  history?: { at: string; status: string }[];
+  slot?: string;
 };
+export type Stats = Record<
+  string,
+  { views: number; starts: number; done: number }
+>;
+
+/** Does a field show, given the answers so far (conditional questions)? */
+export function shown(f: Field, a: Record<string, Answer>) {
+  if (!f.showIf?.field) return true;
+  const v = a[f.showIf.field];
+  const want = f.showIf.is.trim().toLowerCase();
+  const norm = (x: unknown) => String(x).trim().toLowerCase();
+  return Array.isArray(v)
+    ? v.some((x) => norm(x) === want)
+    : v === true
+      ? want === "yes"
+      : v === false
+        ? want === "no"
+        : norm(v ?? "") === want;
+}
 
 export const uid = () =>
   Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4);
@@ -132,7 +189,7 @@ export const DEFAULT_ROSTER: Roster = {
       positions: ["board"],
     },
   ],
-  style: "holo",
+  style: "tree",
   nameColor: "#ffffff",
 };
 
@@ -210,17 +267,35 @@ const STARTER: Application = {
 export const DEFAULT_CENTER: AppCenter = {
   applications: [STARTER],
   statuses: [
-    { id: "received", label: "Received", color: "#94a3b8" },
-    { id: "processing", label: "Processing", color: "#38bdf8" },
-    { id: "interview", label: "Interview", color: "#a78bfa" },
-    { id: "modify", label: "Requires Modification", color: "#f59e0b" },
-    { id: "waitlist", label: "Waitlisted", color: "#f472b6" },
-    { id: "accepted", label: "Accepted", color: "#22c55e" },
-    { id: "rejected", label: "Rejected", color: "#ef4444" },
+    { id: "received", label: "Received", color: "#94a3b8", icon: "✉" },
+    { id: "processing", label: "Processing", color: "#38bdf8", icon: "⟳" },
+    {
+      id: "interview",
+      label: "Interview",
+      color: "#a78bfa",
+      icon: "☎",
+      interview: true,
+    },
+    {
+      id: "modify",
+      label: "Requires Modification",
+      color: "#f59e0b",
+      icon: "✎",
+      edit: true,
+    },
+    { id: "waitlist", label: "Waitlisted", color: "#f472b6", icon: "⏳" },
+    {
+      id: "accepted",
+      label: "Accepted",
+      color: "#22c55e",
+      icon: "★",
+      award: true,
+    },
+    { id: "rejected", label: "Rejected", color: "#ef4444", icon: "✕" },
   ],
   team: [{ id: "jay", name: "Jay Myers" }],
   socials: [
-    { id: "x", name: "X", color: "#e7e9ea", prefix: "https://x.com/" },
+    { id: "x", name: "X", color: "#000000", prefix: "https://x.com/" },
     {
       id: "facebook",
       name: "Facebook",
@@ -271,6 +346,12 @@ export const FIELD_TYPES: { type: FieldType; label: string }[] = [
   { type: "positions", label: "Position interest" },
   { type: "signature", label: "Signature pad" },
   { type: "social", label: "Social profile collector" },
+  { type: "page", label: "New page (multi-step)" },
+  { type: "rank", label: "Rank in order" },
+  { type: "matrix", label: "Skill matrix (rate each row)" },
+  { type: "emoji", label: "Emoji reaction scale" },
+  { type: "color", label: "Color swatch picker" },
+  { type: "tags", label: "Tag cloud (type & add)" },
 ];
 
 /** Time served since `joined`, in whole years, months, weeks and days (calendar exact). */
@@ -293,123 +374,10 @@ export function served(joined: string, now = new Date()) {
   return { years, months, weeks: Math.floor(days / 7), days: days % 7 };
 }
 
-/** Upgrade ideas for the Application Center (owner picks in admin → SSWX → Ideas). */
-export const IDEAS: { id: string; title: string; text: string }[] = [
-  [
-    "autosave",
-    "Draft autosave",
-    "Answers save on the device as they type, so a closed tab never loses an application.",
-  ],
-  [
-    "steps",
-    "Multi-step pages",
-    "Long applications split into pages with a glowing progress rail and back/next.",
-  ],
-  [
-    "logic",
-    "Conditional questions",
-    "Show a question only when an earlier answer matches (e.g. 'Yes' reveals 'Explain').",
-  ],
-  [
-    "upload",
-    "File & photo uploads",
-    "Résumé, chase photos or a portfolio PDF attached to the application.",
-  ],
-  [
-    "deadline",
-    "Open/close dates",
-    "Applications open and close on their own at set dates, with a countdown.",
-  ],
-  [
-    "limit",
-    "Seat limits",
-    "Close an application after a set number of submissions.",
-  ],
-  [
-    "scoring",
-    "Reviewer scorecards",
-    "Score each answer 1–5 in the inbox; totals rank applicants.",
-  ],
-  [
-    "notes",
-    "Private review notes",
-    "Threaded staff notes on each submission, never shown to the applicant.",
-  ],
-  [
-    "message",
-    "Message the applicant",
-    "Send a note with a status change ('Requires Modification: add your city').",
-  ],
-  [
-    "resubmit",
-    "Edit & resubmit",
-    "An application marked Requires Modification reopens for the applicant to fix.",
-  ],
-  [
-    "timeline",
-    "Status timeline",
-    "Applicants see every status change with its date, like a package tracker.",
-  ],
-  [
-    "push",
-    "Push alerts",
-    "A phone notification when an application's status changes.",
-  ],
-  [
-    "interview",
-    "Interview booking",
-    "Accepted-to-interview applicants pick a time from slots you set.",
-  ],
-  [
-    "templates",
-    "Application templates",
-    "Start a new application from a saved one; duplicate in one tap.",
-  ],
-  [
-    "export",
-    "CSV export",
-    "Download every submission of an application as a spreadsheet.",
-  ],
-  [
-    "quiz",
-    "Knowledge check",
-    "Graded weather questions with an automatic score on submit.",
-  ],
-  [
-    "captcha",
-    "Bot shield",
-    "The site's proof-of-work check on submit, so spam never reaches the inbox.",
-  ],
-  [
-    "analytics",
-    "Funnel stats",
-    "Views, starts, completions and drop-off question per application.",
-  ],
-  [
-    "reminders",
-    "Unfinished reminders",
-    "A gentle reminder when a draft sits unfinished for three days.",
-  ],
-  [
-    "badges",
-    "Acceptance badges",
-    "Accepting an applicant awards a profile badge and adds them to the roster draft.",
-  ],
-  [
-    "eligibility",
-    "Eligibility gate",
-    "Questions up front (age, state) that stop an application early if not met.",
-  ],
-  [
-    "anonymous",
-    "Anonymous feedback forms",
-    "Applications that hide the sender's name from reviewers.",
-  ],
-].map(([id, title, text]) => ({ id, title, text }));
-
 /** Is a required field answered? (null when fine, else the message). */
 export function missing(f: Field, v: Answer | undefined): string | null {
-  if (f.type === "section") return null;
+  // A ranking always has an order, even if left as it came.
+  if (["section", "page", "rank"].includes(f.type)) return null;
   if (f.type === "email" && v && !/^\S+@\S+\.\S+$/.test(String(v)))
     return "Enter a valid email address.";
   if (f.type === "url" && v && !/^https?:\/\/\S+\.\S+/.test(String(v)))
@@ -418,10 +386,10 @@ export function missing(f: Field, v: Answer | undefined): string | null {
     return "Enter a full phone number.";
   if (!f.required) return null;
   if (f.type === "terms" && v !== true) return "Please agree to continue.";
-  if (f.type === "social")
+  if (f.type === "social" || f.type === "matrix")
     return v && Object.values(v as Record<string, string>).some(Boolean)
       ? null
-      : "Add at least one profile.";
+      : "Fill in at least one.";
   if (v === undefined || v === "" || (Array.isArray(v) && !v.length))
     return "This one's required.";
   return null;

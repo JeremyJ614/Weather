@@ -6,6 +6,7 @@ import {
   DEFAULT_ROSTER,
   type AppCenter,
   type Roster,
+  type Stats,
   type Submission,
 } from "./types";
 
@@ -54,6 +55,14 @@ export const getSubmissions = async () =>
   (await read<{ list: Submission[] }>("submissions.json", { list: [] })).list;
 export const saveSubmissions = (list: Submission[]) =>
   write("submissions.json", { list });
+
+export const getStats = () => read<Stats>("stats.json", {});
+export async function bump(app: string, k: "views" | "starts" | "done") {
+  const st = await getStats();
+  const x = (st[app] ??= { views: 0, starts: 0, done: 0 });
+  x[k] += 1;
+  await write("stats.json", st).catch(() => undefined);
+}
 
 /** Members, Recruits and admins see the SSWX section; nobody else learns it exists. */
 export const canSeeSswx = (v: Viewer) =>
