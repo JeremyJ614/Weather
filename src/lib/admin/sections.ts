@@ -90,6 +90,15 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     href: "/admin/contact-forms",
   },
   {
+    id: "sswx",
+    group: "content",
+    desc: "Roster, applications and submissions",
+    label: "SSWX section",
+    icon: "ShieldCheck",
+    phase: "SSWX",
+    href: "/admin/sswx",
+  },
+  {
     id: "disaster",
     group: "content",
     desc: "Disaster Response listings",

@@ -7,6 +7,7 @@ export type ClientViewer = {
   name: string | null;
   isAdmin: boolean;
   adminShortcuts?: boolean;
+  roles?: string[];
   /** Pages this member's plan doesn't open (only while the owner has plan locks on). */
   locked?: string[];
   /** True until the first /api/me answer arrives. */

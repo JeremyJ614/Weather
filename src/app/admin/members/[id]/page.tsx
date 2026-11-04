@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { requireAdmin } from "@/lib/auth/admin-guard";
 import { age } from "@/lib/auth/signup";
-import { setMember, startLens } from "../../actions";
+import { setMember, setRecruit, startLens } from "../../actions";
 import { Tools } from "./Tools";
 import { Access } from "./Access";
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -100,6 +100,10 @@ export default async function Member({
   for (const a of sub?.addons ?? []) inPlan.add(a);
   const r = (roles ?? []).map((x) => x.role);
   const isMember = r.includes("member");
+  const isRecruit = Boolean(
+    (await supabaseAdmin().auth.admin.getUserById(id)).data.user?.app_metadata
+      ?.sswx_recruit,
+  );
   const name = `${p.first_name} ${p.last_name}`;
   const rows: [string, string][] = [
     [
@@ -195,6 +199,18 @@ export default async function Member({
           className="w-full"
         >
           {isMember ? "Remove SSWX Member" : "Make SSWX Member"}
+        </Button>
+      </form>
+      <form action={setRecruit}>
+        <input type="hidden" name="userId" value={id} />
+        <input type="hidden" name="name" value={name} />
+        <input type="hidden" name="on" value={isRecruit ? "0" : "1"} />
+        <Button
+          type="submit"
+          variant={isRecruit ? "ghost" : "primary"}
+          className="w-full"
+        >
+          {isRecruit ? "Remove SSWX Recruit" : "Make SSWX Recruit"}
         </Button>
       </form>
       <Access
