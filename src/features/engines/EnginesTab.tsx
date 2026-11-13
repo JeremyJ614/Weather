@@ -1447,6 +1447,7 @@ export function EnginesTab({
 
   const storms = data?.storms ?? [];
   const how = HOW[engine];
+  const current = ENGINES.find((e) => e.id === engine)!;
   const legend: [string, string][] =
     engine === "tor"
       ? TOR_BINS.map((b, i) => [b.label, torColor(i)])
@@ -1550,6 +1551,12 @@ export function EnginesTab({
           label="Weather engines map"
           className={s.map}
           onReady={onReady}
+          brand={{
+            name: current.name,
+            sub: current.sub,
+            how: [how.lead, how.body[0]],
+            legend,
+          }}
         />
         <span className={s.badge}>
           <FlaskConical aria-hidden /> Experimental

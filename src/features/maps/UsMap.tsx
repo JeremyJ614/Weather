@@ -51,6 +51,8 @@ export async function toPng(
   title: string,
   sub: string,
   legend: Swatch[],
+  /** Just the map, without the title band and legend (for layouts that frame it). */
+  bare = false,
 ) {
   const css = getComputedStyle(document.documentElement);
   // CSS-module classes do not travel with a standalone SVG, so copy each
@@ -97,6 +99,13 @@ export async function toPng(
   img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(xml)}`;
   await img.decode();
   const k = 2;
+  if (bare) {
+    const c = document.createElement("canvas");
+    c.width = W * k;
+    c.height = H * k;
+    c.getContext("2d")!.drawImage(img, 0, 0, W * k, H * k);
+    return new Promise<Blob>((ok) => c.toBlob((b) => ok(b!), "image/png"));
+  }
   const band = 92;
   const foot = legend.length ? 70 : 24;
   const c = document.createElement("canvas");
