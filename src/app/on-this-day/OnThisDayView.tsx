@@ -87,10 +87,13 @@ export function OnThisDayView({
         <h2>{story?.title ?? f.label}</h2>
         <p className={s.lead}>{story?.headline ?? f.facts[0]}</p>
         <ShareStory
-          eyebrow={`${date}, ${f.year}`}
           title={story?.title ?? f.label}
           headline={story?.headline ?? f.facts[0]}
           paragraphs={story?.story ?? f.facts.slice(1)}
+          year={f.year}
+          md={md}
+          places={f.places}
+          stats={f.stats}
           mapTitle={mapTitle}
           legend={legend}
           file={`sswx-on-this-day-${f.year}-${md}`}
