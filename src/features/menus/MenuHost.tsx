@@ -12,7 +12,7 @@ import { useViewer } from "@/features/account/useViewer";
 import { MENU_STYLES, pickMenus } from "./styles";
 
 const KEY = "sswx-menus";
-/** The SSWX section: listed only for SSWX Members, Recruits and admins (owner, 2026-11-04). */
+/** The SSWX section: listed only for SSWX Members and Recruits (owner, 2026-11-13). */
 const SSWX_GROUP: NavGroup = {
   id: "sswx",
   label: "SSWX",
@@ -167,7 +167,7 @@ export function MenuHost({
   if (adminShortcuts) seconds.push(ADMIN_GROUP);
   if (immersive) return null;
   const mains = visibleNav(mainGroups, isAdmin, signedIn, guest);
-  if (isAdmin || roles?.includes("member") || roles?.includes("recruit"))
+  if (roles?.includes("member") || roles?.includes("recruit"))
     mains.push(SSWX_GROUP);
   return (
     <>

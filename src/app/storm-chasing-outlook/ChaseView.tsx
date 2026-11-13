@@ -192,7 +192,6 @@ export function ChaseView({
           }))}
           status={spc.status === "loading" ? "loading" : "ready"}
           file="sswx-chase-targets"
-          actions={false}
           overlay={
             <g>
               {t2 &&

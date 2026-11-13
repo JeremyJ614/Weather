@@ -64,7 +64,9 @@ export async function bump(app: string, k: "views" | "starts" | "done") {
   await write("stats.json", st).catch(() => undefined);
 }
 
-/** Members, Recruits and admins see the SSWX section; nobody else learns it exists. */
+/**
+ * Only SSWX Members and Recruits see the SSWX section (owner, 2026-11-13): admins who aren't
+ * members manage it from admin → SSWX but don't get the section; nobody else learns it exists.
+ */
 export const canSeeSswx = (v: Viewer) =>
-  v.signedIn &&
-  (v.isAdmin || v.roles.includes("member") || v.roles.includes("recruit"));
+  v.signedIn && (v.roles.includes("member") || v.roles.includes("recruit"));

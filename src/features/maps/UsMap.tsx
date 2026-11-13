@@ -46,7 +46,7 @@ const PROPS = [
   "image-rendering",
 ];
 
-async function toPng(
+export async function toPng(
   svg: SVGSVGElement,
   title: string,
   sub: string,
