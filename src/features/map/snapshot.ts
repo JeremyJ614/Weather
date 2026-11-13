@@ -5,7 +5,8 @@ import type { AnyMap } from "./WeatherMap";
  * be downloaded or shared). The canvas is read inside a render pass, so no
  * preserveDrawingBuffer is needed.
  */
-function grab(map: AnyMap) {
+/** The live map canvas, read inside a render pass. */
+export function grab(map: AnyMap) {
   return new Promise<HTMLCanvasElement>((ok) => {
     (map as { once: (e: string, f: () => void) => void }).once("render", () => {
       const src = map.getCanvas();
@@ -81,8 +82,10 @@ const wrap = (g: CanvasRenderingContext2D, text: string, w: number) => {
  * Center over the engine's name, the map in a lit frame with its legend, then how the engine
  * works under an Experimental tag. Theme tokens only, so every theme gets its own look.
  */
-export async function enginePng(map: AnyMap, b: Brand): Promise<Blob> {
-  const shot = await grab(map);
+export async function enginePng(
+  shot: HTMLCanvasElement,
+  b: Brand,
+): Promise<Blob> {
   const css = getComputedStyle(document.documentElement);
   const v = (n: string, d: string) => css.getPropertyValue(n).trim() || d;
   const sans = getComputedStyle(document.body).fontFamily;

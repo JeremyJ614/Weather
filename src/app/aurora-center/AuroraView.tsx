@@ -112,7 +112,7 @@ export function AuroraView({ colors }: { colors: Colors }) {
             id: "au-map",
             label: "Interactive",
             icon: <MapIcon aria-hidden />,
-            panel: <OvalMap o={d.ovation} a={a} />,
+            panel: <OvalMap o={d.ovation} a={a} kp={d.kp} kc={kc} />,
           },
           {
             id: "au-img",
@@ -295,9 +295,13 @@ const runs = (pts: [number, number][]) =>
 export function OvalMap({
   o,
   a,
+  kp,
+  kc,
 }: {
   o: Ovation | null;
   a: (k: string) => string;
+  kp?: Now["kp"];
+  kc?: (k: string) => string;
 }) {
   const { active } = usePlaces();
   const map = useRef<MaplibreMap | null>(null);
@@ -405,6 +409,31 @@ export function OvalMap({
         label="Aurora oval map"
         className="h-[55dvh] min-h-80"
         onReady={onReady}
+        file="sswx-aurora-forecast"
+        card={async (shot) => {
+          const k = kp?.now?.kp ?? null;
+          const band = k != null ? kpBand(k) : null;
+          const peak = (kp?.bars ?? [])
+            .filter(
+              (b) =>
+                b.kind === "predicted" &&
+                Date.parse(b.at) < now() + 15 * 3600_000,
+            )
+            .reduce((m, b) => Math.max(m, b.kp), 0);
+          const { auroraCard } = await import("./share");
+          return auroraCard({
+            shot,
+            accent: a("p20"),
+            kp: k,
+            band,
+            kpColor: band && kc ? kc(band.key) : a("p20"),
+            peak,
+            forecast: o ? hr(o.forecast) : null,
+            legend: [...AURORA_RAMP, ...AURORA_LINES].map(
+              (r) => [r.label, a(r.key)] as [string, string],
+            ),
+          });
+        }}
       />
       <div className={s.legend}>
         {AURORA_RAMP.map((r) => (

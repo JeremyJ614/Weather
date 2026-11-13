@@ -457,8 +457,9 @@ function View3D({
       />
       <p className={s.muted}>
         Each arrow is the wind at that height; the colored line through their
-        tips is the hodograph, its shadow on the floor. Drag to turn and tilt. A
-        curved, long trace means the shear that spins storms.
+        tips is the hodograph, its shadow on the floor. Drag to turn and tilt;
+        pinch, scroll, double-tap or use + and − to zoom in. A curved, long
+        trace means the shear that spins storms.
       </p>
     </div>
   );
