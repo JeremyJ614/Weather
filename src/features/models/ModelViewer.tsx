@@ -546,7 +546,9 @@ export function ModelViewer({ model }: { model: "hrrr" | "gfs" | "refs" }) {
         {loaded[cur] !== "ok" && (
           <span className={s.wait}>
             {loaded[cur] === "err"
-              ? "This hour isn't in the run."
+              ? direct
+                ? "This hour couldn't be drawn on this device."
+                : "This hour isn't in the run."
               : "Rendering from NOAA's data…"}
           </span>
         )}

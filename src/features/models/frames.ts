@@ -25,6 +25,15 @@ function workers() {
       const w = new Worker(new URL("./frame.worker.ts", import.meta.url), {
         type: "module",
       });
+      // A worker that can't start (script blocked, older webview) fails every job it holds,
+      // and the next frame tries a fresh one.
+      w.onerror = () => {
+        for (const [id, p] of waiting) {
+          waiting.delete(id);
+          p.no(new Error("worker failed to start"));
+        }
+        pool = null;
+      };
       w.onmessage = (e: MessageEvent<FrameOut>) => {
         const d = e.data;
         const p = waiting.get(d.id);
@@ -39,7 +48,33 @@ function workers() {
   return pool;
 }
 
-export function drawFrame(job: Omit<FrameJob, "id">) {
+type Drawn = { png: Blob; cities: (number | null)[] | null };
+let reported = false;
+
+/**
+ * Draws a frame in a worker, or on the page itself where the worker can't (an older phone or
+ * app webview). A frame that fails both ways is reported to admin → Errors once per visit.
+ */
+export async function drawFrame(job: Omit<FrameJob, "id">): Promise<Drawn> {
+  try {
+    return await inWorker(job);
+  } catch {
+    try {
+      const { drawJob } = await import("./draw");
+      return await drawJob(job);
+    } catch (e) {
+      if (!reported) {
+        reported = true;
+        setTimeout(() => {
+          throw new Error(`Model frame failed: ${String(e).slice(0, 200)}`);
+        });
+      }
+      throw e;
+    }
+  }
+}
+
+function inWorker(job: Omit<FrameJob, "id">) {
   const id = ++seq;
   const ws = workers();
   let h = 0;
