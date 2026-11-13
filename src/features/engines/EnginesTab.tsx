@@ -1551,12 +1551,15 @@ export function EnginesTab({
           label="Weather engines map"
           className={s.map}
           onReady={onReady}
-          brand={{
-            name: current.name,
-            sub: current.sub,
-            how: [how.lead, how.body[0]],
-            legend,
-          }}
+          file={`sswx-engine-${engine}`}
+          card={async (shot) =>
+            (await import("@/features/map/snapshot")).enginePng(shot, {
+              name: current.name,
+              sub: current.sub,
+              how: [how.lead, how.body[0]],
+              legend,
+            })
+          }
         />
         <span className={s.badge}>
           <FlaskConical aria-hidden /> Experimental

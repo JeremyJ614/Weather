@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Download, Share2 } from "lucide-react";
-import type { Brand } from "./snapshot";
 import type { Map as MapboxMap } from "mapbox-gl";
 import type { Map as MaplibreMap } from "maplibre-gl";
 import {
@@ -28,8 +27,8 @@ type Props = {
   /** Download/Share buttons (on unless a page turns them off); `file` names the PNG. */
   actions?: boolean;
   file?: string;
-  /** Engine maps: the picture becomes a branded card (see snapshot.ts). */
-  brand?: Brand;
+  /** Any other page's own share card, drawn around the map's picture. */
+  card?: (shot: HTMLCanvasElement) => Promise<Blob>;
 };
 
 /**
@@ -45,7 +44,7 @@ export function WeatherMap({
   onReady,
   actions = true,
   file,
-  brand,
+  card,
 }: Props) {
   const box = useRef<HTMLDivElement>(null);
   const [provider, setProvider] = useState<MapProvider | null>(null);
@@ -56,18 +55,17 @@ export function WeatherMap({
     if (!live.current || busy) return;
     setBusy(true);
     try {
-      const { mapPng, enginePng, saveOrShare } = await import("./snapshot");
-      const blob = brand
-        ? await enginePng(live.current, brand)
+      const { mapPng, grab, saveOrShare } = await import("./snapshot");
+      const blob = card
+        ? await card(await grab(live.current))
         : await mapPng(live.current, label);
-      const title = brand ? `${brand.name} · SSWX Weather Center` : label;
       const name =
         file ??
-        `sswx-${(brand?.name ?? label)
+        `sswx-${label
           .toLowerCase()
           .replace(/[^a-z0-9]+/g, "-")
           .slice(0, 40)}`;
-      await saveOrShare(blob, name, title, share);
+      await saveOrShare(blob, name, label, share);
     } catch {
       /* closed the share sheet, or the map wasn't drawn yet */
     } finally {

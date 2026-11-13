@@ -18,6 +18,7 @@ import { ERO_LEVELS } from "@/lib/flood/levels";
 import type { OutlookDay, Period } from "@/lib/patterns/data";
 import type { Season } from "@/lib/patterns/season";
 import { INDEX_LABELS, PAT_COLORS, indexBand } from "@/lib/patterns/style";
+import { CardButtons } from "@/features/share/CardButtons";
 import s from "./Patterns.module.css";
 
 const REGIONS = [
@@ -300,6 +301,17 @@ export function PatternsView({
               surveys added: one storm can make several reports, and counts
               change as offices review them.
             </p>
+            <CardButtons
+              file={`sswx-weather-patterns-${p.id}`}
+              title={`Weather Patterns · ${p.label}`}
+              make={async () =>
+                (await import("./share")).periodCard({
+                  p,
+                  range: range(p),
+                  color: c,
+                })
+              }
+            />
           </>
         )}
       </section>
@@ -466,6 +478,20 @@ export function PatternsView({
               this year); the strongest tornado, EF3+ days, deaths and pace come
               from NWS damage surveys. Updated twice a day.
             </p>
+            <CardButtons
+              file={`sswx-season-so-far-${season.year}`}
+              title="Weather Patterns · Season so far"
+              make={async () =>
+                (await import("./share")).seasonCard({
+                  season,
+                  range:
+                    season.since && season.through
+                      ? `${day(season.since)} – ${day(season.through)}`
+                      : "Since Jan 1",
+                  color: c,
+                })
+              }
+            />
           </>
         )}
       </section>

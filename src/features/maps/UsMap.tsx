@@ -164,6 +164,7 @@ export function UsMap({
   overlay,
   onTap,
   actions = true,
+  card,
   zoomable = true,
   view,
   maxZoom = 10,
@@ -184,6 +185,8 @@ export function UsMap({
   onTap?: (x: number, y: number) => void;
   /** Show the Download/Share buttons. */
   actions?: boolean;
+  /** The page's own share card, drawn around the bare map. */
+  card?: (map: Blob) => Promise<Blob>;
   title: string;
   sub?: string | null;
   legend: Swatch[];
@@ -268,7 +271,8 @@ export function UsMap({
     if (!svg.current) return;
     setBusy(true);
     try {
-      const blob = await toPng(svg.current, title, sub ?? "", legend);
+      const png = await toPng(svg.current, title, sub ?? "", legend, !!card);
+      const blob = card ? await card(png) : png;
       const name = `${file}.png`;
       const f = new File([blob], name, { type: "image/png" });
       if (share && navigator.canShare?.({ files: [f] })) {
