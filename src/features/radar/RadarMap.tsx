@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import type { Map as MaplibreMap } from "maplibre-gl";
 import { Pause, Play, RefreshCw } from "lucide-react";
 import { WeatherMap, type ReadyMap } from "@/features/map/WeatherMap";
@@ -14,6 +15,10 @@ import {
   type Product,
 } from "@/lib/radar/products";
 import s from "./Radar.module.css";
+
+const MotionShare = dynamic(() => import("@/features/share/MotionShare"), {
+  ssr: false,
+});
 
 const OPACITY = 0.85;
 const now = () => Date.now();
@@ -187,6 +192,7 @@ export function RadarMap() {
           label={`${prod.label} map`}
           className="h-[60dvh] min-h-80"
           onReady={onReady}
+          actions={false}
         />
         {loops && frames[frame] !== undefined && (
           <span className={s.stamp}>
@@ -228,6 +234,24 @@ export function RadarMap() {
           <RefreshCw className="size-4" />
         </button>
       </div>
+      {ready && (
+        <MotionShare
+          file={`sswx-${prod.id}`}
+          frames={frames.length}
+          reel={async () =>
+            (await import("@/features/share/reels")).radarReel({
+              map: map.current,
+              prod,
+              frames,
+              at: frame,
+              opacity: OPACITY,
+              age: (f) => ageOf(prod, f),
+              pause: () => setPlaying(false),
+              restore: show,
+            })
+          }
+        />
+      )}
       <p className={s.desc}>{prod.desc}</p>
       {prod.legend.length > 0 && (
         <div className={s.legend}>

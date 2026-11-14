@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import type { ImageSource, Map as MaplibreMap } from "maplibre-gl";
 import { ChevronLeft, ChevronRight, Pause, Play } from "lucide-react";
 import { WeatherMap, type ReadyMap } from "@/features/map/WeatherMap";
@@ -45,6 +46,9 @@ const validLabel = (c: string, fh: number) =>
     hour: "numeric",
     minute: "2-digit",
   });
+const MotionShare = dynamic(() => import("@/features/share/MotionShare"), {
+  ssr: false,
+});
 /** The outline casing: the model frames are slipped in under it, so the lines stay on top. */
 const UNDER = "us-lines-case";
 /** A frame's city values, from its map URL. */
@@ -539,6 +543,7 @@ export function ModelViewer({ model }: { model: "hrrr" | "gfs" | "refs" }) {
           label={`${r.label} ${p.label} map`}
           className="h-[58dvh] min-h-80"
           onReady={onReady}
+          actions={false}
         />
         <span className={s.stamp}>
           {r.label} · {p.label}
@@ -617,6 +622,36 @@ export function ModelViewer({ model }: { model: "hrrr" | "gfs" | "refs" }) {
           <span>F{String(r.hours[r.hours.length - 1]).padStart(3, "0")}</span>
         </div>
       </div>
+      {ready && reg && (
+        <MotionShare
+          file={`sswx-${model}-${p.key}-${cycle}`}
+          frames={urls.length}
+          reel={async () =>
+            (await import("@/features/share/reels")).modelReel({
+              map: map.current,
+              model: r.label,
+              param: p,
+              region: reg.label,
+              run: cycleLabel(cycle),
+              count: urls.length,
+              at: Math.min(i, urls.length - 1),
+              blob: (k) => blobs.current.get(urls[k]),
+              want: (k) => {
+                at.current = k;
+                kick.current();
+              },
+              cities: (k) =>
+                cityLabels(values.current.get(pointsUrl(urls[k])) ?? null),
+              coords: corners(reg.f ?? reg.b),
+              label: (k) => [
+                validLabel(cycle, r.hours[k]),
+                `F${String(r.hours[k]).padStart(3, "0")}`,
+              ],
+              pause: () => setPlaying(false),
+            })
+          }
+        />
+      )}
       <div className={s.legend}>
         <small>
           {p.label}

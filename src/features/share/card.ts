@@ -377,15 +377,20 @@ export class Card {
     this.y += h;
   }
 
-  /** The map, or any picture, in a lit frame with corner marks. */
+  /**
+   * The map, or any picture, in a lit frame with corner marks. A tall picture may lose up to
+   * `crop` of its height (top and bottom equally) to fill more of the width.
+   */
   frame(
     img: CanvasImageSource & { width: number; height: number },
     maxH = 1100,
+    crop = 0,
   ) {
     const g = this.g;
-    const k = Math.min(this.w / img.width, maxH / img.height);
+    const k = Math.min(this.w / img.width, maxH / (img.height * (1 - crop)));
     const mw = Math.round(img.width * k);
-    const mh = Math.round(img.height * k);
+    const mh = Math.round(Math.min(img.height * k, maxH));
+    const sh = mh / k;
     const mx = this.x + (this.w - mw) / 2;
     const y = this.y + 12;
     g.save();
@@ -397,7 +402,7 @@ export class Card {
     g.save();
     this.rr(mx, y, mw, mh, 22);
     g.clip();
-    g.drawImage(img, mx, y, mw, mh);
+    g.drawImage(img, 0, (img.height - sh) / 2, img.width, sh, mx, y, mw, mh);
     g.restore();
     g.strokeStyle = this.t.accent;
     g.globalAlpha = 0.55;
@@ -423,6 +428,43 @@ export class Card {
     }
     this.reset();
     this.y = y + mh + 42;
+    return { x: mx, y, w: mw, h: mh };
+  }
+
+  /** A color scale: the gradient bar, its ticks under it, and its name. */
+  scale(colors: string[], ticks: (string | number)[], name: string) {
+    const g = this.g;
+    this.label(name, this.t.muted, "center");
+    const grad = g.createLinearGradient(this.x, 0, this.x + this.w, 0);
+    colors.forEach((col, i) =>
+      grad.addColorStop(i / Math.max(1, colors.length - 1), col),
+    );
+    g.fillStyle = grad;
+    this.rr(this.x, this.y, this.w, 16, 8);
+    g.fill();
+    this.y += 40;
+    this.font(600, 16);
+    g.fillStyle = this.t.muted;
+    ticks.forEach((t, i) => {
+      g.textAlign =
+        i === 0 ? "left" : i === ticks.length - 1 ? "right" : "center";
+      g.fillText(
+        String(t),
+        this.x + (this.w * i) / Math.max(1, ticks.length - 1),
+        this.y,
+      );
+    });
+    this.reset();
+    this.y += 24;
+  }
+
+  /** Wipe the drawing to draw the next frame of an animation. */
+  restart() {
+    this.g.clearRect(0, 0, W, MAX_H);
+    this.reset();
+    this.x = PAD;
+    this.w = W - PAD * 2;
+    this.y = 0;
   }
 
   /** Color keys, wrapping, centred line by line. */
@@ -564,7 +606,7 @@ export class Card {
     this.y += 30;
   }
 
-  /** The closing line, then the picture: cropped, on the glowing, gridded ground. */
+  /** The closing line, then the picture, cropped to what was drawn. */
   async finish(foot: string): Promise<Blob> {
     this.gap(14);
     this.x = PAD;
@@ -576,8 +618,14 @@ export class Card {
       align: "center",
       max: 3,
     });
-    const H = Math.min(MAX_H, Math.ceil(this.y + 36));
-    const out = document.createElement("canvas");
+    const out = this.paint(Math.min(MAX_H, Math.ceil(this.y + 36)));
+    return new Promise<Blob>((ok, no) =>
+      out.toBlob((b) => (b ? ok(b) : no(new Error("empty"))), "image/png"),
+    );
+  }
+
+  /** The drawing so far, `H` tall, on the glowing, gridded ground. */
+  paint(H: number, out = document.createElement("canvas")) {
     out.width = W;
     out.height = H;
     const q = out.getContext("2d")!;
@@ -599,9 +647,7 @@ export class Card {
     for (let gy = 0; gy < H; gy += 40) q.fillRect(0, gy, W, 1);
     q.globalAlpha = 1;
     q.drawImage(this.c, 0, 0, W, H, 0, 0, W, H);
-    return new Promise<Blob>((ok, no) =>
-      out.toBlob((b) => (b ? ok(b) : no(new Error("empty"))), "image/png"),
-    );
+    return out;
   }
 }
 
