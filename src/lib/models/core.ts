@@ -32,14 +32,15 @@ export async function readRecord(
   get: Get,
   url: string,
   match: string,
-  also?: string,
+  also?: string | (string | undefined)[],
 ) {
+  const need = [also ?? []].flat().filter(Boolean) as string[];
   const r = await get(`${url}.idx`, { signal: AbortSignal.timeout(15000) });
   if (!r.ok) throw new Error(`idx ${r.status}`);
   const lines = (await r.text()).split("\n").filter(Boolean);
   const hits = lines
     .map((l, i) => ({ l, i }))
-    .filter(({ l }) => l.includes(match) && (!also || l.includes(also)));
+    .filter(({ l }) => l.includes(match) && need.every((x) => l.includes(x)));
   if (!hits.length) throw new Error(`no record ${match}`);
   // Where a field is published instantaneous and time-averaged, take the instantaneous.
   const hit = hits.find(({ l }) => /:(\d+ hour fcst|anl):/.test(l)) ?? hits[0];
@@ -95,7 +96,18 @@ function converter(raw: string, max: number): ((v: number) => number) | null {
       return (v) => v * MS2KT;
     case "retop":
     case "lclhgt":
+    case "tropo":
       return (v) => v / 304.8;
+    case "apcp":
+    case "frzr":
+      return (v) => v / 25.4;
+    case "asnow":
+    case "snod":
+      return (v) => v * 39.3701;
+    case "maxwind10":
+      return (v) => v * 2.236936;
+    case "lmmot":
+      return (v) => v * MS2KT;
     case "cldbase":
     case "fzlvl":
       return (v) => v * 3.28084;
@@ -121,6 +133,118 @@ function thetaE(t: number, td: number, p: number) {
   return th * Math.exp((3036 / tl - 1.78) * r * (1 + 0.448 * r));
 }
 
+const C = (k: number) => k - 273.15;
+/** Dew point (K) from temperature (K) and relative humidity (%), Magnus. */
+function dewFromRh(t: number, rh: number) {
+  const tc = C(t);
+  const g = Math.log(Math.max(rh, 1) / 100) + (17.625 * tc) / (243.04 + tc);
+  return (243.04 * g) / (17.625 - g) + 273.15;
+}
+/** Meteorological direction (degrees the wind blows from). */
+const dirOf = (u: number, v: number) =>
+  ((Math.atan2(-u, -v) * 180) / Math.PI + 360) % 360;
+/** SWEAT (Miller 1972): T, Td in K; winds in m/s. */
+function sweat(
+  t8: number,
+  td8: number,
+  t5: number,
+  u8: number,
+  v8: number,
+  u5: number,
+  v5: number,
+) {
+  const d = Math.max(0, C(td8));
+  const tt = C(t8) + C(td8) - 2 * C(t5);
+  const f8 = Math.hypot(u8, v8) * MS2KT;
+  const f5 = Math.hypot(u5, v5) * MS2KT;
+  const d8 = dirOf(u8, v8);
+  const d5 = dirOf(u5, v5);
+  const veer =
+    d8 >= 130 &&
+    d8 <= 250 &&
+    d5 >= 210 &&
+    d5 <= 310 &&
+    d5 > d8 &&
+    f8 >= 15 &&
+    f5 >= 15
+      ? 125 * (Math.sin(((d5 - d8) * Math.PI) / 180) + 0.2)
+      : 0;
+  return 12 * d + 20 * Math.max(0, tt - 49) + 2 * f8 + f5 + veer;
+}
+/** SPC's STP terms: the LCL (m AGL), 0-6 km bulk shear (m/s) and mixed-layer CIN (J/kg). */
+const lclTerm = (z: number) =>
+  z < 1000 ? 1 : z > 2000 ? 0 : (2000 - z) / 1000;
+const shearTerm = (b: number) => (b < 12.5 ? 0 : b > 30 ? 1.5 : b / 20);
+const cinTerm = (c: number) => (c > -50 ? 1 : c < -200 ? 0 : (200 + c) / 150);
+const stp = (cape: number, lcl: number, srh: number, u: number, v: number) =>
+  Math.max(
+    0,
+    (cape / 1500) * lclTerm(lcl) * (srh / 150) * shearTerm(Math.hypot(u, v)),
+  );
+/** Bunkers left mover from the right mover and the 0-6 km shear: 2 × 7.5 m/s across the shear. */
+function leftMover(ru: number, rv: number, su: number, sv: number) {
+  const s = Math.hypot(su, sv) || 1;
+  return Math.hypot(ru - (15 * sv) / s, rv + (15 * su) / s);
+}
+/** NWS wind chill (°F) from 2 m temperature (K) and 10 m wind (m/s); the temperature itself
+ * where wind chill isn't defined (above 50 °F or under 3 mph). */
+function windChill(t: number, u: number, v: number) {
+  const f = K2F(t);
+  const mph = Math.hypot(u, v) * 2.236936;
+  if (f > 50 || mph < 3) return f;
+  const w = mph ** 0.16;
+  return 35.74 + 0.6215 * f - 35.75 * w + 0.4275 * f * w;
+}
+/** SPC's Significant Hail Parameter, from most-unstable CAPE, the low-level mixing ratio, the
+ * 700-500 mb lapse rate, 500 mb temperature and surface-500 mb shear (its freezing-level
+ * adjustment is left out: GFS publishes that level apart). */
+function ship(r: Float32Array[], i: number) {
+  const cape = r[0][i];
+  const mr = Math.min(13.6, Math.max(11, r[1][i] * 1000));
+  const lr = (r[2][i] - r[3][i]) / ((r[5][i] - r[4][i]) / 1000);
+  const t5 = Math.min(-5.5, C(r[3][i]));
+  const shr = Math.min(
+    27,
+    Math.max(7, Math.hypot(r[8][i] - r[6][i], r[9][i] - r[7][i])),
+  );
+  let v = (cape * mr * lr * -t5 * shr) / 42_000_000;
+  if (cape < 1300) v *= cape / 1300;
+  if (lr < 5.8) v *= lr / 5.8;
+  return Math.max(0, v);
+}
+/** How each combined field is built from its records, point by point. */
+export const COMBINE: Record<string, (r: Float32Array[], i: number) => number> =
+  {
+    mag: (r, i) => Math.hypot(r[0][i], r[1][i]),
+    vecdiff: (r, i) => Math.hypot(r[2][i] - r[0][i], r[3][i] - r[1][i]),
+    thetae: (r, i) => thetaE(r[0][i], r[1][i], r[2][i]),
+    lapse: (r, i) => (r[0][i] - r[1][i]) / ((r[3][i] - r[2][i]) / 1000),
+    sweat: (r, i) =>
+      sweat(r[0][i], r[1][i], r[2][i], r[3][i], r[4][i], r[5][i], r[6][i]),
+    sweatrh: (r, i) =>
+      sweat(
+        r[0][i],
+        dewFromRh(r[0][i], r[1][i]),
+        r[2][i],
+        r[3][i],
+        r[4][i],
+        r[5][i],
+        r[6][i],
+      ),
+    ehi: (r, i) => (r[0][i] * r[1][i]) / 160_000,
+    stp: (r, i) => stp(r[0][i], r[1][i], r[2][i], r[3][i], r[4][i]),
+    stpe: (r, i) => stp(r[0][i], r[1][i], r[2][i], r[3][i], r[4][i]),
+    stpc: (r, i) =>
+      stp(r[0][i], r[1][i], r[2][i], r[3][i], r[4][i]) * cinTerm(r[5][i]),
+    lm: (r, i) => leftMover(r[0][i], r[1][i], r[2][i], r[3][i]),
+    lmgfs: (r, i) =>
+      leftMover(r[0][i], r[1][i], r[4][i] - r[2][i], r[5][i] - r[3][i]),
+    wchill: (r, i) => windChill(r[0][i], r[1][i], r[2][i]),
+    thetae850: (r, i) => thetaE(r[0][i], dewFromRh(r[0][i], r[1][i]), 85_000),
+    snow6: (r, i) => (r[0][i] / 25.4) * 10 * Math.min(1, Math.max(0, r[1][i])),
+    ship,
+  };
+
 /** What reading and drawing a parameter needs (sent to the browser with the run list). */
 export type Recipe = Pick<
   Param,
@@ -132,6 +256,8 @@ export type Recipe = Pick<
   | "levels"
   | "full"
   | "clearAbove"
+  | "coarse"
+  | "win"
 >;
 
 /**
@@ -142,10 +268,13 @@ export async function loadFieldFrom(
   get: Get,
   urls: string[],
   p: Recipe,
+  /** The forecast hour, for fields with an accumulation window. */
+  fh?: number,
 ): Promise<Field> {
+  const win = p.win && fh != null ? `:${fh - p.win}-${fh} hour acc` : undefined;
   const read = (url: string) =>
     Promise.all([
-      readRecord(get, url, p.match, p.also),
+      readRecord(get, url, p.match, [p.also, win]),
       ...(p.extra ?? []).map((x) => readRecord(get, url, x)),
     ]);
   let recs: Awaited<ReturnType<typeof read>> | null = null;
@@ -162,20 +291,9 @@ export async function loadFieldFrom(
   const [a] = recs;
   const n = a.values.length;
   const out = new Float32Array(n);
-  const vals = recs.map((r) => r.values);
-  for (let i = 0; i < n; i++) {
-    const x = vals[0][i];
-    out[i] =
-      p.combine === "mag"
-        ? Math.hypot(x, vals[1][i])
-        : p.combine === "vecdiff"
-          ? Math.hypot(vals[2][i] - x, vals[3][i] - vals[1][i])
-          : p.combine === "thetae"
-            ? thetaE(x, vals[1][i], vals[2][i])
-            : p.combine === "lapse"
-              ? (x - vals[1][i]) / ((vals[3][i] - vals[2][i]) / 1000)
-              : x;
-  }
+  const vals = recs.map((r) => r.values as Float32Array);
+  const f = p.combine ? COMBINE[p.combine] : null;
+  for (let i = 0; i < n; i++) out[i] = f ? f(vals, i) : vals[0][i];
   let max = -Infinity;
   for (const v of out) if (v > max) max = v;
   const to = converter(p.key, max);

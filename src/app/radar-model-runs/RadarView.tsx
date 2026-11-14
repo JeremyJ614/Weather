@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { BarChart3, Clapperboard, Radar } from "lucide-react";
 import { HomeTabs } from "@/features/news/HomeTabs";
 import { RadarMap } from "@/features/radar/RadarMap";
-import { ModelViewer } from "@/features/models/ModelViewer";
+
 import { Nowcast } from "@/features/models/Nowcast";
 import { usePlaces } from "@/features/location/usePlaces";
 import { pick, type Colors } from "@/lib/colors/pick";
@@ -41,12 +42,21 @@ export function RadarView({ colors }: { colors: Colors }) {
       <p className={s.foot}>
         Sources: NEXRAD mosaic tiles (Iowa Environmental Mesonet), MRMS and GOES
         (SSEC RealEarth), model maps rendered from NOAA&apos;s HRRR, GFS and
-        REFS files (AWS Open Data and NOMADS), and model forecasts from
-        Open-Meteo.
+        RRFS ensemble (REFS) files (AWS Open Data and NOMADS), and model
+        forecasts from Open-Meteo.
       </p>
     </div>
   );
 }
+
+// The model viewer loads with its tab, not with the page (Radar opens first).
+const ModelViewer = dynamic(
+  () => import("@/features/models/ModelViewer").then((m) => m.ModelViewer),
+  {
+    ssr: false,
+    loading: () => <p className={s.muted}>Loading the model viewer…</p>,
+  },
+);
 
 function ModelRuns() {
   const [tab, setTab] = useState<"hrrr" | "gfs" | "refs" | "now">("hrrr");
@@ -57,7 +67,7 @@ function ModelRuns() {
           [
             ["hrrr", "HRRR · 3 km"],
             ["gfs", "GFS · 25 km"],
-            ["refs", "Ensemble · REFS"],
+            ["refs", "RRFS Ensemble"],
             ["now", "Nowcast · 15 min"],
           ] as const
         ).map(([k, l]) => (
@@ -74,7 +84,7 @@ function ModelRuns() {
       {tab === "now" ? <Nowcast /> : <ModelViewer key={tab} model={tab} />}
       <p className={s.muted}>
         {tab === "refs"
-          ? "REFS: NOAA's 14-member, 3 km ensemble, the successor to HREF. Chance maps show how likely, out of 100, the threshold is met near a point; mean and PMM maps show the ensemble's best single picture."
+          ? "RRFS Ensemble (REFS, the RRFS Ensemble Forecast System): NOAA's 14-member, 3 km ensemble, the successor to HREF. Chance maps show how likely, out of 100, the threshold is met near a point; mean and PMM maps show the ensemble's best single picture."
           : tab === "now"
             ? ""
             : "Rendered from NOAA's own model files, field by field, the moment you ask: smooth between grid points, never beyond a value the model produced."}
