@@ -251,3 +251,117 @@
   color: var(--muted);
   white-space: nowrap;
 }
+/* The field picker (Fix list #34): a category rail, then that category's fields. */
+.picker {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+}
+.pickHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.pickHead small {
+  color: var(--muted);
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.pickHead b {
+  overflow: hidden;
+  color: var(--accent);
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cats {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+.cats button {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 700;
+  scroll-snap-align: start;
+}
+.cats button svg {
+  width: 15px;
+  height: 15px;
+}
+.cats button b {
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 10.5px;
+}
+.cats button[data-here]::after {
+  content: "";
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--glow);
+}
+.cats button[aria-selected="true"] {
+  border-color: var(--lit-line);
+  color: var(--accent);
+  box-shadow:
+    0 0 14px -6px var(--glow),
+    inset 0 0 14px -10px var(--glow);
+}
+.cats button[aria-selected="true"] b {
+  border-color: var(--lit-line);
+}
+.fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 6px;
+}
+.fields button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bg) 55%, transparent);
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: left;
+}
+.fields small {
+  flex: none;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+}
+.fields button[aria-pressed="true"] {
+  border-color: var(--lit-line);
+  background: var(--lit);
+  color: var(--accent);
+  box-shadow: 0 0 16px -8px var(--glow);
+}

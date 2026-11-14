@@ -1,3 +1,5 @@
+import { CATEGORIES } from "./categories";
+
 /**
  * Model viewer parameters, ported from the VIP renderer (scripts/render_maps.py): every
  * field's GRIB index match, units, contour levels and color scale. Colors are editable in
@@ -11,7 +13,29 @@ export type Param = {
   match: string;
   also?: string;
   extra?: string[];
-  combine?: "mag" | "vecdiff" | "thetae" | "lapse";
+  combine?:
+    | "mag"
+    | "vecdiff"
+    | "thetae"
+    | "lapse"
+    | "sweat"
+    | "sweatrh"
+    | "ehi"
+    | "stp"
+    | "stpe"
+    | "stpc"
+    | "lm"
+    | "lmgfs"
+    | "wchill"
+    | "thetae850"
+    | "snow6"
+    | "ship";
+  /** GFS: read the half-degree file (fields built from many records stay phone-sized). */
+  coarse?: boolean;
+  /** Accumulated fields: the window in hours, matched exactly ("14-15 hour acc" at F015). */
+  win?: number;
+  /** Hours the field exists at, where fewer than the model's (multi-hour REFS products). */
+  hours?: number[];
   unit: string;
   cmap: string;
   levels: number[];
@@ -20,7 +44,7 @@ export type Param = {
   /** Clear above the last level instead (CIN near zero, visibility in clear air). */
   clearAbove?: boolean;
   /** Which of an ensemble's product files holds it (REFS: prob, mean, pmmn, lpmm). */
-  file?: "prob" | "mean" | "pmmn" | "lpmm";
+  file?: "prob" | "mean" | "pmmn" | "lpmm" | "ffri";
 };
 
 export const SCALES: Record<string, string[]> = {
@@ -251,6 +275,32 @@ export const SCALES: Record<string, string[]> = {
     "#f0d43a",
     "#f0841c",
     "#d6322e",
+  ],
+  snow: [
+    "#cfe8ff",
+    "#9cc9f5",
+    "#6aa6e8",
+    "#3f7fd6",
+    "#2b56b8",
+    "#3a2f9e",
+    "#6a2fa8",
+    "#9b3fb8",
+    "#c856c8",
+    "#ee8be0",
+  ],
+  ice: ["#f6d6ff", "#e3a6f5", "#cc6fe6", "#a23fd0", "#7a1fb0", "#530f8a"],
+  chill: [
+    "#ffe0ff",
+    "#e9a6ff",
+    "#c46cf0",
+    "#8f45d8",
+    "#5b2a9e",
+    "#3b4cc0",
+    "#2c7fd6",
+    "#1fa9d6",
+    "#21b3a4",
+    "#4bb75f",
+    "#a6c93a",
   ],
   lcl: [
     "#1f9e6b",
@@ -661,9 +711,9 @@ export const GFS: Param[] = [
   },
   {
     key: "mlcape",
-    label: "ML CAPE (180 mb)",
+    label: "Mixed-Layer CAPE",
     group: "Severe Weather",
-    match: ":CAPE:180-0 mb above ground:",
+    match: ":CAPE:90-0 mb above ground:",
     unit: "J/kg",
     cmap: "cape",
     levels: [100, 250, 500, 750, 1000, 1500, 2000, 2500, 3000, 4000, 5000],
@@ -679,9 +729,9 @@ export const GFS: Param[] = [
   },
   {
     key: "mlcin",
-    label: "ML CIN (180 mb)",
+    label: "Mixed-Layer CIN",
     group: "Severe Weather",
-    match: ":CIN:180-0 mb above ground:",
+    match: ":CIN:90-0 mb above ground:",
     unit: "J/kg",
     cmap: "cin",
     levels: [-300, -200, -150, -100, -75, -50, -25, -10],
@@ -1330,3 +1380,634 @@ export const REFS: Param[] = [
     "prob >30.9:",
   ),
 ];
+
+/* ------------------------------------------------------------------------------------------
+ * Fix list #34 (owner, 2026-11-14): more fields for each model, winter fields, and every field
+ * sorted into the picker's categories. Only fields NOAA publishes (or that are built point by
+ * point from fields it publishes) are here; see BUILD_STATUS.md for the ones that aren't.
+ * ---------------------------------------------------------------------------------------- */
+const CIN_LEVELS = [-300, -200, -150, -100, -75, -50, -25, -10];
+const SNOW_IN = [0.1, 0.5, 1, 2, 3, 4, 6, 8, 10, 12, 18, 24];
+const RAIN_IN = [0.01, 0.1, 0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4, 6];
+const STP_LEVELS = [0.25, 0.5, 1, 2, 3, 4, 6, 8, 10];
+const EHI_LEVELS = [0.5, 1, 1.5, 2, 3, 4, 5, 6, 8];
+const SHEAR06 = [
+  ":VUCSH:0-6000 m above ground:",
+  ":VVCSH:0-6000 m above ground:",
+];
+const LCL = ":HGT:level of adiabatic condensation from sfc:";
+const SWEAT_LEVELS = [150, 200, 250, 300, 350, 400, 450, 500, 600];
+const CHILL_LEVELS = [-50, -40, -30, -20, -10, 0, 10, 20, 30, 40, 50];
+
+HRRR.push(
+  {
+    key: "maxref",
+    label: "Hourly Max 1 km Reflectivity",
+    group: "",
+    match: ":MAXREF:1000 m above ground:",
+    unit: "dBZ",
+    cmap: "refl",
+    levels: [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75],
+  },
+  {
+    key: "updraft",
+    label: "Max Updraft Speed",
+    group: "",
+    match: ":MAXUVV:100-1000 mb above ground:",
+    unit: "m/s",
+    cmap: "uphl",
+    levels: [1, 2, 5, 10, 15, 20, 25, 30, 40],
+  },
+  {
+    key: "uphl02",
+    label: "0-2 km Updraft Helicity",
+    group: "",
+    match: ":MXUPHL:2000-0 m above ground:",
+    unit: "m²/s²",
+    cmap: "uphl",
+    levels: [10, 25, 50, 75, 100, 150, 200, 300, 400],
+  },
+  {
+    key: "sbcin",
+    label: "Surface CIN",
+    group: "",
+    match: ":CIN:surface:",
+    unit: "J/kg",
+    cmap: "cin",
+    levels: CIN_LEVELS,
+    clearAbove: true,
+  },
+  {
+    key: "mlcin",
+    label: "Mixed-Layer CIN",
+    group: "",
+    match: ":CIN:90-0 mb above ground:",
+    unit: "J/kg",
+    cmap: "cin",
+    levels: CIN_LEVELS,
+    clearAbove: true,
+  },
+  {
+    key: "stpfix",
+    label: "STP (Fixed Layer)",
+    group: "",
+    match: ":CAPE:surface:",
+    extra: [LCL, ":HLCY:1000-0 m above ground:", ...SHEAR06],
+    combine: "stp",
+    unit: "",
+    cmap: "uphl",
+    levels: STP_LEVELS,
+  },
+  {
+    key: "stpeff",
+    label: "STP (Effective Layer)",
+    group: "",
+    match: ":CAPE:90-0 mb above ground:",
+    extra: [LCL, ":EFHL:surface:", ...SHEAR06],
+    combine: "stpe",
+    unit: "",
+    cmap: "uphl",
+    levels: STP_LEVELS,
+  },
+  {
+    key: "stpcin",
+    label: "STP with CIN",
+    group: "",
+    match: ":CAPE:90-0 mb above ground:",
+    extra: [LCL, ":EFHL:surface:", ...SHEAR06, ":CIN:90-0 mb above ground:"],
+    combine: "stpc",
+    unit: "",
+    cmap: "uphl",
+    levels: STP_LEVELS,
+  },
+  {
+    key: "ehi01",
+    label: "0-1 km Energy-Helicity Index",
+    group: "",
+    match: ":CAPE:90-0 mb above ground:",
+    extra: [":HLCY:1000-0 m above ground:"],
+    combine: "ehi",
+    unit: "",
+    cmap: "srh",
+    levels: EHI_LEVELS,
+  },
+  {
+    key: "ehi03",
+    label: "0-3 km Energy-Helicity Index",
+    group: "",
+    match: ":CAPE:90-0 mb above ground:",
+    extra: [":HLCY:3000-0 m above ground:"],
+    combine: "ehi",
+    unit: "",
+    cmap: "srh",
+    levels: EHI_LEVELS,
+  },
+  {
+    key: "sweat",
+    label: "SWEAT Index",
+    group: "",
+    match: ":TMP:850 mb:",
+    extra: [
+      ":DPT:850 mb:",
+      ":TMP:500 mb:",
+      ":UGRD:850 mb:",
+      ":VGRD:850 mb:",
+      ":UGRD:500 mb:",
+      ":VGRD:500 mb:",
+    ],
+    combine: "sweat",
+    unit: "",
+    cmap: "cape",
+    levels: SWEAT_LEVELS,
+  },
+  {
+    key: "esp",
+    label: "Enhanced Stretching Potential",
+    group: "",
+    match: ":ESP:0-3000 m above ground:",
+    unit: "",
+    cmap: "srh",
+    levels: [0.5, 1, 1.5, 2, 3, 4, 6, 8],
+  },
+  {
+    key: "cangle",
+    label: "Critical Angle (0-500 m)",
+    group: "",
+    match: ":CANGLE:0-500 m above ground:",
+    unit: "°",
+    cmap: "shear",
+    levels: [15, 30, 45, 60, 75, 90, 105, 120, 135, 150],
+  },
+  {
+    key: "lmmot",
+    label: "Bunkers Left-Mover Motion",
+    group: "",
+    match: ":USTM:0-6000 m above ground:",
+    extra: [":VSTM:0-6000 m above ground:", ...SHEAR06],
+    combine: "lm",
+    unit: "kt",
+    cmap: "wind",
+    levels: [5, 10, 15, 20, 25, 30, 35, 40, 50, 60, 70],
+  },
+  {
+    key: "maxwind10",
+    label: "Hourly Max 10 m Wind (Damaging Wind)",
+    group: "",
+    match: ":WIND:10 m above ground:",
+    unit: "mph",
+    cmap: "wind",
+    levels: [20, 30, 40, 50, 58, 65, 75, 85, 100],
+  },
+  {
+    key: "apcp",
+    label: "Total Precipitation",
+    group: "",
+    match: ":APCP:surface:0-",
+    unit: "in",
+    cmap: "qpf",
+    levels: RAIN_IN,
+  },
+  {
+    key: "asnow",
+    label: "Total Snowfall",
+    group: "",
+    match: ":ASNOW:surface:0-",
+    unit: "in",
+    cmap: "snow",
+    levels: SNOW_IN,
+  },
+  {
+    key: "snod",
+    label: "Snow Depth",
+    group: "",
+    match: ":SNOD:surface:",
+    unit: "in",
+    cmap: "snow",
+    levels: SNOW_IN,
+  },
+  {
+    key: "snowc",
+    label: "Snow Cover",
+    group: "",
+    match: ":SNOWC:surface:",
+    unit: "%",
+    cmap: "snow",
+    levels: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+  },
+  {
+    key: "frzr",
+    label: "Freezing Rain (Ice) Total",
+    group: "",
+    match: ":FRZR:surface:0-",
+    unit: "in",
+    cmap: "ice",
+    levels: [0.01, 0.05, 0.1, 0.25, 0.5, 0.75],
+  },
+  {
+    key: "cpofp",
+    label: "Percent Frozen Precipitation",
+    group: "",
+    match: ":CPOFP:surface:",
+    unit: "%",
+    cmap: "snow",
+    levels: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+  },
+  {
+    key: "wchill",
+    label: "Wind Chill",
+    group: "",
+    match: ":TMP:2 m above ground:",
+    extra: [":UGRD:10 m above ground:", ":VGRD:10 m above ground:"],
+    combine: "wchill",
+    unit: "°F",
+    cmap: "chill",
+    levels: CHILL_LEVELS,
+    full: true,
+    clearAbove: true,
+  },
+);
+
+GFS.push(
+  {
+    key: "capcin",
+    label: "Cap Strength (MU CIN)",
+    group: "",
+    match: ":CIN:255-0 mb above ground:",
+    unit: "J/kg",
+    cmap: "cin",
+    levels: CIN_LEVELS,
+    clearAbove: true,
+  },
+  {
+    key: "sweat",
+    label: "SWEAT Index",
+    group: "",
+    match: ":TMP:850 mb:",
+    extra: [
+      ":RH:850 mb:",
+      ":TMP:500 mb:",
+      ":UGRD:850 mb:",
+      ":VGRD:850 mb:",
+      ":UGRD:500 mb:",
+      ":VGRD:500 mb:",
+    ],
+    combine: "sweatrh",
+    unit: "",
+    cmap: "cape",
+    levels: SWEAT_LEVELS,
+    coarse: true,
+  },
+  {
+    key: "ship",
+    label: "Significant Hail Parameter (SHIP)",
+    group: "",
+    match: ":CAPE:255-0 mb above ground:",
+    extra: [
+      ":SPFH:30-0 mb above ground:",
+      ":TMP:700 mb:",
+      ":TMP:500 mb:",
+      ":HGT:700 mb:",
+      ":HGT:500 mb:",
+      ":UGRD:10 m above ground:",
+      ":VGRD:10 m above ground:",
+      ":UGRD:500 mb:",
+      ":VGRD:500 mb:",
+    ],
+    combine: "ship",
+    unit: "",
+    cmap: "uphl",
+    levels: [0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4],
+    coarse: true,
+  },
+  {
+    key: "lmmot",
+    label: "Bunkers Left-Mover Motion",
+    group: "",
+    match: ":USTM:6000-0 m above ground:",
+    extra: [
+      ":VSTM:6000-0 m above ground:",
+      ":UGRD:10 m above ground:",
+      ":VGRD:10 m above ground:",
+      ":UGRD:500 mb:",
+      ":VGRD:500 mb:",
+    ],
+    combine: "lmgfs",
+    unit: "kt",
+    cmap: "wind",
+    levels: [5, 10, 15, 20, 25, 30, 35, 40, 50, 60, 70],
+    coarse: true,
+  },
+  {
+    key: "thetae850",
+    label: "850 mb Theta-E",
+    group: "",
+    match: ":TMP:850 mb:",
+    extra: [":RH:850 mb:"],
+    combine: "thetae850",
+    unit: "K",
+    cmap: "thetae",
+    levels: [290, 300, 310, 315, 320, 325, 330, 335, 340, 345, 350, 355],
+    full: true,
+  },
+  {
+    key: "tropo",
+    label: "Tropopause Height",
+    group: "",
+    match: ":HGT:tropopause:",
+    unit: "kft",
+    cmap: "hgt",
+    levels: [25, 30, 35, 38, 41, 44, 47, 50, 55],
+    full: true,
+  },
+  {
+    key: "apcp",
+    label: "Total Precipitation",
+    group: "",
+    match: ":APCP:surface:0-",
+    unit: "in",
+    cmap: "qpf",
+    levels: RAIN_IN,
+  },
+  {
+    key: "snow6",
+    label: "6-hour Snowfall (10:1)",
+    group: "",
+    match: ":APCP:surface:",
+    extra: [":CSNOW:surface:"],
+    combine: "snow6",
+    unit: "in",
+    cmap: "snow",
+    levels: SNOW_IN,
+  },
+  {
+    key: "snod",
+    label: "Snow Depth",
+    group: "",
+    match: ":SNOD:surface:",
+    unit: "in",
+    cmap: "snow",
+    levels: SNOW_IN,
+  },
+  {
+    key: "cpofp",
+    label: "Percent Frozen Precipitation",
+    group: "",
+    match: ":CPOFP:surface:",
+    unit: "%",
+    cmap: "snow",
+    levels: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+  },
+  {
+    key: "wchill",
+    label: "Wind Chill",
+    group: "",
+    match: ":TMP:2 m above ground:",
+    extra: [":UGRD:10 m above ground:", ":VGRD:10 m above ground:"],
+    combine: "wchill",
+    unit: "°F",
+    cmap: "chill",
+    levels: CHILL_LEVELS,
+    full: true,
+    clearAbove: true,
+  },
+);
+
+const ffri = (key: string, label: string, match: string, also: string) =>
+  ({ ...chance(key, label, "", match, also), file: "ffri" }) as Param;
+REFS.push(
+  {
+    key: "pm_maxref",
+    label: "Hourly Max 1 km Reflectivity (PMM)",
+    group: "",
+    match: ":MAXREF:1000 m above ground:",
+    unit: "dBZ",
+    cmap: "refl",
+    levels: [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75],
+    file: "pmmn",
+  },
+  chance(
+    "p_maxref40",
+    "Hourly Max 1 km Reflectivity > 40 dBZ",
+    "",
+    ":MAXREF:1000 m above ground:",
+    "prob >40:",
+  ),
+  // The first match is the 1-hour total (the file lists 1, 3, 6 and 12-hour totals in order).
+  chance(
+    "p_qpf1h3",
+    "Extreme Rain: 1-hour > 3 in",
+    "",
+    ":APCP:surface:",
+    "prob >76.2:",
+  ),
+  chance(
+    "p_qpf12h8",
+    "Extreme Rain: 12-hour > 8 in",
+    "",
+    ":APCP:surface:",
+    "prob >203.2:",
+  ),
+  ffri(
+    "p_ffg1",
+    "Rain Over 1-hour Flash Flood Guidance",
+    ":PPFFG:surface:",
+    "prob >1:",
+  ),
+  ffri(
+    "p_ffg3",
+    "Rain Over 3-hour Flash Flood Guidance",
+    ":PPFFG:surface:",
+    "prob >3:",
+  ),
+  ffri(
+    "p_ffg6",
+    "Rain Over 6-hour Flash Flood Guidance",
+    ":PPFFG:surface:",
+    "prob >6:",
+  ),
+  ffri(
+    "p_ari10",
+    "6-hour Rain Over 10-Year Recurrence",
+    ":APCP:surface:",
+    "prob >10:",
+  ),
+  ffri(
+    "p_ari25",
+    "6-hour Rain Over 25-Year Recurrence",
+    ":APCP:surface:",
+    "prob >25:",
+  ),
+  ffri(
+    "p_ari50",
+    "6-hour Rain Over 50-Year Recurrence",
+    ":APCP:surface:",
+    "prob >50:",
+  ),
+  ffri(
+    "p_ari100",
+    "6-hour Rain Over 100-Year Recurrence",
+    ":APCP:surface:",
+    "prob >100:",
+  ),
+  chance(
+    "p_frz2m",
+    "Temperature Below Freezing",
+    "",
+    ":TMP:2 m above ground:",
+    "prob <273.15:",
+  ),
+  chance(
+    "p_snow3h6",
+    "Snowfall: 3-hour > 6 in",
+    "",
+    ":ASNOW:surface:",
+    "prob >0.152:",
+  ),
+  chance(
+    "p_snow6h12",
+    "Snowfall: 6-hour > 12 in",
+    "",
+    ":ASNOW:surface:",
+    "prob >0.304:",
+  ),
+);
+
+// Accumulated REFS fields: their exact window, and the hours that carry it (the 3-, 6- and
+// 12-hour totals are published every third hour; REFS frames are the odd hours).
+const EVERY3 = [3, 9, 15, 21, 27, 33, 39, 45];
+const WINDOWS: Record<string, [number, number[]?]> = {
+  lp_qpf: [1],
+  p_qpf05: [1],
+  p_qpf1: [1],
+  p_qpf2: [1],
+  p_qpf1h3: [1],
+  p_snow1: [1],
+  p_snow3: [1],
+  p_ffg1: [1],
+  p_ffg3: [3, EVERY3],
+  p_snow3h6: [3, EVERY3],
+  p_ffg6: [6, EVERY3.slice(1)],
+  p_snow6h12: [6, EVERY3.slice(1)],
+  p_ari10: [6, EVERY3.slice(1)],
+  p_ari25: [6, EVERY3.slice(1)],
+  p_ari50: [6, EVERY3.slice(1)],
+  p_ari100: [6, EVERY3.slice(1)],
+  p_qpf12h8: [12, EVERY3.slice(2)],
+};
+for (const p of REFS) {
+  const w = WINDOWS[p.key];
+  if (w) [p.win, p.hours] = w;
+}
+
+/**
+ * The picker's categories, in order, and where each field sits (by key; REFS keys by their
+ * base after the p_/m_/pm_/lp_ prefix when not listed whole).
+ */
+export { CATEGORIES };
+const [RADAR, INSTAB, WIND, INDEX, TEMP, RAIN, WINTER, ALOFT, SKY] = CATEGORIES;
+const CAT: Record<string, (typeof CATEGORIES)[number]> = {
+  refc: RADAR,
+  refd1km: RADAR,
+  refd4km: RADAR,
+  maxref: RADAR,
+  retop: RADAR,
+  uphl: RADAR,
+  uphl03: RADAR,
+  uphl02: RADAR,
+  updraft: RADAR,
+  ltng: RADAR,
+  vort02: RADAR,
+  maxref40: RADAR,
+  maxref50: RADAR,
+  sbcape: INSTAB,
+  mlcape: INSTAB,
+  mucape: INSTAB,
+  cape03: INSTAB,
+  blftx: INSTAB,
+  cin: INSTAB,
+  sbcin: INSTAB,
+  mlcin: INSTAB,
+  capcin: INSTAB,
+  lapse75: INSTAB,
+  thetae: INSTAB,
+  thetae2m: INSTAB,
+  thetae850: INSTAB,
+  shear01: WIND,
+  shear06: WIND,
+  shearsfc500: WIND,
+  stmmot: WIND,
+  lmmot: WIND,
+  srh1: WIND,
+  srh3: WIND,
+  cangle: WIND,
+  gust: WIND,
+  maxwind10: WIND,
+  wind850: WIND,
+  stpfix: INDEX,
+  stpeff: INDEX,
+  stpcin: INDEX,
+  ehi01: INDEX,
+  ehi03: INDEX,
+  sweat: INDEX,
+  ship: INDEX,
+  esp: INDEX,
+  tmp2m: TEMP,
+  dpt2m: TEMP,
+  pwat: TEMP,
+  lclhgt: TEMP,
+  pbl: TEMP,
+  fzlvl: TEMP,
+  frz2m: WINTER,
+  apcp: RAIN,
+  prate: RAIN,
+  qpf: RAIN,
+  asnow: WINTER,
+  snod: WINTER,
+  snowc: WINTER,
+  frzr: WINTER,
+  cpofp: WINTER,
+  wchill: WINTER,
+  snow6: WINTER,
+  csnow: WINTER,
+  cfrzr: WINTER,
+  cicep: WINTER,
+  hgt500: ALOFT,
+  hgt850: ALOFT,
+  tmp850: ALOFT,
+  tmp700: ALOFT,
+  tmp500: ALOFT,
+  absv500: ALOFT,
+  absv850: ALOFT,
+  vvel700: ALOFT,
+  rh700: ALOFT,
+  rh850: ALOFT,
+  wind500: ALOFT,
+  wind250: ALOFT,
+  tropo: ALOFT,
+  mslp: ALOFT,
+  tcdc: SKY,
+  lcdc: SKY,
+  cldbase: SKY,
+  vis: SKY,
+  smoke: SKY,
+  haines: SKY,
+};
+/** A field's category: listed by key, then by family (REFS thresholds), else by its old group. */
+function categoryOf(p: Param): (typeof CATEGORIES)[number] {
+  const base = p.key.replace(/^(p|m|pm|lp)_/, "");
+  if (CAT[base]) return CAT[base];
+  if (/^(uh|refc|refd|maxref|retop)/.test(base)) return RADAR;
+  if (/^(mlcape|sbcape|mlcin|cape|cin)/.test(base)) return INSTAB;
+  if (/^(srh|shear|wind)/.test(base)) return WIND;
+  if (/^(qpf|ffg|ari|pwat)/.test(base)) return RAIN;
+  if (/^(snow|csnow|frz)/.test(base)) return WINTER;
+  if (/^(dpt|tmp)/.test(base)) return TEMP;
+  if (/^(hgt|mslp)/.test(base)) return ALOFT;
+  return p.group === "Upper Air"
+    ? ALOFT
+    : p.group === "Severe Weather"
+      ? INSTAB
+      : SKY;
+}
+for (const list of [HRRR, GFS, REFS])
+  for (const p of list) p.group = categoryOf(p);

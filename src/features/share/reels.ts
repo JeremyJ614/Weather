@@ -99,6 +99,10 @@ export function modelReel(d: {
     [number, number],
     [number, number],
   ];
+  /** The frame picture's box and the view to draw (w, s, e, n), and a frame's city values. */
+  frame: number[];
+  view: number[];
+  values: (k: number) => (number | null)[] | null;
   label: (k: number) => [string, string];
   pause: () => void;
 }): Reel {
@@ -107,7 +111,8 @@ export function modelReel(d: {
   const detail = (v: "none" | "visible") =>
     m.getLayer("model-detail") &&
     m.setLayoutProperty("model-detail", "visibility", v);
-  const show = async (k: number) => {
+  /** The frame's picture, once drawn (asked for first in line; up to 30 s). */
+  const ready = async (k: number) => {
     let url = d.blob(k);
     if (!url) {
       d.want(k);
@@ -116,6 +121,10 @@ export function modelReel(d: {
         url = d.blob(k);
       }
     }
+    return url;
+  };
+  const show = async (k: number) => {
+    const url = await ready(k);
     const src = m.getSource("model") as
       { updateImage: (o: unknown) => void } | undefined;
     if (!url || !src) return false;
@@ -143,6 +152,19 @@ export function modelReel(d: {
     map: m,
     show,
     label: d.label,
+    brand: [d.model, d.param.label],
+    art: async (k) => {
+      const url = await ready(k);
+      if (!url) return null;
+      const { modelMap } = await import("./modelArt");
+      return modelMap({
+        url,
+        frame: d.frame,
+        view: d.view,
+        values: d.values(k),
+        width: 1080,
+      });
+    },
     restore: () => {
       d.want(d.at);
       void show(d.at).then(() => detail("visible"));
