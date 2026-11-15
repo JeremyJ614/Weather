@@ -341,6 +341,9 @@ function Tornadoes({
             />
             <Bars
               values={t.hours}
+              titles={t.hours.map(
+                (_, i) => `${i % 12 || 12} ${i < 12 ? "am" : "pm"}`,
+              )}
               labels={t.hours.map((_, i) =>
                 i % 6 === 0 ? `${i % 12 || 12}${i < 12 ? "a" : "p"}` : "",
               )}

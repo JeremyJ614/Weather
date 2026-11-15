@@ -7,6 +7,7 @@ import { WeatherMap, type ReadyMap } from "@/features/map/WeatherMap";
 import { pick, type Colors } from "@/lib/colors/pick";
 import { ROSTER, type Run, type Score } from "@/lib/tropical/atcf";
 import s from "./ModelBattle.module.css";
+import { InfoScrub } from "@/components/charts/InfoScrub";
 
 type Data = {
   runs: Run[];
@@ -269,7 +270,7 @@ export function GoogleAi({
               <svg
                 viewBox="0 0 300 110"
                 className="w-full"
-                role="img"
+                role="group"
                 aria-label="Wind forecasts, Google DeepMind and NHC"
               >
                 {(["nhc", "ai"] as const).map((k) => (
@@ -299,6 +300,23 @@ export function GoogleAi({
                     {g.tau}h
                   </text>
                 ))}
+                <InfoScrub
+                  label="Wind forecasts, Google DeepMind and NHC"
+                  x0={10}
+                  x1={290}
+                  top={12}
+                  bottom={100}
+                  width={300}
+                  height={110}
+                  title={(i) => `+${d.gap[i].tau} hours`}
+                  series={(["ai", "nhc"] as const).map((k) => ({
+                    key: k,
+                    label: k === "ai" ? "DeepMind" : "NHC",
+                    color: k === "ai" ? aiC : nhcC,
+                    y: d.gap.map((g) => 100 - (g[k] / peak) * 88),
+                    text: d.gap.map((g) => `${Math.round(g[k] * MI)} mph`),
+                  }))}
+                />
               </svg>
               <p className="flex justify-between text-xs text-muted">
                 <span style={{ color: aiC }}>

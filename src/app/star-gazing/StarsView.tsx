@@ -30,6 +30,7 @@ import {
   type SkyHour,
 } from "@/lib/sky/score";
 import s from "./Stars.module.css";
+import { InfoScrub } from "@/components/charts/InfoScrub";
 
 const Targets = dynamic(() => import("./Targets").then((m) => m.Targets), {
   loading: () => <p className={s.muted}>Loading…</p>,
@@ -499,7 +500,7 @@ function Hours({
       <svg
         viewBox={`0 0 ${W} ${H + 18}`}
         className="w-full"
-        role="img"
+        role="group"
         aria-label="Stargazing score by hour"
       >
         {[20, 40, 60, 80].map((v) => (
@@ -546,6 +547,32 @@ function Hours({
             )}
           </g>
         ))}
+        <InfoScrub
+          label="Stargazing score by hour"
+          xs={hours.map((_, i) => i * bw + bw / 2)}
+          top={0}
+          bottom={H}
+          width={W}
+          height={H + 18}
+          lit={false}
+          title={(i) => `${day(hours[i].at)} ${hr(hours[i].at)}`}
+          series={[
+            {
+              key: "sky",
+              label: "Score",
+              color: "var(--accent)",
+              y: hours.map((h) => H - (h.score / 100) * H),
+              text: hours.map((h) => `${h.score}/100`),
+            },
+          ]}
+          rows={(i) => [
+            {
+              label: bandOf(hours[i].score).label,
+              text: hours[i].f.limiting?.label ?? "Clear and dark",
+              color: c(bandOf(hours[i].score).key),
+            },
+          ]}
+        />
       </svg>
       <p className={s.muted}>
         Shaded columns are dark hours. Each bar is that hour&apos;s score out of

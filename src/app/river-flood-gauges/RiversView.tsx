@@ -16,6 +16,7 @@ import { pick, type Colors } from "@/lib/colors/pick";
 import type { Gauge, Hydro } from "@/lib/rivers/data";
 import { GAUGE_LEVELS } from "@/lib/rivers/style";
 import s from "./Rivers.module.css";
+import { InfoScrub } from "@/components/charts/InfoScrub";
 
 const now = () => Date.now();
 type Ahead = Gauge & { when: string | null };
@@ -325,6 +326,7 @@ function HydroChart({
     if (t >= t0) ticks.push(t);
   const nowX = X(Math.min(Math.max(now(), t0), t1));
   const accent = c(g.level === "normal" ? "normal" : g.level);
+  const seq = [...d.observed, ...d.forecast];
   return (
     <figure className={s.hydro}>
       <svg
@@ -477,6 +479,45 @@ function HydroChart({
             </text>
           </g>
         )}
+        <InfoScrub
+          label={`${g.name} river stage`}
+          xs={seq.map((p) => X(p.t))}
+          top={P.t}
+          bottom={H - P.b}
+          width={W}
+          height={H}
+          font={16}
+          start={Math.max(0, d.observed.length - 1)}
+          title={(i) =>
+            new Date(seq[i].t).toLocaleString("en-US", {
+              weekday: "short",
+              hour: "numeric",
+              minute: "2-digit",
+            })
+          }
+          series={[
+            {
+              key: "stage",
+              label: "Stage",
+              color: accent,
+              y: seq.map((p) => Y(p.v)),
+              text: seq.map((p) => `${p.v} ${d.units}`),
+            },
+          ]}
+          rows={(i) => {
+            const v = seq[i].v;
+            const band = [...marks].reverse().find((m) => v >= m[1]);
+            return [
+              {
+                label: i < d.observed.length ? "Observed" : "Forecast",
+                text: band
+                  ? band[0][0].toUpperCase() + band[0].slice(1)
+                  : "Below action",
+                color: band ? c(band[0]) : undefined,
+              },
+            ];
+          }}
+        />
       </svg>
       <figcaption className={s.muted}>
         Solid: observed{last ? ` (now ${last.v} ${d.units})` : ""}. Dashed: NWS

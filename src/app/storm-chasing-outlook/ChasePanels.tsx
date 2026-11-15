@@ -26,6 +26,7 @@ import {
   type Tone,
 } from "./ChaseParts";
 import s from "./Chase.module.css";
+import { InfoScrub } from "@/components/charts/InfoScrub";
 
 /** The four tabs after Overview, loaded when first opened. */
 export function ParamsPanel({
@@ -459,7 +460,7 @@ export function YearlyPanel({
         </h4>
         <svg
           viewBox={`0 0 ${W} 112`}
-          role="img"
+          role="group"
           aria-label={`Daily chase scores in ${year}`}
         >
           <g className={s.bars2}>
@@ -508,10 +509,50 @@ export function YearlyPanel({
               </text>
             ) : null;
           })}
+          {(() => {
+            const days = Array.from({ length: span }, (_, i) => {
+              const iso = new Date(start + i * 864e5)
+                .toISOString()
+                .slice(0, 10);
+              return { iso, l: byDay.get(iso) };
+            });
+            return (
+              <InfoScrub
+                label={`Daily chase scores in ${year}`}
+                x0={bw / 2}
+                x1={(span - 0.5) * bw}
+                top={4}
+                bottom={96}
+                width={W}
+                height={112}
+                lit={false}
+                start={span - 1}
+                title={(i) => shortDate(days[i].iso)}
+                series={[
+                  {
+                    key: "score",
+                    label: "Score",
+                    color: "var(--accent)",
+                    y: days.map(({ l }) =>
+                      l ? 96 - Math.max(1.5, (l.top_score / 100) * 92) : null,
+                    ),
+                    text: days.map(({ l }) =>
+                      l ? `${ten(l.top_score)} / 10` : null,
+                    ),
+                  },
+                ]}
+                rows={(i) =>
+                  days[i].l?.place
+                    ? [{ label: "Target", text: days[i].l!.place! }]
+                    : []
+                }
+              />
+            );
+          })()}
         </svg>
         <p className={s.small}>
           Each bar is that day&apos;s best score out of 10; the dashed line is
-          today. Tap a bar for its day.
+          today. Drag across the bars to read each day.
         </p>
       </section>
       {best.length > 0 && (
