@@ -617,3 +617,142 @@ Open the app 30 days in a row and get a free week of a paid add-on; 100 days ear
 - Cons: A few free weeks given away
 - Effort: Small
 - Impact: 3/5
+
+## A5. 15 visual upgrades and animations
+
+Fifteen ways to make the app feel more alive, each running live in its box so you can see it, not imagine it. In the app every one follows our rules: dark surfaces, gold as light and never a fill, movement through transform and opacity only, lighter on slow phones, and still for anyone with Reduce Motion on.
+
+### A5.1 Live Sky headers (Every page header)
+
+The top of every page shows the sky over you right now: rain streaks when it's raining, drifting snow, a lightning flicker during a storm, slow stars at night, a warm glow at sunset. It's the Right-now scene widget's sky, spread across the page header, very subtle under the title.
+
+- Pros: The whole app feels connected to the real weather outside; Instant 'wow' on first open
+- Cons: A small canvas on each header (paused when off screen, off on slow phones)
+- Effort: Medium
+- Impact: 5/5
+
+### A5.2 Flowing wind layer (National maps)
+
+Thousands of glowing streaks flowing with the real surface wind from the GFS over our national maps, like a living weather map. A toggle on the maps, and the default background on Winter Center and Hazards.
+
+- Pros: The most famous weather visual on the internet, in our colors; Makes fronts and storms readable at a glance
+- Cons: GPU work: fewer streaks on mid-tier phones
+- Effort: Medium
+- Impact: 5/5
+
+### A5.3 Radar-sweep reveal (Maps)
+
+When a map's data arrives, it doesn't just fade in: a radar beam sweeps once around the center and the data appears behind it, with a faint afterglow on the beam.
+
+- Pros: Turns waiting into a moment; Instantly says 'weather app'
+- Cons: Only on first load of a map, never on every refresh
+- Effort: Small
+- Impact: 4/5
+
+### A5.4 Rolling numbers (Numbers everywhere)
+
+Temperatures, SSWXCon scores, probabilities and points roll to their new value like an odometer instead of snapping, each digit on its own wheel.
+
+- Pros: You notice when a number changes; Feels premium with almost no cost
+- Cons: None worth noting (skipped with Reduce Motion)
+- Effort: Small
+- Impact: 4/5
+
+### A5.5 Severity pulse rings (Risk badges)
+
+Risk badges send out slow rings like a radar ping, faster and brighter as the level rises: nothing for General Thunder, a slow ping for Slight, an urgent pulse for High. The color comes from the existing risk colors.
+
+- Pros: Severity reads before you read the word; Draws the eye to what matters
+- Cons: Must stay calm on low levels so it never feels alarming
+- Effort: Small
+- Impact: 4/5
+
+### A5.6 Card grows into the page (Dashboard and lists)
+
+Tap a dashboard card or a list item and it smoothly grows into the full page or detail sheet (the same card, expanding), instead of a hard page change. Back shrinks it home.
+
+- Pros: The app feels like one connected space; You never lose your place
+- Cons: Works on pages that share an element; others use the normal change
+- Effort: Medium
+- Impact: 5/5
+
+### A5.7 Lightning page change (Page changes)
+
+Changing pages, a thin gold lightning bolt cracks across the screen for a tenth of a second as the new page rises in, a signature StormSync moment. A softer fade for members who prefer it (setting).
+
+- Pros: Unforgettable brand moment; Hides the brief load between pages
+- Cons: Some will want it off (one switch in settings)
+- Effort: Small
+- Impact: 4/5
+
+### A5.8 Holographic badges with tilt (Badges and cards)
+
+Badges, the Founder card and plan cards tilt in 3D as you tilt your phone or move your finger, with a foil shimmer sliding across them like a trading card.
+
+- Pros: Makes badges feel worth earning; Very shareable in screen recordings
+- Cons: Motion sensor permission on iPhone (asked once, optional)
+- Effort: Small
+- Impact: 4/5
+
+### A5.9 Tornado pull-to-refresh (Pull to refresh)
+
+Pull down on a page and a little funnel cloud forms from the top, tightening as you pull; let go and it spins while the data refreshes, then lifts away.
+
+- Pros: Delight in the most repeated gesture; On-brand for a storm app
+- Cons: Only in the installed app, where browsers don't add their own pull
+- Effort: Small
+- Impact: 4/5
+
+### A5.10 Scroll-built sections (Long pages)
+
+As you scroll, each section assembles itself: the card rises, its chart lines draw, its numbers roll. Done with the browser's own scroll-driven animations, so it costs no JavaScript.
+
+- Pros: Long pages feel crafted, not stacked; Free performance-wise
+- Cons: Older browsers just show sections without the build (fine)
+- Effort: Small
+- Impact: 3/5
+
+### A5.11 Data-decode headings (Headings)
+
+Page titles and big readouts resolve out of scrambling characters for a moment, like data coming in from a radar, then settle. Once per page visit.
+
+- Pros: Tech-forward feel that fits the science; Tiny and cheap
+- Cons: Used sparingly or it gets tiring (titles only)
+- Effort: Small
+- Impact: 3/5
+
+### A5.12 Hailstone celebrations (Wins and badges)
+
+Earning a badge, winning a game or upgrading a plan sets off a burst of glinting hailstones that bounce and roll off the bottom of the screen, instead of generic confetti.
+
+- Pros: Celebrations that are ours; Makes wins feel big
+- Cons: None (rare by nature)
+- Effort: Small
+- Impact: 4/5
+
+### A5.13 Living isobars (Backgrounds)
+
+Behind the glass cards, faint pressure lines slowly drift and bend like a weather map breathing. Barely there, but it gives every page depth.
+
+- Pros: Depth without clutter; Unique to a weather brand
+- Cons: Kept extremely faint so text contrast never drops
+- Effort: Small
+- Impact: 3/5
+
+### A5.14 The app follows the sun (Themes)
+
+The theme's glow shifts gently with the real sun where you are: a warmer gold at sunrise and sunset, cooler and dimmer at night. It's a token swap on the active theme, so every theme gets it.
+
+- Pros: The app quietly matches your day; Easier on the eyes at night
+- Cons: Members who want a fixed look turn it off in settings
+- Effort: Small
+- Impact: 3/5
+
+### A5.15 Warnings that arrive (Warnings)
+
+When a new warning comes in while you're on a page, its card arrives with a quick flash, a short shake and a ring, so it's impossible to miss, then settles calmly. Tornado warnings get the strongest version.
+
+- Pros: Life-safety info grabs attention; Feels like a real alert system
+- Cons: Only for new warnings near you, never for old ones on load
+- Effort: Small
+- Impact: 5/5
