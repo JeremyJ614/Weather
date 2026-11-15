@@ -1338,3 +1338,97 @@ Free business listings for StormSync Media with the app's link, logo and posts. 
 - Pros: Looks established and trustworthy; Free posts appear in brand searches
 - Cons: Needs a business address or service-area setup and verification
 - Impact: 5/10
+
+## A10. 10 places that bring subscribers, no fee up front
+
+Ten websites and companies that can bring in paying members without paying anything first: they're free, or they only take a share after a sale. For each: pros, cons, what they require and whether we qualify. I left out anything we don't qualify for today (Google Ad Grants needs a registered nonprofit; Discord's Server Discovery needs 1,000 members) and anything with an upfront fee (Google Play $25, Apple's App Store $99 a year, the big affiliate networks' setup fees). Fees are as published by each company; check the current terms when you sign up.
+
+### A10.1 Kickstarter (Crowdfunding)
+
+Run a 30-day campaign for the next big StormSync upgrade (the new engines or Storm Lookup), with yearly plans and Founder badges as rewards. Backers become paying members on day one, and Kickstarter's own discovery pages and newsletter bring people we'd never reach.
+
+- Pros: Pays only if the goal is met (all or nothing); Backers are paid-up members and loud fans; Press often covers fun campaigns
+- Cons: About 5% to Kickstarter plus 3–5% card fees, only when funded; A campaign is a month of steady effort
+- Needs: A short video, reward tiers, a funding goal and a U.S. bank account; the person running it 18+. Software projects go in the Technology → Apps category.
+- Eligible: Yes: the app is live, which Kickstarter likes (it shows we can deliver).
+
+### A10.2 Patreon (Memberships)
+
+A StormSync Patreon where storm-day coverage, behind-the-scenes chase content and early looks at new pages live, with each paid tier including the matching app plan (we hand out codes). Weather and chaser fans already pay creators there.
+
+- Pros: Free to start; Patreon's audience already pays for weather and chasing content; Fits the team's videos and streams
+- Cons: Patreon keeps about 10% of what patrons pay, plus payment fees; Two places to manage members (codes keep it simple)
+- Needs: An account, tiers and a payout method; the creator 18+.
+- Eligible: Yes: open to anyone.
+
+### A10.3 AppSumo Marketplace (Software marketplace)
+
+List a deal (for example a discounted first year of VIP) on AppSumo, a marketplace with millions of buyers who love trying new software. AppSumo markets it to its email list and site.
+
+- Pros: No listing fee; AppSumo takes a share of each sale; A big burst of members and reviews in a few weeks
+- Cons: Its buyers lean toward business tools, so a weather app is a less typical fit; AppSumo keeps a large share of each sale; Needs code redemption on our side (we already have promo codes)
+- Needs: Live, working software, a partner application and their review, codes they can sell.
+- Eligible: Yes to apply: they accept live software products. Acceptance is their call.
+
+### A10.4 NewsBreak Creator Program (Local news app)
+
+NewsBreak is the biggest local news app in the U.S. (tens of millions of monthly readers). Approved creators post local content and the app shows it to people in those towns. Our storm-day explainers and town forecasts, each with a link to the app, are exactly the local weather it surfaces.
+
+- Pros: Free, and NewsBreak even pays creators for views; Puts us in front of local readers in storm-prone towns
+- Cons: Needs regular, original posts; Approval isn't guaranteed
+- Needs: A creator application with sample content; original posts that follow their content rules.
+- Eligible: Yes to apply: U.S.-based creators of local content.
+
+### A10.5 Nextdoor for Business (Neighborhoods)
+
+A free StormSync business page on Nextdoor, where neighbors ask each other 'did anyone else just lose power?' and 'is that a tornado siren?'. Post storm-day updates and get recommended by members in their neighborhoods.
+
+- Pros: Free page and free posts; Neighbor recommendations are trusted; Very local, very storm-relevant
+- Cons: Posts reach nearby neighborhoods, so it grows town by town
+- Needs: A business page with a business address or service area, verified.
+- Eligible: Yes: StormSync Media qualifies as an online business.
+
+### A10.6 Flipboard (Reader app)
+
+Add SSWX News to Flipboard as a publisher using our existing RSS feed (/feed.xml). Flipboard readers who follow weather, science and local topics see our stories, and each story links to the app.
+
+- Pros: Free; No extra work: the feed is already built
+- Cons: Traffic depends on how often we publish
+- Needs: A publisher account and an RSS feed.
+- Eligible: Yes: our feed meets the requirements.
+
+### A10.7 Pinterest Business (Visual search)
+
+A free business account with boards of our maps, storm-prep checklists, Tornado Archive events and the evergreen guides. People save weather prep and tornado content all year, and Pinterest acts like a search engine, sending traffic for months after each pin.
+
+- Pros: Free, and pins keep working for months; Prep checklists and infographics do very well there
+- Cons: Slower to build than video platforms; Best for evergreen content, not live storms
+- Needs: A business account, a verified website (a small tag, like Search Console).
+- Eligible: Yes.
+
+### A10.8 Stormtrack and American Weather forums (Weather communities)
+
+Stormtrack is the long-running home of storm chasers; American Weather (americanwx) hosts regional forecast threads for every big storm. Being a helpful regular in both, sharing our maps and engines when they add something, reaches the most serious weather people in the country.
+
+- Pros: Exactly our most valuable members (chasers and weather nerds); Free
+- Cons: Both communities dislike advertising; value first, links second; Hand-done work
+- Needs: Free accounts and following each forum's rules on promotion.
+- Eligible: Yes.
+
+### A10.9 Lemon Squeezy affiliate hub (Affiliates)
+
+Lemon Squeezy (owned by Stripe) runs a free affiliate program for software it sells, with a public hub where affiliates go looking for products to promote. Creators and bloggers sign up to sell our plans and earn a commission only when someone pays.
+
+- Pros: Free to run: we pay only commissions on real sales; Affiliates find us through their hub
+- Cons: Sales go through Lemon Squeezy's checkout beside our Stripe one, and it keeps about 5% + 50¢ per sale; Commissions cut margin on those sales
+- Needs: A Lemon Squeezy store with our plans, and their approval.
+- Eligible: Yes: they sell software subscriptions.
+
+### A10.10 LinkedIn page and newsletter (Professionals)
+
+A free StormSync Media company page with a LinkedIn newsletter for emergency managers, school administrators, event planners and outdoor businesses: the people who need storm timing for work and will pay for a plan (and later for Services).
+
+- Pros: Free, and LinkedIn newsletters notify every subscriber; Reaches buyers, not just fans
+- Cons: A different, more professional tone; Slower growth than consumer social media
+- Needs: A company page managed from a personal account.
+- Eligible: Yes.
