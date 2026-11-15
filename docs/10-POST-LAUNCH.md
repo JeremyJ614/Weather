@@ -1001,3 +1001,127 @@ For every NEXRAD radar, the height of the lowest (0.5°) beam over every spot in
   - **Radars down now**: Mark radars that are offline right now, with the area that lost coverage. (accuracy gain: Medium)
   - **Lowest real tilt**: Use each site's actual lowest tilt (some scan below 0.5°). (accuracy gain: Low)
 - Effort: Medium
+
+## A7. 10 new Weather Engines
+
+Ten new engines for Extras. I checked each one against the 20 we have, the three we retired (ProbHail, Rotation Tracks, Snow Squalls), the 12 post-launch engines you already approved (Convective Initiation, Supercell Merger, Derecho Corridor and the rest) and the 15 engine ideas from the October review, so none repeats. All use free data and draw in our SPC style with editable colors.
+
+### A7.1 Giant Hail Outlook (Severe)
+
+The chance of 2-inch-plus hail this afternoon and evening. It reads the HRRR's built-in hail growth model (HAILCAST, the largest hailstone each hour) and checks it against the Significant Hail Parameter, so both the storm model and the environment have to agree.
+
+How: HRRR hourly max hail diameter + SHIP from the same run; lagged runs for a probability; verified against SPC hail reports 2"+.
+
+- Pros: Giant hail is the costliest severe hazard (cars, roofs); Two independent signals must agree, so fewer false alarms
+- Cons: HAILCAST tends to run high in some setups (calibration fixes most of it)
+- Data: HRRR on NOAA's AWS archive, SPC reports
+- Effort: Small
+- Impact: 5/5
+
+### A7.2 Atmospheric Rivers (Flooding / West)
+
+The rivers of moisture that bring the West Coast its floods and big snows (and sometimes the Southeast). Shows where the moisture plume will hit and rates it on the official AR scale from 1 (beneficial) to 5 (hazardous), with how long it lasts at your place.
+
+How: Integrated vapor transport (wind × moisture through the column) from the GFS 0.25°, AR category by the Ralph et al. (2019) scale from strength and duration.
+
+- Pros: Huge for California, Oregon and Washington, where we have few members today; The AR scale is what West Coast forecasters use
+- Cons: Mostly a West Coast and winter engine
+- Data: GFS on NOAA's AWS archive
+- Effort: Small
+- Impact: 4/5
+
+### A7.3 Downslope Windstorms (Wind)
+
+Chinooks on the Front Range, Santa Anas in Southern California, and windstorms off the Appalachians and Wasatch: the damaging winds that race down mountain slopes. Shows where and when, and how strong the gusts may get.
+
+How: Cross-barrier wind at ridge level, a stable layer near the ridge top and a critical level above (the mountain-wave recipe), plus the offshore pressure gradient for Santa Anas, from the HRRR.
+
+- Pros: These winds topple trucks and spread fires, and most apps never mention them; Ties into Fire Weather
+- Cons: Each mountain range needs its own tuning
+- Data: HRRR, USGS terrain
+- Effort: Medium
+- Impact: 3/5
+
+### A7.4 Snow Band Finder (Winter)
+
+Where the heavy snow bands will set up inside a winter storm (the narrow stripes that drop 2–3 inches an hour while the next town gets an inch), with a thundersnow flag.
+
+How: 700 mb frontogenesis with low or negative moist stability (conditional symmetric instability, EPV) from the HRRR, the method behind the Weather Service's banding forecasts.
+
+- Pros: Explains the 'why did they get 18 inches and we got 4' storms; A favorite of winter weather fans
+- Cons: Bands are narrow, so placement can be off by 20–30 miles
+- Data: HRRR
+- Effort: Medium
+- Impact: 4/5
+
+### A7.5 Black Ice Tonight (Winter / roads)
+
+Where wet roads will freeze tonight: rain or melting earlier, then clearing skies and calm winds that drop the road surface below freezing, even when the air stays a degree or two above. Hour of first freeze for your place.
+
+How: HRRR surface (skin) temperature, the day's rain and melt, overnight cloud and wind; checked against road weather stations where states publish them.
+
+- Pros: A danger drivers can't see; Fits the Daily Brief and notifications perfectly
+- Cons: Bridges freeze first; the map says so rather than guessing each bridge
+- Data: HRRR, state road weather stations (free where published)
+- Effort: Small
+- Impact: 4/5
+
+### A7.6 Haboobs & Dust Storms (Southwest / Plains)
+
+Walls of dust that drop visibility to zero on the highway: Arizona's monsoon haboobs and Plains dust storms. Shows where strong storm outflow or wind meets dry, bare ground, and the highways at risk.
+
+How: Storm outflow and gust potential from the HRRR (DCAPE, simulated gusts), dry topsoil from the HRRR's soil moisture, known dust source areas; highways from our road data.
+
+- Pros: Dust storms cause deadly pile-ups; Unique in a weather app
+- Cons: Regional (mostly the Southwest and High Plains)
+- Data: HRRR, dust source map (published research), roads
+- Effort: Medium
+- Impact: 3/5
+
+### A7.7 Surprise Detector (Observations)
+
+Watches every airport weather station every 5 minutes for the strange events models miss: sudden pressure jumps (gravity waves), wake lows that bring a burst of wind after storms pass, heat bursts at night (temperature jumping 10–20° in minutes). Each one pops up on the map with a story card.
+
+How: Five-minute ASOS observations from IEM; jump tests on pressure, temperature and wind against the station's last hour.
+
+- Pros: Live, real observations, no model; The kind of thing weather nerds screenshot and share
+- Cons: Rare on most days (that's the point)
+- Data: IEM 5-minute ASOS
+- Effort: Small
+- Impact: 3/5
+
+### A7.8 Coastal Impact (Tropical)
+
+When a hurricane threatens: the chance of more than 3, 6 or 9 feet of storm surge at each stretch of coast and at your saved places, and when tropical-storm winds are likely to arrive (the time you have to finish preparing).
+
+How: NHC's P-Surge exceedance probabilities and its tropical-storm-force wind arrival times (both free files), drawn on our map with your places.
+
+- Pros: Surge kills more people in hurricanes than wind; Official NHC data, our clear design
+- Cons: Only active when NHC issues advisories for a U.S. threat
+- Data: NHC P-Surge, NHC wind arrival times
+- Effort: Small
+- Impact: 5/5
+
+### A7.9 How Rare Is Today (Severe / climate)
+
+Puts today in perspective for your spot: how today's SPC tornado, wind and hail odds and the key ingredients compare with every past day of the same season. 'Today's tornado setup is in the top 2% for Norman in May.'
+
+How: SPC outlook archive and our engine fields vs. climatology for the place and date window (SPC's own climatology for the outlooks).
+
+- Pros: Instantly tells people whether to take a day seriously; A great one-line share
+- Cons: Rare isn't the same as certain (the card says so)
+- Data: SPC outlook archive and climatology, HRRR
+- Effort: Small
+- Impact: 4/5
+
+### A7.10 Chaseability Index (Chasing)
+
+Scores the country for how chaseable it is: road density and grid layout, hills and trees blocking the view, river crossings, and cell coverage. Laid over the Storm Chasing Outlook targets so a chaser can see 'great storms, terrible roads'.
+
+How: OpenStreetMap roads, USGS terrain and tree cover (NLCD), FCC mobile coverage maps; scored on a 0.1° grid once, then joined with each day's targets.
+
+- Pros: Something every chaser wants and no one has; Built once, cheap to serve
+- Cons: Cell coverage maps are what carriers report, not perfect
+- Data: OpenStreetMap, USGS NLCD and elevation, FCC coverage
+- Effort: Medium
+- Impact: 3/5
