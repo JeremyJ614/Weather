@@ -20,6 +20,9 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getOutlook } from "@/lib/tropical/nhc";
 import { latticeAreas, soften } from "./areas";
 import { FIELD_BANDS, PROB_BANDS, type FieldId } from "./colors";
+import { nationalStrikes } from "@/lib/lightning/data";
+import { LT_CLASSES } from "@/lib/lightning/style";
+import { readJson, writeJson } from "@/lib/ops/store";
 import { logFlags, type Flag } from "./verify";
 import { bound } from "./boundary";
 import {
@@ -129,34 +132,51 @@ export type Computed = {
   alt?: { field: Field; levels: number[] };
 };
 
-/** Nocturnal LLJ Ramp-Up, valid at the coming 06Z (about 1 a.m. Central). */
+/**
+ * Nocturnal LLJ Ramp-Up, valid at the coming 06Z (about 1 a.m. Central). Post-launch A6: a
+ * true jet has a wind peak low down and a falloff above it (the Bonner criteria, from the
+ * 925, 850 and 700 mb winds), broad flow without that counts half; the moisture the jet
+ * carries (850 mb mixing ratio × wind) weighs in; each top spot says when the jet peaks
+ * (03Z, 06Z or 09Z) and how strong it gets.
+ */
 async function llj(cycle: string): Promise<Computed> {
   const target = nextUtc(6, 1);
   const fh = hourFor(cycle, target);
   // The ramp-up is measured against six hours earlier (about 7 p.m. Central).
   const base = hourFor(cycle, target - 6 * 3600_000);
-  const [u8, v8, u9, v9, srh, cape, ps, land] = await grab(cycle, fh, [
+  const W = [
     ":UGRD:850 mb:",
     ":VGRD:850 mb:",
     ":UGRD:925 mb:",
     ":VGRD:925 mb:",
-    ":HLCY:1000-0 m above ground:",
-    ":CAPE:180-0 mb above ground:",
-    ":PRES:surface:",
-    ":LAND:surface:",
+  ];
+  const [now, before, early, late] = await Promise.all([
+    grab(cycle, fh, [
+      ...W,
+      ":UGRD:700 mb:",
+      ":VGRD:700 mb:",
+      ":DPT:850 mb:",
+      ":HLCY:1000-0 m above ground:",
+      ":CAPE:180-0 mb above ground:",
+      ":PRES:surface:",
+      ":LAND:surface:",
+    ]),
+    grab(cycle, base, W),
+    grab(cycle, hourFor(cycle, target - 3 * 3600_000), W).catch(() => null),
+    fhAt(cycle, target + 3 * 3600_000) <= 18
+      ? grab(cycle, fhAt(cycle, target + 3 * 3600_000), W).catch(() => null)
+      : null,
   ]);
-  const [bu8, bv8, bu9, bv9] = await grab(cycle, base, [
-    ":UGRD:850 mb:",
-    ":VGRD:850 mb:",
-    ":UGRD:925 mb:",
-    ":VGRD:925 mb:",
-  ]);
+  const [u8, v8, u9, v9, u7, v7, d8, srh, cape, ps, land] = now;
   const s8 = hypot(u8.values, v8.values);
   const s9 = hypot(u9.values, v9.values);
-  const b8 = hypot(bu8.values, bv8.values);
-  const b9 = hypot(bu9.values, bv9.values);
+  const s7 = hypot(u7.values, v7.values);
+  const b8 = hypot(before[0].values, before[1].values);
+  const b9 = hypot(before[2].values, before[3].values);
   const n = s8.length;
   const out = new Float32Array(n);
+  const cls = new Uint8Array(n);
+  const mt = new Float32Array(n);
   for (let i = 0; i < n; i++) {
     const p = ps.values[i] / 100;
     // A pressure level below the ground is the model's extrapolation, not wind.
@@ -166,18 +186,78 @@ async function llj(cycle: string): Promise<Computed> {
       out[i] = NaN;
       continue;
     }
-    const jet = Math.max(s8[i], use9 ? s9[i] : 0) * KT;
+    const jetMs = Math.max(s8[i], use9 ? s9[i] : 0);
+    const jet = jetMs * KT;
     const was = Math.max(b8[i], use9 ? b9[i] : 0) * KT;
+    // Bonner (1968): 12/16/20 m/s at the peak, falling 6/8/10 m/s by 3 km (700 mb).
+    const fall = jetMs - s7[i];
+    cls[i] =
+      jetMs >= 20 && fall >= 10
+        ? 3
+        : jetMs >= 16 && fall >= 8
+          ? 2
+          : jetMs >= 12 && fall >= 6
+            ? 1
+            : 0;
+    const e =
+      6.112 *
+      Math.exp((17.67 * (d8.values[i] - 273.15)) / (d8.values[i] - 29.65));
+    mt[i] = ((622 * e) / Math.max(850 - e, 1)) * s8[i];
     const jt = clamp((jet - 25) / 25);
     const rt = clamp((jet - was) / 15);
     const st = clamp(srh.values[i] / 200);
     const ct = clamp(cape.values[i] / 1000);
-    out[i] = 100 * jt * (0.4 + 0.6 * rt) * (0.5 + 0.5 * st) * (0.5 + 0.5 * ct);
+    const bt = cls[i] ? 1 : 0.5;
+    const qt = 0.6 + 0.4 * clamp((mt[i] - 60) / 140);
+    out[i] =
+      100 *
+      jt *
+      (0.4 + 0.6 * rt) *
+      (0.5 + 0.5 * st) *
+      (0.5 + 0.5 * ct) *
+      bt *
+      qt;
   }
+  const cell = cellOf(u8.grid);
+  const speedAt = (w: Field[] | null, i: number, use9: boolean) =>
+    w
+      ? Math.max(
+          Math.hypot(w[0].values[i], w[1].values[i]),
+          use9 ? Math.hypot(w[2].values[i], w[3].values[i]) : 0,
+        ) * KT
+      : -1;
   return {
     field: { grid: u8.grid, values: out },
     cycle,
     fh,
+    detail: (lat, lon) => {
+      const i = cell(lat, lon);
+      if (i < 0) return undefined;
+      const use9 = ps.values[i] / 100 >= 950;
+      const opts = [
+        [target - 3 * 3600_000, speedAt(early, i, use9)],
+        [target, speedAt([u8, v8, u9, v9], i, use9)],
+        [target + 3 * 3600_000, speedAt(late, i, use9)],
+      ] as const;
+      const [t, kt] = opts.reduce((a, b) => (b[1] > a[1] ? b : a));
+      const at = new Date(t).toLocaleTimeString("en-US", {
+        hour: "numeric",
+        timeZone: "America/Chicago",
+      });
+      const kind = [
+        "broad flow, no true jet",
+        "a low-level jet",
+        "a strong low-level jet",
+        "an intense low-level jet",
+      ][cls[i]];
+      const wet =
+        mt[i] >= 150
+          ? " pumping in deep moisture"
+          : mt[i] >= 90
+            ? " carrying moisture"
+            : "";
+      return `Peaks near ${at} CT at ${Math.round(kt)} kt: ${kind}${wet}`;
+    },
   };
 }
 
@@ -230,6 +310,17 @@ async function nst(cycle: string): Promise<Computed> {
       ":LAND:surface:",
     ],
   );
+  // Post-launch A6: water temperature (the model's surface temperature over water), the
+  // convective cloud depth and the 850 mb wind for Szilagyi's Waterspout Index, and the 2 m
+  // dew point to find the boundaries landspouts form on.
+  const [tsf, el, lcl, u85, v85, d2] = await grab(cycle, fh, [
+    ":TMP:surface:",
+    ":HGT:equilibrium level:",
+    ":HGT:level of adiabatic condensation from sfc:",
+    ":UGRD:850 mb:",
+    ":VGRD:850 mb:",
+    ":DPT:2 m above ground:",
+  ]);
   const g = t2.grid;
   const [w, h] = gridSize(g);
   const dx = g.kind === "lambert" ? g.dx : 3000;
@@ -243,11 +334,44 @@ async function nst(cycle: string): Promise<Computed> {
         (u10.values[k + w] - u10.values[k - w]) / (2 * dx);
     }
   const vort = smooth(raw, w, h, 4);
+  // Boundaries: converging 10 m winds with a dew point edge across them (the same signals
+  // Boundary Collisions reads), 0–1.
+  const conv = new Float32Array(w * h);
+  const edge = new Float32Array(w * h);
+  for (let j = 1; j < h - 1; j++)
+    for (let i = 1; i < w - 1; i++) {
+      const k = j * w + i;
+      conv[k] = -(
+        (u10.values[k + 1] - u10.values[k - 1]) / (2 * dx) +
+        (v10.values[k + w] - v10.values[k - w]) / (2 * dx)
+      );
+      edge[k] =
+        Math.hypot(
+          d2.values[k + 1] - d2.values[k - 1],
+          d2.values[k + w] - d2.values[k - w],
+        ) /
+        (2 * dx);
+    }
+  const convS = smooth(conv, w, h, 4);
+  const edgeS = smooth(edge, w, h, 4);
   // Waterspouts count within ~60 km of land (bays, sounds, the Great Lakes, near shore).
   const coast = smooth(land.values, w, h, 20);
   const out = new Float32Array(w * h);
   for (let k = 0; k < w * h; k++) {
     if (land.values[k] < 0.5 && coast[k] <= 0) continue;
+    if (land.values[k] < 0.5) {
+      // Szilagyi Waterspout Index (simplified): warm water under cold air aloft (water − 850 mb
+      // ≥ 8 °C, best near 20), deep enough convection (EL − LCL) and light 850 mb winds
+      // (best under 15 kt, none past 25), mapped onto the NST scale (full = 4).
+      const dT = tsf.values[k] - t8.values[k];
+      const depth = el.values[k] - lcl.values[k];
+      const wind = Math.hypot(u85.values[k], v85.values[k]) * KT;
+      const wsi =
+        clamp((dT - 8) / 12) *
+        (Number.isFinite(depth) ? clamp((depth - 1500) / 4500) : 0) *
+        clamp((25 - wind) / 10);
+      out[k] = 4 * wsi;
+    }
     const dz = (z8.values[k] - zs.values[k]) / 1000;
     if (!(dz > 0.3 && dz < 2)) continue;
     const lapse = (t2.values[k] - t8.values[k]) / dz;
@@ -257,7 +381,13 @@ async function nst(cycle: string): Promise<Computed> {
     const c = clamp((225 + cin.values[k]) / 200, 0, 1.2);
     const d = clamp((18 - shear) / 5, 0, 2);
     const e = clamp(vort[k] / 8e-5, 0, 3);
-    out[k] = a * b * c * d * e;
+    const nst = a * b * c * d * e;
+    // On land, boundaries raise the landspout value by up to 40%; away from them it drops 40%.
+    const bnd = clamp(convS[k] / 4e-5) * clamp(edgeS[k] / 4e-5);
+    out[k] = Math.max(
+      out[k],
+      land.values[k] < 0.5 ? nst : nst * (0.6 + 0.8 * bnd),
+    );
   }
   return {
     field: { grid: g, values: out },
@@ -934,19 +1064,96 @@ async function complexes(cycle: string, fh: number) {
   return out;
 }
 
-/** The HRRR's own lightning threat (flashes per km² per 5 minutes), the most over 3 hours. */
+/**
+ * Lightning Threat: the HRRR's own lightning forecast (flashes per km² per 5 minutes), the most
+ * over the next three hours. Post-launch A6: the first hour uses the lightning happening now
+ * (NOAA nowCOAST strike density, last 30 minutes) carried 40 minutes along the HRRR's 700 mb
+ * wind, and hours two and three are corrected by each region's running ratio of observed to
+ * modeled lightning (kept in private storage).
+ */
 async function ltg(cycle: string): Promise<Computed> {
   const fh = hourFor(cycle, Date.now() + 3600_000);
+  const now = hourFor(cycle, Date.now());
   const hours = [fh, fh + 1, fh + 2].filter((h) => h <= 18);
-  const runs = await Promise.all(
-    hours.map((h) => grab(cycle, h, [":LTNG:entire atmosphere:"])),
-  );
-  const first = runs[0][0];
-  const out = new Float32Array(first.values.length);
-  for (const [r] of runs)
-    for (let i = 0; i < out.length; i++)
-      if (r.values[i] > out[i]) out[i] = r.values[i];
-  return { field: { grid: first.grid, values: out }, cycle, fh };
+  const [runs, [u7, v7], [atNow], strikes, factors] = await Promise.all([
+    Promise.all(hours.map((h) => grab(cycle, h, [":LTNG:entire atmosphere:"]))),
+    grab(cycle, fh, [":UGRD:700 mb:", ":VGRD:700 mb:"]),
+    grab(cycle, now, [":LTNG:entire atmosphere:"]),
+    nationalStrikes(CONUS as [number, number, number, number], LW, LH).catch(
+      () => null,
+    ),
+    readJson<Record<string, number>>("calib/ltg.json", {}).catch(
+      () => ({}) as Record<string, number>,
+    ),
+  ]);
+  const region = (k: number) => {
+    const lon = CONUS[0] + (k % LW) * 0.1;
+    const lat = CONUS[3] - Math.floor(k / LW) * 0.1;
+    return `${lon < -105 ? "w" : lon < -90 ? "c" : "e"}${lat < 37 ? "s" : "n"}`;
+  };
+  const out = new Float32Array(LW * LH);
+  runs.forEach(([r], h) => {
+    const lat = toLattice(r, 1);
+    for (let k = 0; k < out.length; k++) {
+      const f = h === 0 ? 1 : (factors[region(k)] ?? 1);
+      const v = lat[k] * f;
+      if (v > out[k]) out[k] = v;
+    }
+  });
+  if (strikes) {
+    // Strike density (strikes/km²/min × 1000) to total flashes per km² per 5 minutes: ground
+    // networks see roughly a third of all flashes.
+    const cell = cellOf(u7.grid);
+    for (let k = 0; k < strikes.length; k++) {
+      const c = strikes[k];
+      if (c < 0) continue;
+      const v = (LT_CLASSES[c].v * 3 * 5) / 1000;
+      const lon = CONUS[0] + (k % LW) * 0.1;
+      const lat = CONUS[3] - Math.floor(k / LW) * 0.1;
+      const g = cell(lat, lon);
+      let la = lat;
+      let lo = lon;
+      if (g >= 0) {
+        const [ue, vn] = earthWind(u7.grid, lon, u7.values[g], v7.values[g]);
+        la += (vn * 2400) / 111_320;
+        lo += (ue * 2400) / (111_320 * Math.cos((lat * Math.PI) / 180));
+      }
+      for (const [dl, dn] of [
+        [0, 0],
+        [lat - la, lon - lo],
+      ] as const) {
+        const t = latticeCell(la + dl * 0.5, lo + dn * 0.5);
+        if (t >= 0 && v > out[t]) out[t] = v;
+      }
+    }
+    // Learn each region's observed-to-modeled ratio for the later hours (slowly).
+    const obs: Record<string, number> = {};
+    const mod: Record<string, number> = {};
+    const nowLat = toLattice(atNow, 1);
+    for (let k = 0; k < strikes.length; k++) {
+      const r = region(k);
+      if (strikes[k] >= 0) obs[r] = (obs[r] ?? 0) + 1;
+      if (nowLat[k] >= 0.05) mod[r] = (mod[r] ?? 0) + 1;
+    }
+    const next: Record<string, number> = { ...factors };
+    for (const r of ["ws", "wn", "cs", "cn", "es", "en"]) {
+      const ratio = ((obs[r] ?? 0) + 20) / ((mod[r] ?? 0) + 20);
+      next[r] = clamp(
+        (factors[r] ?? 1) * 0.85 + clamp(ratio, 0.5, 2) * 0.15,
+        0.5,
+        2,
+      );
+    }
+    await writeJson("calib/ltg.json", next).catch(() => undefined);
+  }
+  return {
+    field: { grid: LATTICE, values: out },
+    cycle,
+    fh,
+    note: strikes
+      ? undefined
+      : "Live lightning couldn't be read, so the first hour is the model's alone.",
+  };
 }
 
 /**

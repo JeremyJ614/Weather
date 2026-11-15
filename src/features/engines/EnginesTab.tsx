@@ -375,6 +375,7 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
     body: [
       "After sunset the ground cools, friction drops away and the wind a few thousand feet up speeds into a nocturnal low-level jet, which feeds overnight storms and can turn them severe after dark.",
       "From the latest HRRR run, this compares the 850 and 925 mb wind at about 1 a.m. Central with six hours earlier, then weighs in 0–1 km storm-relative helicity and most-unstable CAPE. 0–100: the higher, the stronger and faster the ramp-up where storms could use it.",
+      "Each spot is rated on Bonner's scale (a jet peaking at 25, 32 or 40 knots with the wind dropping off above it) from the 925, 850 and 700 mb winds, and weighted by how much moisture the jet is carrying north (mixing ratio times the 850 mb wind). The detail line says when the jet peaks between 10 p.m. and 4 a.m. Central, how strong, and whether it is a wet or dry jet.",
       "Mountains are left blank where those pressure levels are underground, and the open ocean is skipped.",
     ],
   },
@@ -383,7 +384,8 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
     body: [
       "Landspouts and waterspouts don't come from rotating supercells. They form when a growing storm stretches spin that already sits along a wind boundary at the ground.",
       "This is the Storm Prediction Center's Non-Supercell Tornado parameter from the HRRR for the next hour: steep low-level lapse rates, CAPE in the lowest 3 km, little inhibition, weak deep-layer shear and spin in the 10 m wind. 1 and up is favorable.",
-      "Over water it is a waterspout index, counted only within about 40 miles of land. A storm still has to form on the boundary for anything to happen.",
+      "On land it is weighted up where the HRRR has a boundary: surface winds running into each other or a sharp dew point edge, since that is where the spin waiting to be stretched lives.",
+      "Over water it follows Szilagyi's waterspout index instead: how much warmer the water is than the air at 850 mb, how deep the clouds can grow and how light the wind is. It is counted only within about 40 miles of land. A storm still has to form on the boundary for anything to happen.",
     ],
   },
   pyro: {
@@ -421,6 +423,7 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
     lead: "Good for the next few hours.",
     body: [
       "The HRRR forecasts lightning itself: flashes per square kilometer every five minutes, from the ice and graupel moving up and down inside its storms. This is the most each spot gets over the next three hours.",
+      "The latest real strikes (the last two frames of NOAA's nowCOAST lightning density) are blended in, nudged 40 minutes along the steering wind so they sit where the storms are heading. Each region's model numbers are also scaled by how they have compared with real strikes lately, so a run that keeps over- or under-doing lightning gets corrected.",
       "Isolated means the odd strike; frequent and up means lightning every few seconds nearby. Any thunder you hear means you are close enough to be struck, so head indoors.",
     ],
   },
