@@ -77,6 +77,13 @@ export function rainbowChance(sunAlt: number, rain: number, sunlit: number) {
   return Math.round(100 * low * wet * clamp(sunlit));
 }
 
+/**
+ * Bigger drops make brighter, more vivid bows (post-launch A6 "drop size"): light showers
+ * (under 25 dBZ, small drops) count a little less, heavy ones (40 dBZ and up) a little more.
+ */
+export const dropFactor = (dbz: number) =>
+  dbz >= 40 ? 1.1 : dbz >= 25 ? 1 : 0.85;
+
 /** Satellite visible brightness (0–255) to how open the sky is: dark ground 1, bright cloud 0. */
 export const openSky = (gray: number) => clamp((150 - gray) / 70);
 
@@ -105,19 +112,36 @@ export function deerFactors(x: DeerHour) {
     rain: x.rainMm > 2.5 ? 0.4 : x.rainMm > 0.2 ? 0.85 : 1,
   };
 }
-const DEER_W = { light: 0.35, cold: 0.25, front: 0.15, wind: 0.15, rain: 0.1 };
+/**
+ * Research weights (post-launch A6): GPS-collar studies find time of day by far the strongest
+ * pull on deer movement, temperature a modest one, wind and rain smaller, and barometric
+ * pressure (and the moon, left out) barely any.
+ */
+const DEER_W = { light: 0.5, cold: 0.2, front: 0.08, wind: 0.14, rain: 0.08 };
 
 /** Where the date sits in the rut: 1 outside it, up to 1.5 at the peak (two weeks). */
 export function rutBoost(
   day: Date,
   rut: { pre: string; peak: string; post: string; end: string },
 ) {
-  const y = day.getUTCFullYear();
-  const at = (md: string) => Date.parse(`${y}-${md}T00:00:00Z`);
   const t = day.getTime();
-  if (t >= at(rut.peak) && t < at(rut.post)) return 1.5;
-  if (t >= at(rut.pre) && t < at(rut.peak)) return 1.25;
-  if (t >= at(rut.post) && t < at(rut.end)) return 1.15;
+  // Windows can cross New Year (a Deep South rut peaks in January): each boundary is the
+  // first date on or after the one before it, tried from this year and the last.
+  for (const y of [day.getUTCFullYear(), day.getUTCFullYear() - 1]) {
+    let prev = -Infinity;
+    const at = (md: string) => {
+      let x = Date.parse(`${y}-${md}T00:00:00Z`);
+      if (x < prev) x = Date.parse(`${y + 1}-${md}T00:00:00Z`);
+      prev = x;
+      return x;
+    };
+    const [pre, peak, post, end] = [rut.pre, rut.peak, rut.post, rut.end].map(
+      at,
+    );
+    if (t >= peak && t < post) return 1.5;
+    if (t >= pre && t < peak) return 1.25;
+    if (t >= post && t < end) return 1.15;
+  }
   return 1;
 }
 

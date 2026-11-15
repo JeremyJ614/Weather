@@ -1,8 +1,9 @@
 import "server-only";
 import { PLACES } from "@/lib/geo/places.data";
 import { nearestPlace, parsePlaces } from "@/lib/geo/search";
-import { locator, type Field } from "@/lib/models/grib2";
-import { exists, record } from "@/lib/models/render";
+import { gridSize, locator, type Field } from "@/lib/models/grib2";
+import { MODELS, exists, latestCycle, record } from "@/lib/models/render";
+import { stateAt } from "@/lib/history/states";
 import { project } from "@/lib/map/usAlbers";
 import nation from "@/lib/map/data/usNationAlbers.json";
 import { sunTimes } from "@/lib/sky/astro";
@@ -10,7 +11,8 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { latticeAreas, soften, type Areas } from "./areas";
 import { OUTMAP } from "./colors";
 import { packAreas, type Packed } from "./pack";
-import { tuned } from "./fields";
+import { cycleTime, longRun, tuned } from "./fields";
+import { pressureFactor, rutFor } from "./rut";
 import {
   SPECIES,
   deerScore,
@@ -256,6 +258,77 @@ const median = (v: Float32Array) => {
   return a.length ? Math.round(a[a.length >> 1]) : 0;
 };
 
+/** Any grid (the HRRR's Lambert one too) sampled onto the 0.5° lattice. */
+function sampleAny(f: Field) {
+  const loc = locator(f.grid);
+  const [w, h] = gridSize(f.grid);
+  const out = new Float32Array(NW * NH).fill(NaN);
+  for (let j = 0; j < NH; j++)
+    for (let i = 0; i < NW; i++) {
+      const [gi, gj] = loc(LAT.N - j * LAT.step, LAT.W + i * LAT.step);
+      const x = Math.round(gi);
+      const y = Math.round(gj);
+      if (x >= 0 && y >= 0 && x < w && y < h)
+        out[j * NW + i] = f.values[y * w + x];
+    }
+  return out;
+}
+
+/**
+ * Day 1's dawn and dusk from the 3 km HRRR (post-launch A6): its 2 m temperature and 10 m wind
+ * every 2 hours across the day's dawns (10–16Z) and dusks (20–04Z) from the newest 48-hour
+ * run, sampled onto the lattice. Returns a lookup by time and cell (null outside it), or
+ * null when no run reaches.
+ */
+async function hrrrDay1(d0: number) {
+  const cycle = await latestCycle("hrrr");
+  const long = cycle ? await longRun(cycle) : null;
+  if (!long) return null;
+  const t0 = cycleTime(long);
+  const times = [10, 12, 14, 16, 20, 22, 24, 26, 28].map(
+    (h) => d0 + h * 3600_000,
+  );
+  const url = (fh: number) =>
+    MODELS.hrrr.url(long.slice(0, 8), long.slice(8), fh);
+  const got = await pool(
+    times.map((t) => async () => {
+      const fh = Math.round((t - t0) / 3600_000);
+      if (fh < 1 || fh > 48) return null;
+      const [tt, u, v] = await Promise.all(
+        [
+          ":TMP:2 m above ground:",
+          ":UGRD:10 m above ground:",
+          ":VGRD:10 m above ground:",
+        ].map((m) => record(url(fh), m)),
+      );
+      return { t, T: sampleAny(tt), u: sampleAny(u), v: sampleAny(v) };
+    }),
+    6,
+  ).catch(() => []);
+  const frames = got.flatMap((x) => (x ? [x] : []));
+  type Frame = (typeof frames)[number];
+  if (!frames.length) return null;
+  return (t: number, idx: number) => {
+    let a: Frame | null = null;
+    let b: Frame | null = null;
+    for (const f of frames) {
+      if (f.t <= t && (!a || f.t > a.t)) a = f;
+      if (f.t >= t && (!b || f.t < b.t)) b = f;
+    }
+    if (!a || !b || b.t - a.t > 4 * 3600_000) return null;
+    const k = a === b ? 0 : (t - a.t) / (b.t - a.t);
+    const mix = (x: Float32Array, y: Float32Array) =>
+      x[idx] * (1 - k) + y[idx] * k;
+    const T = mix(a.T, b.T);
+    if (!Number.isFinite(T)) return null;
+    // HRRR winds are grid-relative; only the speed is used here.
+    return {
+      T,
+      wind: Math.hypot(mix(a.u, b.u), mix(a.v, b.v)),
+    };
+  };
+}
+
 /** Computes every Deer and Fishing map from the newest usable GFS run. */
 export async function computeOutdoorMaps(now = Date.now()): Promise<OutMap[]> {
   const d0 = firstDay(now);
@@ -311,10 +384,11 @@ export async function computeOutdoorMaps(now = Date.now()): Promise<OutMap[]> {
   const allT = [...series.h, ...series.t];
   const t0All = hist[0];
 
-  const [deerW, fishW, cfg] = await Promise.all([
+  const [deerW, fishW, cfg, hrrr] = await Promise.all([
     tuned("deer").catch(() => ({}) as Weights),
     tuned("fish").catch(() => ({}) as Weights),
     deerConfig(),
+    hrrrDay1(d0).catch(() => null),
   ]);
   const m = usMask();
   // The moon's major and minor periods for each column of the lattice (they shift about four
@@ -342,17 +416,22 @@ export async function computeOutdoorMaps(now = Date.now()): Promise<OutMap[]> {
     for (const f of allT) water += K2F(f[idx]);
     water /= allT.length;
     const mo = moon[idx % NW];
+    const p = project(lon, lat);
+    const st = stateAt(p.x, p.y);
+    const rutHere = rutFor(st, lat, lon, cfg) ?? cfg.rut;
     for (let d = 0; d < 3; d++) {
       const noon = d0 + d * DAY + 12 * 3600_000 - (lon / 15) * 3600_000;
       const sun = sunTimes(new Date(noon), lat, lon);
       if (!sun.sunrise || !sun.sunset) continue;
-      const rut = rutBoost(new Date(d0 + d * DAY), cfg.rut);
+      const rut = rutBoost(new Date(d0 + d * DAY), rutHere);
+      const hunted = pressureFactor(st, d0 + d * DAY, cfg);
       for (const [t, rise] of [
         [sun.sunrise.getTime() + 30 * 60_000, true],
         [sun.sunset.getTime() - 30 * 60_000, false],
       ] as const) {
         if (t < start || t > end) continue;
-        const T = K2F(at(series.t, start, t, idx));
+        const hr = d === 0 && hrrr ? hrrr(t, idx) : null;
+        const T = K2F(hr ? hr.T : at(series.t, start, t, idx));
         const before =
           (K2F(at(allT, t0All, t - DAY, idx)) +
             K2F(at(allT, t0All, t - 2 * DAY, idx))) /
@@ -362,23 +441,29 @@ export async function computeOutdoorMaps(now = Date.now()): Promise<OutMap[]> {
             at(series.p, start, Math.max(start, t - H3), idx)) /
           100;
         const wind =
-          Math.hypot(at(series.u, start, t, idx), at(series.v, start, t, idx)) *
-          2.236936;
+          (hr
+            ? hr.wind
+            : Math.hypot(
+                at(series.u, start, t, idx),
+                at(series.v, start, t, idx),
+              )) * 2.236936;
         const rain = Math.max(0, at(series.r, start, t, idx) * 3600);
         const cloud = Math.max(0, Math.min(100, at(series.c, start, t, idx)));
         const fromRise = rise ? 0.5 : 12;
         const fromSet = rise ? 12 : -0.5;
-        const dv = deerScore(
-          {
-            fromRise,
-            fromSet,
-            colder: before - T,
-            dp3,
-            windMph: wind,
-            rainMm: rain,
-          },
-          rut,
-          deerW,
+        const dv = Math.round(
+          deerScore(
+            {
+              fromRise,
+              fromSet,
+              colder: before - T,
+              dp3,
+              windMph: wind,
+              rainMm: rain,
+            },
+            rut,
+            deerW,
+          ) * hunted,
         );
         if (!(dv <= deer[d][idx])) {
           deer[d][idx] = dv;

@@ -544,3 +544,11 @@
     display: none;
   }
 }
+
+/* Sunset and rainbow prompts (A6): the card lit, not filled. */
+.card[data-prompt] {
+  border-color: var(--lit-line);
+  box-shadow:
+    0 0 0 1px var(--lit-line),
+    0 0 18px color-mix(in srgb, var(--accent) 22%, transparent);
+}

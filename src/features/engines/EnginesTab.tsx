@@ -54,6 +54,8 @@ import { read as readPlaces } from "@/features/location/store";
 import {
   PlacePanel,
   ReportBox,
+  useJustSet,
+  useRainbowHere,
   ReportSummary,
   SpeciesPicker,
   type PlaceData,
@@ -479,24 +481,26 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
     lead: "Right about two times in three on good vs. poor; less a day out.",
     body: [
       "A colorful sunset needs clouds to catch the light, but not in the way: high and middle clouds overhead (best near half cover), little low cloud, and a clear horizon toward the sun so its last light can get under them.",
-      "At each place's own next sunset (and sunrise) this reads the HRRR's low, middle and high cloud there and along the line toward the sun 60 to 400 km out, the haze and smoke (aerosol optical thickness: a little smoke deepens the reds, heavy smoke dims them), the humidity, and whether rain fell in the two hours before, which leaves the air clean.",
-      "The model is weakest at thin high clouds, which make the best sunsets, and \"good\" is a matter of taste. Rate tonight's sunset below: members' stars are compared with the score and tune how much each part counts.",
+      "At each place's own next sunset (and sunrise) this reads the HRRR's low, middle and high cloud there and along the line toward the sun 60 to 400 km out, the smoke over you and toward the sun (HRRR-Smoke's column of wildfire smoke, as an optical depth: a little deepens the reds, heavy smoke dims them), the humidity, and whether rain fell in the two hours before, which leaves the air clean.",
+      "For sunsets in the next three hours, what GOES satellite sees now counts more the nearer sunset is: its infrared cloud tops split into high (colder than −28 °C), middle (−28 to −8 °C) and low cloud (warmer, but colder than the ground), there and along the sun line.",
+      'The model is weakest at thin high clouds, which make the best sunsets, and "good" is a matter of taste. Right after the sun sets where you are, this page asks for a star rating: members\' stars are compared with the score and tune how much each part counts.',
     ],
   },
   rainbow: {
     lead: "About 50–70% right with live radar; poor more than an hour ahead.",
     body: [
       "The physics is exact: a rainbow forms 42° around the point straight opposite the sun, so you need the sun behind you and lower than 42°, rain in front of you, and sunlight reaching that rain.",
-      "For each place this checks NOAA's national radar 5 to 20 km opposite the sun, GOES satellite for open sky toward the sun, and the sun's height. For +30 and +60 minutes the rain and cloud are carried forward on the HRRR's 700 mb wind and the sun moves on. The list says which way to look and how high the top of the bow will stand.",
-      "Showers are small and short-lived, and satellite can't always tell thin cloud from clear sky. Seen one? Tell us below; members' sightings are how this engine is checked.",
+      "For each place this checks NOAA's national radar 5 to 20 km opposite the sun, GOES satellite for open sky toward the sun, and the sun's height. For +30 and +60 minutes the rain and cloud are carried forward on each shower's own tracked motion (NOAA's ProbSevere storms within 50 miles), or the HRRR's 700 mb wind away from them, and the sun moves on. Heavier showers (40 dBZ and up) count a little more and light ones a little less, since bigger drops make brighter bows. The list says which way to look and how high the top of the bow will stand.",
+      "Showers are small and short-lived, and satellite can't always tell thin cloud from clear sky. Seen one? Tell us below (the page asks when a rainbow is likely near your saved place); members' sightings are how this engine is checked.",
     ],
   },
   deer: {
     lead: "Points the right way; the effects are modest.",
     body: [
       "Deer move most at dawn and dusk, more after a cold snap, more as pressure rises behind a front, and less in strong wind or heavy rain. Studies that GPS-collared deer find these effects are real but modest; a sharp drop below recent temperatures is the best supported. The moon matters little, so it is left out.",
-      "Each window gets a score: light 35%, colder than the two days before 25%, pressure change 15%, wind 15%, rain 10%. The rut lifts the whole day (the dates set in admin, Ohio's by default: late October to early December, peaking about November 5–20); outside it the best hour tops out at 80.",
-      "The map is an outlook for the lower 48, Days 1 to 3, drawn like SPC's: every half degree is scored at its own dawn and dusk from the GFS model's 3-hourly forecast (recomputed with each new run), and the better window counts. Categories run Fair, Good, Very good, Excellent and Peak.",
+      "Each window gets a score weighted the way the collar studies found: light 50%, colder than the two days before 20%, wind 14%, pressure change 8%, rain 8%. The rut lifts the whole day, from each state's own peak as its wildlife agency reports it (zones where a state's rut runs months apart: South Florida breeds in late summer, south Alabama and Mississippi in January, South Texas in December), and your own state's dates from admin; outside the rut the best hour tops out at 80.",
+      "The opening days of each state's firearms season cut daylight movement (by a fifth for three days, a tenth to day ten), since hunting pressure pushes deer to move after dark. Openers follow each state's usual rule and can shift a few days by year or zone.",
+      "The map is an outlook for the lower 48, Days 1 to 3, drawn like SPC's: every half degree is scored at its own dawn and dusk from the GFS model's 3-hourly forecast (recomputed with each new run), with Day 1's temperature and wind from the 3 km HRRR where its 48-hour run reaches, and the better window counts. Categories run Fair, Good, Very good, Excellent and Peak.",
       "Tap the map (or use your place) for that spot's next three days hour by hour from Open-Meteo, legal shooting hours, today's season and where to sit with the wind. Season dates are kept in admin; always check the state's regulations. Log deer you see: reports tune the weights.",
     ],
   },
@@ -1363,6 +1367,10 @@ export function EnginesTab({
     engine === "rwrap" && wraps && wraps !== "error" ? wraps.storms : [],
     wraps && wraps !== "error" ? wraps.at : undefined,
   );
+  const justSet = useJustSet();
+  const bowHere = useRainbowHere(
+    rainbow && rainbow !== "error" ? rainbow.spots[0] : [],
+  );
   const field = isField(engine) ? fields[engine] : undefined;
   const fine = useFineLines(
     engine === "bound" && field && field !== "error"
@@ -1895,7 +1903,14 @@ export function EnginesTab({
 
       {engine === "sunset" && (
         <>
-          <ReportBox kind="sunset" />
+          <ReportBox
+            kind="sunset"
+            prompt={
+              justSet
+                ? "The sun just set where you are. How was it?"
+                : undefined
+            }
+          />
           {field && field !== "error" && (
             <ReportSummary kind="sunset" sum={field.reports ?? null} />
           )}
@@ -1957,7 +1972,14 @@ export function EnginesTab({
               ))}
             </ul>
           )}
-          <ReportBox kind="rainbow" />
+          <ReportBox
+            kind="rainbow"
+            prompt={
+              bowHere
+                ? "A rainbow could be out near you now. Look away from the sun. See one?"
+                : undefined
+            }
+          />
           {rainbow && rainbow !== "error" && (
             <ReportSummary kind="rainbow" sum={rainbow.reports} />
           )}

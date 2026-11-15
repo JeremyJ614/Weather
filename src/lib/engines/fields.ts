@@ -64,7 +64,7 @@ function nextUtc(hour: number, ahead = 0) {
 }
 
 /** The newest 48-hour HRRR run (00, 06, 12 or 18Z) at or before `cycle` with its last hour out. */
-async function longRun(cycle: string) {
+export async function longRun(cycle: string) {
   for (let back = 0; back <= 12; back++) {
     const t = cycleTime(cycle) - back * 3600_000;
     const d = new Date(t);
@@ -1664,8 +1664,9 @@ async function refsNew(base: number, R: number) {
   return { chance, when, cycle };
 }
 
-/** Lattice-sized IR frame (bytes, higher is warmer: ~0.6 K a step) from nowCOAST's GOES mosaic. */
-async function irFrame(time: string) {
+/** GOES IR (band 14) at 0.05°, twice the lattice: the stored byte per pixel (higher is warmer,
+ * ~0.6 K a step, 163 K at 0), 255 where there is no data. From nowCOAST's GOES mosaic. */
+async function irPixels(time: string) {
   const q = new URLSearchParams({
     service: "WMS",
     version: "1.3.0",
@@ -1690,18 +1691,73 @@ async function irFrame(time: string) {
     throw new Error(`GOES ${r.status}`);
   const { rgba } = decodePng(Buffer.from(await r.arrayBuffer()));
   // The style is a white-to-black ramp over the stored byte: white (0) is the coldest top.
-  // Each lattice cell keeps its coldest of the four pixels; clear of data is NaN.
+  const px = new Uint8Array(LW * LH * 4).fill(255);
+  for (let k = 0; k < px.length; k++)
+    if (rgba[k * 4 + 3] >= 128) px[k] = Math.min(254, rgba[k * 4]);
+  return px;
+}
+
+/** IR brightness temperature (K) of a stored byte. */
+export const irKelvin = (b: number) => 163 + 0.655 * b;
+
+/** Lattice-sized IR frame: each lattice cell's coldest of its four pixels (NaN with no data). */
+async function irFrame(time: string) {
+  const px = await irPixels(time);
   const out = new Float32Array(LW * LH).fill(NaN);
   const W2 = LW * 2;
   for (let j = 0; j < LH * 2; j++)
     for (let i = 0; i < W2; i++) {
-      const k = (j * W2 + i) * 4;
-      if (rgba[k + 3] < 128) continue;
-      const v = rgba[k];
+      const v = px[j * W2 + i];
+      if (v === 255) continue;
       const q2 = (j >> 1) * LW + (i >> 1);
       if (!(out[q2] <= v)) out[q2] = v;
     }
   return out;
+}
+
+/** The newest GOES IR frame times on nowCOAST (ISO, oldest first). */
+async function irTimes() {
+  const caps = await fetch(
+    "https://nowcoast.noaa.gov/geoserver/satellite/ows?service=WMS&version=1.3.0&request=GetCapabilities",
+    { signal: AbortSignal.timeout(20000), next: { revalidate: 300 } },
+  ).then((r) => (r.ok ? r.text() : ""));
+  const i = caps.indexOf("<Name>goes_longwave_imagery</Name>");
+  const dim =
+    i < 0 ? null : /<Dimension name="time"[^>]*>([^<]+)</.exec(caps.slice(i));
+  return dim?.[1].split(",").map((x) => x.trim()) ?? [];
+}
+
+/**
+ * Tonight's clouds as GOES sees them (Sunset's satellite upgrade): for each lattice cell, the
+ * share of its four pixels with high tops (colder than 245 K), mid tops (245–265 K) and warmer
+ * pixels, and those warmer pixels' mean temperature, to tell low cloud from clear ground
+ * against the model's surface temperature.
+ */
+async function satClouds() {
+  const now = (await irTimes()).at(-1);
+  if (!now || Date.now() - Date.parse(now) > 40 * 60_000) return null;
+  const px = await irPixels(now);
+  const n = LW * LH;
+  const high = new Uint8Array(n);
+  const mid = new Uint8Array(n);
+  const warm = new Uint8Array(n);
+  const warmK = new Float32Array(n);
+  const W2 = LW * 2;
+  for (let j = 0; j < LH * 2; j++)
+    for (let i = 0; i < W2; i++) {
+      const v = px[j * W2 + i];
+      if (v === 255) continue;
+      const q = (j >> 1) * LW + (i >> 1);
+      const k = irKelvin(v);
+      if (k < 245) high[q]++;
+      else if (k < 265) mid[q]++;
+      else {
+        warm[q]++;
+        warmK[q] += k;
+      }
+    }
+  for (let q = 0; q < n; q++) if (warm[q]) warmK[q] /= warm[q];
+  return { high, mid, warm, warmK, at: Date.parse(now) };
 }
 
 /**
@@ -1711,14 +1767,7 @@ async function irFrame(time: string) {
  * clear ground). Returns 0, 1 (cooling) or 2 (cooling 12 K+) per lattice cell.
  */
 async function coolingTops() {
-  const caps = await fetch(
-    "https://nowcoast.noaa.gov/geoserver/satellite/ows?service=WMS&version=1.3.0&request=GetCapabilities",
-    { signal: AbortSignal.timeout(20000), next: { revalidate: 300 } },
-  ).then((r) => (r.ok ? r.text() : ""));
-  const i = caps.indexOf("<Name>goes_longwave_imagery</Name>");
-  const dim =
-    i < 0 ? null : /<Dimension name="time"[^>]*>([^<]+)</.exec(caps.slice(i));
-  const times = dim?.[1].split(",").map((x) => x.trim()) ?? [];
+  const times = await irTimes();
   const now = times.at(-1);
   if (!now) return null;
   const then = [...times]
@@ -2013,6 +2062,7 @@ const GLOW_FIELDS = [
   ":AOTK:entire atmosphere",
   ":TMP:2 m above ground:",
   ":DPT:2 m above ground:",
+  ":COLMD:entire atmosphere",
 ];
 const PATH_KM = [60, 120, 200, 300, 400];
 
@@ -2058,6 +2108,8 @@ export async function glowAt(lat: number, lon: number, at: number) {
   return glowInputs(f, pr, idx, lat, lon, az);
 }
 
+type Sat = NonNullable<Awaited<ReturnType<typeof satClouds>>>;
+
 function glowInputs(
   f: Field[],
   pr: Field | null,
@@ -2065,21 +2117,54 @@ function glowInputs(
   lat: number,
   lon: number,
   az: number,
+  sat?: { s: Sat; w: number },
 ): GlowInputs | null {
-  const [low, mid, high, aot, t2, d2] = f;
+  const [low, mid, high, aot, t2, d2, colmd] = f;
   const k = idx(lat, lon);
   if (k < 0) return null;
+  // HRRR-Smoke's column smoke (kg/m²) as an optical depth (about 4.5 m² per gram at 550 nm).
+  const smoke = (q: number) =>
+    colmd && Number.isFinite(colmd.values[q])
+      ? colmd.values[q] * 4500
+      : aot.values[q];
+  // Layer cover (%) from the model, leaning toward what GOES sees now as sunset nears.
+  const layers = (la: number, lo: number, q: number) => {
+    const m = { low: low.values[q], mid: mid.values[q], high: high.values[q] };
+    if (!sat || sat.w <= 0) return m;
+    const c = latticeCell(la, lo);
+    const tot = c < 0 ? 0 : sat.s.high[c] + sat.s.mid[c] + sat.s.warm[c];
+    if (!tot) return m;
+    const lowPx =
+      sat.s.warm[c] && sat.s.warmK[c] < t2.values[q] - 8 ? sat.s.warm[c] : 0;
+    const o = {
+      low: (100 * lowPx) / tot,
+      mid: (100 * sat.s.mid[c]) / tot,
+      high: (100 * sat.s.high[c]) / tot,
+    };
+    const w = sat.w;
+    return {
+      low: (1 - w) * m.low + w * o.low,
+      mid: (1 - w) * m.mid + w * o.mid,
+      high: (1 - w) * m.high + w * o.high,
+    };
+  };
+  const here = layers(lat, lon, k);
+  const smokes = [smoke(k)];
   const path = PATH_KM.flatMap((km) => {
     const [la, lo] = toward(lat, lon, az, km);
     const q = idx(la, lo);
-    return q < 0 ? [] : [Math.max(low.values[q], mid.values[q])];
+    if (q < 0) return [];
+    smokes.push(smoke(q));
+    const l = layers(la, lo, q);
+    return [Math.max(l.low, l.mid)];
   });
   return {
-    low: low.values[k],
-    mid: mid.values[k],
-    high: high.values[k],
+    low: here.low,
+    mid: here.mid,
+    high: here.high,
     path,
-    aot: aot.values[k],
+    // Smoke over you and toward the sun both color the light.
+    aot: smokes.reduce((a, b) => a + b, 0) / smokes.length,
     rh: (100 * es(d2.values[k] - 273.15)) / es(t2.values[k] - 273.15),
     rained: (pr?.values[k] ?? 0) * 3600 > 0.1,
   };
@@ -2123,8 +2208,17 @@ async function glowMap(
     ),
   ].sort((a, b) => a - b);
   let done = 0;
+  // Within three hours GOES's clouds count, more the nearer the sun gets to the horizon.
+  const sat =
+    hours.length && hours[0] * 3600_000 - Date.now() < 3 * 3600_000
+      ? await satClouds().catch(() => null)
+      : null;
+  let satUsed = false;
   for (const hr of hours) {
     if (Date.now() > deadline) break;
+    const lead = hr * 3600_000 - (sat?.at ?? 0);
+    const lean = sat ? clamp(1 - lead / (3 * 3600_000)) : 0;
+    if (lean > 0) satUsed = true;
     const r = await runFor(cycle, hr * 3600_000, long);
     if (!r) continue;
     const [f, [pr]] = await Promise.all([
@@ -2147,7 +2241,15 @@ async function glowMap(
         const lon = CONUS[0] + i * 0.1;
         const c = cellOf(lat, lon);
         if (Math.round(ev[c] / 3600_000) !== hr) continue;
-        const x = glowInputs(f, pr, idx, lat, lon, az[c]);
+        const x = glowInputs(
+          f,
+          pr,
+          idx,
+          lat,
+          lon,
+          az[c],
+          sat && lean > 0 ? { s: sat, w: lean } : undefined,
+        );
         if (!x) continue;
         const fac = glowFactors(x);
         out[j * LW + i] = glowScore(fac, w);
@@ -2155,7 +2257,7 @@ async function glowMap(
       }
     done++;
   }
-  return { out, ev, cellOf, parts, done, of: hours.length };
+  return { out, ev, cellOf, parts, done, of: hours.length, satUsed };
 }
 
 async function sunset(cycle: string): Promise<Computed> {
@@ -2193,9 +2295,16 @@ async function sunset(cycle: string): Promise<Computed> {
     },
     nearMiles: 60,
     note:
-      set.done < set.of || rise.done < rise.of
-        ? "Part of the country is still to come; the map fills in on the next run."
-        : undefined,
+      [
+        set.done < set.of || rise.done < rise.of
+          ? "Part of the country is still to come; the map fills in on the next run."
+          : "",
+        set.satUsed
+          ? "Sunsets in the next three hours lean on what GOES sees now."
+          : "",
+      ]
+        .filter(Boolean)
+        .join(" ") || undefined,
     detail: (lat, lon) => say(set.parts.get(at(lat, lon))) || undefined,
     when: (lat, lon) => set.ev[set.cellOf(lat, lon)] || undefined,
     altDetail: (lat, lon) => say(rise.parts.get(at(lat, lon))) || undefined,
