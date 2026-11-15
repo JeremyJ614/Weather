@@ -756,3 +756,248 @@ When a new warning comes in while you're on a page, its card arrives with a quic
 - Cons: Only for new warnings near you, never for old ones on load
 - Effort: Small
 - Impact: 5/5
+
+## A6. Engine by engine: pros, cons and upgrades
+
+All 20 Weather Engines on the Extras page, one at a time. For each: how it works today in plain words, what's good about it, where it falls short, and the specific upgrades that would make it more accurate, with how much each one would help. Most engines run as TypeScript on our server; Severe Analogs' archive is built with Python. The heavier upgrades (machine learning, big archives) would run in Python on free GitHub Actions and write their results where the app already reads them. Tick the engines you want upgraded; you can also tick single upgrades.
+
+### A6.1 ProbTor (Storm-by-storm tornado chance, next hour)
+
+Starts from NOAA's ProbSevere tornado probability for every storm (new every 2 minutes), nudges the next 20 minutes up or down by how fast low-level rotation is tightening and whether lightning is jumping, then fades beyond 20 minutes because skill drops fast.
+
+- Pros: Built on NOAA's best-tested storm nowcast; Updates every 2 minutes, storm by storm; Honest about how quickly skill fades
+- Cons: Inherits ProbSevere's blind spots: tornadoes in squall lines (QLCS) and in hurricanes are under-forecast; The rotation and lightning nudges are set by hand, not fitted to results; Doesn't use the radar's own velocity directly
+- Upgrades:
+  - **Squall-line tornado boost**: For storms in a line, apply the Three Ingredients Method (0–3 km shear of 30 kt or more, shear nearly across the line, a surge or bow), which is how forecasters catch QLCS tornadoes ProbSevere misses. (accuracy gain: High)
+  - **Real velocity rotation**: Use the Level 2 velocity decoder we already have (Tornado Archive) to measure each storm's rotation (normalized rotation, NROT) from the nearest radar, the strongest single tornado signal there is. (accuracy gain: High)
+  - **Debris check**: A drop in correlation coefficient right at the rotation (a tornado debris signature) marks a likely tornado on the ground, shown as 'Debris detected'. (accuracy gain: Medium)
+  - **Fitted to results**: Replace the hand-set nudges with weights fitted to our own verify log (isotonic calibration), and show a reliability chart in admin. (accuracy gain: Medium)
+- Effort: Medium
+
+### A6.2 Lightning Surge Detector (Storms whose lightning is jumping now)
+
+Follows each storm's total flash rate through the last ~20 minutes of ProbSevere files and runs the published '2-sigma' lightning-jump test (a rise far beyond the storm's own recent ups and downs, in a storm already flashing 10+ times a minute). Jumps backed by tightening rotation or a growing hail core are marked strong. Each jump is logged and checked against reports.
+
+- Pros: A well-researched method (Schultz and others) with 10–20 minutes of lead time before severe weather; Cheap and fast; Already verified against reports
+- Cons: Storm IDs can swap when storms merge or split, which can fake a jump; The 10 flashes a minute floor misses winter and low-topped storms; Only says 'jump' or not, not how big
+- Upgrades:
+  - **Merge and split handling**: Track storms by overlap instead of ID alone, so a merger isn't read as a jump. (accuracy gain: High)
+  - **Jump size (sigma level)**: Show 2σ, 3σ, 4σ as rising strength; bigger jumps verify far better. (accuracy gain: Medium)
+  - **Regional floors**: Lower thresholds for winter, the West and tropical air, fitted from the verify log. (accuracy gain: Medium)
+  - **Straight from GLM**: Read GOES-East and GOES-West lightning (GLM flash extent) directly, merged where they overlap, for a cleaner rate than the summary in ProbSevere. (accuracy gain: Medium)
+- Effort: Medium
+
+### A6.3 First Storms (Where storms start, next 6 hours)
+
+Looks at the last four HRRR runs together (a time-lagged ensemble). In each, a new storm is a 35 dBZ echo with nothing within 25 miles the hour before. The chance is the share of runs that start one near you, weighted by whether the cap is weakening and winds are converging, only where there's instability (MUCAPE 100+). Checked against real storms on radar.
+
+- Pros: Gives real odds instead of one model's guess; Checks itself against radar; Free and quick
+- Cons: Four runs of one model is a small ensemble; HRRR timing is often off by an hour or two; Ignores what satellite sees right now (towering cumulus)
+- Upgrades:
+  - **Satellite first hour**: Use GOES cloud-top cooling (tops chilling fast = a growing tower) to nowcast the first hour, where the model is weakest. (accuracy gain: High)
+  - **More members**: Add the RRFS and NAM 3 km runs to the lagged ensemble (12+ members instead of 4). (accuracy gain: High)
+  - **Smooth, calibrated odds**: Neighborhood probabilities with a 40 km smoothing and calibration from the verify log, the method SPC's guidance uses. (accuracy gain: Medium)
+- Effort: Medium
+
+### A6.4 Severe Analogs (Past days like today)
+
+Like Saint Louis University's CIPS analogs: today's and tomorrow's GFS weather over the U.S. (500 mb height, 850 mb temperature, winds at two levels, moisture and instability) is matched against every day since 2004 within six weeks of the date. The closest 15 days, and the severe reports they had, make an outlook. The archive is built by our Python script.
+
+- Pros: Easy to trust: 'days like this did X'; Grounded in real history; Cheap to run
+- Cons: 2.5° grid (about 170 miles) can't see a dryline or warm front; Daily averages blur the afternoon setup that matters; Only 22 years of days to choose from; Compares a forecast model to an old reanalysis, which have different biases
+- Upgrades:
+  - **ERA5 archive**: Rebuild the archive from ERA5 (0.25°, hourly, free and allowed for commercial use with credit) at the afternoon hour instead of a daily mean, back to 1990. (accuracy gain: High)
+  - **Severe ingredients in the match**: Add CAPE, 0–6 km shear and helicity to the fingerprint, not just heights and winds. (accuracy gain: High)
+  - **Regional matching**: Match each region on its own (Plains, Dixie, Midwest, Northeast), as CIPS does, so a good Plains match isn't spoiled by Florida. (accuracy gain: Medium)
+  - **Weighted analogs**: Closer matches count more than the 15th-best, and the GFS is bias-corrected to ERA5 first. (accuracy gain: Medium)
+- Effort: Large
+
+### A6.5 Boundary Collisions (Where boundaries meet, next 3 hours)
+
+Your design: takes the newest HRRR (now to 3 hours), airport observations and WPC's analyzed fronts, finds lines of converging wind with a sharp temperature or dew point change (fronts, outflow, drylines), tracks them hour to hour, and marks where two will meet.
+
+- Pros: Nobody else offers this; Mixes model, observations and the official analysis; Shows motion, not just a snapshot
+- Cons: Airports are 50–100 miles apart, so small outflow boundaries are missed; Model boundaries can be tens of miles off; Doesn't say how likely a storm is where they meet
+- Upgrades:
+  - **Boundaries from radar**: Find thin lines on the lowest radar scan (the fine lines outflow boundaries make) with the Level 2 decoder and the MRMS low-level mosaic. This is how forecasters actually see them. (accuracy gain: High)
+  - **Satellite arc clouds**: Detect arc clouds and cumulus lines in GOES visible imagery by day. (accuracy gain: Medium)
+  - **Storm chance at each collision**: Score each meeting point with the local instability, cap and shear, so it reads 'storms likely here at 5 pm'. (accuracy gain: High)
+- Effort: Large
+
+### A6.6 Significant Tornado (STP) (SPC's tornado parameter, this evening)
+
+SPC's fixed-layer Significant Tornado Parameter from the HRRR (surface CAPE, cloud base height, 0–1 km helicity, 0–6 km shear, CIN) at the coming 00Z, drawn as SPC-style areas.
+
+- Pros: The number every severe forecaster knows; SPC-style map, easy to read; Fast (seconds)
+- Cons: One model, one hour: if the HRRR is wrong or the peak is at 22Z or 03Z, it misses; Fixed-layer STP is less skillful than the effective-layer version SPC prefers
+- Upgrades:
+  - **Effective-layer STP**: Work out the effective inflow layer ourselves from the HRRR's 25 mb pressure levels and compute the effective-layer STP SPC uses on its mesoanalysis. (accuracy gain: High)
+  - **Evening maximum**: Take the highest value from 18Z to 06Z instead of only 00Z, with the hour it peaks. (accuracy gain: Medium)
+  - **Chance of STP ≥ 1**: Use the lagged HRRR and RRFS runs to show the probability STP passes 1, like SPC's ensemble guidance. (accuracy gain: High)
+- Effort: Medium
+
+### A6.7 Supercell Composite (SCP) (Where supercells are possible)
+
+Most-unstable CAPE × 0–3 km helicity × 0–6 km shear with the CIN term, right movers only, from the HRRR at the coming 00Z.
+
+- Pros: Standard and well-understood; Good at picking the broad supercell zone
+- Cons: Same single-run, single-hour weakness as STP; Fixed layers instead of effective ones; Can't tell supercells from a messy line (storm mode)
+- Upgrades:
+  - **Effective helicity and shear**: The effective-layer SCP (Thompson's updated version), from the same effective inflow work as STP. (accuracy gain: High)
+  - **Storm-mode hint**: Compare the deep shear direction with the starting boundary: shear across it favors discrete supercells, along it favors a line. (accuracy gain: Medium)
+  - **Evening max and ensemble chance**: As for STP. (accuracy gain: Medium)
+- Effort: Medium
+
+### A6.8 Derecho Composite (DCP) (Where long-lived wind storms could organize)
+
+Evans and Doswell's DCP: downdraft energy (DCAPE, which we compute ourselves from a moist-adiabatic table), MUCAPE, 0–6 km shear and mean wind.
+
+- Pros: We compute DCAPE the HRRR doesn't carry; A respected derecho index
+- Cons: DCP was built for places where a storm complex already exists; without one, it over-warns; Doesn't show where a complex would go
+- Upgrades:
+  - **Only where a complex can feed it**: Mark areas where the HRRR has an organized line (40 dBZ, 100 km long) heading in, the condition DCP was made for. (accuracy gain: High)
+  - **Corfidi path**: Draw where a complex would travel from the Corfidi vectors (downwind propagation), the path a derecho takes. (accuracy gain: High)
+  - **Model wind swaths**: Add the HRRR's hourly maximum 10 m wind gusts as a second ingredient. (accuracy gain: Medium)
+- Effort: Medium
+
+### A6.9 Lightning Threat (Lightning in the next 3 hours)
+
+The HRRR's own lightning forecast (flashes per km² per 5 minutes), the most expected over the next three hours.
+
+- Pros: A direct model forecast of lightning; Fast and simple
+- Cons: The first hour misses storms already going or about to start; Not checked against real lightning yet
+- Upgrades:
+  - **Real lightning for hour one**: Blend in the lightning happening now (GOES GLM), moved forward with storm motion, so the first hour is near-certain where it's already flashing. (accuracy gain: High)
+  - **Calibrated**: Compare with GLM flashes each day and correct the model's bias by region. (accuracy gain: Medium)
+- Effort: Small
+
+### A6.10 Rain-Wrap Index (Will a tornado be visible or hidden)
+
+Where supercells could form (SCP 1+): weak storm-relative wind at anvil level keeps rain falling around the updraft (rain-wrapped, HP storms), strong flow carries it away (LP storms); deep moisture and a low cloud base add to it. Rotating storms ProbSevere tracks now get their own score from their environment.
+
+- Pros: Built on solid research (Rasmussen and Straka; Brooks and others); Something chasers really care about
+- Cons: Environment only: it can't see whether a storm is actually rain-wrapped right now
+- Upgrades:
+  - **Look at the storm itself**: For rotating storms, measure the rain falling around the rotation on the lowest radar scan (the hook and inflow notch), a direct reading of rain-wrap. (accuracy gain: High)
+  - **9–11 km storm-relative wind**: Use Thompson's 9–11 km storm-relative wind, which separates HP from classic supercells better than 250–300 mb. (accuracy gain: Medium)
+- Effort: Medium
+
+### A6.11 Blizzard Composite (Hours of whiteout, next 2 days)
+
+The Weather Service's blizzard test (gusts 35 mph+ with snow cutting visibility to a quarter mile) through the HRRR: falling snow where the model has snow and low visibility, blowing snow where 2+ inches lie, it's −5 °C or colder and gusts reach 40 mph. It stops counting at 35 seconds and says how far it got.
+
+- Pros: Uses the official blizzard definition; Counts hours, which is what matters
+- Cons: Model visibility is a weak forecast; The model's own snow depth can be far off; Fresh snow blows at lower winds than old crusted snow; it treats them the same; The 35-second limit can cut it short
+- Upgrades:
+  - **Real snowpack**: Use NOAA's NOHRSC snow depth analysis (observed) instead of the model's snow. (accuracy gain: High)
+  - **Snow age physics**: The Li and Pomeroy blowing-snow threshold: fresh, cold snow drifts at lower winds; snow that has thawed and crusted doesn't. (accuracy gain: High)
+  - **Precomputed**: Run it on GitHub Actions after each HRRR run, so there's no time limit and the page opens instantly. (accuracy gain: Medium)
+- Effort: Medium
+
+### A6.12 Sunset & Sunrise (How colorful the sky will be)
+
+At each place's next sunset and sunrise: high and mid cloud overhead to catch the light, little low cloud in the way, a clear horizon toward the sun 60–400 km out, a little smoke, dry air, the clean air after rain. Factors multiply, and members' star ratings tune how much each counts.
+
+- Pros: Thoughtful physics of why skies glow; Learns from members' ratings; Very shareable
+- Cons: Model cloud heights and thin cirrus are often wrong; Smoke comes from a coarse aerosol field
+- Upgrades:
+  - **Satellite for tonight**: For tonight's sunset, use GOES cloud-type and cloud-top data from the last hour along the sun line, not only the model. (accuracy gain: High)
+  - **HRRR-Smoke**: Swap the aerosol field for HRRR-Smoke's column smoke (much finer). (accuracy gain: Medium)
+  - **Rating prompt**: Ask members for a quick star rating at sunset (more reports = better tuning). (accuracy gain: Medium)
+- Effort: Small
+
+### A6.13 Rainbow Chance (Now, +30 and +60 minutes)
+
+Radar finds real rain (15 dBZ+); the HRRR's cloud and GOES visible satellite say whether the sky is open toward the sun; the sun must be low enough. Rain is moved forward on the 700 mb wind. A rainbow needs rain 5–20 km opposite the sun and sunlight reaching it.
+
+- Pros: Physically exact geometry; Uses real radar and satellite, not just a model
+- Cons: 700 mb wind is a rough guess for how showers move; Brightness depends on drop size, which it ignores
+- Upgrades:
+  - **Real storm motion**: Move showers with their own tracked motion (MRMS and ProbSevere) instead of one wind level. (accuracy gain: Medium)
+  - **Drop size**: Favor heavier showers (bigger drops make brighter bows), from MRMS rain rate. (accuracy gain: Low)
+  - **Sighting reports**: A 'I saw one!' button, like sunset ratings, to tune it. (accuracy gain: Medium)
+- Effort: Small
+
+### A6.14 Deer Activity (Day 1–3 outlook, lower 48)
+
+Each half degree is scored at its own dawn and dusk from the GFS: temperature against the two days before (cold snaps get deer moving), pressure rising behind a front, wind, rain, cloud, the rut calendar and moon periods. Drawn SPC-style in five levels, members' reports tune it.
+
+- Pros: Drawn like an SPC outlook, which hunters love; Learns from reports
+- Cons: One rut calendar for the country, but the rut runs from early November in the North to January in parts of the South; Research on moon effects is weak, yet it counts; GFS is coarse for Day 1
+- Upgrades:
+  - **Rut by state**: Use each state wildlife agency's peak rut dates (some states have several zones). (accuracy gain: High)
+  - **Hunting pressure**: Add each state's season dates (gun season opening pushes deer nocturnal). (accuracy gain: Medium)
+  - **Research weights**: Weight temperature and pressure the way GPS-collar studies found (modest), and the moon least. (accuracy gain: Medium)
+  - **HRRR for Day 1**: Use the 3 km HRRR for tomorrow morning's wind and temperature. (accuracy gain: Medium)
+- Effort: Small
+
+### A6.15 Fishing Bite (Day 1–3 outlook by species)
+
+Five species scored at dawn and dusk from the GFS: low light, moon periods, slowly falling pressure ahead of a front, a light chop and cloud for the species that like it, and water temperature (estimated from five days of air temperature) in each species' comfort range.
+
+- Pros: Species-aware; Uses the factors anglers trust; Learns from catch reports
+- Cons: Water temperature is estimated, the factor that matters most; Ignores river flow (muddy high water shuts the bite off)
+- Upgrades:
+  - **Measured water temperature**: USGS stream and lake gauges, NOAA buoys and Great Lakes surface temperatures (all free) wherever they exist. (accuracy gain: High)
+  - **River flow**: USGS flow vs. normal: high and rising water lowers the score for rivers. (accuracy gain: High)
+  - **Lake satellite temps**: Satellite surface temperature for big lakes and reservoirs. (accuracy gain: Medium)
+- Effort: Small
+
+### A6.16 Nocturnal LLJ (Overnight low-level jet)
+
+HRRR wind at 850 and 925 mb around 1 a.m. Central compared with six hours earlier, weighted by 0–1 km helicity and MUCAPE, on a 0–100 scale.
+
+- Pros: Catches the classic night-time ramp-up behind Plains storms; Simple to read
+- Cons: Two fixed levels can miss the jet's actual core; Doesn't show whether the jet feeds storms with moisture
+- Upgrades:
+  - **Find the real jet**: Search the HRRR's levels below 3 km for the wind maximum and apply the Bonner criteria (a true jet has a peak and a falloff above). (accuracy gain: High)
+  - **Moisture transport**: Wind × moisture at 850 mb: the jet that keeps night storms alive. (accuracy gain: Medium)
+  - **Through the night**: An hour-by-hour timeline for your place. (accuracy gain: Low)
+- Effort: Small
+
+### A6.17 Landspouts & Waterspouts (Non-supercell tornadoes)
+
+SPC's Non-Supercell Tornado parameter from the HRRR (low-level lapse rate, 0–3 km CAPE, CIN, weak shear, surface vorticity), with waterspouts within about 40 miles of land.
+
+- Pros: SPC's own formula; Covers a hazard most apps ignore
+- Cons: Landspouts form on boundaries the model often can't place; Waterspouts depend on water temperature, which it doesn't use
+- Upgrades:
+  - **Szilagyi Waterspout Index**: The forecasting standard for waterspouts: water vs. 850 mb temperature difference, convective depth, light winds, with real water temperatures. (accuracy gain: High)
+  - **Boundaries from the collision engine**: Raise the landspout chance along boundaries Boundary Collisions finds. (accuracy gain: High)
+- Effort: Small
+
+### A6.18 Wildfire & PyroCb (Fire spread weather and fire thunderstorms)
+
+The Hot-Dry-Windy Index (dryness of the air × wind) at 21Z, and for each fire of 100+ acres a chance of a fire thunderstorm (pyroCb) from HDWI, the 700–500 mb lapse rate, mid-level moisture, fire size and containment.
+
+- Pros: HDWI is a modern, well-tested fire weather index; Per-fire pyroCb chance is rare and useful
+- Cons: How hot a fire is burning matters most for pyroCb, and it isn't used; Size and containment are slow to update
+- Upgrades:
+  - **Fire power from satellite**: Use fire radiative power from NASA FIRMS (VIIRS, MODIS) and GOES (free), the strongest single pyroCb predictor. (accuracy gain: High)
+  - **PyroCb Firepower Threshold**: Compute Tory and Kepert's PFT from the HRRR sounding over each fire: how much fire power the atmosphere needs to make a pyroCb. Compare with the fire's real power. (accuracy gain: High)
+- Effort: Medium
+
+### A6.19 Hurricane Tornadoes (Tornadoes in landfalling storms)
+
+0–1 km helicity × 0–3 km CAPE in the right half of each tropical storm or hurricane near the U.S., 50–400 miles from the center.
+
+- Pros: Targets a real, often-missed hazard; Simple and physically sound
+- Cons: Right half of the motion is a rough rule; research ties the risk to the shear direction; Only now, not the next two days of landfall
+- Upgrades:
+  - **Shear-relative quadrant**: Use the downshear quadrants (Edwards' research), which match where tropical tornadoes actually happen. (accuracy gain: High)
+  - **Along the forecast track**: Step the storm along NHC's forecast track for 48 hours, so you see when the threat reaches you. (accuracy gain: High)
+  - **Calibrated with history**: Check against SPC's tropical tornado database (free, since 1995). (accuracy gain: Medium)
+- Effort: Medium
+
+### A6.20 Radar Blind Spot (How high the lowest radar beam is)
+
+For every NEXRAD radar, the height of the lowest (0.5°) beam over every spot in the lower 48, with the standard 4/3-earth beam model. Tap anywhere for the exact height. Built once by a script.
+
+- Pros: Exact beam math; Tells people why radar can miss a tornado near them
+- Cons: Ignores mountains: in the West and Appalachians, terrain blocks the beam and the real blind spots are much worse; Leaves out the airport (TDWR) and Canadian radars that fill gaps; Doesn't know which radars are down right now
+- Upgrades:
+  - **Terrain blocking**: Trace each beam over USGS elevation data so blocked areas show as blind (the biggest accuracy gain by far in the West). (accuracy gain: High)
+  - **More radars**: Add the 45 TDWRs and the Canadian radars near the border. (accuracy gain: Medium)
+  - **Radars down now**: Mark radars that are offline right now, with the area that lost coverage. (accuracy gain: Medium)
+  - **Lowest real tilt**: Use each site's actual lowest tilt (some scan below 0.5°). (accuracy gain: Low)
+- Effort: Medium
