@@ -474,6 +474,8 @@ export function sampleFor(id: string): (() => Promise<Sample>) | null {
     case "engine-surge":
     case "engine-firstT":
       return () => engineAreas(id.slice(7), 3);
+    case "engine-prob":
+      return () => engineAreas("prob", 5);
     case "engine-boundpt":
       return () => engineAreas(id.slice(7), 4);
     default:

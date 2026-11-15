@@ -41,6 +41,10 @@ export async function GET(req: Request) {
       })),
     });
   }
+  if (e === "prob") {
+    const r = await fieldPreview("stp").catch(() => null);
+    return Response.json({ polys: polys(r?.alt, "prob") });
+  }
   if (e === "rainbow") {
     const d = await rainbowNow().catch(() => null);
     return Response.json({ polys: polys(d?.maps[0], "rainbow") });

@@ -152,6 +152,16 @@ export const BOUND_POINTS = [
   { min: 80, label: "Strong", color: "#f43f5e" },
 ];
 
+/**
+ * Chance maps (post-launch A6): the share of the last three HRRR runs past an engine's
+ * threshold (STP ≥ 1, SCP ≥ 1), drawn as nested areas. Editable as `engine:prob:<i>`.
+ */
+export const PROB_BANDS = {
+  levels: [10, 30, 50, 70, 90],
+  labels: ["10%", "30%", "50%", "70%", "90%"],
+  colors: ["#5eead4", "#38bdf8", "#a78bfa", "#f472b6", "#fb7185"],
+};
+
 /** First Storms' timing map: when the first storms start, latest first (nested). */
 export const FIRST_TIME_BANDS = [
   { label: "4–6 hours", color: "#a78bfa" },

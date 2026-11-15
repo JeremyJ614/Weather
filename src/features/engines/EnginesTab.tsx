@@ -37,6 +37,7 @@ import {
   BOUND_POINTS,
   FIELD_BANDS,
   FIRST_TIME_BANDS,
+  PROB_BANDS,
   OUTDOOR_BANDS,
   OUTMAP_BANDS,
   PYRO_BINS,
@@ -89,6 +90,8 @@ const bandsOf = (e: FieldId | OutdoorId) =>
 /** The map's second and third views, by engine. */
 const VIEWS: Partial<Record<Engine, string[]>> = {
   first: ["Chance", "Timing"],
+  stp: ["Evening peak", "Chance of 1+"],
+  scp: ["Evening peak", "Chance of 1+"],
   sunset: ["Sunset", "Sunrise"],
   rainbow: ["Now", "+30 min", "+60 min"],
   bound: ["Now", "In 3 hours"],
@@ -393,14 +396,16 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
   stp: {
     lead: "Good for where the setup is; storms still have to form.",
     body: [
-      "The Significant Tornado Parameter is the Storm Prediction Center's go-to ingredient blend for tornadoes rated EF2 and up. This is the fixed-layer version from the HRRR at this evening's peak (7 p.m. Central), or as far ahead as the latest run reaches: surface-based CAPE, how low the cloud base (LCL) is, 0–1 km storm-relative helicity, 0–6 km shear and how much the cap is holding storms back.",
+      "The Significant Tornado Parameter is the Storm Prediction Center's go-to ingredient blend for tornadoes rated EF2 and up. This is the effective-layer version SPC prefers, from the HRRR: mixed-layer CAPE, how low the cloud base (LCL) is, effective storm-relative helicity (the HRRR's own), deep-layer shear (0–6 km standing in for the effective layer, which the HRRR doesn't carry) and how much the cap is holding storms back.",
+      "Evening peak shows the highest value between 21Z and 03Z (about 4 to 10 p.m. Central) with the hour it peaks. Chance of 1+ is the share of the last three HRRR runs with STP of 1 or more at 00Z, so you can see how sure the model is.",
       "1 and up marks the environments most significant tornadoes form in; values over 4 are rare and come with the big days. A high number with no storms means nothing happens, so pair it with SPC's outlook.",
     ],
   },
   scp: {
     lead: "Good for where supercells could thrive.",
     body: [
-      "The Supercell Composite Parameter weighs whether a storm would rotate as a supercell: most-unstable CAPE, 0–3 km storm-relative helicity and 0–6 km shear, cut down where the cap is strong. From the HRRR at this evening's peak (or as far ahead as the latest run reaches).",
+      "The Supercell Composite Parameter weighs whether a storm would rotate as a supercell: most-unstable CAPE, effective storm-relative helicity and deep-layer shear (Thompson's effective-layer version), cut down where the cap is strong. Evening peak is the highest value from 21Z to 03Z; Chance of 1+ is the share of the last three HRRR runs at 1 or more at 00Z.",
+      "Each top spot carries a storm-mode hint: deep shear crossing the edge of the instability (where storms start) favors discrete supercells; shear running along it tends to line storms up.",
       "1 and up favors supercells, which bring most large hail and strong tornadoes; above 8 is a classic supercell day. Left-moving storms are left off.",
     ],
   },
@@ -409,6 +414,7 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
     body: [
       "The Derecho Composite Parameter (Evans and Doswell) looks for long-lived, damaging wind storms: downdraft CAPE (how hard cold air can crash down out of a storm), most-unstable CAPE, 0–6 km shear and a fast 0–6 km mean wind to carry the line along. From the HRRR at this evening's peak (or as far ahead as the latest run reaches).",
       "The HRRR doesn't carry downdraft CAPE, so it is worked out here: a parcel let down from the drier of 700 and 500 mb at its wet-bulb temperature to the ground. 2 and up favors derecho-producing systems once a line of storms gets going.",
+      "DCP was built for places a storm complex already exists, so the map counts it in full only within about 125 miles of an organized line in the HRRR (40 dBZ, 60+ miles long, in the three hours before) and at a third elsewhere. The HRRR's own hourly peak gusts weigh it too (half at 30 mph or less, full at 58 mph and up). Each top spot says where a complex would race, from the Corfidi vectors (cloud-layer mean wind and the low-level jet).",
     ],
   },
   ltg: {
@@ -663,6 +669,8 @@ export function EnginesTab({
     pick(colors, `engine:surge:${i}`, SURGE_BANDS[i].color);
   const timeColor = (i: number) =>
     pick(colors, `engine:firstT:${i}`, FIRST_TIME_BANDS[i].color);
+  const probColor = (i: number) =>
+    pick(colors, `engine:prob:${i}`, PROB_BANDS.colors[i]);
   const pyroColor = (i: number) =>
     pick(colors, `engine:pyrocb:${i}`, PYRO_BINS[i].color);
 
@@ -1241,14 +1249,21 @@ export function EnginesTab({
     if (f && f !== "error" && isField(engine)) {
       const alt = view === 1 && f.alt;
       const timeBands = engine === "first" && alt;
+      const probBands = (engine === "stp" || engine === "scp") && alt;
       (map.getSource("fieldA") as GeoJSONSource | undefined)?.setData(
         alt ? f.alt! : f.areas,
       );
       const n = timeBands
         ? FIRST_TIME_BANDS.length
-        : FIELD_BANDS[engine].levels.length;
+        : probBands
+          ? PROB_BANDS.levels.length
+          : FIELD_BANDS[engine].levels.length;
       const color = (i: number) =>
-        timeBands ? timeColor(i) : fieldColor(engine, i);
+        timeBands
+          ? timeColor(i)
+          : probBands
+            ? probColor(i)
+            : fieldColor(engine, i);
       const expr = [
         "match",
         ["get", "band"],
@@ -1302,14 +1317,16 @@ export function EnginesTab({
         ? SURGE_BANDS.map((b, i) => [b.label, surgeColor(i)])
         : engine === "first" && timing
           ? FIRST_TIME_BANDS.map((b, i) => [b.label, timeColor(i)])
-          : engine === "blind"
-            ? BLIND_BANDS.map((b, i) => [b.label, blindColor(i)])
-            : engine === "deer" || engine === "fish"
-              ? OUTMAP_BANDS.labels.map((l, i) => [l, outColor(i)])
-              : bandsOf(engine).labels.map((l, i) => [
-                  l,
-                  fieldColor(engine, i),
-                ]);
+          : (engine === "stp" || engine === "scp") && view === 1
+            ? PROB_BANDS.labels.map((l, i) => [l, probColor(i)])
+            : engine === "blind"
+              ? BLIND_BANDS.map((b, i) => [b.label, blindColor(i)])
+              : engine === "deer" || engine === "fish"
+                ? OUTMAP_BANDS.labels.map((l, i) => [l, outColor(i)])
+                : bandsOf(engine).labels.map((l, i) => [
+                    l,
+                    fieldColor(engine, i),
+                  ]);
   const placeNow =
     mapKey && placeMaps[mapKey] && placeMaps[mapKey] !== "error"
       ? (placeMaps[mapKey] as PlaceMap)

@@ -37,6 +37,7 @@ import {
   FIELD_BANDS,
   BOUND_POINTS,
   FIRST_TIME_BANDS,
+  PROB_BANDS,
   OUTDOOR_BANDS,
   OUTMAP_BANDS,
   PYRO_BINS,
@@ -427,6 +428,16 @@ export const GROUPS: Group[] = [
       key: `engine:firstT:${i}`,
       label: b.label,
       def: b.color,
+    })),
+  },
+  {
+    id: "engine-prob",
+    label: "Engine chance maps",
+    note: "Extras → Weather Engines → Significant Tornado and Supercell Composite: the Chance of 1+ view.",
+    entries: PROB_BANDS.levels.map((_, i) => ({
+      key: `engine:prob:${i}`,
+      label: PROB_BANDS.labels[i],
+      def: PROB_BANDS.colors[i],
     })),
   },
   {

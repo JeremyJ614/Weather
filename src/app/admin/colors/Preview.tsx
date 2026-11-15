@@ -101,6 +101,11 @@ export function previewSource(
         url: "/api/engines/preview?e=boundpt",
         title: "Where boundaries meet in the next 3 hours",
       };
+    case "engine-prob":
+      return {
+        url: "/api/engines/preview?e=prob",
+        title: "Chance of STP 1+ from the last three HRRR runs",
+      };
     case "engine-firstT":
       return {
         url: "/api/engines/preview?e=firstT",
