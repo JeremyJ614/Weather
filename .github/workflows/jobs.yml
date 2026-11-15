@@ -1,0 +1,51 @@
+name: Scheduled jobs
+
+# The heavy scheduled jobs, run here instead of on Vercel (post-launch A1 "cost-guard").
+# Off until the repository variable JOBS_ON_ACTIONS is "1". Then also set JOBS_ON_ACTIONS=1
+# in Vercel so the database scheduler's calls stand down. Needs the secret
+# SUPABASE_SERVICE_ROLE_KEY and the variables NEXT_PUBLIC_SUPABASE_URL and
+# NEXT_PUBLIC_SUPABASE_ANON_KEY. Free and unlimited once the repository is public.
+on:
+  schedule:
+    - cron: "7,27,47 * * * *" # engine maps (as pg_cron engine-maps)
+    - cron: "37 * * * *" # Deer and Fishing outlooks (engine-outdoor)
+    - cron: "41 * * * *" # engine report cards (engine-verify)
+    - cron: "8,18,28,38,48,58 * * * *" # lightning surges (engine-surge)
+  workflow_dispatch:
+    inputs:
+      job:
+        description: "engines, outdoor, verify or surge"
+        required: true
+        default: engines
+
+concurrency:
+  group: jobs-${{ github.event.schedule || inputs.job }}
+  cancel-in-progress: false
+
+jobs:
+  run:
+    if: ${{ vars.JOBS_ON_ACTIONS == '1' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Pick the job
+        id: pick
+        run: |
+          case "${{ github.event.schedule }}" in
+            "7,27,47 * * * *") echo "job=engines" >> "$GITHUB_OUTPUT" ;;
+            "37 * * * *") echo "job=outdoor" >> "$GITHUB_OUTPUT" ;;
+            "41 * * * *") echo "job=verify" >> "$GITHUB_OUTPUT" ;;
+            "8,18,28,38,48,58 * * * *") echo "job=surge" >> "$GITHUB_OUTPUT" ;;
+            *) echo "job=${{ inputs.job }}" >> "$GITHUB_OUTPUT" ;;
+          esac
+      - run: npx tsx --conditions=react-server scripts/jobs/run.ts ${{ steps.pick.outputs.job }}

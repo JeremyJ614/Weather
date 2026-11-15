@@ -4,6 +4,8 @@
  * compute reuses instances, so a script hammering a route meets the same counter; the CDN
  * answers repeat requests before they reach us, so only cache misses count. Free, no service.
  */
+import { track } from "@/lib/ops/usage";
+
 type Window = { n: number; t: number };
 
 const hits = new Map<string, Window>();
@@ -44,6 +46,7 @@ export function limited(
   perMinute: number = LIMITS.normal,
   now = Date.now(),
 ): Response | null {
+  track(bucket, now);
   const ip = ipOf(req);
   if (!ip) return null;
   const key = `${bucket}|${ip}`;

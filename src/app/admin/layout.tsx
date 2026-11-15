@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import s from "./AdminPhone.module.css";
 
 /** Admin pages keep their own full titles and stay out of search. */
 export const metadata: Metadata = {
@@ -11,5 +12,5 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return children;
+  return <div className={s.admin}>{children}</div>;
 }
