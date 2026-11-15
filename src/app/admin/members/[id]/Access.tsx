@@ -1,10 +1,13 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
+import { useActionState, useState, useTransition, lazy, Suspense } from "react";
 import { Minus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { NavIcon } from "@/components/NavIcon";
-import { BadgePlate } from "@/components/BadgeIcon";
+// The badge plates load on their own after the page (keeps this admin page in its budget).
+const BadgePlate = lazy(() =>
+  import("@/components/BadgeIcon").then((m) => ({ default: m.BadgePlate })),
+);
 import type { Badge } from "@/lib/badges";
 import type { Colors } from "@/lib/colors/pick";
 import {
@@ -231,7 +234,11 @@ export function Access({
                   }}
                   className={`rounded-xl ${on ? "" : "opacity-40 grayscale"}`}
                 >
-                  <BadgePlate badge={b} colors={colors} />
+                  <Suspense
+                    fallback={<span className="block h-[38px] w-[180px]" />}
+                  >
+                    <BadgePlate badge={b} colors={colors} />
+                  </Suspense>
                 </button>
               );
             })}

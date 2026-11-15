@@ -129,6 +129,11 @@
   color: #fff;
   text-shadow: 0 0 24px color-mix(in srgb, var(--band) 60%, transparent);
 }
+.num > span[role="img"] {
+  filter: drop-shadow(
+    0 0 12px color-mix(in srgb, var(--band) 60%, transparent)
+  );
+}
 .of {
   font-size: 11px;
   letter-spacing: 0.14em;

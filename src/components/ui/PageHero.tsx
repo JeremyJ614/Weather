@@ -97,7 +97,9 @@ export function PageHero({
         )}
         <div className={s.titleRow}>
           {icon && <span className={s.icon}>{icon}</span>}
-          <h1 className={s.title}>{title}</h1>
+          <h1 className={s.title} data-decode="">
+            {title}
+          </h1>
           {action && <div className={s.action}>{action}</div>}
         </div>
         {subtitle && <p className={s.sub}>{subtitle}</p>}

@@ -1,0 +1,44 @@
+.roll {
+  display: inline-flex;
+  align-items: baseline;
+  font-variant-numeric: tabular-nums;
+}
+/* A glow on the digits would be cut off at each wheel's edge; the parent's glow stays on
+   the whole number instead (drop-shadow follows the drawn digits). */
+.roll > span {
+  text-shadow: none;
+}
+.wheel {
+  filter: none;
+}
+.ch {
+  display: inline-block;
+}
+.wheel {
+  position: relative;
+  display: inline-block;
+  height: 1em;
+  line-height: 1;
+  overflow: hidden;
+  vertical-align: baseline;
+}
+.sizer {
+  visibility: hidden;
+  display: inline-block;
+  line-height: 1;
+}
+.col {
+  position: absolute;
+  inset: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  transition-property: transform;
+  transition-timing-function: cubic-bezier(0.2, 0.9, 0.25, 1.06);
+  will-change: transform;
+}
+.col span {
+  display: block;
+  height: 1em;
+  line-height: 1;
+  text-align: center;
+}

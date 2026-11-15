@@ -151,6 +151,11 @@
   letter-spacing: -0.03em;
   text-shadow: 0 0 30px color-mix(in srgb, var(--accent) 30%, transparent);
 }
+.nowTemp > span[role="img"] {
+  filter: drop-shadow(
+    0 0 14px color-mix(in srgb, var(--accent) 30%, transparent)
+  );
+}
 .nowTemp sup {
   font-size: 16px;
   color: var(--accent);
