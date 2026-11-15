@@ -1174,3 +1174,167 @@ Drag a storm around and watch its waves bunch up in front and stretch out behind
 - Cons: More of a lesson than the other four
 - Effort: Small
 - Impact: 3/5
+
+## A9. 20 free ways to get the app out there
+
+All twenty are free. The app already has the technical SEO basics (titles, share cards, structured data, sitemap, robots, llms.txt, RSS, IndexNow, the guest front door). These build on that. Each has a score out of 10 for how much it could grow the app. I checked the live site today: the Google and Bing verification tags aren't on it yet, so #1 and #2 are still open unless you verified another way (DNS).
+
+### A9.1 Google Search Console, verified, sitemap submitted (Search)
+
+Verify weather.sswx.space (the app's code is ready: set GOOGLE_SITE_VERIFICATION in Vercel) and submit the sitemap (132 pages today). Then Google indexes everything quickly and shows you which searches find you.
+
+- Pros: The single most important free step for Google; Shows the exact searches people use
+- Cons: Ten minutes of your time; results build over weeks
+- Impact: 10/10
+
+### A9.2 Bing Webmaster Tools (Search + AI)
+
+Import from Search Console in one click. Bing powers ChatGPT search, Microsoft Copilot and DuckDuckGo, and our IndexNow pings already reach it, so new stories appear within hours.
+
+- Pros: One step covers several search and AI engines; Our IndexNow setup starts working fully
+- Cons: Smaller than Google on its own
+- Impact: 8/10
+
+### A9.3 A page for every town (Search)
+
+'Tulsa tornado risk today', 'Moore tornado history', 'Is it going to storm in Wichita'. Pages for about 1,000 towns, each with real data: today's SPC risk and timing there, the town's tornado and hail history from our climatology, its biggest storms from the Tornado Archive, and a sign-up card. Built automatically from what we already have.
+
+- Pros: Thousands of local searches a day we could rank for; Pages are genuinely useful, so Google treats them well
+- Cons: Must be rich, not copy-paste, or Google ignores them; A few days of build
+- Impact: 9/10
+
+### A9.4 Shorts, Reels and TikToks from the app (Video)
+
+The app already exports radar and model loops as video and GIF. Post one 10–20 second clip every storm day (the SPC map building, a radar loop, a Tornado Archive replay) to YouTube Shorts, Instagram Reels, Facebook Reels and TikTok, each ending on the app's name.
+
+- Pros: Short weather video gets huge free reach on storm days; The content makes itself from our own share tools
+- Cons: Needs someone posting on storm days; Reach varies a lot clip to clip
+- Impact: 9/10
+
+### A9.5 A daily post on the StormSync page (Social)
+
+Every morning: the SSWXCon score and SPC map card for the day, scheduled free in Meta Business Suite (Facebook and Instagram) and Buffer's free plan (X, Threads, Bluesky). The A3 Social Studio idea would automate this from admin.
+
+- Pros: Habit: followers check it daily; Every post links back to the app
+- Cons: Quiet days need a different post (On This Day works well)
+- Impact: 8/10
+
+### A9.6 Local weather Facebook groups (Community)
+
+Most counties in Tornado Alley have a big local weather or storm-spotting Facebook group. Join, help on storm days with our maps and plain-word answers, and share the app when it truly helps. Many allow a pinned resources post.
+
+- Pros: Exactly our audience, already gathered; Trust builds fast when you help first
+- Cons: Each group has rules on self-promotion; Slow, hand-done work
+- Impact: 8/10
+
+### A9.7 Reddit on big days (Community)
+
+r/weather, r/tornado, r/TropicalWeather, r/stormchasing and state subreddits fill up on big days. Post genuinely useful maps and breakdowns from the app, credit NOAA, and keep the app link to your profile and where rules allow.
+
+- Pros: Very large, very engaged weather audience; Good posts get picked up by Google too
+- Cons: Reddit punishes obvious self-promotion; must give value first
+- Impact: 7/10
+
+### A9.8 Free embeddable widgets (Links)
+
+A copy-and-paste SSWXCon badge, a 'today's SPC risk' card and a radar loop that any website can embed (schools, churches, local news, fire departments, blogs), each with a 'Powered by StormSync Weather' link.
+
+- Pros: Every embed is a permanent backlink and a stream of visitors; Useful to the sites that use them
+- Cons: Light extra load on our servers (cached at the edge)
+- Impact: 8/10
+
+### A9.9 Free VIP for weather creators (Partners)
+
+Offer free VIP to storm chasers, local weather YouTubers and TikTok forecasters with a following, asking only that they use and mention the app if they like it. No payment either way.
+
+- Pros: Their audiences are exactly our members; Authentic recommendations convert best
+- Cons: No guarantee they mention it; A few free accounts
+- Impact: 8/10
+
+### A9.10 A free weekly newsletter on Substack (Email)
+
+'The Storm Week Ahead', every Sunday: the week's big threats in plain words with our maps, open to anyone. Substack is free and recommends newsletters to its readers, so it finds new people on its own.
+
+- Pros: Substack's network brings readers we'd never reach; An email list we own
+- Cons: A weekly writing commitment (the AI copilot in A3 could draft it)
+- Impact: 8/10
+
+### A9.11 Evergreen guides that rank (Search)
+
+Plain-word guides for what people search all year: 'How to read a hodograph', 'What does a Moderate risk mean', 'Tornado watch vs warning', 'What is STP'. Each one uses our live maps as examples and links to the page that shows it.
+
+- Pros: Steady search traffic every month, forever; Shows expertise, which Google rewards
+- Cons: Each guide takes care to write well
+- Impact: 8/10
+
+### A9.12 Google Discover and Google News (Search)
+
+Add the large-image preview setting, keep SSWX News stories fresh with strong photos, and register SSWX News in Google's free Publisher Center. Discover shows stories to people on their phones without them searching.
+
+- Pros: Discover can send huge traffic on big weather days; Small code change
+- Cons: Google decides what to show; it's unpredictable
+- Impact: 7/10
+
+### A9.13 Web Stories for big events (Search)
+
+Tap-through visual stories (Google's Web Stories format) for each big storm and each Tornado Archive event: maps, photos, one line each. They show in Google search and Discover as a swipeable carousel.
+
+- Pros: Stand out in search results; Made from images we already have
+- Cons: A separate page format to build once
+- Impact: 6/10
+
+### A9.14 Free press and journalist requests (Press)
+
+Answer reporters' free requests for expert sources (Featured, Qwoted and Source of Sources all have free tiers), and send local TV stations and newspapers a short note with a striking map before big events. Weather is one of the most covered topics in local news.
+
+- Pros: One mention in a local paper can bring hundreds of members; Builds authority and backlinks
+- Cons: Hit or miss; most pitches get no reply
+- Impact: 7/10
+
+### A9.15 Launch on Product Hunt and friends (Directories)
+
+A one-day launch on Product Hunt, plus free listings on AlternativeTo (as an alternative to RadarScope and MyRadar), BetaList, SaaSHub, Indie Hackers and the PWA directories.
+
+- Pros: A burst of early users and lasting backlinks; AlternativeTo catches people searching for apps like ours
+- Cons: Tech audiences, not all weather people; One day of active replying for Product Hunt
+- Impact: 6/10
+
+### A9.16 Free app stores (Stores)
+
+Google Play costs $25, but several stores are free: the Microsoft Store for our installed web app (free for individual developers, packaged with PWABuilder), the Samsung Galaxy Store for the Android app, and Uptodown and APKPure for the APK we already ship.
+
+- Pros: People search stores, not just Google; The Microsoft Store puts us on Windows PCs
+- Cons: Each store has its own review and listing to keep up
+- Impact: 6/10
+
+### A9.17 A StormSync Discord (Community)
+
+A free Discord server with storm-day channels, a chase channel, automatic posts of new watches and SSWXCon changes (a webhook from the app), and member roles synced to plans.
+
+- Pros: Where weather enthusiasts already hang out; Members bring friends to live storm days
+- Cons: Needs moderators on busy days
+- Impact: 7/10
+
+### A9.18 Live threads on big days (Social)
+
+On Moderate and High risk days, a running thread on X, Threads and Bluesky (the #wxsky community is big): the outlook, then each watch and the first warnings, with our maps. Big-day threads are what people share.
+
+- Pros: The moments with the most attention on weather; Shows the app at its best
+- Cons: Needs someone online during the event
+- Impact: 7/10
+
+### A9.19 Data reports that earn links (Links)
+
+Twice a year, a short report with charts nobody else makes: 'The 2026 tornado season in numbers', 'The most tornado-prone towns', 'How warnings performed'. News sites and bloggers love to cite these.
+
+- Pros: High-quality backlinks, the strongest SEO signal; Easy to pitch to the press (#14)
+- Cons: A couple of days of work per report
+- Impact: 7/10
+
+### A9.20 Google Business Profile and Apple Business Connect (Maps)
+
+Free business listings for StormSync Media with the app's link, logo and posts. People searching the brand get a proper card in Google and Apple Maps.
+
+- Pros: Looks established and trustworthy; Free posts appear in brand searches
+- Cons: Needs a business address or service-area setup and verification
+- Impact: 5/10
