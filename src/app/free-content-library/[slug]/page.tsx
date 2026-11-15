@@ -9,6 +9,7 @@ import { ArrowLeft, ArrowRight, Clock, ExternalLink } from "lucide-react";
 import { Blocks } from "@/features/library/Blocks";
 import { article, sectionOf, shelves, slugs } from "@/lib/library/data";
 import s from "../FreeLibrary.module.css";
+import { Morph } from "@/components/ui/Morph";
 
 export const dynamicParams = false;
 export function generateStaticParams() {
@@ -51,7 +52,9 @@ export default async function LibraryArticle({
         <Link href={`/free-content-library#${a.section}`} className={s.back}>
           <ArrowLeft aria-hidden /> {shelf?.title ?? "Library"}
         </Link>
-        <h1>{a.title}</h1>
+        <Morph name={`lib-${a.slug}`}>
+          <h1>{a.title}</h1>
+        </Morph>
         <p className={s.lede}>{a.summary}</p>
         <JsonLd
           data={articleOf({

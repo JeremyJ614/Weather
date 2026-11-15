@@ -288,3 +288,29 @@ html[data-immersive] body {
     transform: none;
   }
 }
+
+/*
+ * Card grows into the page (post-launch A5 "card-morph"): a news card's picture and title,
+ * a library card's title, and each page's header morph into their place on the next page
+ * (React <ViewTransition>, the browser's View Transitions API). Back plays it in reverse.
+ * Browsers without it, and Reduce Motion, change pages as before.
+ */
+::view-transition-group(.morph) {
+  animation-duration: 420ms;
+  animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+::view-transition-image-pair(.morph) {
+  animation-name: morph-blur;
+}
+@keyframes morph-blur {
+  35% {
+    filter: blur(2px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}

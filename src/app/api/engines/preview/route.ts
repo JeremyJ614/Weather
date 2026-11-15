@@ -1,12 +1,9 @@
 import { probSevere } from "@/lib/engines/probsevere";
-import { analogAreas, dayReports, type Analog } from "@/lib/analogs/analogs";
-import { supabaseAdmin } from "@/lib/supabase/admin";
 import { surges } from "@/lib/engines/surge";
 import { rainbowNow } from "@/lib/engines/rainbow";
 import { storedOutdoor } from "@/lib/engines/outmap";
 import { unpackAreas } from "@/lib/engines/pack";
 import {
-  ANALOG_BANDS,
   BOUND_POINTS,
   FIELD_BANDS,
   pyroBin,
@@ -41,29 +38,6 @@ export async function GET(req: Request) {
         lat: f.lat,
         lon: f.lon,
         key: `engine:pyrocb:${pyroBin(f.chance)}`,
-      })),
-    });
-  }
-  if (e === "analog" || e === "analogdot") {
-    const { data } = await supabaseAdmin()
-      .from("analog_days")
-      .select("analogs")
-      .eq("day", new Date().toISOString().slice(0, 10))
-      .maybeSingle();
-    const list = (data?.analogs ?? []) as Analog[];
-    if (e === "analog") {
-      const m = await analogAreas(
-        list,
-        ANALOG_BANDS.map((b) => b.min),
-      ).catch(() => null);
-      return Response.json({ polys: polys(m?.areas, "analog") });
-    }
-    const r = list[0] ? await dayReports(list[0].day) : null;
-    return Response.json({
-      dots: (r ?? []).map((x) => ({
-        lat: x.lat,
-        lon: x.lon,
-        key: `engine:analogdot:${x.kind}`,
       })),
     });
   }

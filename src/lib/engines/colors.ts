@@ -152,20 +152,6 @@ export const BOUND_POINTS = [
   { min: 80, label: "Strong", color: "#f43f5e" },
 ];
 
-/** Severe Analogs: the share of matched days with a severe report within 25 miles. */
-export const ANALOG_BANDS = [
-  { min: 10, label: "10%", color: "#4ade80" },
-  { min: 20, label: "20%", color: "#facc15" },
-  { min: 35, label: "35%", color: "#fb923c" },
-  { min: 50, label: "50%+", color: "#f43f5e" },
-];
-/** Severe Analogs: one matched day's reports. */
-export const ANALOG_DOTS = {
-  torn: { label: "Tornado", color: "#ef4444" },
-  wind: { label: "Wind", color: "#60a5fa" },
-  hail: { label: "Hail", color: "#4ade80" },
-};
-
 /** First Storms' timing map: when the first storms start, latest first (nested). */
 export const FIRST_TIME_BANDS = [
   { label: "4–6 hours", color: "#a78bfa" },
