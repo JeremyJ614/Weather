@@ -11,6 +11,8 @@ import {
   distKm,
   grab,
   hourFor,
+  binOf,
+  calibBins,
   smooth,
   type Computed,
 } from "./fields";
@@ -39,13 +41,20 @@ export type Collision = {
   spread: number;
   kinds: string;
   score: number;
+  /** Chance storms form within 25 miles of it, calibrated, and the words for it. */
+  chance: number;
+  storms: string;
   evidence: string[];
 };
+
+/** Bins Boundary Collisions' chance is calibrated in (40–60%, 60–80%, 80%+). */
+const BINS = [40, 60, 80, 101];
 
 const TEMP = 1;
 const MOIST = 2;
 const KIND = ["", "temperature", "moisture", "temperature and moisture"];
 let places: ReturnType<typeof parsePlaces> | null = null;
+const clamp100 = (x: number) => Math.round(Math.max(0, Math.min(95, x)));
 
 /** Boundary cells at one hour: 1 temperature, 2 moisture, 3 both (0 none). */
 function boundaries(
@@ -315,21 +324,29 @@ export async function bound(cycle: string): Promise<Computed> {
       }
     return out;
   })();
-  for (let h = 0; h <= 3; h++) {
+  const refc: Float32Array[] = [];
+  for (let h = 0; h <= 4; h++) {
     const fh = hourFor(cycle, base + h * 3600_000);
-    const [u, v, t, td] = await grab(cycle, fh, [
+    if (h === 4) {
+      const [r] = await grab(cycle, fh, [":REFC:entire atmosphere:"]);
+      refc.push(r.values);
+      continue;
+    }
+    const [u, v, t, td, r] = await grab(cycle, fh, [
       ":UGRD:10 m above ground:",
       ":VGRD:10 m above ground:",
       ":TMP:2 m above ground:",
       ":DPT:2 m above ground:",
+      ":REFC:entire atmosphere:",
     ]);
+    refc.push(r.values);
     grid = u.grid;
     masks.push(
       boundaries(u.values, v.values, t.values, td.values, u.grid, steep),
     );
   }
   const fhEnv = hourFor(cycle, base + 2 * 3600_000);
-  const [[cape, cin, srh, us, vs], fronts, obs] = await Promise.all([
+  const [[cape, cin, srh, us, vs], fronts, obs, calib] = await Promise.all([
     grab(cycle, fhEnv, [
       ":CAPE:90-0 mb above ground:",
       ":CIN:90-0 mb above ground:",
@@ -339,6 +356,7 @@ export async function bound(cycle: string): Promise<Computed> {
     ]),
     wpcFronts(),
     airports(),
+    calibBins("bound", BINS).catch(() => [1, 1, 1]),
   ]);
   const loc = locator(grid!);
   const [gw] = gridSize(grid!);
@@ -351,6 +369,18 @@ export async function bound(cycle: string): Promise<Computed> {
       srh: srh.values[k],
       shear: Math.hypot(us.values[k], vs.values[k]) * 1.944,
     };
+  };
+  /** Does the HRRR itself have a 35 dBZ storm within ~40 km in the hour around `h`? */
+  const hrrrStorm = (lat: number, lon: number, h: number) => {
+    const [fi, fj] = loc(lat, lon);
+    const x = Math.round(fi);
+    const y = Math.round(fj);
+    const [w2, h2] = gridSize(grid!);
+    for (const k of [Math.max(0, Math.floor(h)), Math.min(4, Math.ceil(h) + 1)])
+      for (let b = Math.max(0, y - 13); b <= Math.min(h2 - 1, y + 13); b += 2)
+        for (let a = Math.max(0, x - 13); a <= Math.min(w2 - 1, x + 13); a += 2)
+          if (refc[k][b * w2 + a] >= 35) return true;
+    return false;
   };
   const byHour = masks.map((m) => pieces(m, 8));
   // Only the stretches long enough to follow are drawn.
@@ -424,8 +454,23 @@ export async function bound(cycle: string): Promise<Computed> {
     const sure =
       0.5 + (o.conv ? 0.2 : 0) + (o.split ? 0.15 : 0) + (wpc ? 0.15 : 0);
     const score = Math.round(100 * sure * (0.2 + 0.8 * fuel * capped));
+    // Storm chance (post-launch A6): the collision's lift, the fuel and cap there, deep shear
+    // to organize what forms, and whether the HRRR itself starts a storm by it; then the
+    // calibration from how past collisions verified against radar.
+    const model = hrrrStorm(c.lat, c.lon, c.h);
+    const organize = e.shear >= 25 ? 1.05 : 1;
+    const rawChance = clamp100(
+      100 *
+        sure *
+        (0.08 + 0.92 * fuel * capped) *
+        (model ? 1.25 : 0.75) *
+        organize,
+    );
+    const chance = clamp100(
+      rawChance * (calib[Math.max(0, binOf(BINS, rawChance))] ?? 1),
+    );
     const evidence = [
-      `HRRR: ${c.kinds} meet${c.h <= 0 ? " now" : ""}`,
+      `HRRR: ${c.kinds} meet${c.h <= 0 ? " now" : ""}${model ? ", and it starts a storm there" : ""}`,
       ...o.lines,
       ...(wpc ? [`WPC analyzes ${FRONT[wpc.kind]} here`] : []),
       `${Math.round(e.cape).toLocaleString("en-US")} J/kg CAPE, CIN ${Math.round(e.cin)}, ${Math.round(e.srh)} m²/s² low-level spin, ${Math.round(e.shear)} kt shear`,
@@ -439,10 +484,17 @@ export async function bound(cycle: string): Promise<Computed> {
       spread: Math.round(30 + 20 * Math.max(0, c.h)),
       kinds: c.kinds,
       score,
+      chance,
+      storms:
+        chance >= 60
+          ? "Storms likely"
+          : chance >= 30
+            ? "Storms possible"
+            : "Storms unlikely",
       evidence,
     });
   }
-  found.sort((a, b) => b.score - a.score);
+  found.sort((a, b) => b.chance - a.chance || b.score - a.score);
   const top = found.slice(0, 12);
   const asField = (m: Uint8Array) => {
     const v = new Float32Array(m.length);
@@ -464,13 +516,13 @@ export async function bound(cycle: string): Promise<Computed> {
     extra: { points: top },
     flags: () =>
       top
-        .filter((c) => c.score >= 50)
+        .filter((c) => c.chance >= 40)
         .map((c) => ({
           key: `${cycle}:${c.lat.toFixed(1)},${c.lon.toFixed(1)}`,
           at: c.at - 30 * 60_000,
           lat: c.lat,
           lon: c.lon,
-          label: `${c.place} (${c.score})`,
+          label: `${c.place} (${c.chance}%)`,
           window_min: 150,
           radius_km: 40,
         })),

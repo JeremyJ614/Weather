@@ -80,3 +80,7 @@ export function surgeBand(s: Surge, confirmed: boolean) {
   if (jumped) return 1;
   return s.rising ? 0 : -1;
 }
+
+/** A jump's size as a level: 2σ, 3σ, or 4 for 4σ and up (0 below 2σ). */
+export const sigmaLevel = (peak: number) =>
+  peak < 2 ? 0 : Math.min(4, Math.floor(peak));

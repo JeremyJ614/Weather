@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Camera, Check, MapPin, Star } from "lucide-react";
 import { read as readPlaces } from "@/features/location/store";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { SPECIES, type SpeciesId } from "@/lib/engines/outdoor";
+import { nextSunEvent } from "@/lib/sky/astro";
 import { sendReport, type ReportKind } from "./report-actions";
 import s from "./Engines.module.css";
 
@@ -23,6 +24,8 @@ export type PlaceData = {
   next?: { name: string; start: string } | null;
   state?: string;
   rut?: number;
+  /** Firearms season's opening days: gun pressure moves deer to the night. */
+  hunted?: boolean;
   legal?: { from: string; to: string } | null;
   stand?: string;
   colder?: number;
@@ -128,6 +131,12 @@ export function PlacePanel({
             </li>
           )}
           {data.stand && <li>{data.stand}</li>}
+          {data.hunted && (
+            <li>
+              Gun season just opened here: hunting pressure pushes deer to move
+              after dark for the first days, so daylight sightings drop.
+            </li>
+          )}
           {data.colder != null && (
             <li>
               {data.colder > 2
@@ -262,14 +271,72 @@ const ASK: Record<ReportKind, string> = {
 };
 
 /** A member's report for an outdoor engine, from where they are now, with an optional photo. */
+/** The place reports and prompts are for: the active saved place, read after mount. */
+function homePlace() {
+  const p = readPlaces();
+  return p.list.find((x) => x.id === p.active) ?? p.list[0] ?? null;
+}
+
+/**
+ * Post-launch A6 "rating prompt": true from sunset until 90 minutes after it at your saved
+ * place, checked every minute, so the Sunset engine can ask for stars while the sky is fresh.
+ */
+export function useJustSet() {
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    const tick = () => {
+      const h = homePlace();
+      if (!h) return setOn(false);
+      const t = nextSunEvent(
+        "sunset",
+        h.lat,
+        h.lon,
+        new Date(Date.now() - 3 * 3600_000),
+      );
+      const ago = t ? Date.now() - t.getTime() : -1;
+      setOn(ago >= 0 && ago <= 90 * 60_000);
+    };
+    const first = setTimeout(tick, 0);
+    const every = setInterval(tick, 60_000);
+    return () => {
+      clearTimeout(first);
+      clearInterval(every);
+    };
+  }, []);
+  return on;
+}
+
+/** Rainbow's sighting prompt: a listed spot of 30%+ within about 15 miles of your saved place. */
+export function useRainbowHere(
+  spots: { lat: number; lon: number; value: number }[],
+) {
+  const [here, setHere] = useState<{ lat: number; lon: number } | null>(null);
+  useEffect(() => {
+    const t = setTimeout(() => setHere(homePlace()), 0);
+    return () => clearTimeout(t);
+  }, []);
+  if (!here) return false;
+  const k = Math.cos((here.lat * Math.PI) / 180);
+  return spots.some(
+    (x) =>
+      x.value >= 30 &&
+      Math.hypot((x.lat - here.lat) * 111, (x.lon - here.lon) * 111 * k) <= 25,
+  );
+}
+
 export function ReportBox({
   kind,
   species,
+  prompt,
 }: {
   kind: ReportKind;
   species?: string;
+  /** Shown open with this heading (the sunset and rainbow prompts) until it is closed. */
+  prompt?: string;
 }) {
-  const [open, setOpen] = useState(false);
+  const [opened, setOpen] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+  const open = opened || (!!prompt && !dismissed);
   const [n, setN] = useState(kind === "sunset" ? 0 : 1);
   const [detail, setDetail] = useState(kind === "deer" ? "both" : "");
   const [photo, setPhoto] = useState<File | null>(null);
@@ -352,10 +419,23 @@ export function ReportBox({
       </button>
     );
   return (
-    <section className={s.card}>
+    <section
+      className={s.card}
+      data-prompt={prompt && !opened ? "" : undefined}
+    >
       <header>
-        <h3>{ASK[kind]}</h3>
-        <small>From where you are now</small>
+        <h3>{prompt && !opened ? prompt : ASK[kind]}</h3>
+        {prompt && !opened ? (
+          <button
+            type="button"
+            className={s.ask}
+            onClick={() => setDismissed(true)}
+          >
+            Not now
+          </button>
+        ) : (
+          <small>From where you are now</small>
+        )}
       </header>
       {kind === "sunset" && (
         <div className={s.stars} role="group" aria-label="Stars">

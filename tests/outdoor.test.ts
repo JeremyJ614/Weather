@@ -79,8 +79,10 @@ describe("deer activity", () => {
     expect(deerScore({ ...deer, fromRise: 6, fromSet: -5 }, 1)).toBeLessThan(
       deerScore(deer, 1),
     );
+    // With the research weights (A6) wind and rain carry 22% of the score, so a gale and
+    // a downpour together take off about 15 points.
     expect(deerScore({ ...deer, windMph: 30, rainMm: 5 }, 1)).toBeLessThan(
-      deerScore(deer, 1) - 15,
+      deerScore(deer, 1) - 12,
     );
   });
   it("knows the rut calendar", () => {

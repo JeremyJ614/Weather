@@ -307,9 +307,39 @@
   color: var(--muted);
   font-size: 11px;
 }
+.flags button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border: 1px solid var(--lit-line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--accent);
+  font-size: 11px;
+  cursor: pointer;
+}
 .flags span[data-k="up"] {
   border-color: var(--lit-line);
   color: var(--accent);
+}
+.sigma {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 4px;
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+}
+.sigma i {
+  width: 4px;
+  height: 10px;
+  border: 1px solid var(--lit-line);
+  border-radius: 1px;
+}
+.sigma i[data-on] {
+  border-color: var(--accent);
+  box-shadow: 0 0 4px var(--accent);
 }
 .flags svg {
   width: 12px;
@@ -513,4 +543,12 @@
   .hitPct {
     display: none;
   }
+}
+
+/* Sunset and rainbow prompts (A6): the card lit, not filled. */
+.card[data-prompt] {
+  border-color: var(--lit-line);
+  box-shadow:
+    0 0 0 1px var(--lit-line),
+    0 0 18px color-mix(in srgb, var(--accent) 22%, transparent);
 }

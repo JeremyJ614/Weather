@@ -7,7 +7,7 @@ import { MODELS, REGIONS, latestCycle, record } from "@/lib/models/render";
 import { compassPoint, sunPosition } from "@/lib/sky/astro";
 import { latticeAreas, soften, type Areas } from "./areas";
 import { OUTDOOR_BANDS } from "./colors";
-import { openSky, rainbowChance } from "./outdoor";
+import { dropFactor, openSky, rainbowChance } from "./outdoor";
 
 /**
  * Rainbow Chance (Extras engine), a nowcast for now, +30 and +60 minutes. Radar (NOAA's
@@ -15,7 +15,8 @@ import { openSky, rainbowChance } from "./outdoor";
  * where the rain is; the HRRR's total cloud and GOES visible satellite say where the sky is
  * open toward the sun (the model alone with the sun under 15°, when visible imagery goes dark
  * whatever the sky); the sun's position says where it is low enough. Radar rain is carried
- * forward on the HRRR's 700 mb wind. For each place: rain 5–20 km opposite the sun, open sky
+ * forward on each shower's own tracked motion (ProbSevere), or the HRRR's 700 mb wind away
+ * from tracked storms, and heavier showers (bigger drops) count a little more. For each place: rain 5–20 km opposite the sun, open sky
  * toward the sun (out to 40 km when it is under 10°), the sun between 0° and 42° up.
  */
 const WMS = "https://nowcoast.noaa.gov/geoserver/ows";
@@ -147,6 +148,44 @@ async function steering() {
   return at;
 }
 
+/**
+ * Showers move with their own tracked motion (post-launch A6): every storm ProbSevere follows
+ * carries its motion (m/s east and north) out to 80 km, weighted by inverse distance; beyond
+ * every tracked storm the 700 mb wind is used.
+ */
+async function stormMotion(
+  wind: (lat: number, lon: number) => [number, number],
+) {
+  const m = await import("./probsevere");
+  const name = (await m.fileNames()).at(-1);
+  const cells = name ? m.cells(await m.file(name)) : [];
+  // Bucketed by whole degree so each lookup only scans nearby storms.
+  const grid = new Map<string, typeof cells>();
+  for (const c of cells) {
+    const k = `${Math.floor(c.lat)},${Math.floor(c.lon)}`;
+    grid.set(k, [...(grid.get(k) ?? []), c]);
+  }
+  return (lat: number, lon: number): [number, number] => {
+    let we = 0;
+    let e = 0;
+    let n = 0;
+    const kx = 111.32 * Math.cos((lat * Math.PI) / 180);
+    for (let a = -1; a <= 1; a++)
+      for (let b = -1; b <= 1; b++)
+        for (const c of grid.get(
+          `${Math.floor(lat) + a},${Math.floor(lon) + b}`,
+        ) ?? []) {
+          const d = Math.hypot((c.lat - lat) * 111.32, (c.lon - lon) * kx);
+          if (d > 80) continue;
+          const w = 1 / Math.max(5, d) ** 2;
+          we += w;
+          e += w * c.east;
+          n += w * c.north;
+        }
+    return we ? [e / we, n / we] : wind(lat, lon);
+  };
+}
+
 const move = (lat: number, lon: number, az: number, km: number) => {
   const r = (az * Math.PI) / 180;
   return [
@@ -179,12 +218,13 @@ let memo: {
 } | null = null;
 
 async function build(): Promise<RainbowMap & { grids: Float32Array[] }> {
-  const [radar, sat, wind, cld] = await Promise.all([
+  const [radar, sat, steer700, cld] = await Promise.all([
     frame("weather_radar:conus_base_reflectivity_mosaic", 2360, 1080),
     frame("satellite:goes_visible_imagery", 1180, 540),
     steering().catch(() => () => [0, 0] as [number, number]),
     cloudiness().catch(() => null),
   ]);
+  const wind = await stormMotion(steer700).catch(() => steer700);
   const px = (img: typeof radar, lat: number, lon: number) => {
     const x = Math.floor(((lon - W) / (E - W)) * img.w);
     const y = Math.floor(((N - lat) / (N - S)) * img.h);
@@ -192,10 +232,10 @@ async function build(): Promise<RainbowMap & { grids: Float32Array[] }> {
       ? -1
       : (y * img.w + x) * 4;
   };
-  const wet = (lat: number, lon: number) => {
+  const dbz = (lat: number, lon: number) => {
     const k = px(radar, lat, lon);
     const p = radar.rgba;
-    return k >= 0 && dbzOf(p[k], p[k + 1], p[k + 2], p[k + 3]) >= 15;
+    return k >= 0 ? dbzOf(p[k], p[k + 1], p[k + 2], p[k + 3]) : 0;
   };
   const gray = (lat: number, lon: number) => {
     const k = px(sat, lat, lon);
@@ -225,10 +265,13 @@ async function build(): Promise<RainbowMap & { grids: Float32Array[] }> {
         ];
         const anti = (sun.azimuth + 180) % 360;
         let hits = 0;
+        let peak = 0;
         for (const km of [5, 10, 15, 20]) {
           const [a, b] = move(lat, lon, anti, km);
           const [c, d] = back(a, b);
-          if (wet(c, d)) hits++;
+          const z = dbz(c, d);
+          if (z >= 15) hits++;
+          peak = Math.max(peak, z);
         }
         if (!hits) continue;
         // A low sun shines in under clouds farther away, so look farther toward it.
@@ -247,7 +290,13 @@ async function build(): Promise<RainbowMap & { grids: Float32Array[] }> {
                 ? model
                 : (vis + model) / 2;
         }
-        g[j * LW + i] = rainbowChance(sun.altitude, hits, open / far.length);
+        g[j * LW + i] = Math.min(
+          100,
+          Math.round(
+            rainbowChance(sun.altitude, hits, open / far.length) *
+              dropFactor(peak),
+          ),
+        );
       }
     }
     grids.push(g);

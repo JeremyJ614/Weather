@@ -1,8 +1,9 @@
 import "server-only";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { surge, surgeBand, HOLD_MIN } from "./jump";
+import { surge, surgeBand, sigmaLevel, HOLD_MIN } from "./jump";
 import { cells, file, fileNames, placeOf, stamp, type Raw } from "./probsevere";
 import { motion } from "./project";
+import { lineage } from "./lineage";
 
 /**
  * Lightning Surge Detector (Extras engine): the last ~20 minutes of ProbSevere files (one
@@ -12,13 +13,22 @@ import { motion } from "./project";
  */
 const FILES = 11;
 
-type Lite = { id: string; fr: number; az: number; mesh: number };
+type Lite = {
+  id: string;
+  fr: number;
+  az: number;
+  mesh: number;
+  lat: number;
+  lon: number;
+};
 const lite = (raw: Raw): Lite[] =>
   raw.features.map((f) => ({
     id: f.properties.ID,
     fr: Number(f.properties.FLASH_RATE) || 0,
     az: Number(f.properties.MAXLLAZ) || 0,
     mesh: Number(f.properties.MESH) || 0,
+    lat: Number(f.properties.MLAT) || f.geometry.coordinates[0][0][1],
+    lon: Number(f.properties.MLON) || f.geometry.coordinates[0][0][0],
   }));
 // Parsed older files, kept while this server is warm: each file name is a fixed time.
 const memo = new Map<string, Map<string, Lite>>();
@@ -43,6 +53,10 @@ export type SurgeStorm = {
   rates: number[];
   sigma: number;
   peak: number;
+  /** Jump size: 2, 3 or 4 (4σ and up), 0 with no jump. Bigger jumps verify better. */
+  level: number;
+  /** A merger or split happened in the window and was followed by overlap. */
+  merged: boolean;
   since: number | null;
   rotation: boolean;
   hail: boolean;
@@ -69,16 +83,24 @@ export async function surges() {
   const mesh = new Map(lite(now).map((x) => [x.id, x.mesh]));
   const storms: SurgeStorm[] = [];
   const polys: GeoJSON.Feature[] = [];
-  for (const c of cells(now)) {
+  const all = cells(now);
+  // Storms followed by overlap, not ID alone (post-launch A6): a merger adds its parts' rates
+  // together and a split shares the parent's, so neither reads as a jump.
+  const lines = hist.map((h) => lineage(all, [...h.m.values()], t - h.t));
+  for (const c of all) {
+    let merged = false;
     const points = [
-      ...hist.flatMap((h) => {
-        const x = h.m.get(c.id);
-        return x ? [{ t: h.t, fr: x.fr }] : [];
+      ...hist.flatMap((h, i) => {
+        const l = lines[i].get(c.id);
+        if (!l) return [];
+        if (l.merged || l.split) merged = true;
+        return [{ t: h.t, fr: l.fr }];
       }),
       { t, fr: c.flash },
     ];
     const s = surge(points, t);
-    const was = back?.m.get(c.id);
+    const backId = back ? lines[hist.indexOf(back)].get(c.id)?.main : undefined;
+    const was = backId ? back?.m.get(backId) : undefined;
     const rotation = Boolean(was && c.az - was.az > 0.002);
     const hail = Boolean(was && (mesh.get(c.id) ?? 0) - was.mesh >= 0.25);
     const band = surgeBand(s, rotation || hail);
@@ -94,6 +116,8 @@ export async function surges() {
       rates: points.map((p) => Math.round(p.fr)),
       sigma: s.sigma,
       peak: s.peak,
+      level: s.since != null && s.since <= HOLD_MIN ? sigmaLevel(s.peak) : 0,
+      merged,
       since: s.since,
       rotation,
       hail,
@@ -146,7 +170,7 @@ export async function logSurges() {
       lat: j.lat,
       lon: j.lon,
       label:
-        `${j.place} (${j.band === 2 ? "strong " : ""}jump, ${j.rate}/min)`.slice(
+        `${j.place} (${j.level}σ ${j.band === 2 ? "strong " : ""}jump, ${j.rate}/min)`.slice(
           0,
           120,
         ),

@@ -17,6 +17,16 @@ import {
   type SpeciesId,
 } from "./outdoor";
 import { rainbowAt } from "./rainbow";
+import { pressureFactor, rutFor } from "./rut";
+import { stateAt } from "@/lib/history/states";
+import { project } from "@/lib/map/usAlbers";
+
+/** The state a place is in, and its own rut (the owner's state from admin). */
+function rutAt(lat: number, lon: number, cfg: DeerConfig) {
+  const p = project(lon, lat);
+  const st = stateAt(p.x, p.y);
+  return { st, rut: rutFor(st, lat, lon, cfg) ?? cfg.rut };
+}
 
 /**
  * Deer Activity and Fishing Bite (Extras engines) for one place: a 3-day hour-by-hour readout
@@ -257,13 +267,17 @@ export async function placeDetail(
     kind === "fish" ? gaugeWater(lat, lon) : null,
   ]);
   const species = speciesOf(sp);
+  const here = cfg ? rutAt(lat, lon, cfg) : null;
   const list = rows(h, lat, lon, 72).map((r) => {
     if (water) r.fish.water = water.f;
     return {
       r,
       v:
         kind === "deer"
-          ? deerScore(r.deer, rutBoost(new Date(r.t), cfg!.rut), w)
+          ? Math.round(
+              deerScore(r.deer, rutBoost(new Date(r.t), here!.rut), w) *
+                pressureFactor(here!.st, r.t, cfg!),
+            )
           : fishScore(r.fish, species, w),
     };
   });
@@ -282,7 +296,8 @@ export async function placeDetail(
         .filter((s) => s.start > day)
         .sort((a, b) => a.start.localeCompare(b.start))[0] ?? null;
     extra.state = cfg!.state;
-    extra.rut = rutBoost(new Date(), cfg!.rut);
+    extra.rut = rutBoost(new Date(), here!.rut);
+    extra.hunted = pressureFactor(here!.st, Date.now(), cfg!) < 1;
     extra.legal =
       today.sunrise && today.sunset
         ? {
@@ -368,8 +383,14 @@ export async function placeInputs(
   const r = rows(h, lat, lon, 4).find((x) => Math.abs(x.t - at) < 3600_000);
   if (!r) return null;
   if (kind === "deer") {
-    const rut = rutBoost(new Date(at), cfg!.rut);
-    return { inputs: { ...r.deer, rut }, score: deerScore(r.deer, rut, w) };
+    const here = rutAt(lat, lon, cfg!);
+    const rut = rutBoost(new Date(at), here.rut);
+    return {
+      inputs: { ...r.deer, rut },
+      score: Math.round(
+        deerScore(r.deer, rut, w) * pressureFactor(here.st, at, cfg!),
+      ),
+    };
   }
   const sp =
     SPECIES.find((s) => s.name === detail || s.id === detail) ?? SPECIES[0];

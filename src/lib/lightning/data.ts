@@ -38,7 +38,7 @@ export async function frameTimes(): Promise<string[]> {
 type Box = [number, number, number, number]; // west, south, east, north
 
 /** One frame over a lon/lat box as class indexes (−1 none), row 0 = north. */
-async function frame(time: string, box: Box, w: number, h: number) {
+export async function frame(time: string, box: Box, w: number, h: number) {
   const q = new URLSearchParams({
     service: "WMS",
     version: "1.3.0",
@@ -244,4 +244,25 @@ function region(lat: number, lon: number) {
 function compass(dLat: number, dLonScaled: number) {
   const d = ((Math.atan2(dLonScaled, dLat) * 180) / Math.PI + 360) % 360;
   return ["N", "NE", "E", "SE", "S", "SW", "W", "NW"][Math.round(d / 45) % 8];
+}
+
+/**
+ * Lightning over the whole lower 48 in the last half hour (the two newest 15-minute frames),
+ * as strike-density classes on a `w`×`h` lon/lat grid over `box`, row 0 north (−1 none).
+ * For the Lightning Threat engine's first hour (post-launch A6).
+ */
+export async function nationalStrikes(box: Box, w: number, h: number) {
+  const times = (await frameTimes()).slice(-2);
+  if (!times.length) return null;
+  const frames = await Promise.all(
+    times.map((t) => frame(t, box, w, h).catch(() => null)),
+  );
+  const out = new Int8Array(w * h).fill(-1);
+  let any = false;
+  for (const f of frames) {
+    if (!f) continue;
+    any = true;
+    for (let i = 0; i < out.length; i++) if (f[i] > out[i]) out[i] = f[i];
+  }
+  return any ? out : null;
 }
