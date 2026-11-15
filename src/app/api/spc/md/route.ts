@@ -1,7 +1,10 @@
 import { mesoscale } from "@/lib/spc/md";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 /** GET /api/spc/md[?lat=&lon=] → active SPC mesoscale discussions (or the last 72 h if none). */
 export async function GET(request: Request) {
+  const slow = limited(request, "spc/md", LIMITS.normal);
+  if (slow) return slow;
   const q = new URL(request.url).searchParams;
   const lat = q.has("lat") ? Number(q.get("lat")) : undefined;
   const lon = q.has("lon") ? Number(q.get("lon")) : undefined;

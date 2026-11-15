@@ -1,8 +1,11 @@
 import { getAir } from "@/lib/air/air";
 import { snap, validCoords } from "@/lib/weather/geo";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 /** GET /api/air?lat&lon → AQI (now + days) and pollen (counts or dispersal). */
 export async function GET(request: Request) {
+  const slow = limited(request, "air", LIMITS.normal);
+  if (slow) return slow;
   const q = new URL(request.url).searchParams;
   const lat = Number(q.get("lat"));
   const lon = Number(q.get("lon"));

@@ -1,7 +1,10 @@
 import { floodHere } from "@/lib/flood/data";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 /** GET /api/flood/here?lat=&lon= → excessive-rain levels, rainfall and flood alerts at a place. */
 export async function GET(req: Request) {
+  const slow = limited(req, "flood/here", LIMITS.normal);
+  if (slow) return slow;
   const q = new URL(req.url).searchParams;
   const lat = Number(q.get("lat"));
   const lon = Number(q.get("lon"));

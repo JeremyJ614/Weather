@@ -1,5 +1,6 @@
 import { cleanBox, openShelters, sheltersIn } from "@/lib/disaster/shelters";
 import { getSiteDefaults } from "@/lib/settings";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 /**
  * GET /api/disaster/shelters?open=1 → shelters open now, nationwide;
@@ -7,6 +8,8 @@ import { getSiteDefaults } from "@/lib/settings";
  * ?preview=1 → both as color-keyed dots for admin → Map & data colors.
  */
 export async function GET(req: Request) {
+  const slow = limited(req, "disaster/shelters", LIMITS.normal);
+  if (slow) return slow;
   const q = new URL(req.url).searchParams;
   const { disabled } = await getSiteDefaults();
   if (disabled.includes("shelters") && !q.has("preview"))

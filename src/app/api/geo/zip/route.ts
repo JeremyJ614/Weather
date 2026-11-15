@@ -1,8 +1,11 @@
 import { parseZip } from "@/lib/weather/geo";
 import { UpstreamError, lookupZip } from "@/lib/weather/nws";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 /** GET /api/geo/zip?zip=12345 → { lat, lon, label } */
 export async function GET(request: Request) {
+  const slow = limited(request, "geo/zip", LIMITS.normal);
+  if (slow) return slow;
   const zip = parseZip(new URL(request.url).searchParams.get("zip") ?? "");
   if (!zip)
     return Response.json(

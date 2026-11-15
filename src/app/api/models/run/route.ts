@@ -7,9 +7,12 @@ import {
   recentCycles,
   type ModelId,
 } from "@/lib/models/render";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 /** GET /api/models/run?model=hrrr|gfs|refs → recent cycles, forecast hours and every parameter with its legend. */
 export async function GET(req: Request) {
+  const slow = limited(req, "models/run", LIMITS.heavy);
+  if (slow) return slow;
   const model = new URL(req.url).searchParams.get("model") as ModelId;
   const m = MODELS[model];
   if (!m) return Response.json({ error: "Unknown model." }, { status: 400 });

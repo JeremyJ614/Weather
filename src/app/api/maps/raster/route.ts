@@ -1,11 +1,14 @@
 import { ALBERS_WKT, MAP_H, MAP_W, canvasToAlbers } from "@/lib/map/usAlbers";
 import { RASTERS } from "@/lib/map/products";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 /**
  * A NOAA raster drawn in our projection for the whole canvas at 2× (sharp on
  * phones), proxied so it is same-origin and the map can be saved as a PNG.
  */
 export async function GET(req: Request) {
+  const slow = limited(req, "maps/raster", LIMITS.frames);
+  if (slow) return slow;
   const q = new URL(req.url).searchParams;
   const key = q.get("p") as keyof typeof RASTERS;
   const r = RASTERS[key];

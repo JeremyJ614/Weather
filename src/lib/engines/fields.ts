@@ -1284,6 +1284,41 @@ function areasOf(c: Computed, levels: number[]) {
   return latticeAreas(soften(v, w, h, passes), w, h, W, N, STEP, levels);
 }
 
+/**
+ * The evening-parameter engines' top spots at their second band or higher, checked against
+ * the evening's storm reports (post-launch A1 "skill-scores"): from 3 hours before the valid
+ * time to 6 after, within the radius. One flag per evening per whole-degree square, so each
+ * new HRRR run doesn't count the same setup again.
+ */
+const EVENING: Partial<Record<FieldId, number>> = {
+  stp: 80,
+  scp: 80,
+  dcp: 100,
+  nst: 60,
+  tctor: 80,
+};
+export function eveningFlags(
+  id: FieldId,
+  valid: number,
+  top: Spot[],
+  min: number,
+): Flag[] {
+  const radius = EVENING[id];
+  if (!radius) return [];
+  const day = new Date(valid).toISOString().slice(0, 10);
+  return top
+    .filter((x) => x.value >= min)
+    .map((x) => ({
+      key: `${day}:${Math.round(x.lat)},${Math.round(x.lon)}`,
+      at: valid - 3 * 3600_000,
+      lat: x.lat,
+      lon: x.lon,
+      label: `${x.place} (${id.toUpperCase()} ${x.value})`,
+      window_min: 540,
+      radius_km: radius,
+    }));
+}
+
 /** One engine's map (nested band areas over CONUS) and what to list beside it. */
 export async function fieldEngine(id: FieldId) {
   const cycle = await latestCycle("hrrr");
@@ -1291,7 +1326,15 @@ export async function fieldEngine(id: FieldId) {
   const c = await COMPUTE[id](cycle);
   const bands = FIELD_BANDS[id];
   const top = id === "pyro" || id === "bound" ? [] : spots(c, bands.levels[0]);
-  if (c.flags) await logFlags(id, c.flags(top)).catch(() => {});
+  const flags = c.flags
+    ? c.flags(top)
+    : eveningFlags(
+        id,
+        cycleTime(cycle) + c.fh * 3600_000,
+        top,
+        bands.levels[1] ?? bands.levels[0],
+      );
+  if (flags.length) await logFlags(id, flags).catch(() => {});
   return {
     id,
     cycle,

@@ -1,9 +1,12 @@
 import { stormReports } from "@/lib/warnings/feed";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 const HOURS = new Set([6, 12, 24, 48]);
 
 /** GET /api/reports?hours=24 → IEM Local Storm Reports, newest first. */
 export async function GET(request: Request) {
+  const slow = limited(request, "reports", LIMITS.normal);
+  if (slow) return slow;
   const h = Number(new URL(request.url).searchParams.get("hours") ?? 24);
   if (!HOURS.has(h))
     return Response.json(

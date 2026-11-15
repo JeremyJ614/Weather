@@ -66,6 +66,7 @@ import type { SurgeStorm } from "@/lib/engines/surge";
 import type { Areas } from "@/lib/engines/areas";
 import radars from "@/lib/engines/radars.json";
 import s from "./Engines.module.css";
+import { HIT_MEANS, HitCard, type HitStats } from "./HitCard";
 
 type Engine = "tor" | "surge" | "analog" | "blind" | FieldId | OutdoorId;
 const FIELDS: FieldId[] = [
@@ -185,7 +186,7 @@ type FieldData = {
   fires?: Fire[];
   storms?: { name: string; lat: number; lon: number; mph: number }[];
   note: string | null;
-  stats?: { days: number; checked: number; hits: number } | null;
+  stats?: HitStats;
   altSpots?: Spot[] | null;
   points?: Collision[];
   reports?: Summary;
@@ -196,6 +197,7 @@ type Data = {
   storms: EngineStorm[];
   tor: GeoJSON.FeatureCollection;
   torAreas: Areas;
+  stats?: HitStats;
 };
 type SurgeData = {
   at: string;
@@ -203,7 +205,7 @@ type SurgeData = {
   minutes: number;
   storms: SurgeStorm[];
   polys: GeoJSON.FeatureCollection;
-  stats: { days: number; checked: number; hits: number } | null;
+  stats: HitStats;
 };
 const EMPTY: GeoJSON.FeatureCollection = {
   type: "FeatureCollection",
@@ -1622,6 +1624,9 @@ export function EnginesTab({
           {!data && !failed && (
             <p className={s.small}>Reading the latest scan…</p>
           )}
+          {data?.stats !== undefined && (
+            <HitCard stats={data.stats ?? null} what={HIT_MEANS.tor} />
+          )}
           {data && storms.length === 0 && (
             <p className={s.small}>
               No storm is showing tornado potential right now. ProbSevere is
@@ -1768,12 +1773,8 @@ export function EnginesTab({
               ))}
             </ul>
           )}
-          {surge && surge !== "error" && surge.stats && (
-            <p className={s.small}>
-              {surge.stats.checked >= 10
-                ? `Hit rate, last ${surge.stats.days} days: ${Math.round((100 * surge.stats.hits) / surge.stats.checked)}% of ${surge.stats.checked} jumps were followed by a severe storm report within 45 minutes and 15 miles.`
-                : `The hit rate shows once 10 jumps have been checked against storm reports (${surge.stats.checked} so far).`}
-            </p>
+          {surge && surge !== "error" && (
+            <HitCard stats={surge.stats} what={HIT_MEANS.surge} />
           )}
         </section>
       )}
@@ -1963,11 +1964,10 @@ export function EnginesTab({
       )}
 
       {isField(engine) && field && field !== "error" && field.stats && (
-        <p className={s.small}>
-          {field.stats.checked >= 10
-            ? `Hit rate, last ${field.stats.days} days: ${Math.round((100 * field.stats.hits) / field.stats.checked)}% of ${field.stats.checked} flagged places saw it happen.`
-            : `The hit rate shows once 10 flagged places have been checked against what happened (${field.stats.checked} so far).`}
-        </p>
+        <HitCard
+          stats={field.stats}
+          what={HIT_MEANS[engine] ?? "A hit is the weather following a flag."}
+        />
       )}
 
       {engine === "analog" && (

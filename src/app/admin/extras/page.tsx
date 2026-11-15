@@ -4,6 +4,7 @@ import { cleanItems } from "@/lib/extras/items";
 import { ExtrasSwitches } from "./ExtrasSwitches";
 import { DeerSeasons } from "./DeerSeasons";
 import type { DeerSeasons as Seasons } from "./actions";
+import { ReportCards } from "./ReportCards";
 
 export const metadata: Metadata = {
   title: "Extras · Admin · StormSync Media",
@@ -40,6 +41,7 @@ export default async function ExtrasAdminPage() {
         tab. Changes show within a few seconds.
       </p>
       <ExtrasSwitches initial={cleanItems(data?.value)} />
+      <ReportCards />
       <DeerSeasons
         initial={{
           state: d.state ?? "Ohio",

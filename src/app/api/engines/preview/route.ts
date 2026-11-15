@@ -18,6 +18,7 @@ import { geoPath } from "@/lib/map/geo";
 
 export const maxDuration = 60;
 import radars from "@/lib/engines/radars.json";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 /** An engine's band areas as key-carrying paths for the color editor's live preview. */
 const polys = (a: Areas | null | undefined, id: string) =>
@@ -30,6 +31,8 @@ const polys = (a: Areas | null | undefined, id: string) =>
 
 /** Previews for admin → Map & data colors: today's engine areas, fires or grid. */
 export async function GET(req: Request) {
+  const slow = limited(req, "engines/preview", LIMITS.heavy);
+  if (slow) return slow;
   const e = new URL(req.url).searchParams.get("e");
   if (e === "pyrocb") {
     const r = await fieldPreview("pyro").catch(() => null);

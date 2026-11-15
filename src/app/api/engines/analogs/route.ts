@@ -8,6 +8,7 @@ import { ANALOG_BANDS } from "@/lib/engines/colors";
 import { isLive } from "@/lib/extras/items";
 import { getSiteDefaults } from "@/lib/settings";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 export const maxDuration = 60;
 
@@ -16,6 +17,8 @@ export const maxDuration = 60;
  * GET ?a=YYYY-MM-DD: one matched day's storm reports.
  */
 export async function GET(req: Request) {
+  const slow = limited(req, "engines/analogs", LIMITS.heavy);
+  if (slow) return slow;
   if (!isLive((await getSiteDefaults()).extras, "analog"))
     return new Response("Not found", { status: 404 });
   const q = new URL(req.url).searchParams;

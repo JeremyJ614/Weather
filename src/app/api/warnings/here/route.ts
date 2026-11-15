@@ -1,7 +1,10 @@
 import { alertsAt } from "@/lib/nws/active";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 /** GET /api/warnings/here?lat=&lon= → ids of alerts in effect at one place. */
 export async function GET(request: Request) {
+  const slow = limited(request, "warnings/here", LIMITS.normal);
+  if (slow) return slow;
   const q = new URL(request.url).searchParams;
   const lat = Number(q.get("lat"));
   const lon = Number(q.get("lon"));

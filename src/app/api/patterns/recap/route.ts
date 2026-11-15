@@ -1,9 +1,12 @@
 import { PERIODS, period, type Period } from "@/lib/patterns/data";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 export const maxDuration = 60;
 
 /** GET /api/patterns/recap?period=yesterday|week|month|year → SPC report counts and the AI recap. */
 export async function GET(req: Request) {
+  const slow = limited(req, "patterns/recap", LIMITS.heavy);
+  if (slow) return slow;
   const id = new URL(req.url).searchParams.get("period") as Period["id"];
   if (!PERIODS.some((p) => p.id === id))
     return Response.json({ error: "Pick a period." }, { status: 400 });

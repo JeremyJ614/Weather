@@ -1,11 +1,14 @@
 import { getColors } from "@/lib/colors/server";
 import { outlookLayer } from "@/lib/colors/spc-server";
 import type { Hazard } from "@/lib/colors/spc";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 const HAZ = new Set(["cat", "torn", "hail", "wind"]);
 
 /** GET /api/spc/outlook?day=1&hazard=torn&intensity=1 → one outlook map in VIP's palette. */
 export async function GET(request: Request) {
+  const slow = limited(request, "spc/outlook", LIMITS.normal);
+  if (slow) return slow;
   const q = new URL(request.url).searchParams;
   const day = Number(q.get("day"));
   const hazard = q.get("hazard") ?? "cat";

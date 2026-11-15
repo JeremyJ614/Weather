@@ -443,3 +443,74 @@
   right: 10px;
   z-index: 2;
 }
+
+/* Report card (post-launch A1 "skill-scores") */
+.hit {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+}
+.hitRing {
+  width: 44px;
+  height: 44px;
+  transform: rotate(-90deg);
+}
+.hitTrack {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 3.2;
+}
+.hitArc {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 3.2;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 3px var(--accent));
+}
+.hitText {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.hitText small {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.hitText b {
+  font-size: 15px;
+}
+.hitText b span {
+  font-weight: 400;
+  color: var(--muted);
+  font-size: 12.5px;
+  margin-left: 4px;
+}
+.hitText p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.hitLast {
+  color: var(--text) !important;
+}
+.hitPct {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 26px;
+  color: var(--accent);
+  text-shadow: 0 0 14px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+@media (max-width: 420px) {
+  .hitPct {
+    display: none;
+  }
+}

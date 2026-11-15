@@ -1,9 +1,12 @@
 import { localPoints, shear06, srh } from "@/lib/sswxcon/kinematics";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 const LEVELS = ["10m", "925hPa", "850hPa", "700hPa", "500hPa"] as const;
 
 /** GET /api/sswxcon/local?lat=&lon= → this hour's CAPE, SRH, shear and LI for one place. */
 export async function GET(request: Request) {
+  const slow = limited(request, "sswxcon/local", LIMITS.normal);
+  if (slow) return slow;
   const q = new URL(request.url).searchParams;
   const lat = Number(q.get("lat"));
   const lon = Number(q.get("lon"));

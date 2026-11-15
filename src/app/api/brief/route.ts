@@ -1,9 +1,12 @@
 import { buildBrief } from "@/lib/brief/build";
 import { snap, validCoords } from "@/lib/weather/geo";
 import { UpstreamError } from "@/lib/weather/nws";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 /** GET /api/brief?lat&lon → today's brief for that place. */
 export async function GET(request: Request) {
+  const slow = limited(request, "brief", LIMITS.normal);
+  if (slow) return slow;
   const q = new URL(request.url).searchParams;
   const lat = Number(q.get("lat"));
   const lon = Number(q.get("lon"));

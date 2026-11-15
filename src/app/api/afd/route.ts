@@ -1,7 +1,10 @@
 import { getLatestAfd } from "@/lib/afd/fetch";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 /** GET /api/afd?office=OUN → the latest Area Forecast Discussion: verbatim text plus sections. */
 export async function GET(request: Request) {
+  const slow = limited(request, "afd", LIMITS.normal);
+  if (slow) return slow;
   const office = (
     new URL(request.url).searchParams.get("office") ?? ""
   ).toUpperCase();

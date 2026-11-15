@@ -1,7 +1,10 @@
 import { hydrograph } from "@/lib/rivers/data";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 /** GET /api/rivers/gauge?id=ABAG1 → that gauge's last 3 days and its forecast. */
 export async function GET(req: Request) {
+  const slow = limited(req, "rivers/gauge", LIMITS.normal);
+  if (slow) return slow;
   const id = String(
     new URL(req.url).searchParams.get("id") ?? "",
   ).toUpperCase();
