@@ -218,6 +218,10 @@ export type WrapStorm = {
   srw: number;
   pwat: number;
   lcl: number;
+  /** Storm motion (m/s) and area (km²), for the radar read. */
+  east: number;
+  north: number;
+  size: number;
 };
 
 /**
@@ -256,6 +260,9 @@ export async function wrapStorms() {
       srw: Math.round(srw),
       pwat: Math.round(pwat * 100) / 100,
       lcl: Math.round((lcl * 3.281) / 100) * 100,
+      east: num(p.MOTION_EAST),
+      north: -num(p.MOTION_SOUTH),
+      size: num(p.SIZE),
     });
   }
   out.sort((a, b) => b.tor - a.tor || b.wrap - a.wrap);

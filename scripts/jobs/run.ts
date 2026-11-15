@@ -12,7 +12,15 @@ const job = process.argv[2];
 async function main() {
   switch (job) {
     case "engines":
-      return (await import("../../src/lib/engines/stored")).refreshWanted();
+      // No 60-second request limit here: a longer budget, and Blizzard refreshed after every
+      // HRRR run from October to April whether or not anyone opened it.
+      return (await import("../../src/lib/engines/stored")).refreshWanted(
+        3,
+        600_000,
+        [9, 10, 11, 0, 1, 2, 3].includes(new Date().getUTCMonth())
+          ? ["blizz"]
+          : [],
+      );
     case "outdoor":
       return (
         await import("../../src/lib/engines/outmap")

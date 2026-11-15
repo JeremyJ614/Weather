@@ -1250,8 +1250,22 @@ async function ltg(cycle: string): Promise<Computed> {
  */
 async function rwrap(cycle: string): Promise<Computed> {
   const fh = hourFor(cycle, nextUtc(0, 1));
-  const [mu, mucin, srh, us, vs, ust, vst, u25, v25, u30, v30, pw, lcl, zs] =
-    await grab(cycle, fh, [
+  // The heights of 300, 250 and 200 mb and the 200 mb wind are only in the pressure-level
+  // file; with them the storm-relative wind is read 9–11 km above the ground (Thompson).
+  const prs = MODELS.hrrr
+    .url(cycle.slice(0, 8), cycle.slice(8), fh)
+    .replace("wrfsfcf", "wrfprsf");
+  const [[z30, z25, z20, u20, v20], sfc] = await Promise.all([
+    Promise.all(
+      [
+        ":HGT:300 mb:",
+        ":HGT:250 mb:",
+        ":HGT:200 mb:",
+        ":UGRD:200 mb:",
+        ":VGRD:200 mb:",
+      ].map((m) => record(prs, m)),
+    ).catch(() => [null, null, null, null, null] as const),
+    grab(cycle, fh, [
       ":CAPE:255-0 mb above ground:",
       ":CIN:255-0 mb above ground:",
       ":HLCY:3000-0 m above ground:",
@@ -1266,7 +1280,11 @@ async function rwrap(cycle: string): Promise<Computed> {
       ":PWAT:entire atmosphere",
       ":HGT:level of adiabatic condensation from sfc:",
       ":HGT:surface:",
-    ]);
+    ]),
+  ]);
+  const [mu, mucin, srh, us, vs, ust, vst, u25, v25, u30, v30, pw, lcl, zs] =
+    sfc;
+  const deep = z30 && z25 && z20 && u20 && v20;
   const out = new Float32Array(mu.values.length);
   for (let i = 0; i < out.length; i++) {
     const sh = bulk(us.values[i], vs.values[i]);
@@ -1277,17 +1295,110 @@ async function rwrap(cycle: string): Promise<Computed> {
       (sh < 10 ? 0 : sh > 20 ? 1 : sh / 20) *
       (c > -40 ? 1 : -40 / c);
     if (!(scp >= 1)) continue;
-    const sr = Math.hypot(
+    let sr = Math.hypot(
       (u25.values[i] + u30.values[i]) / 2 - ust.values[i],
       (v25.values[i] + v30.values[i]) / 2 - vst.values[i],
     );
+    if (deep) {
+      // Mean storm-relative wind at 9, 10 and 11 km above ground, linear in height between
+      // 300, 250 and 200 mb (held at the end levels outside them).
+      const lv = [
+        [z30.values[i], u30.values[i], v30.values[i]],
+        [z25.values[i], u25.values[i], v25.values[i]],
+        [z20.values[i], u20.values[i], v20.values[i]],
+      ];
+      let sum = 0;
+      for (const agl of [9000, 10000, 11000]) {
+        const z = zs.values[i] + agl;
+        let k = 0;
+        while (k < 1 && z > lv[k + 1][0]) k++;
+        const f = clamp((z - lv[k][0]) / (lv[k + 1][0] - lv[k][0]));
+        sum += Math.hypot(
+          lv[k][1] + f * (lv[k + 1][1] - lv[k][1]) - ust.values[i],
+          lv[k][2] + f * (lv[k + 1][2] - lv[k][2]) - vst.values[i],
+        );
+      }
+      sr = sum / 3;
+    }
     const wind = clamp((28 - sr) / 10);
     const wet = clamp((pw.values[i] - 20) / 20);
     const base = clamp((1500 - (lcl.values[i] - zs.values[i])) / 1000);
     out[i] = Math.max(1, 100 * (0.6 * wind + 0.3 * wet + 0.1 * base));
   }
-  return { field: { grid: mu.grid, values: out }, cycle, fh };
+  return {
+    field: { grid: mu.grid, values: out },
+    cycle,
+    fh,
+    note: deep
+      ? undefined
+      : "The HRRR's upper levels weren't readable, so anvil-level wind is the 250–300 mb mean.",
+  };
 }
+
+/** NOHRSC snow depth classes as the map service colors them, with each class's lower bound (in). */
+const NSA: [number, number, number, number][] = [
+  [171, 193, 191, 0.39],
+  [102, 193, 196, 2],
+  [99, 169, 203, 3.9],
+  [80, 121, 200, 9.8],
+  [60, 63, 194, 20],
+  [87, 32, 195, 39],
+  [125, 1, 187, 59],
+  [180, 4, 177, 98],
+  [169, 19, 119, 197],
+  [153, 43, 80, 295],
+  [139, 69, 69, 394],
+];
+
+/**
+ * NOAA NOHRSC's observed snow depth (its daily National Snow Analysis, which assimilates
+ * station, airborne and satellite snow reports) on the 0.1° lattice, in meters: each cell the
+ * deepest class lower bound in its four 0.05° pixels. Transparent is under 0.39".
+ */
+export async function nohrscDepth() {
+  const q = new URLSearchParams({
+    bbox: CONUS.join(","),
+    bboxSR: "4326",
+    imageSR: "4326",
+    // The service only draws the raster at 0.083° a pixel or finer.
+    size: `${LW * 2},${LH * 2}`,
+    layers: "show:0",
+    format: "png32",
+    transparent: "true",
+    f: "image",
+  });
+  const r = await fetch(
+    `https://mapservices.weather.noaa.gov/raster/rest/services/snow/NOHRSC_Snow_Analysis/MapServer/export?${q}`,
+    { signal: AbortSignal.timeout(25000), next: { revalidate: 3600 } },
+  );
+  if (!r.ok || !r.headers.get("content-type")?.includes("png"))
+    throw new Error(`NOHRSC ${r.status}`);
+  const { rgba } = decodePng(Buffer.from(await r.arrayBuffer()));
+  const out = new Float32Array(LW * LH);
+  const W2 = LW * 2;
+  for (let j = 0; j < LH * 2; j++)
+    for (let i = 0; i < W2; i++) {
+      const k = (j * W2 + i) * 4;
+      if (rgba[k + 3] < 128) continue;
+      const c = NSA.find(
+        ([R, G, B]) =>
+          Math.abs(rgba[k] - R) +
+            Math.abs(rgba[k + 1] - G) +
+            Math.abs(rgba[k + 2] - B) <
+          12,
+      );
+      if (!c) continue;
+      const q2 = (j >> 1) * LW + (i >> 1);
+      out[q2] = Math.max(out[q2], c[3] * 0.0254);
+    }
+  return out;
+}
+
+/**
+ * Li and Pomeroy's (1997) 10 m wind at which dry snow starts to blow, by air temperature (°C):
+ * about 8.6 m/s at −5 °C, lowest (7 m/s) near −27 °C.
+ */
+export const blowThreshold = (c: number) => 9.43 + 0.18 * c + 0.0033 * c * c;
 
 /**
  * Blizzard Composite: hours of whiteout over the next two days, by the Weather Service's
@@ -1309,15 +1420,65 @@ async function blizz(cycle: string): Promise<Computed> {
     for (let at = 20; at + off <= 48; at += 3)
       steps.push({ c: long, fh: at + off, at, dur: 3 });
   }
-  const [snodNear] = await grab(cycle, 1, [":SNOD:surface:"]);
+  const [[snodNear], obs, past] = await Promise.all([
+    grab(cycle, 1, [":SNOD:surface:"]),
+    nohrscDepth().catch(() => null),
+    // The last day of HRRR analyses, for how old and how crusted the snow on the ground is.
+    Promise.all(
+      [24, 18, 12, 6].map((h) =>
+        grab(ymdh(t0 - h * 3600_000), 0, [
+          ":TMP:2 m above ground:",
+          ":CSNOW:surface:",
+        ]).catch(() => null),
+      ),
+    ),
+  ]);
   const n = snodNear.values.length;
   const hours = new Float32Array(n);
   const first = new Float32Array(n).fill(NaN);
   const last = new Float32Array(n);
-  let snod = snodNear.values;
+  const model0 = snodNear.values;
+  // Snow on the ground starts from NOHRSC's observed depth where it has one; the model adds
+  // what it snows after that.
+  const ground = new Float32Array(model0);
+  if (obs) {
+    const loc = locator(snodNear.grid);
+    const [w, h] = gridSize(snodNear.grid);
+    ground.fill(NaN);
+    for (let j = 0; j < LH; j++)
+      for (let i = 0; i < LW; i++) {
+        const [fi, fj] = loc(CONUS[3] - j * 0.1, CONUS[0] + i * 0.1);
+        const x = Math.round(fi);
+        const y = Math.round(fj);
+        for (let b = Math.max(0, y - 2); b <= Math.min(h - 1, y + 2); b++)
+          for (let a = Math.max(0, x - 2); a <= Math.min(w - 1, x + 2); a++) {
+            const k = b * w + a;
+            ground[k] = Math.max(
+              Number.isFinite(ground[k]) ? ground[k] : 0,
+              obs[j * LW + i],
+            );
+          }
+      }
+    for (let i = 0; i < n; i++)
+      if (!Number.isFinite(ground[i])) ground[i] = model0[i];
+  }
+  // Snow state (Li and Pomeroy): 0 aged dry, 1 fresh (snowed in the last day), 2 crusted
+  // (above +0.5 °C since it last snowed: thawed and refrozen, it doesn't drift).
+  const state = new Uint8Array(n);
+  for (const f of past) {
+    if (!f) continue;
+    const [t2, cs] = f;
+    for (let i = 0; i < n; i++) {
+      if (t2.values[i] > 273.65) state[i] = 2;
+      if (cs.values[i] >= 0.5) state[i] = 1;
+    }
+  }
+  let snod = model0;
   let through = 0;
+  // On Vercel a request has 60 seconds; on GitHub Actions (post-launch cost guard) it runs whole.
+  const LIMIT = process.env.VERCEL ? 35_000 : 600_000;
   for (let k = 0; k < steps.length; k += 3) {
-    if (Date.now() - start > 35_000) break;
+    if (Date.now() - start > LIMIT) break;
     const batch = steps.slice(k, k + 3);
     const got = await Promise.all(
       batch.map((st) =>
@@ -1326,18 +1487,32 @@ async function blizz(cycle: string): Promise<Computed> {
           ":VIS:surface:",
           ":CSNOW:surface:",
           ":TMP:2 m above ground:",
+          ":UGRD:10 m above ground:",
+          ":VGRD:10 m above ground:",
           ...(st.c === long && st.at === 20 ? [":SNOD:surface:"] : []),
         ]),
       ),
     );
     batch.forEach((st, b) => {
-      const [g, v, cs, t2, sd] = got[b];
+      const [g, v, cs, t2, u10, v10, sd] = got[b];
       if (sd) snod = sd.values;
       for (let i = 0; i < n; i++) {
+        if (cs.values[i] >= 0.5) state[i] = 1;
+        else if (t2.values[i] > 273.65) state[i] = 2;
         const mph = g.values[i] * 2.237;
         if (mph < 35) continue;
         const falling = cs.values[i] >= 0.5 && v.values[i] <= 800;
-        const blowing = snod[i] >= 0.05 && t2.values[i] <= 268.15 && mph >= 40;
+        // Blowing snow cuts visibility to a quarter mile at about 1.5 times the wind that
+        // starts it moving; aged snow needs 2 m/s more, crusted snow doesn't blow.
+        const depth = ground[i] + Math.max(0, snod[i] - model0[i]);
+        const wind = Math.hypot(u10.values[i], v10.values[i]);
+        const ut =
+          blowThreshold(t2.values[i] - 273.15) + (state[i] === 0 ? 2 : 0);
+        const blowing =
+          depth >= 0.05 &&
+          state[i] !== 2 &&
+          t2.values[i] <= 273.15 &&
+          wind >= 1.5 * ut;
         if (!falling && !blowing) continue;
         hours[i] += st.dur;
         if (!(first[i] <= st.at)) first[i] = st.at - st.dur / 2;
@@ -1357,9 +1532,16 @@ async function blizz(cycle: string): Promise<Computed> {
     cycle,
     fh: 1,
     note:
-      through < 47
-        ? `Counted through the next ${Math.round(through)} hours.`
-        : undefined,
+      [
+        through < 47
+          ? `Counted through the next ${Math.round(through)} hours.`
+          : "",
+        obs
+          ? ""
+          : "NOHRSC's snow analysis wasn't readable, so snow on the ground is the model's.",
+      ]
+        .filter(Boolean)
+        .join(" ") || undefined,
     flags: (spots) =>
       spots
         .filter((x) => x.value >= 3)
@@ -1556,30 +1738,36 @@ async function coolingTops() {
   return { cells: out, at: Date.parse(now) };
 }
 
-type FirstCalib = { day: string; f: number[] };
+type Calib = { day: string; f: number[] };
 /** First Storms' calibration bins (35–50%, 50–65%, 65%+). */
 const FIRST_BINS = [35, 50, 65, 101];
 
+/** Which calibration bin a value falls in (-1 below the first). */
+export const binOf = (bins: number[], p: number) =>
+  bins.findIndex((lo, k) => p >= lo && p < bins[k + 1]);
+
 /**
- * How First Storms' flagged chances have verified against radar over the last 60 days, as a
- * factor per bin: observed share over forecast, pulled toward 1 until a bin has enough flags
- * (shrinkage over 30) and kept within 0.6–1.4. Worked out once a day.
+ * How an engine's flagged values (the "(NN%)" or "(NN)" at the end of each flag's label)
+ * have verified over the last 60 days, as a factor per bin: the observed share over the
+ * forecast, pulled toward 1 until a bin has enough flags (shrinkage over 30) and kept within
+ * 0.6–1.4. Worked out once a day and kept in private Storage (`calib/<engine>.json`).
  */
-async function firstCalib() {
+export async function calibBins(engine: string, bins: number[]) {
   const day = new Date().toISOString().slice(0, 10);
-  const kept = await readJson<FirstCalib | null>("calib/first.json", null);
-  if (kept?.day === day) return kept.f;
+  const path = `calib/${engine}.json`;
+  const kept = await readJson<Calib | null>(path, null);
+  if (kept?.day === day && kept.f.length === bins.length - 1) return kept.f;
   const { data } = await supabaseAdmin()
     .from("engine_checks")
     .select("label, hit")
-    .eq("engine", "first")
+    .eq("engine", engine)
     .not("hit", "is", null)
     .gt("at", new Date(Date.now() - 60 * 86400_000).toISOString())
     .limit(5000);
-  const sums = FIRST_BINS.slice(0, -1).map(() => ({ n: 0, hit: 0, p: 0 }));
+  const sums = bins.slice(0, -1).map(() => ({ n: 0, hit: 0, p: 0 }));
   for (const r of data ?? []) {
-    const p = Number(/\((\d+)%\)/.exec(r.label ?? "")?.[1]);
-    const b = FIRST_BINS.findIndex((lo, k) => p >= lo && p < FIRST_BINS[k + 1]);
+    const p = Number(/\((\d+)%?\)\s*$/.exec(r.label ?? "")?.[1]);
+    const b = binOf(bins, p);
     if (b < 0 || b >= sums.length) continue;
     sums[b].n++;
     sums[b].p += p / 100;
@@ -1592,7 +1780,7 @@ async function firstCalib() {
       Math.round(clamp(1 + (raw - 1) * (n / (n + 30)), 0.6, 1.4) * 100) / 100
     );
   });
-  await writeJson("calib/first.json", { day, f }).catch(() => undefined);
+  await writeJson(path, { day, f }).catch(() => undefined);
   return f;
 }
 
@@ -1649,7 +1837,7 @@ async function first(cycle: string): Promise<Computed> {
   const [refs, sat, calib, storms] = await Promise.all([
     refsNew(base, R).catch(() => null),
     coolingTops().catch(() => null),
-    firstCalib().catch(() => [1, 1, 1]),
+    calibBins("first", FIRST_BINS).catch(() => [1, 1, 1]),
     import("./probsevere")
       .then(async (m) => {
         const name = (await m.fileNames()).at(-1);
@@ -1751,7 +1939,7 @@ async function first(cycle: string): Promise<Computed> {
   const smoothed = smooth(smooth(prob, LW, LH, 2), LW, LH, 2);
   for (let q = 0; q < n; q++) {
     const p = Math.max(smoothed[q], towers[q] ? prob[q] * 0.9 : 0);
-    const b = FIRST_BINS.findIndex((lo, k) => p >= lo && p < FIRST_BINS[k + 1]);
+    const b = binOf(FIRST_BINS, p);
     prob[q] = clamp(p * (calib[Math.max(0, b)] ?? 1), 0, 100);
   }
   const at = (lat: number, lon: number) => {

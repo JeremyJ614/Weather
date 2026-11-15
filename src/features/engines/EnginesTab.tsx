@@ -65,7 +65,15 @@ import type { Areas } from "@/lib/engines/areas";
 import radars from "@/lib/engines/radars.json";
 import s from "./Engines.module.css";
 import { HIT_MEANS, HitCard, type HitStats } from "./HitCard";
-import { RadarFlags, useRadarReads } from "./RadarCheck";
+import {
+  FineLineFact,
+  RadarFlags,
+  WrapFlags,
+  useFineLines,
+  useRadarReads,
+  useWrapReads,
+  wrapShown,
+} from "./RadarCheck";
 import { withRadar, type TorOutlook } from "@/lib/engines/project";
 
 type Engine = "tor" | "surge" | "blind" | FieldId | OutdoorId;
@@ -108,6 +116,9 @@ type Collision = {
   spread: number;
   kinds: string;
   score: number;
+  /** Maps saved before the storm chance (A6) have only the score. */
+  chance?: number;
+  storms?: string;
   evidence: string[];
 };
 type RainbowData = {
@@ -364,6 +375,8 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
       "Storms and tornadoes favor the places where two boundaries meet: a front and a dryline (the triple point), an outflow boundary running into a front or a sea breeze. This engine follows your ten-step design.",
       "It reads the newest HRRR run hour by hour for the next three, and marks boundaries where the surface wind converges along a sharp change in temperature (fronts, outflow) or dew point (drylines). Stretches at least 50 km long are followed from hour to hour, which gives their movement; where two join, or a temperature boundary runs into a moisture boundary, is a collision, timed with an uncertainty that grows with lead time.",
       "Each collision is checked against what is there now: airport winds converging (a least-squares fit of every station within 50 miles), dew points or temperatures splitting across it, the Weather Prediction Center's analyzed fronts, and the HRRR's CAPE, inhibition, low-level spin and shear. The score weighs that evidence; the list says which sources agree.",
+      "Each collision then gets a storm chance: how sure the meeting is, times the fuel (CAPE) and how much the cap gives way, a little more with deep shear to organize storms, and more again where the HRRR itself starts a storm within 25 miles in that hour. It is calibrated against how past collisions verified, so 60% means storms formed about six times in ten.",
+      "For the two leading collisions (or any you tap), your phone reads the nearest Weather Service radar within 70 miles and looks for fine lines: the thin bands of weak echo that insects and dust draw where air is converging, which is how forecasters actually see outflow boundaries, fronts and drylines. It says how far the nearest one is, how long and which way it runs.",
       "Strong collisions are checked afterwards against radar (did storms form within 25 miles?) and the hit rate shows below. Station spacing means a boundary can't be placed closer than 15–25 miles.",
     ],
   },
@@ -447,17 +460,18 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
     lead: "Fair to good: storm type is forecast right about two times in three.",
     body: [
       "Some supercells drop their rain far from the tornado, so it stands out against clear sky (low-precipitation, LP). Others wrap it in curtains of heavy rain, where it can't be seen coming (heavy-precipitation, HP), the most dangerous kind for anyone on the road or chasing.",
-      "Research by Rasmussen and Straka (1998) found the difference is mostly the wind at anvil level relative to the storm: weak flow (under about 18 m/s) lets the rain fall back around the updraft; strong flow (over about 28 m/s) carries it away. From this evening's HRRR (about 7 p.m. Central) the index weighs that wind between 250 and 300 mb against the model's own storm motion (Bunkers right mover) for 60%, deep moisture (precipitable water) for 30% and a low cloud base for 10%, from 1 (visible) to 100 (rain-wrapped).",
+      "Research by Rasmussen and Straka (1998) found the difference is mostly the wind at anvil level relative to the storm: weak flow (under about 18 m/s) lets the rain fall back around the updraft; strong flow (over about 28 m/s) carries it away. From this evening's HRRR (about 7 p.m. Central) the index weighs that wind 9 to 11 km above the ground (Thompson's layer, which separates rain-wrapped from classic supercells best) against the model's own storm motion (Bunkers right mover) for 60%, deep moisture (precipitable water) for 30% and a low cloud base for 10%, from 1 (visible) to 100 (rain-wrapped).",
       "It is shown only where supercells are possible (Supercell Composite 1 or more). Storms that merge or run into each other often turn HP whatever the forecast said.",
-      "The live list scores the rotating storms ProbSevere is tracking right now the same way, from the 4–6 km storm-relative wind and moisture ProbSevere attaches to each (Brooks and others, 1994).",
+      "The live list scores the rotating storms ProbSevere is tracking right now the same way, from the 4–6 km storm-relative wind and moisture ProbSevere attaches to each (Brooks and others, 1994). For the two leading storms (or any you tap), your phone also reads the nearest radar's lowest scan and counts how many of 16 sides of the rotation have heavy rain (35 dBZ and up) 1 to 5 miles out: a classic storm's hook leaves its inflow side open, a rain-wrapped one is wet nearly all the way round. Once read, the score leans 60% on what radar sees.",
     ],
   },
   blizz: {
     lead: "Wind good, snowfall fair, visibility fair to poor.",
     body: [
       "The National Weather Service calls it a blizzard when gusts reach 35 mph with snow, falling or blowing, cutting visibility to a quarter mile or less for three hours or more.",
-      "This counts the hours each place meets that test over the next two days: the newest HRRR run every 2 hours out to 18, then the newest 48-hour run (from 00, 06, 12 or 18Z) every 3 hours. Falling snow counts where the model snows with visibility under half a mile; blowing snow counts where at least 2 inches of snow already lie, it is −5 °C (23 °F) or colder so the snow is dry and loose, and gusts reach 40 mph, even with no snow falling.",
-      "The model's visibility in snow is its weakest part, and it can't know how crusted the snow on the ground is, so marginal places get false alarms. Interstates are drawn bright so you can see which ones cross the whiteout areas.",
+      "This counts the hours each place meets that test over the next two days: the newest HRRR run every 2 hours out to 18, then the newest 48-hour run (from 00, 06, 12 or 18Z) every 3 hours. Falling snow counts where the model snows with visibility under half a mile; blowing snow counts where at least 2 inches of snow lie, even with no snow falling.",
+      "Snow on the ground starts from NOAA NOHRSC's National Snow Analysis (observed depth from stations, aircraft and satellite) instead of the model's guess, plus whatever the model snows after it. Whether it blows follows Li and Pomeroy's research: dry snow starts drifting at a 10 m wind of about 19 mph at −5 °C and less in deeper cold; snow that fell in the last day blows at that, older snow needs about 4 mph more, and snow that has thawed above freezing since it fell is crusted and doesn't blow at all. Visibility drops to a quarter mile at about one and a half times the wind that starts it moving.",
+      "The model's visibility in falling snow is its weakest part, so marginal places can still get false alarms. Interstates are drawn bright so you can see which ones cross the whiteout areas.",
       "Each place with 3 or more hours is checked while it happens against airport reports (a quarter mile or less with 30 kt winds) and afterwards against Weather Service blizzard reports, and the hit rate shows below.",
     ],
   },
@@ -1252,7 +1266,7 @@ export function EnginesTab({
         type: "FeatureCollection",
         features: (f.points ?? []).map((p) => ({
           type: "Feature",
-          properties: { score: p.score },
+          properties: { score: p.chance ?? p.score },
           geometry: { type: "Point", coordinates: [p.lon, p.lat] },
         })),
       });
@@ -1345,7 +1359,16 @@ export function EnginesTab({
     mapKey && placeMaps[mapKey] && placeMaps[mapKey] !== "error"
       ? (placeMaps[mapKey] as PlaceMap)
       : null;
+  const wrapRadar = useWrapReads(
+    engine === "rwrap" && wraps && wraps !== "error" ? wraps.storms : [],
+    wraps && wraps !== "error" ? wraps.at : undefined,
+  );
   const field = isField(engine) ? fields[engine] : undefined;
+  const fine = useFineLines(
+    engine === "bound" && field && field !== "error"
+      ? (field.points ?? [])
+      : [],
+  );
   const valid = (iso: string) =>
     new Date(iso).toLocaleString("en-US", {
       weekday: "short",
@@ -1715,7 +1738,8 @@ export function EnginesTab({
                       <span className={s.where}>
                         <b>{p.place}</b>
                         <small>
-                          {p.kinds}, around {when(p.at)} (±{p.spread} min)
+                          {p.storms ?? "Meeting"} around {when(p.at)} (±
+                          {p.spread} min): {p.kinds}
                         </small>
                       </span>
                       <span className={s.hail}>
@@ -1726,22 +1750,25 @@ export function EnginesTab({
                               `engine:boundpt:${Math.max(
                                 0,
                                 BOUND_POINTS.findLastIndex(
-                                  (b) => p.score >= b.min,
+                                  (b) => (p.chance ?? p.score) >= b.min,
                                 ),
                               )}`,
                               BOUND_POINTS[
                                 Math.max(
                                   0,
                                   BOUND_POINTS.findLastIndex(
-                                    (b) => p.score >= b.min,
+                                    (b) => (p.chance ?? p.score) >= b.min,
                                   ),
                                 )
                               ].color,
                             ),
                           }}
                         />
-                        <b>{p.score}</b>
-                        <small>score</small>
+                        <b>
+                          {p.chance ?? p.score}
+                          {p.chance != null && "%"}
+                        </b>
+                        <small>{p.chance != null ? "storms" : "score"}</small>
                       </span>
                     </button>
                     <ul className={s.facts}>
@@ -1750,6 +1777,12 @@ export function EnginesTab({
                           {e}
                         </li>
                       ))}
+                      <FineLineFact
+                        p={p}
+                        read={fine.reads[`${p.lat},${p.lon}`]}
+                        run={fine.run}
+                        className={`${s.fine} ${s.flags}`}
+                      />
                     </ul>
                   </li>
                 ))}
@@ -2066,9 +2099,11 @@ export function EnginesTab({
           {wraps && wraps !== "error" && (
             <ul className={s.storms}>
               {wraps.storms.map((x) => {
+                const r = wrapRadar.reads[x.id];
+                const shown = wrapShown(x.wrap, r);
                 const band = Math.max(
                   0,
-                  FIELD_BANDS.rwrap.levels.findLastIndex((l) => x.wrap >= l),
+                  FIELD_BANDS.rwrap.levels.findLastIndex((l) => shown >= l),
                 );
                 return (
                   <li key={x.id}>
@@ -2083,10 +2118,13 @@ export function EnginesTab({
                       </span>
                       <span className={s.hail}>
                         <i style={{ background: fieldColor("rwrap", band) }} />
-                        <b>{x.wrap}</b>
+                        <b>{shown}</b>
                         <small>{FIELD_BANDS.rwrap.labels[band]}</small>
                       </span>
                     </button>
+                    <p className={s.flags}>
+                      <WrapFlags x={x} read={r} run={wrapRadar.run} />
+                    </p>
                   </li>
                 );
               })}
