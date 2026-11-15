@@ -365,3 +365,78 @@
     animation: none !important;
   }
 }
+
+/* Warnings that arrive (post-launch A5): a new warning flashes, rings and settles; a new
+   tornado warning also shakes once. Transform and opacity only; still for Reduce Motion. */
+.arrive {
+  position: relative;
+  animation: arrive-in 0.7s var(--ease, ease) both;
+}
+.arriveTor {
+  animation:
+    arrive-in 0.7s var(--ease, ease) both,
+    arrive-shake 0.45s 0.15s both;
+}
+.arrive::before,
+.arrive::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+}
+.arrive::before {
+  border: 2px solid var(--c);
+  animation: arrive-ring 1.1s 0.1s ease-out;
+}
+.arrive::after {
+  background: var(--c);
+  animation: arrive-flash 0.5s ease-out;
+}
+@keyframes arrive-in {
+  from {
+    opacity: 0;
+    transform: translateY(-14px) scale(0.96);
+  }
+}
+@keyframes arrive-shake {
+  20% {
+    transform: translateX(-5px);
+  }
+  40% {
+    transform: translateX(5px);
+  }
+  60% {
+    transform: translateX(-3px);
+  }
+  80% {
+    transform: translateX(2px);
+  }
+}
+@keyframes arrive-ring {
+  from {
+    opacity: 0.8;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.04, 1.25);
+  }
+}
+@keyframes arrive-flash {
+  from {
+    opacity: 0.22;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .arrive,
+  .arriveTor,
+  .arrive::before,
+  .arrive::after {
+    animation: none;
+  }
+}
