@@ -148,6 +148,12 @@ export type Promo = {
   name: string;
   blurb: string;
   on: boolean;
+  /**
+   * Post-launch A4 offers with their own flow instead of a first-period discount: Founding
+   * Members (badge and spots counter), the 7-day VIP trial, the Storm Day Pass and the
+   * spotter / first-responder discount. Never picked as a plan's best promotion.
+   */
+  kind?: "founder" | "trial" | "daypass" | "responder";
   /** Percent off for month 1, 2, 3… of a monthly plan (a yearly plan gets the same value). */
   months: number[];
   /** Percent off the first year of a yearly plan. */
@@ -217,6 +223,41 @@ export const DEFAULT_PROMOS: Promo[] = [
     on: false,
     months: [],
     tiers: ["vip"],
+  },
+  {
+    id: "founder",
+    kind: "founder",
+    name: "Founding Members",
+    blurb:
+      "The first 100 paid members keep their price for as long as they stay and get the gold Founder badge",
+    on: false,
+    months: [],
+    firstN: 100,
+  },
+  {
+    id: "trial",
+    kind: "trial",
+    name: "7-day VIP trial",
+    blurb: "Try every page free for 7 days. Cancel any time in one tap",
+    on: false,
+    months: [],
+  },
+  {
+    id: "daypass",
+    kind: "daypass",
+    name: "Storm Day Pass",
+    blurb: "$0.99 for 24 hours of everything, VIP included",
+    on: false,
+    months: [],
+  },
+  {
+    id: "responder",
+    kind: "responder",
+    name: "Spotters and first responders",
+    blurb:
+      "30% off any plan for SKYWARN spotters, firefighters, EMS, police and emergency managers",
+    on: false,
+    months: [],
   },
 ];
 
@@ -364,7 +405,7 @@ export function activePromos(
   choice?: Choice,
 ): (Promo & { left?: number })[] {
   return b.promos.flatMap((p) => {
-    if (!p.on) return [];
+    if (!p.on || p.kind) return [];
     if (p.from && today < p.from) return [];
     if (p.until && today > p.until) return [];
     if (
@@ -509,3 +550,22 @@ export function cheapestTier(b: Billing, slug: string, sellable: string[]) {
     .sort((x, y) => x.month - y.month)
     .find((t) => tierPages(b, t.id, sellable).has(slug));
 }
+
+/** Is one of the post-launch offers switched on (and inside its dates)? */
+export function perkOn(
+  b: Billing,
+  kind: NonNullable<Promo["kind"]>,
+  today: string,
+) {
+  const p = b.promos.find((x) => x.kind === kind);
+  return Boolean(
+    p?.on && (!p.from || today >= p.from) && (!p.until || today <= p.until),
+  );
+}
+
+/** The Day Pass price and length. */
+export const DAY_PASS = { cents: 99, hours: 24 };
+/** Spotter and first-responder discount, percent off for as long as the plan runs. */
+export const RESPONDER_PCT = 30;
+/** Trial length. */
+export const TRIAL_DAYS = 7;

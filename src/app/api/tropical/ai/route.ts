@@ -1,8 +1,11 @@
 import { aiView } from "@/lib/tropical/atcf";
 import { loadDecks } from "@/lib/tropical/decks";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 /** GET /api/tropical/ai?storm=ep202026 → Google DeepMind's runs beside NHC's forecast. */
 export async function GET(req: Request) {
+  const slow = limited(req, "tropical/ai", LIMITS.normal);
+  if (slow) return slow;
   const id = String(
     new URL(req.url).searchParams.get("storm") ?? "",
   ).toLowerCase();

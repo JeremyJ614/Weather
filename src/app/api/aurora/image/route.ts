@@ -1,5 +1,8 @@
+import { LIMITS, limited } from "@/lib/ratelimit";
 /** GET /api/aurora/image?pole=north|south → SWPC's latest OVATION oval image, as a download. */
 export async function GET(req: Request) {
+  const slow = limited(req, "aurora/image", LIMITS.frames);
+  if (slow) return slow;
   const pole =
     new URL(req.url).searchParams.get("pole") === "south" ? "south" : "north";
   const r = await fetch(

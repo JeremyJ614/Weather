@@ -9,6 +9,7 @@ import { SPECIES, type SpeciesId } from "@/lib/engines/outdoor";
 import { reportSummary } from "@/lib/engines/reports";
 import { isLive } from "@/lib/extras/items";
 import { getSiteDefaults } from "@/lib/settings";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 export const maxDuration = 60;
 
@@ -17,6 +18,8 @@ export const maxDuration = 60;
  * best spots each day). Add &lat=&lon= (and &tz=) for one place's next three days.
  */
 export async function GET(req: Request) {
+  const slow = limited(req, "engines/place", LIMITS.heavy);
+  if (slow) return slow;
   const q = new URL(req.url).searchParams;
   const e = q.get("e");
   if (e !== "deer" && e !== "fish")

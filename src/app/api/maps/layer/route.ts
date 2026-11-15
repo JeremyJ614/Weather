@@ -1,9 +1,12 @@
 import { geoPath, serviceLayer } from "@/lib/map/geo";
 import { getColors } from "@/lib/colors/server";
 import { VECTOR, colorFor, legendFor, rank } from "@/lib/map/products";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 /** One national vector product, projected to our canvas: { title, valid, polys, legend }. */
 export async function GET(req: Request) {
+  const slow = limited(req, "maps/layer", LIMITS.frames);
+  if (slow) return slow;
   const id = new URL(req.url).searchParams.get("p") ?? "";
   const product = VECTOR.find((v) => v.id === id);
   if (!product) return Response.json({ error: "Unknown map" }, { status: 400 });

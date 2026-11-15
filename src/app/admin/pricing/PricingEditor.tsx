@@ -228,36 +228,40 @@ export function PricingEditor({
               />
             </label>
             <div className="grid grid-cols-2 gap-2">
-              <label className="grid gap-1 text-xs text-muted">
-                % off month 1, 2, 3…
-                <input
-                  className={`${field} mono`}
-                  defaultValue={p.months.join(", ")}
-                  placeholder="e.g. 100, 50"
-                  onBlur={(e) =>
-                    promo(i, {
-                      months: e.target.value
-                        .split(/[,\s]+/)
-                        .filter(Boolean)
-                        .map(Number)
-                        .filter((n) => n >= 0 && n <= 100),
-                    })
-                  }
-                />
-              </label>
-              <label className="grid gap-1 text-xs text-muted">
-                % off a first year
-                <input
-                  className={`${field} mono`}
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={p.yearPct ?? 0}
-                  onChange={(e) =>
-                    promo(i, { yearPct: Number(e.target.value) })
-                  }
-                />
-              </label>
+              {!p.kind && (
+                <>
+                  <label className="grid gap-1 text-xs text-muted">
+                    % off month 1, 2, 3…
+                    <input
+                      className={`${field} mono`}
+                      defaultValue={p.months.join(", ")}
+                      placeholder="e.g. 100, 50"
+                      onBlur={(e) =>
+                        promo(i, {
+                          months: e.target.value
+                            .split(/[,\s]+/)
+                            .filter(Boolean)
+                            .map(Number)
+                            .filter((n) => n >= 0 && n <= 100),
+                        })
+                      }
+                    />
+                  </label>
+                  <label className="grid gap-1 text-xs text-muted">
+                    % off a first year
+                    <input
+                      className={`${field} mono`}
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={p.yearPct ?? 0}
+                      onChange={(e) =>
+                        promo(i, { yearPct: Number(e.target.value) })
+                      }
+                    />
+                  </label>
+                </>
+              )}
               {p.firstN !== undefined && (
                 <label className="grid gap-1 text-xs text-muted">
                   First how many signups

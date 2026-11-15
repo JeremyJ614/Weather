@@ -1,5 +1,6 @@
 import { battle, latestTracks, rank } from "@/lib/tropical/atcf";
 import { loadDecks } from "@/lib/tropical/decks";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 /**
  * GET /api/tropical/models?storm=ep202026 → each roster model's newest track, the best
@@ -7,6 +8,8 @@ import { loadDecks } from "@/lib/tropical/decks";
  * gets cached, at the CDN, for 30 minutes.
  */
 export async function GET(req: Request) {
+  const slow = limited(req, "tropical/models", LIMITS.normal);
+  if (slow) return slow;
   const id = String(
     new URL(req.url).searchParams.get("storm") ?? "",
   ).toLowerCase();

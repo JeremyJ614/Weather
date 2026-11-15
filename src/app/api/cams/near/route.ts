@@ -1,5 +1,6 @@
 import { canSeeCams } from "@/lib/cams/access";
 import { allCams, milesTo } from "@/lib/cams/sources";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 /**
  * GET /api/cams/near?lat=&lon=[&kind=][&limit=][&id=] → the nearest cameras (12, up to 30)
@@ -7,6 +8,8 @@ import { allCams, milesTo } from "@/lib/cams/sources";
  * (or the one camera `id`), nearest first.
  */
 export async function GET(req: Request) {
+  const slow = limited(req, "cams/near", LIMITS.normal);
+  if (slow) return slow;
   if (!(await canSeeCams())) return new Response(null, { status: 404 });
   const q = new URL(req.url).searchParams;
   const { cams } = await allCams();

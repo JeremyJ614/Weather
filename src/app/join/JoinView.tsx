@@ -79,6 +79,7 @@ export function JoinView({
   locked,
   notice,
   billingOpen,
+  perks,
 }: {
   billing: Billing;
   claims: Record<string, number>;
@@ -94,6 +95,8 @@ export function JoinView({
   notice: "paid" | "canceled" | null;
   /** The member has a paid plan Stripe can manage. */
   billingOpen: boolean;
+  /** Post-launch A4 offers (Founding Members, trial, Day Pass, responders). */
+  perks?: React.ReactNode;
 }) {
   const sellable = pages.map((p) => p.slug);
   const label = new Map(pages.map((p) => [p.slug, p]));
@@ -309,6 +312,8 @@ export function JoinView({
           <Sparkles aria-hidden /> See what you get
         </Link>
       </section>
+
+      {perks}
 
       {notice && (
         <aside className={s.promo} role="status">

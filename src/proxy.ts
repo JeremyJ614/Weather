@@ -5,6 +5,7 @@ import { GUEST_PATHS } from "@/lib/nav/registry";
 import { EVERY_PAGE } from "@/lib/nav/extras";
 import { cleanBilling, planOpens, type MemberPlan } from "@/lib/billing/plans";
 import { SELLABLE_SLUGS } from "@/lib/billing/sellable";
+import { PASS_COOKIE, passValid } from "@/lib/billing/pass";
 
 const SLUGS = new Set(EVERY_PAGE.map((p) => p.slug).filter(Boolean));
 const SELLABLE_SET = new Set(SELLABLE_SLUGS);
@@ -77,6 +78,8 @@ export async function proxy(request: NextRequest) {
     if (
       !sswx &&
       gate?.locks &&
+      // A Storm Day Pass opens everything until it runs out (post-launch A4).
+      !(await passValid(request.cookies.get(PASS_COOKIE)?.value, user.id)) &&
       !planOpens(
         cleanBilling(gate.billing, SELLABLE_SET),
         gate.plan ?? null,

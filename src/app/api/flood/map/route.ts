@@ -1,8 +1,11 @@
 import { getColors } from "@/lib/colors/server";
 import { eroMap } from "@/lib/flood/data";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 /** GET /api/flood/map?day=1..5 → that day's Excessive Rainfall Outlook as colored GeoJSON. */
 export async function GET(req: Request) {
+  const slow = limited(req, "flood/map", LIMITS.normal);
+  if (slow) return slow;
   const day = Number(new URL(req.url).searchParams.get("day"));
   if (![1, 2, 3, 4, 5].includes(day))
     return Response.json({ error: "Pick a day." }, { status: 400 });

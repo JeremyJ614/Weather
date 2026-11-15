@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { requireAdmin } from "@/lib/auth/admin-guard";
 import { getBilling, getClaims, sellableNow } from "@/lib/billing/server";
+import { getFounders } from "@/lib/billing/perks";
+import { ResponderQueue } from "./ResponderQueue";
 import { getSiteDefaults } from "@/lib/settings";
 import { PricingEditor } from "./PricingEditor";
 import { Coupons } from "./Coupons";
@@ -15,6 +17,7 @@ export default async function Pricing() {
   const [
     billing,
     claims,
+    founders,
     { data: coupons },
     { data: plans },
     { data: locks },
@@ -22,6 +25,7 @@ export default async function Pricing() {
   ] = await Promise.all([
     getBilling(),
     getClaims(),
+    getFounders().catch(() => ({ ids: [] as string[] })),
     supabase
       .from("coupons")
       .select("*")
@@ -70,10 +74,11 @@ export default async function Pricing() {
       />
       <PricingEditor
         initial={billing}
-        claims={claims}
+        claims={{ ...claims, founder: founders.ids.length }}
         pages={sellableNow(extras).map(({ slug, label }) => ({ slug, label }))}
       />
       <Coupons list={coupons ?? []} />
+      <ResponderQueue />
     </main>
   );
 }

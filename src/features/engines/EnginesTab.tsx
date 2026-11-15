@@ -16,7 +16,6 @@ import {
   Flame,
   FlaskConical,
   GitMerge,
-  History,
   Radar,
   Rainbow,
   Snowflake,
@@ -34,12 +33,11 @@ import { RefreshKey } from "@/components/ui/RefreshKey";
 import { pick, type Colors } from "@/lib/colors/pick";
 import { stateOf, type ExtrasStates } from "@/lib/extras/items";
 import {
-  ANALOG_BANDS,
-  ANALOG_DOTS,
   BLIND_BANDS,
   BOUND_POINTS,
   FIELD_BANDS,
   FIRST_TIME_BANDS,
+  PROB_BANDS,
   OUTDOOR_BANDS,
   OUTMAP_BANDS,
   PYRO_BINS,
@@ -66,8 +64,9 @@ import type { SurgeStorm } from "@/lib/engines/surge";
 import type { Areas } from "@/lib/engines/areas";
 import radars from "@/lib/engines/radars.json";
 import s from "./Engines.module.css";
+import { HIT_MEANS, HitCard, type HitStats } from "./HitCard";
 
-type Engine = "tor" | "surge" | "analog" | "blind" | FieldId | OutdoorId;
+type Engine = "tor" | "surge" | "blind" | FieldId | OutdoorId;
 const FIELDS: FieldId[] = [
   "llj",
   "nst",
@@ -91,9 +90,10 @@ const bandsOf = (e: FieldId | OutdoorId) =>
 /** The map's second and third views, by engine. */
 const VIEWS: Partial<Record<Engine, string[]>> = {
   first: ["Chance", "Timing"],
+  stp: ["Evening peak", "Chance of 1+"],
+  scp: ["Evening peak", "Chance of 1+"],
   sunset: ["Sunset", "Sunrise"],
   rainbow: ["Now", "+30 min", "+60 min"],
-  analog: ["Today", "Tomorrow"],
   bound: ["Now", "In 3 hours"],
   deer: ["Day 1", "Day 2", "Day 3"],
   fish: ["Day 1", "Day 2", "Day 3"],
@@ -107,27 +107,6 @@ type Collision = {
   kinds: string;
   score: number;
   evidence: string[];
-};
-type AnalogData = {
-  day: string;
-  ready: boolean;
-  made_at?: string;
-  cycle?: string;
-  p10?: number;
-  p25?: number;
-  p50?: number;
-  torn?: number;
-  analogs?: { day: string; dist: number; n: number; torn: number }[];
-  areas?: Areas;
-  used?: number;
-  score: {
-    days: number;
-    scored: number;
-    brier: number | null;
-    low: { n: number; hit: number };
-    mid: { n: number; hit: number };
-    high: { n: number; hit: number };
-  } | null;
 };
 type RainbowData = {
   at: string;
@@ -185,7 +164,7 @@ type FieldData = {
   fires?: Fire[];
   storms?: { name: string; lat: number; lon: number; mph: number }[];
   note: string | null;
-  stats?: { days: number; checked: number; hits: number } | null;
+  stats?: HitStats;
   altSpots?: Spot[] | null;
   points?: Collision[];
   reports?: Summary;
@@ -196,6 +175,7 @@ type Data = {
   storms: EngineStorm[];
   tor: GeoJSON.FeatureCollection;
   torAreas: Areas;
+  stats?: HitStats;
 };
 type SurgeData = {
   at: string;
@@ -203,7 +183,7 @@ type SurgeData = {
   minutes: number;
   storms: SurgeStorm[];
   polys: GeoJSON.FeatureCollection;
-  stats: { days: number; checked: number; hits: number } | null;
+  stats: HitStats;
 };
 const EMPTY: GeoJSON.FeatureCollection = {
   type: "FeatureCollection",
@@ -216,7 +196,6 @@ const SECTIONS: { name: string; ids: Engine[] }[] = [
   {
     name: "Forecast",
     ids: [
-      "analog",
       "stp",
       "scp",
       "rwrap",
@@ -262,12 +241,6 @@ const ENGINES: {
     name: "First Storms",
     sub: "Where storms start, 6 h",
     icon: <Sprout aria-hidden />,
-  },
-  {
-    id: "analog",
-    name: "Severe Analogs",
-    sub: "Past days like today",
-    icon: <History aria-hidden />,
   },
   {
     id: "stp",
@@ -389,15 +362,6 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
       "Strong collisions are checked afterwards against radar (did storms form within 25 miles?) and the hit rate shows below. Station spacing means a boundary can't be placed closer than 15–25 miles.",
     ],
   },
-  analog: {
-    lead: "Moderate skill: better than the date's averages, checked every day.",
-    body: [
-      "Forecasters have long asked what happened on days that looked like this one. After Saint Louis University's CIPS analogs, this compares today's and tomorrow's weather from the newest GFS run (daily means of 500 mb height, 850 mb temperature, 850 and 500 mb winds, precipitable water and the lifted index, on a 2.5° grid over the Lower 48) with every day since 2004 within six weeks of the same date, from NOAA's NCEP/NCAR reanalysis.",
-      "Each past day is boiled down to a 40-number fingerprint (principal components, weighted toward instability and moisture), and the 15 closest days are the analogs. The chances are the share of them that had 10, 25 or 50 or more severe reports (tornadoes, 1-inch hail, 58 mph wind or damage) in SPC's database; the map is the share with a report within 25 miles of each spot.",
-      "It runs four times a day after each GFS run. Once a day is over, it is scored against that day's real reports; the score below is the last 90 days. The reanalysis is coarse, so analogs catch the pattern, not where a storm will be.",
-      "Tap a past day to see its reports on the map.",
-    ],
-  },
   blind: {
     lead: "Precise: it is geometry.",
     body: [
@@ -432,14 +396,16 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
   stp: {
     lead: "Good for where the setup is; storms still have to form.",
     body: [
-      "The Significant Tornado Parameter is the Storm Prediction Center's go-to ingredient blend for tornadoes rated EF2 and up. This is the fixed-layer version from the HRRR at this evening's peak (7 p.m. Central), or as far ahead as the latest run reaches: surface-based CAPE, how low the cloud base (LCL) is, 0–1 km storm-relative helicity, 0–6 km shear and how much the cap is holding storms back.",
+      "The Significant Tornado Parameter is the Storm Prediction Center's go-to ingredient blend for tornadoes rated EF2 and up. This is the effective-layer version SPC prefers, from the HRRR: mixed-layer CAPE, how low the cloud base (LCL) is, effective storm-relative helicity (the HRRR's own), deep-layer shear (0–6 km standing in for the effective layer, which the HRRR doesn't carry) and how much the cap is holding storms back.",
+      "Evening peak shows the highest value between 21Z and 03Z (about 4 to 10 p.m. Central) with the hour it peaks. Chance of 1+ is the share of the last three HRRR runs with STP of 1 or more at 00Z, so you can see how sure the model is.",
       "1 and up marks the environments most significant tornadoes form in; values over 4 are rare and come with the big days. A high number with no storms means nothing happens, so pair it with SPC's outlook.",
     ],
   },
   scp: {
     lead: "Good for where supercells could thrive.",
     body: [
-      "The Supercell Composite Parameter weighs whether a storm would rotate as a supercell: most-unstable CAPE, 0–3 km storm-relative helicity and 0–6 km shear, cut down where the cap is strong. From the HRRR at this evening's peak (or as far ahead as the latest run reaches).",
+      "The Supercell Composite Parameter weighs whether a storm would rotate as a supercell: most-unstable CAPE, effective storm-relative helicity and deep-layer shear (Thompson's effective-layer version), cut down where the cap is strong. Evening peak is the highest value from 21Z to 03Z; Chance of 1+ is the share of the last three HRRR runs at 1 or more at 00Z.",
+      "Each top spot carries a storm-mode hint: deep shear crossing the edge of the instability (where storms start) favors discrete supercells; shear running along it tends to line storms up.",
       "1 and up favors supercells, which bring most large hail and strong tornadoes; above 8 is a classic supercell day. Left-moving storms are left off.",
     ],
   },
@@ -448,6 +414,7 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
     body: [
       "The Derecho Composite Parameter (Evans and Doswell) looks for long-lived, damaging wind storms: downdraft CAPE (how hard cold air can crash down out of a storm), most-unstable CAPE, 0–6 km shear and a fast 0–6 km mean wind to carry the line along. From the HRRR at this evening's peak (or as far ahead as the latest run reaches).",
       "The HRRR doesn't carry downdraft CAPE, so it is worked out here: a parcel let down from the drier of 700 and 500 mb at its wet-bulb temperature to the ground. 2 and up favors derecho-producing systems once a line of storms gets going.",
+      "DCP was built for places a storm complex already exists, so the map counts it in full only within about 125 miles of an organized line in the HRRR (40 dBZ, 60+ miles long, in the three hours before) and at a third elsewhere. The HRRR's own hourly peak gusts weigh it too (half at 30 mph or less, full at 58 mph and up). Each top spot says where a complex would race, from the Corfidi vectors (cloud-layer mean wind and the low-level jet).",
     ],
   },
   ltg: {
@@ -582,9 +549,6 @@ async function fetchField(id: FieldId, v?: string): Promise<FieldData> {
   return { ...d, areas: unpackAreas(d.areas), alt: unpackAreas(d.alt) };
 }
 
-/** Which build of the analogs a page shows. */
-const analogStamp = (a: AnalogData) => a.made_at ?? a.cycle ?? a.day;
-
 const whenLabel = (e: Engine, view: number) =>
   e === "first"
     ? "First storms around"
@@ -637,13 +601,6 @@ export function EnginesTab({
   const [view, setView] = useState(0);
   const timing = engine === "first" && view === 1;
   const [rainbow, setRainbow] = useState<RainbowData | "error" | null>(null);
-  const [analogs, setAnalogs] = useState<Record<number, AnalogData | "error">>(
-    {},
-  );
-  const [pastDay, setPastDay] = useState<string | null>(null);
-  const [pastReports, setPastReports] = useState<
-    Record<string, { kind: string; lat: number; lon: number }[] | "error">
-  >({});
   const [species, setSpecies] = useState<SpeciesId>("bass");
   const [placeMaps, setPlaceMaps] = useState<
     Record<string, PlaceMap | "error">
@@ -712,6 +669,8 @@ export function EnginesTab({
     pick(colors, `engine:surge:${i}`, SURGE_BANDS[i].color);
   const timeColor = (i: number) =>
     pick(colors, `engine:firstT:${i}`, FIRST_TIME_BANDS[i].color);
+  const probColor = (i: number) =>
+    pick(colors, `engine:prob:${i}`, PROB_BANDS.colors[i]);
   const pyroColor = (i: number) =>
     pick(colors, `engine:pyrocb:${i}`, PYRO_BINS[i].color);
 
@@ -797,42 +756,6 @@ export function EnginesTab({
       clearInterval(t);
     };
   }, [engine, hold]);
-
-  // Severe Analogs: today's or tomorrow's matches once per visit, and a picked day's reports.
-  const wantAnalog = engine === "analog" && !analogs[view] ? view : null;
-  useEffect(() => {
-    if (wantAnalog == null) return;
-    let live = true;
-    fetch(`/api/engines/analogs?d=${wantAnalog + 1}`)
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then(
-        (d: AnalogData) =>
-          live && setAnalogs((m) => ({ ...m, [wantAnalog]: d })),
-      )
-      .catch(
-        () => live && setAnalogs((m) => ({ ...m, [wantAnalog]: "error" })),
-      );
-    return () => {
-      live = false;
-    };
-  }, [wantAnalog]);
-  const wantPast = pastDay && !pastReports[pastDay] ? pastDay : null;
-  useEffect(() => {
-    if (!wantPast) return;
-    let live = true;
-    fetch(`/api/engines/analogs?a=${wantPast}`)
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then(
-        (d: { reports: { kind: string; lat: number; lon: number }[] }) =>
-          live && setPastReports((m) => ({ ...m, [wantPast]: d.reports })),
-      )
-      .catch(
-        () => live && setPastReports((m) => ({ ...m, [wantPast]: "error" })),
-      );
-    return () => {
-      live = false;
-    };
-  }, [wantPast]);
 
   // Rainbow chances every five minutes while that engine is open.
   useEffect(() => {
@@ -945,28 +868,21 @@ export function EnginesTab({
     };
   }, [engine, hold]);
 
-  // Analogs and the Deer/Fishing outlooks are looked at again every 30 minutes while open.
-  const slowKey = engine === "analog" ? `analog:${view}` : mapKey;
+  // The Deer/Fishing outlooks are looked at again every 30 minutes while open.
+  const slowKey = mapKey;
   useEffect(() => {
     if (!slowKey) return;
     const [kind, part] = slowKey.split(":");
-    const url =
-      kind === "analog"
-        ? `/api/engines/analogs?d=${Number(part) + 1}`
-        : `/api/engines/place?e=${kind}${part ? `&sp=${part}` : ""}`;
+    const url = `/api/engines/place?e=${kind}${part ? `&sp=${part}` : ""}`;
     const check = () =>
       document.visibilityState === "visible" &&
       fetch(url)
         .then((r) => (r.ok ? r.json() : null))
-        .then((d: (AnalogData & PlaceMap) | null) => {
+        .then((d: PlaceMap | null) => {
           const shown = stamps.current[slowKey];
-          const now = d && (kind === "analog" ? analogStamp(d) : d.at);
+          const now = d?.at;
           if (!d || !shown || !now || now === shown) return;
-          hold(engine, "slow", () =>
-            kind === "analog"
-              ? setAnalogs((m) => ({ ...m, [Number(part)]: d }))
-              : showPlaceMap(slowKey, d),
-          );
+          hold(engine, "slow", () => showPlaceMap(slowKey, d));
         })
         .catch(() => undefined);
     const t = setInterval(check, 1_800_000);
@@ -987,8 +903,6 @@ export function EnginesTab({
       if (v && v !== "error") st[k] = v.cycle;
     for (const [k, v] of Object.entries(placeMaps))
       if (v && v !== "error") st[k] = v.at;
-    for (const [k, v] of Object.entries(analogs))
-      if (v && v !== "error") st[`analog:${k}`] = analogStamp(v);
     stamps.current = st;
   });
 
@@ -1019,12 +933,6 @@ export function EnginesTab({
     if (e === "rainbow")
       jobs.push(get<RainbowData>(`/api/engines/rainbow?${r}`).then(setRainbow));
     if (isField(e)) jobs.push(loadField(e, String(Date.now())));
-    if (e === "analog")
-      jobs.push(
-        get<AnalogData>(`/api/engines/analogs?d=${view + 1}&${r}`).then((d) =>
-          setAnalogs((m) => ({ ...m, [view]: d })),
-        ),
-      );
     if (mapKey && (e === "deer" || e === "fish")) {
       const [k, sp] = mapKey.split(":");
       jobs.push(
@@ -1176,26 +1084,6 @@ export function EnginesTab({
         "circle-stroke-width": 1.5,
       },
     });
-    m.addSource("pastday", { type: "geojson", data: EMPTY });
-    m.addLayer({
-      id: "pastday",
-      type: "circle",
-      source: "pastday",
-      paint: {
-        "circle-color": [
-          "match",
-          ["get", "kind"],
-          "torn",
-          pick(colors, "engine:analogdot:torn", ANALOG_DOTS.torn.color),
-          "hail",
-          pick(colors, "engine:analogdot:hail", ANALOG_DOTS.hail.color),
-          pick(colors, "engine:analogdot:wind", ANALOG_DOTS.wind.color),
-        ],
-        "circle-radius": 3.5,
-        "circle-stroke-color": "#000000",
-        "circle-stroke-width": 0.8,
-      },
-    });
     m.addSource("fires", { type: "geojson", data: EMPTY });
     m.addLayer({
       id: "fires",
@@ -1277,9 +1165,8 @@ export function EnginesTab({
       m.setLayoutProperty(id, "visibility", on ? "visible" : "none");
     vis("torA-fill", e === "tor");
     vis("torA-line", e === "tor");
-    vis("fieldA-fill", isField(e) || isPlace(e) || e === "analog");
-    vis("fieldA-line", isField(e) || isPlace(e) || e === "analog");
-    vis("pastday", e === "analog");
+    vis("fieldA-fill", isField(e) || isPlace(e));
+    vis("fieldA-line", isField(e) || isPlace(e));
     vis("collide", e === "bound");
     vis("tor-fill", e === "tor");
     vis("tor-line", e === "tor");
@@ -1332,35 +1219,6 @@ export function EnginesTab({
       map.setPaintProperty("fieldA-fill", "fill-color", expr);
       map.setPaintProperty("fieldA-line", "line-color", expr);
     }
-    const an = engine === "analog" ? analogs[view] : undefined;
-    if (engine === "analog") {
-      const a = an && an !== "error" && an.areas ? an.areas : EMPTY;
-      (map.getSource("fieldA") as GeoJSONSource | undefined)?.setData(a);
-      const expr = [
-        "match",
-        ["get", "band"],
-        ...ANALOG_BANDS.map((b, i) => [
-          i,
-          pick(colors, `engine:analog:${i}`, b.color),
-        ]).flat(),
-        pick(colors, "engine:analog:0", ANALOG_BANDS[0].color),
-      ] as never;
-      map.setPaintProperty("fieldA-fill", "fill-color", expr);
-      map.setPaintProperty("fieldA-line", "line-color", expr);
-      const pr = pastDay ? pastReports[pastDay] : undefined;
-      (map.getSource("pastday") as GeoJSONSource | undefined)?.setData(
-        pr && pr !== "error"
-          ? {
-              type: "FeatureCollection",
-              features: pr.map((r) => ({
-                type: "Feature",
-                properties: { kind: r.kind },
-                geometry: { type: "Point", coordinates: [r.lon, r.lat] },
-              })),
-            }
-          : EMPTY,
-      );
-    }
     if (isPlace(engine) && placeAreas) {
       (map.getSource("fieldA") as GeoJSONSource | undefined)?.setData(
         placeAreas,
@@ -1391,14 +1249,21 @@ export function EnginesTab({
     if (f && f !== "error" && isField(engine)) {
       const alt = view === 1 && f.alt;
       const timeBands = engine === "first" && alt;
+      const probBands = (engine === "stp" || engine === "scp") && alt;
       (map.getSource("fieldA") as GeoJSONSource | undefined)?.setData(
         alt ? f.alt! : f.areas,
       );
       const n = timeBands
         ? FIRST_TIME_BANDS.length
-        : FIELD_BANDS[engine].levels.length;
+        : probBands
+          ? PROB_BANDS.levels.length
+          : FIELD_BANDS[engine].levels.length;
       const color = (i: number) =>
-        timeBands ? timeColor(i) : fieldColor(engine, i);
+        timeBands
+          ? timeColor(i)
+          : probBands
+            ? probColor(i)
+            : fieldColor(engine, i);
       const expr = [
         "match",
         ["get", "band"],
@@ -1439,9 +1304,6 @@ export function EnginesTab({
     rainbow,
     placeMaps,
     mapKey,
-    analogs,
-    pastDay,
-    pastReports,
     colors,
   ]);
 
@@ -1453,23 +1315,10 @@ export function EnginesTab({
       ? TOR_BINS.map((b, i) => [b.label, torColor(i)])
       : engine === "surge"
         ? SURGE_BANDS.map((b, i) => [b.label, surgeColor(i)])
-        : engine === "analog"
-          ? [
-              ...ANALOG_BANDS.map((b, i): [string, string] => [
-                b.label,
-                pick(colors, `engine:analog:${i}`, b.color),
-              ]),
-              ...(pastDay
-                ? (
-                    Object.keys(ANALOG_DOTS) as (keyof typeof ANALOG_DOTS)[]
-                  ).map((k): [string, string] => [
-                    ANALOG_DOTS[k].label,
-                    pick(colors, `engine:analogdot:${k}`, ANALOG_DOTS[k].color),
-                  ])
-                : []),
-            ]
-          : engine === "first" && timing
-            ? FIRST_TIME_BANDS.map((b, i) => [b.label, timeColor(i)])
+        : engine === "first" && timing
+          ? FIRST_TIME_BANDS.map((b, i) => [b.label, timeColor(i)])
+          : (engine === "stp" || engine === "scp") && view === 1
+            ? PROB_BANDS.labels.map((l, i) => [l, probColor(i)])
             : engine === "blind"
               ? BLIND_BANDS.map((b, i) => [b.label, blindColor(i)])
               : engine === "deer" || engine === "fish"
@@ -1622,6 +1471,9 @@ export function EnginesTab({
           {!data && !failed && (
             <p className={s.small}>Reading the latest scan…</p>
           )}
+          {data?.stats !== undefined && (
+            <HitCard stats={data.stats ?? null} what={HIT_MEANS.tor} />
+          )}
           {data && storms.length === 0 && (
             <p className={s.small}>
               No storm is showing tornado potential right now. ProbSevere is
@@ -1768,12 +1620,8 @@ export function EnginesTab({
               ))}
             </ul>
           )}
-          {surge && surge !== "error" && surge.stats && (
-            <p className={s.small}>
-              {surge.stats.checked >= 10
-                ? `Hit rate, last ${surge.stats.days} days: ${Math.round((100 * surge.stats.hits) / surge.stats.checked)}% of ${surge.stats.checked} jumps were followed by a severe storm report within 45 minutes and 15 miles.`
-                : `The hit rate shows once 10 jumps have been checked against storm reports (${surge.stats.checked} so far).`}
-            </p>
+          {surge && surge !== "error" && (
+            <HitCard stats={surge.stats} what={HIT_MEANS.surge} />
           )}
         </section>
       )}
@@ -1963,150 +1811,10 @@ export function EnginesTab({
       )}
 
       {isField(engine) && field && field !== "error" && field.stats && (
-        <p className={s.small}>
-          {field.stats.checked >= 10
-            ? `Hit rate, last ${field.stats.days} days: ${Math.round((100 * field.stats.hits) / field.stats.checked)}% of ${field.stats.checked} flagged places saw it happen.`
-            : `The hit rate shows once 10 flagged places have been checked against what happened (${field.stats.checked} so far).`}
-        </p>
-      )}
-
-      {engine === "analog" && (
-        <section className={s.card}>
-          <header>
-            <h3>{view ? "Tomorrow" : "Today"}, by days like it</h3>
-            {(() => {
-              const a = analogs[view];
-              return a && a !== "error" && a.ready ? (
-                <small>GFS {a.cycle!.slice(8)}Z run</small>
-              ) : null;
-            })()}
-          </header>
-          {(() => {
-            const a = analogs[view];
-            if (!a) return <p className={s.small}>Finding the closest days…</p>;
-            if (a === "error")
-              return (
-                <p className={s.small}>
-                  The analogs aren&apos;t answering right now. Try again in a
-                  few minutes.
-                </p>
-              );
-            if (!a.ready)
-              return (
-                <p className={s.small}>
-                  This day&apos;s match is made after the next GFS run (four
-                  times a day). Check back shortly.
-                </p>
-              );
-            const pct = (x: number) => `${Math.round(x * 100)}%`;
-            return (
-              <>
-                <p className={s.small}>
-                  Chance of this many severe reports across the country:
-                </p>
-                <div className={s.odds}>
-                  {(
-                    [
-                      ["10+", a.p10!],
-                      ["25+", a.p25!],
-                      ["50+", a.p50!],
-                    ] as const
-                  ).map(([k, v]) => (
-                    <span key={k}>
-                      <i
-                        style={{
-                          background: pick(
-                            colors,
-                            `engine:analog:${Math.max(
-                              0,
-                              ANALOG_BANDS.findLastIndex(
-                                (b) => v * 100 >= b.min,
-                              ),
-                            )}`,
-                            ANALOG_BANDS[
-                              Math.max(
-                                0,
-                                ANALOG_BANDS.findLastIndex(
-                                  (b) => v * 100 >= b.min,
-                                ),
-                              )
-                            ].color,
-                          ),
-                          transform: `scaleY(${Math.max(0.06, v)})`,
-                        }}
-                      />
-                      <b>{pct(v)}</b>
-                      <small>{k}</small>
-                    </span>
-                  ))}
-                </div>
-                <p className={s.small}>
-                  The 15 closest days averaged {a.torn} tornado
-                  {a.torn === 1 ? "" : "es"}.{" "}
-                  {a.used! < 15
-                    ? `Report maps were found for ${a.used} of them.`
-                    : ""}
-                </p>
-                <ul className={s.storms}>
-                  {a.analogs!.map((x, i) => (
-                    <li key={x.day}>
-                      <button
-                        type="button"
-                        aria-pressed={pastDay === x.day}
-                        onClick={() =>
-                          setPastDay((d) => (d === x.day ? null : x.day))
-                        }
-                      >
-                        <span className={s.where}>
-                          <b>
-                            {new Date(`${x.day}T12:00:00Z`).toLocaleDateString(
-                              "en-US",
-                              {
-                                month: "long",
-                                day: "numeric",
-                                year: "numeric",
-                                timeZone: "UTC",
-                              },
-                            )}
-                          </b>
-                          <small>
-                            Match #{i + 1} · {x.torn} tornado
-                            {x.torn === 1 ? "" : "es"}
-                            {pastDay === x.day
-                              ? pastReports[x.day] === "error"
-                                ? " · no report file"
-                                : pastReports[x.day]
-                                  ? " · on the map"
-                                  : " · loading…"
-                              : ""}
-                          </small>
-                        </span>
-                        <span className={s.hail}>
-                          <b>{x.n}</b>
-                          <small>reports</small>
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-                {a.score && a.score.scored >= 10 ? (
-                  <p className={s.small}>
-                    Last {a.score.days} days ({a.score.scored} scored): when we
-                    gave 50%+ for 10+ reports it happened {a.score.high.hit} of{" "}
-                    {a.score.high.n} times; under 20%, {a.score.low.hit} of{" "}
-                    {a.score.low.n}. Brier score {a.score.brier} (lower is
-                    better).
-                  </p>
-                ) : (
-                  <p className={s.small}>
-                    The score shows once 10 days have been checked against their
-                    reports ({a.score?.scored ?? 0} so far).
-                  </p>
-                )}
-              </>
-            );
-          })()}
-        </section>
+        <HitCard
+          stats={field.stats}
+          what={HIT_MEANS[engine] ?? "A hit is the weather following a flag."}
+        />
       )}
 
       {engine === "sunset" && (

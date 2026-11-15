@@ -15,9 +15,11 @@ import {
   Telescope,
   Sunrise,
   Atom,
+  MoonStar,
 } from "lucide-react";
 import {
   AuraScene,
+  AuroraScene,
   FieldScene,
   FlockScene,
   GalaxyScene,
@@ -127,6 +129,13 @@ const LIST = [
     blurb: "Throw stars and black holes across a bending grid.",
     Icon: Atom,
     C: SpacetimeScene,
+  },
+  {
+    id: "aurora",
+    name: "Aurora Painter",
+    blurb: "Paint rippling northern lights across a starry sky.",
+    Icon: MoonStar,
+    C: AuroraScene,
   },
 ] as const;
 

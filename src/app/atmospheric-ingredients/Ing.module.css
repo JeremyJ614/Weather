@@ -82,6 +82,11 @@
   color: #fff;
   text-shadow: 0 0 22px color-mix(in srgb, var(--tone) 60%, transparent);
 }
+.read b > span[role="img"] {
+  filter: drop-shadow(
+    0 0 11px color-mix(in srgb, var(--tone) 60%, transparent)
+  );
+}
 .unit {
   font-size: 11px;
   letter-spacing: 0.2em;

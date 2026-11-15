@@ -12,6 +12,7 @@ import { coverUrl, excerpt, getPost } from "@/lib/news/posts";
 import { getSiteDefaults } from "@/lib/settings";
 import { MarkRead } from "./MarkRead";
 import { ShareButton } from "@/components/ShareButton";
+import { Morph } from "@/components/ui/Morph";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -72,11 +73,13 @@ export default async function NewsPost({ params }: Props) {
       <article className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4">
         {cover && (
           // eslint-disable-next-line @next/next/no-img-element -- resized WebP from our bucket
-          <img
-            src={cover}
-            alt=""
-            className="aspect-[16/9] w-full rounded-2xl border border-line object-cover"
-          />
+          <Morph name={`news-cover-${post.id}`}>
+            <img
+              src={cover}
+              alt=""
+              className="aspect-[16/9] w-full rounded-2xl border border-line object-cover"
+            />
+          </Morph>
         )}
         <p className="mono text-xs text-muted">
           SSWX News ·{" "}
@@ -84,9 +87,11 @@ export default async function NewsPost({ params }: Props) {
             dateStyle: "long",
           })}
         </p>
-        <h1 className="font-[family-name:var(--font-display)] text-[26px] leading-tight font-extrabold">
-          {post.title}
-        </h1>
+        <Morph name={`news-title-${post.id}`}>
+          <h1 className="font-[family-name:var(--font-display)] text-[26px] leading-tight font-extrabold">
+            {post.title}
+          </h1>
+        </Morph>
         <ShareButton title={post.title} className="justify-self-start" />
         {post.doc ? (
           <RichBody doc={post.doc} />

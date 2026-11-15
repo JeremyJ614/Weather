@@ -13,6 +13,11 @@ jobs:
   verify:
     name: Typecheck, lint, format, test, build, budget
     runs-on: ubuntu-latest
+    # Public values only (they ship in the browser bundle). Set them once as repository
+    # variables (Settings → Secrets and variables → Actions → Variables) to run the smoke test.
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -27,3 +32,10 @@ jobs:
       - run: npm run build
       # The gate: a route that outgrows its JavaScript budget fails the build.
       - run: npm run perf:budget
+      # The guest front door in a real browser: bad status, crash or blank page fails.
+      - name: Smoke test
+        if: ${{ vars.NEXT_PUBLIC_SUPABASE_URL != '' }}
+        run: |
+          npx playwright install --with-deps chromium
+          npm run start -- -p 3000 &
+          BASE_URL=http://localhost:3000 npm run smoke

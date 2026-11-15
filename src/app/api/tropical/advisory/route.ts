@@ -1,8 +1,11 @@
+import { LIMITS, limited } from "@/lib/ratelimit";
 /**
  * GET /api/tropical/advisory?url=https://www.nhc.noaa.gov/text/MIATCPAT1.shtml → the
  * product's text, verbatim. Only NHC text pages are read; cached for 10 minutes.
  */
 export async function GET(req: Request) {
+  const slow = limited(req, "tropical/advisory", LIMITS.normal);
+  if (slow) return slow;
   const raw = new URL(req.url).searchParams.get("url") ?? "";
   let url: URL;
   try {

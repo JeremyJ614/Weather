@@ -1,0 +1,54 @@
+/**
+ * Runs the heavy scheduled jobs outside Vercel (post-launch A1 "cost-guard"): GitHub Actions
+ * calls this on the same schedule pg_cron uses, with the service key as a secret, and the
+ * Vercel routes stand down while JOBS_ON_ACTIONS=1. Same code as the cron routes, so the maps
+ * land in the same tables.
+ *
+ *   npx tsx --conditions=react-server scripts/jobs/run.ts engines|outdoor|verify|surge
+ *   npx tsx --conditions=react-server scripts/jobs/run.ts dry <field engine id>
+ */
+const job = process.argv[2];
+
+async function main() {
+  switch (job) {
+    case "engines":
+      return (await import("../../src/lib/engines/stored")).refreshWanted();
+    case "outdoor":
+      return (
+        await import("../../src/lib/engines/outmap")
+      ).refreshOutdoorIfStale();
+    case "verify":
+      return (await import("../../src/lib/engines/verify")).verifyChecks();
+    case "surge":
+      return (await import("../../src/lib/engines/surge")).logSurges();
+    case "dry": {
+      // Computes one engine without storing it: proves the runner works on a new machine.
+      const id = process.argv[3] ?? "stp";
+      const { fieldEngine } = await import("../../src/lib/engines/fields");
+      const t = Date.now();
+      const m = await fieldEngine(id as never);
+      return {
+        engine: id,
+        cycle: m.cycle,
+        areas: m.areas.features.length,
+        spots: m.spots.length,
+        seconds: (Date.now() - t) / 1000,
+      };
+    }
+    default:
+      throw new Error(
+        `Unknown job "${job}". Use engines, outdoor, verify, surge or dry.`,
+      );
+  }
+}
+
+main().then(
+  (r) => {
+    console.log(JSON.stringify(r, null, 2));
+    process.exit(0);
+  },
+  (e) => {
+    console.error(e instanceof Error ? e.stack : e);
+    process.exit(1);
+  },
+);

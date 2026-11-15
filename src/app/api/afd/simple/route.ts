@@ -1,7 +1,10 @@
 import { getSimplified } from "@/lib/afd/fetch";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 /** GET /api/afd/simple?office=OUN → plain-language version (AI), cached per issuance. */
 export async function GET(request: Request) {
+  const slow = limited(request, "afd/simple", LIMITS.normal);
+  if (slow) return slow;
   const office = (
     new URL(request.url).searchParams.get("office") ?? ""
   ).toUpperCase();

@@ -246,3 +246,71 @@ html[data-immersive] #app-header {
 html[data-immersive] body {
   overflow: hidden;
 }
+
+/*
+ * Scroll-built sections (post-launch A5 "scroll-build"): glass cards rise and settle as they
+ * scroll into view, driven by the browser's own scroll timeline (no JavaScript). Cards already
+ * on screen at load are simply there; browsers without scroll timelines, low-tier phones and
+ * Reduce Motion show every card at rest. Cards that have their own entrance animation (the
+ * modules listed in :not) keep it.
+ */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    html:not([data-tier="low"])
+      main
+      :is(.panel, [class$="__card"], [class*="__card "]):not(
+        .rise,
+        [class*="Mosquito-module"],
+        [class*="Trivia-module"],
+        [class*="Polls-module"],
+        [class*="Md-module"],
+        [class*="Air-module"],
+        [class*="BriefView-module"],
+        [class*="Timing-module"],
+        [class*="Warn-module"],
+        [class*="Daylight-module"],
+        [class*="Ing-module"],
+        [class*="GuestGate-module"]
+      ) {
+      animation: scroll-build linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 80%;
+    }
+  }
+}
+@keyframes scroll-build {
+  from {
+    opacity: 0;
+    transform: translateY(28px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/*
+ * Card grows into the page (post-launch A5 "card-morph"): a news card's picture and title,
+ * a library card's title, and each page's header morph into their place on the next page
+ * (React <ViewTransition>, the browser's View Transitions API). Back plays it in reverse.
+ * Browsers without it, and Reduce Motion, change pages as before.
+ */
+::view-transition-group(.morph) {
+  animation-duration: 420ms;
+  animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+::view-transition-image-pair(.morph) {
+  animation-name: morph-blur;
+}
+@keyframes morph-blur {
+  35% {
+    filter: blur(2px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}

@@ -19,7 +19,7 @@ import { nextSunEvent, sunPosition } from "@/lib/sky/astro";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getOutlook } from "@/lib/tropical/nhc";
 import { latticeAreas, soften } from "./areas";
-import { FIELD_BANDS, type FieldId } from "./colors";
+import { FIELD_BANDS, PROB_BANDS, type FieldId } from "./colors";
 import { logFlags, type Flag } from "./verify";
 import { bound } from "./boundary";
 import {
@@ -422,21 +422,156 @@ const RD = 287.05;
 /** Bulk 0–6 km shear (m/s) from its components. */
 const bulk = (u: number, v: number) => Math.hypot(u, v);
 
-/** SPC's fixed-layer Significant Tornado Parameter, at this evening's peak (00Z). */
-async function stp(cycle: string): Promise<Computed> {
-  const fh = hourFor(cycle, nextUtc(0, 1));
-  const [cape, cin, lcl, zs, srh, us, vs] = await grab(cycle, fh, [
-    ":CAPE:surface:",
-    ":CIN:surface:",
+/** The coming evening's valid times (21Z, 00Z, 03Z) that `cycle` reaches. */
+function eveningTimes(cycle: string) {
+  const t0 = cycleTime(cycle);
+  const mid = nextUtc(0, 1);
+  return [mid - 3 * 3600_000, mid, mid + 3 * 3600_000].filter((t) => {
+    const h = (t - t0) / 3600_000;
+    return h >= 0 && h <= 18;
+  });
+}
+const fhAt = (cycle: string, t: number) =>
+  Math.round((t - cycleTime(cycle)) / 3600_000);
+/** `cycle` and the runs just before it that also reach `t` (a time-lagged ensemble). */
+function laggedRuns(cycle: string, t: number, n: number) {
+  const out = [cycle];
+  const t0 = cycleTime(cycle);
+  for (let k = 1; out.length < n && k <= 6; k++) {
+    const c = ymdh(t0 - k * 3600_000);
+    const h = fhAt(c, t);
+    if (h >= 0 && h <= 18) out.push(c);
+  }
+  return out;
+}
+/** Native-grid index of the point nearest a lat/lon. */
+function cellOf(grid: Field["grid"]) {
+  const loc = locator(grid);
+  const [w, h] = gridSize(grid);
+  return (lat: number, lon: number) => {
+    const [fi, fj] = loc(lat, lon);
+    const x = Math.round(fi);
+    const y = Math.round(fj);
+    return x < 0 || y < 0 || x >= w || y >= h ? -1 : y * w + x;
+  };
+}
+/** HRRR winds are relative to its Lambert grid; this turns one into east/north components. */
+function earthWind(grid: Field["grid"], lon: number, ug: number, vg: number) {
+  if (grid.kind !== "lambert") return [ug, vg] as const;
+  const r = Math.PI / 180;
+  const p1 = grid.latin1 * r;
+  const p2 = grid.latin2 * r;
+  const n =
+    Math.abs(p1 - p2) < 1e-9
+      ? Math.sin(p1)
+      : Math.log(Math.cos(p1) / Math.cos(p2)) /
+        Math.log(
+          Math.tan(Math.PI / 4 + p2 / 2) / Math.tan(Math.PI / 4 + p1 / 2),
+        );
+  const th = n * (((((lon - grid.lov + 180) % 360) + 360) % 360) - 180) * r;
+  return [
+    ug * Math.cos(th) + vg * Math.sin(th),
+    -ug * Math.sin(th) + vg * Math.cos(th),
+  ] as const;
+}
+const COMPASS = [
+  "N",
+  "NNE",
+  "NE",
+  "ENE",
+  "E",
+  "ESE",
+  "SE",
+  "SSE",
+  "S",
+  "SSW",
+  "SW",
+  "WSW",
+  "W",
+  "WNW",
+  "NW",
+  "NNW",
+];
+const heading = (e: number, n: number) =>
+  COMPASS[Math.round(((Math.atan2(e, n) * 180) / Math.PI + 360) / 22.5) % 16];
+
+/**
+ * Post-launch A6: the evening's highest value of a parameter over 21Z, 00Z and 03Z (with the
+ * hour it peaks), and the chance it passes `threshold` at 00Z from the newest HRRR run and
+ * the two before it.
+ */
+async function eveningOf(
+  cycle: string,
+  at: (c: string, fh: number) => Promise<Field>,
+  threshold: number,
+) {
+  const times = eveningTimes(cycle);
+  if (!times.length) throw new Error("This HRRR run doesn't reach the evening");
+  const mid = times.includes(nextUtc(0, 1)) ? nextUtc(0, 1) : times[0];
+  let grid: Field["grid"] | null = null;
+  let max: Float32Array | null = null;
+  let peak: Uint8Array | null = null;
+  let atMid: Float32Array | null = null;
+  for (let k = 0; k < times.length; k++) {
+    const f = await at(cycle, fhAt(cycle, times[k]));
+    grid ??= f.grid;
+    max ??= new Float32Array(f.values.length).fill(-Infinity);
+    peak ??= new Uint8Array(f.values.length);
+    for (let i = 0; i < f.values.length; i++)
+      if (f.values[i] > max[i]) {
+        max[i] = f.values[i];
+        peak[i] = k;
+      }
+    if (times[k] === mid) atMid = f.values;
+  }
+  const runs = laggedRuns(cycle, mid, 3);
+  const hits = new Float32Array(max!.length);
+  let used = 0;
+  for (const c of runs) {
+    const v =
+      c === cycle && atMid
+        ? atMid
+        : await at(c, fhAt(c, mid))
+            .then((f) => f.values)
+            .catch(() => null);
+    if (!v || v.length !== hits.length) continue;
+    used++;
+    for (let i = 0; i < v.length; i++) if (v[i] >= threshold) hits[i]++;
+  }
+  const prob = new Float32Array(hits.length);
+  for (let i = 0; i < prob.length; i++)
+    prob[i] = used ? (100 * hits[i]) / used : 0;
+  const cell = cellOf(grid!);
+  return {
+    grid: grid!,
+    max: max!,
+    prob,
+    used,
+    mid,
+    when: (lat: number, lon: number) => {
+      const i = cell(lat, lon);
+      return i < 0 ? undefined : times[peak![i]];
+    },
+  };
+}
+
+/**
+ * SPC's effective-layer Significant Tornado Parameter (post-launch A6): mixed-layer CAPE, the
+ * LCL, effective storm-relative helicity (the HRRR's own EFHL), bulk shear (0–6 km standing in
+ * for the effective layer, which the HRRR doesn't carry) and mixed-layer CIN.
+ */
+async function stpAt(cycle: string, fh: number): Promise<Field> {
+  const [cape, cin, lcl, zs, esrh, us, vs] = await grab(cycle, fh, [
+    ":CAPE:90-0 mb above ground:",
+    ":CIN:90-0 mb above ground:",
     ":HGT:level of adiabatic condensation from sfc:",
     ":HGT:surface:",
-    ":HLCY:1000-0 m above ground:",
+    ":EFHL:surface:",
     ":VUCSH:0-6000 m above ground:",
     ":VVCSH:0-6000 m above ground:",
   ]);
   const out = new Float32Array(cape.values.length);
   for (let i = 0; i < out.length; i++) {
-    // The LCL comes as a height above sea level; the term wants it above the ground.
     const lc = lcl.values[i] - zs.values[i];
     const lt = lc < 1000 ? 1 : lc > 2000 ? 0 : (2000 - lc) / 1000;
     const sh = bulk(us.values[i], vs.values[i]);
@@ -445,19 +580,37 @@ async function stp(cycle: string): Promise<Computed> {
     const ct = ci > -50 ? 1 : ci < -200 ? 0 : (200 + ci) / 150;
     out[i] = Math.max(
       0,
-      (cape.values[i] / 1500) * lt * (srh.values[i] / 150) * st * ct,
+      (cape.values[i] / 1500) * lt * (esrh.values[i] / 150) * st * ct,
     );
   }
-  return { field: { grid: cape.grid, values: out }, cycle, fh };
+  return { grid: cape.grid, values: out };
 }
 
-/** SPC's Supercell Composite Parameter (most-unstable parcel), at this evening's peak. */
-async function scp(cycle: string): Promise<Computed> {
-  const fh = hourFor(cycle, nextUtc(0, 1));
-  const [mu, mucin, srh, us, vs] = await grab(cycle, fh, [
+/** Significant Tornado: the evening peak of effective-layer STP and the chance of STP ≥ 1. */
+async function stp(cycle: string): Promise<Computed> {
+  const e = await eveningOf(cycle, stpAt, 1);
+  return {
+    field: { grid: e.grid, values: e.max },
+    cycle,
+    fh: fhAt(cycle, e.mid),
+    when: e.when,
+    alt: { field: { grid: e.grid, values: e.prob }, levels: PROB_BANDS.levels },
+    altDetail: () => `Chance from the last ${e.used} HRRR runs`,
+    altWhen: () => e.mid,
+  };
+}
+
+/**
+ * Effective-layer Supercell Composite (Thompson and others): most-unstable CAPE × effective
+ * helicity × bulk shear, with the CIN term; right movers only. `keep` holds the peak hour's
+ * fields for the storm-mode hint.
+ */
+const scpKeep = new Map<string, { cape: Field; us: Field; vs: Field }>();
+async function scpAt(cycle: string, fh: number): Promise<Field> {
+  const [mu, mucin, esrh, us, vs] = await grab(cycle, fh, [
     ":CAPE:255-0 mb above ground:",
     ":CIN:255-0 mb above ground:",
-    ":HLCY:3000-0 m above ground:",
+    ":EFHL:surface:",
     ":VUCSH:0-6000 m above ground:",
     ":VVCSH:0-6000 m above ground:",
   ]);
@@ -467,13 +620,68 @@ async function scp(cycle: string): Promise<Computed> {
     const st = sh < 10 ? 0 : sh > 20 ? 1 : sh / 20;
     const c = mucin.values[i];
     const ct = c > -40 ? 1 : -40 / c;
-    // Negative is a left-moving supercell's; the map shows right movers.
     out[i] = Math.max(
       0,
-      (mu.values[i] / 1000) * (srh.values[i] / 50) * st * ct,
+      (mu.values[i] / 1000) * (esrh.values[i] / 50) * st * ct,
     );
   }
-  return { field: { grid: mu.grid, values: out }, cycle, fh };
+  scpKeep.set(`${cycle}:${fh}`, { cape: mu, us, vs });
+  return { grid: mu.grid, values: out };
+}
+
+/**
+ * Storm-mode hint (post-launch A6): deep shear crossing the edge of the instability (the
+ * boundary storms start on) favors discrete supercells; shear running along it lines them up.
+ */
+function modeHint(k: { cape: Field; us: Field; vs: Field }) {
+  const cell = cellOf(k.cape.grid);
+  const val = (lat: number, lon: number) => {
+    const i = cell(lat, lon);
+    return i < 0 ? NaN : k.cape.values[i];
+  };
+  return (lat: number, lon: number) => {
+    const d = 0.35;
+    const ge =
+      (val(lat, lon + d) - val(lat, lon - d)) /
+      (2 * d * Math.cos((lat * Math.PI) / 180));
+    const gn = (val(lat + d, lon) - val(lat - d, lon)) / (2 * d);
+    const gm = Math.hypot(ge, gn);
+    const i = cell(lat, lon);
+    if (i < 0 || !Number.isFinite(gm) || gm < 150) return undefined;
+    const [se, sn] = earthWind(
+      k.cape.grid,
+      lon,
+      k.us.values[i],
+      k.vs.values[i],
+    );
+    const sm = Math.hypot(se, sn);
+    if (sm < 10) return undefined;
+    // Share of the shear pointing across the boundary (along the instability gradient).
+    const across = Math.abs((se * ge + sn * gn) / (gm * sm));
+    return across > 0.7
+      ? "Discrete supercells favored: the shear crosses the instability edge"
+      : across < 0.4
+        ? "Storms may line up: the shear runs along the instability edge"
+        : "Mixed storm modes likely";
+  };
+}
+
+/** Supercell Composite: evening peak of the effective-layer SCP, chance of SCP ≥ 1, mode hint. */
+async function scp(cycle: string): Promise<Computed> {
+  scpKeep.clear();
+  const e = await eveningOf(cycle, scpAt, 1);
+  const k = scpKeep.get(`${cycle}:${fhAt(cycle, e.mid)}`);
+  scpKeep.clear();
+  return {
+    field: { grid: e.grid, values: e.max },
+    cycle,
+    fh: fhAt(cycle, e.mid),
+    when: e.when,
+    detail: k ? modeHint(k) : undefined,
+    alt: { field: { grid: e.grid, values: e.prob }, levels: PROB_BANDS.levels },
+    altDetail: () => `Chance from the last ${e.used} HRRR runs`,
+    altWhen: () => e.mid,
+  };
 }
 
 /**
@@ -519,6 +727,11 @@ function moistT(thw: number, hpa: number) {
  */
 async function dcp(cycle: string): Promise<Computed> {
   const fh = hourFor(cycle, nextUtc(0, 1));
+  const [[u3, v3], swath, complex] = await Promise.all([
+    grab(cycle, fh, [":UGRD:300 mb:", ":VGRD:300 mb:"]),
+    windSwath(cycle, fh),
+    complexes(cycle, fh),
+  ]);
   const [
     mu,
     us,
@@ -605,7 +818,120 @@ async function dcp(cycle: string): Promise<Computed> {
         (mean / 16),
     );
   }
-  return { field: { grid: mu.grid, values: out }, cycle, fh };
+  // Post-launch A6: DCP was built for places a storm complex already exists, so it counts in
+  // full only within ~200 km of an organized line in the HRRR (a third elsewhere), and the
+  // HRRR's own modeled gusts weigh it (half at 25 kt or less, full at 50 kt and up).
+  const lat = toLattice({ grid: mu.grid, values: out }, 1);
+  for (let i = 0; i < lat.length; i++) {
+    if (!Number.isFinite(lat[i])) continue;
+    const w = clamp((swath[i] * KT - 25) / 25);
+    lat[i] *= (complex[i] ? 1 : 0.35) * (0.5 + 0.5 * w);
+  }
+  const cell = cellOf(mu.grid);
+  return {
+    field: { grid: LATTICE, values: lat },
+    cycle,
+    fh,
+    detail: (la, lo) => {
+      const i = cell(la, lo);
+      if (i < 0) return undefined;
+      // Corfidi vectors: the cloud-layer mean wind (850–300 mb) and the low-level jet (850).
+      const e = (ug: number, vg: number) => earthWind(mu.grid, lo, ug, vg);
+      const lv = [
+        e(u8.values[i], v8.values[i]),
+        e(u7.values[i], v7.values[i]),
+        e(u5.values[i], v5.values[i]),
+        e(u3.values[i], v3.values[i]),
+      ];
+      const ce = lv.reduce((a, w) => a + w[0], 0) / lv.length;
+      const cn = lv.reduce((a, w) => a + w[1], 0) / lv.length;
+      const de = 2 * ce - lv[0][0];
+      const dn = 2 * cn - lv[0][1];
+      const mph = Math.round(Math.hypot(de, dn) * 2.23694);
+      const g = swath[latticeCell(la, lo)];
+      return `A complex would race ${heading(de, dn)} near ${mph} mph${Number.isFinite(g) && g * KT >= 40 ? ` · HRRR gusts to ${Math.round(g * 2.23694)} mph` : ""}`;
+    },
+  };
+}
+
+/** The 0.1° lattice cell of a lat/lon. */
+function latticeCell(lat: number, lon: number) {
+  const i = Math.round((lon - CONUS[0]) / 0.1);
+  const j = Math.round((CONUS[3] - lat) / 0.1);
+  return i < 0 || j < 0 || i >= LW || j >= LH ? -1 : j * LW + i;
+}
+
+/** The HRRR's hourly maximum 10 m wind (m/s), the most over two hours either side of `fh`. */
+async function windSwath(cycle: string, fh: number) {
+  const hrs = [fh - 2, fh - 1, fh, fh + 1, fh + 2].filter(
+    (h) => h >= 1 && h <= 18,
+  );
+  const out = new Float32Array(LW * LH);
+  const fields = await Promise.all(
+    hrs.map((h) =>
+      grab(cycle, h, [":WIND:10 m above ground:"])
+        .then(([f]) => toLattice(f, 1))
+        .catch(() => null),
+    ),
+  );
+  for (const f of fields)
+    if (f)
+      for (let i = 0; i < out.length; i++) if (f[i] > out[i]) out[i] = f[i];
+  return out;
+}
+
+/**
+ * Where an organized storm complex is in the HRRR (40 dBZ areas at least 100 km across over
+ * the three hours before `fh`), spread ~200 km: the places DCP's environment can act on.
+ */
+async function complexes(cycle: string, fh: number) {
+  const hrs = [fh - 3, fh - 2, fh - 1, fh].filter((h) => h >= 1 && h <= 18);
+  const mask = new Uint8Array(LW * LH);
+  const fields = await Promise.all(
+    hrs.map((h) =>
+      grab(cycle, h, [":REFC:entire atmosphere:"])
+        .then(([f]) => toLattice(f, 1))
+        .catch(() => null),
+    ),
+  );
+  const seen = new Uint8Array(LW * LH);
+  for (const f of fields) {
+    if (!f) continue;
+    seen.fill(0);
+    for (let s0 = 0; s0 < f.length; s0++) {
+      if (seen[s0] || !(f[s0] >= 40)) continue;
+      // Flood-fill one 40 dBZ area and measure how far it reaches.
+      const stack = [s0];
+      const cells: number[] = [];
+      seen[s0] = 1;
+      let i0 = LW,
+        i1 = 0,
+        j0 = LH,
+        j1 = 0;
+      while (stack.length) {
+        const c = stack.pop()!;
+        cells.push(c);
+        const ci = c % LW;
+        const cj = (c / LW) | 0;
+        if (ci < i0) i0 = ci;
+        if (ci > i1) i1 = ci;
+        if (cj < j0) j0 = cj;
+        if (cj > j1) j1 = cj;
+        for (const n of [c - 1, c + 1, c - LW, c + LW]) {
+          if (n < 0 || n >= f.length || seen[n] || !(f[n] >= 40)) continue;
+          if (Math.abs((n % LW) - ci) > 1) continue;
+          seen[n] = 1;
+          stack.push(n);
+        }
+      }
+      const km = Math.hypot((i1 - i0) * 9, (j1 - j0) * 11);
+      if (km >= 100) for (const c of cells) mask[c] = 1;
+    }
+  }
+  const spreadMask = spread(Float32Array.from(mask), 18);
+  const out = new Uint8Array(mask.length);
+  for (let i = 0; i < out.length; i++) out[i] = spreadMask[i] > 0 ? 1 : 0;
+  return out;
 }
 
 /** The HRRR's own lightning threat (flashes per km² per 5 minutes), the most over 3 hours. */
@@ -1284,6 +1610,41 @@ function areasOf(c: Computed, levels: number[]) {
   return latticeAreas(soften(v, w, h, passes), w, h, W, N, STEP, levels);
 }
 
+/**
+ * The evening-parameter engines' top spots at their second band or higher, checked against
+ * the evening's storm reports (post-launch A1 "skill-scores"): from 3 hours before the valid
+ * time to 6 after, within the radius. One flag per evening per whole-degree square, so each
+ * new HRRR run doesn't count the same setup again.
+ */
+const EVENING: Partial<Record<FieldId, number>> = {
+  stp: 80,
+  scp: 80,
+  dcp: 100,
+  nst: 60,
+  tctor: 80,
+};
+export function eveningFlags(
+  id: FieldId,
+  valid: number,
+  top: Spot[],
+  min: number,
+): Flag[] {
+  const radius = EVENING[id];
+  if (!radius) return [];
+  const day = new Date(valid).toISOString().slice(0, 10);
+  return top
+    .filter((x) => x.value >= min)
+    .map((x) => ({
+      key: `${day}:${Math.round(x.lat)},${Math.round(x.lon)}`,
+      at: valid - 3 * 3600_000,
+      lat: x.lat,
+      lon: x.lon,
+      label: `${x.place} (${id.toUpperCase()} ${x.value})`,
+      window_min: 540,
+      radius_km: radius,
+    }));
+}
+
 /** One engine's map (nested band areas over CONUS) and what to list beside it. */
 export async function fieldEngine(id: FieldId) {
   const cycle = await latestCycle("hrrr");
@@ -1291,7 +1652,15 @@ export async function fieldEngine(id: FieldId) {
   const c = await COMPUTE[id](cycle);
   const bands = FIELD_BANDS[id];
   const top = id === "pyro" || id === "bound" ? [] : spots(c, bands.levels[0]);
-  if (c.flags) await logFlags(id, c.flags(top)).catch(() => {});
+  const flags = c.flags
+    ? c.flags(top)
+    : eveningFlags(
+        id,
+        cycleTime(cycle) + c.fh * 3600_000,
+        top,
+        bands.levels[1] ?? bands.levels[0],
+      );
+  if (flags.length) await logFlags(id, flags).catch(() => {});
   return {
     id,
     cycle,

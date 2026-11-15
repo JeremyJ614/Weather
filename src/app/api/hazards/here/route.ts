@@ -1,7 +1,10 @@
 import { hazardsHere } from "@/lib/hazards/data";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 /** GET /api/hazards/here?lat=&lon= → drought category, state drought and hazards at a place. */
 export async function GET(req: Request) {
+  const slow = limited(req, "hazards/here", LIMITS.normal);
+  if (slow) return slow;
   const q = new URL(req.url).searchParams;
   const lat = Number(q.get("lat"));
   const lon = Number(q.get("lon"));

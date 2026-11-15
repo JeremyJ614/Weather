@@ -1,7 +1,10 @@
 import { MODELS, modelSoundings, type ModelId } from "@/lib/soundings/data";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 /** GET /api/soundings/model?m=HRRR&lat=&lon= → every hour of the newest run nearby. */
 export async function GET(req: Request) {
+  const slow = limited(req, "soundings/model", LIMITS.heavy);
+  if (slow) return slow;
   const q = new URL(req.url).searchParams;
   const m = q.get("m") as ModelId;
   const lat = Math.round(Number(q.get("lat")) * 10) / 10;

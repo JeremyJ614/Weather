@@ -1,7 +1,10 @@
 import { skyHourly } from "@/lib/sky/grid";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 /** GET /api/sky/here?lat=&lon= → hourly sky inputs (UTC) for one place, 3 days. */
 export async function GET(req: Request) {
+  const slow = limited(req, "sky/here", LIMITS.normal);
+  if (slow) return slow;
   const q = new URL(req.url).searchParams;
   const lat = Math.round(Number(q.get("lat")) * 100) / 100;
   const lon = Math.round(Number(q.get("lon")) * 100) / 100;

@@ -35,10 +35,9 @@ import { BANDS as CHASE_BANDS, CHASE_ALT } from "@/lib/chase/score";
 import {
   BLIND_BANDS,
   FIELD_BANDS,
-  ANALOG_BANDS,
-  ANALOG_DOTS,
   BOUND_POINTS,
   FIRST_TIME_BANDS,
+  PROB_BANDS,
   OUTDOOR_BANDS,
   OUTMAP_BANDS,
   PYRO_BINS,
@@ -412,28 +411,6 @@ export const GROUPS: Group[] = [
     })),
   },
   {
-    id: "engine-analog",
-    label: "Severe Analogs",
-    note: "Extras → Weather Engines: the share of matched days with a report within 25 miles.",
-    entries: ANALOG_BANDS.map((b, i) => ({
-      key: `engine:analog:${i}`,
-      label: b.label,
-      def: b.color,
-    })),
-  },
-  {
-    id: "engine-analogdot",
-    label: "Severe Analogs: a matched day's reports",
-    note: "Extras → Weather Engines → Severe Analogs: tap a past day to show its reports.",
-    entries: (Object.keys(ANALOG_DOTS) as (keyof typeof ANALOG_DOTS)[]).map(
-      (k) => ({
-        key: `engine:analogdot:${k}`,
-        label: ANALOG_DOTS[k].label,
-        def: ANALOG_DOTS[k].color,
-      }),
-    ),
-  },
-  {
     id: "engine-boundpt",
     label: "Boundary collisions (points)",
     note: "Extras → Weather Engines → Boundary Collisions: where boundaries meet, by score.",
@@ -451,6 +428,16 @@ export const GROUPS: Group[] = [
       key: `engine:firstT:${i}`,
       label: b.label,
       def: b.color,
+    })),
+  },
+  {
+    id: "engine-prob",
+    label: "Engine chance maps",
+    note: "Extras → Weather Engines → Significant Tornado and Supercell Composite: the Chance of 1+ view.",
+    entries: PROB_BANDS.levels.map((_, i) => ({
+      key: `engine:prob:${i}`,
+      label: PROB_BANDS.labels[i],
+      def: PROB_BANDS.colors[i],
     })),
   },
   {

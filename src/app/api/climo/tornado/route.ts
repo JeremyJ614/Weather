@@ -1,7 +1,10 @@
 import { tornadoNear, tornadoSummary, tornadoTracks } from "@/lib/climo/server";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 /** GET /api/climo/tornado → national tornado climatology; with ?lat=&lon= → within 25 miles of a place; ?tracks&min=&since= → projected tracks. */
 export async function GET(req: Request) {
+  const slow = limited(req, "climo/tornado", LIMITS.heavy);
+  if (slow) return slow;
   const q = new URL(req.url).searchParams;
   const headers = {
     "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=604800",

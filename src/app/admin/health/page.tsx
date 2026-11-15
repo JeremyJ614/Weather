@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { requireAdmin } from "@/lib/auth/admin-guard";
+import { UsageCard } from "./UsageCard";
 import {
   Bars,
   Banner,
@@ -62,7 +63,12 @@ const now = () => Date.now();
  */
 export default async function HealthPage() {
   const { supabase } = await requireAdmin("health");
-  const { data, error } = await supabase.rpc("admin_health");
+  const [{ data, error }, { data: ops }] = await Promise.all([
+    supabase.rpc("admin_health"),
+    supabase.rpc("ops_counts"),
+  ]);
+  const o = (ops ?? {}) as { map_loads?: number; map_provider?: string };
+  const maps = { loads: o.map_loads ?? 0, provider: o.map_provider ?? null };
   const h = data as Health | null;
   if (error || !h)
     return (
@@ -114,6 +120,7 @@ export default async function HealthPage() {
           .filter(Boolean)
           .join(" · ")}
       />
+      <UsageCard maps={maps} />
       <Tiles>
         <Tile
           hero

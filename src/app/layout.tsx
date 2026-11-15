@@ -10,6 +10,8 @@ import { Suspense } from "react";
 import { MenuHost } from "@/features/menus/MenuHost";
 import { AppHeader } from "@/components/AppHeader";
 import { introBootScript } from "@/features/intro/schedule";
+import { decodeBootScript } from "@/features/motion/decode";
+import { pullBootScript } from "@/features/motion/pull";
 import { themeBootScript, themeCss } from "@/lib/theme/css";
 import { fontClassNames } from "@/lib/theme/fonts";
 import { getSiteDefaults } from "@/lib/settings";
@@ -84,6 +86,8 @@ export default async function RootLayout({
         <style id="themes" dangerouslySetInnerHTML={{ __html: css }} />
         <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
         <script dangerouslySetInnerHTML={{ __html: introBootScript }} />
+        <script dangerouslySetInnerHTML={{ __html: decodeBootScript }} />
+        <script dangerouslySetInnerHTML={{ __html: pullBootScript }} />
       </head>
       <body>
         <JsonLd data={siteGraph} />

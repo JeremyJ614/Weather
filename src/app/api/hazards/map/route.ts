@@ -1,11 +1,14 @@
 import { getColors } from "@/lib/colors/server";
 import { cpcHazards, droughtAlbers, droughtNow } from "@/lib/hazards/data";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 /**
  * GET /api/hazards/map?layer=cpc|usdm → colored GeoJSON for the Hazards & Droughts maps;
  * ?layer=usdm&shape=albers → the Drought Monitor as paths for the national map.
  */
 export async function GET(req: Request) {
+  const slow = limited(req, "hazards/map", LIMITS.normal);
+  if (slow) return slow;
   const q = new URL(req.url).searchParams;
   const layer = q.get("layer");
   if (layer === "usdm" && q.get("shape") === "albers")

@@ -152,18 +152,14 @@ export const BOUND_POINTS = [
   { min: 80, label: "Strong", color: "#f43f5e" },
 ];
 
-/** Severe Analogs: the share of matched days with a severe report within 25 miles. */
-export const ANALOG_BANDS = [
-  { min: 10, label: "10%", color: "#4ade80" },
-  { min: 20, label: "20%", color: "#facc15" },
-  { min: 35, label: "35%", color: "#fb923c" },
-  { min: 50, label: "50%+", color: "#f43f5e" },
-];
-/** Severe Analogs: one matched day's reports. */
-export const ANALOG_DOTS = {
-  torn: { label: "Tornado", color: "#ef4444" },
-  wind: { label: "Wind", color: "#60a5fa" },
-  hail: { label: "Hail", color: "#4ade80" },
+/**
+ * Chance maps (post-launch A6): the share of the last three HRRR runs past an engine's
+ * threshold (STP ≥ 1, SCP ≥ 1), drawn as nested areas. Editable as `engine:prob:<i>`.
+ */
+export const PROB_BANDS = {
+  levels: [10, 30, 50, 70, 90],
+  labels: ["10%", "30%", "50%", "70%", "90%"],
+  colors: ["#5eead4", "#38bdf8", "#a78bfa", "#f472b6", "#fb7185"],
 };
 
 /** First Storms' timing map: when the first storms start, latest first (nested). */

@@ -1,10 +1,13 @@
 import { PLACES } from "@/lib/geo/places.data";
 import { nearestPlace, parsePlaces } from "@/lib/geo/search";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 let rows: ReturnType<typeof parsePlaces> | null = null;
 
 /** GET /api/geo/near?lat=&lon= → { label } such as "8 mi from Wichita Falls, TX". */
 export function GET(request: Request) {
+  const slow = limited(request, "geo/near", LIMITS.normal);
+  if (slow) return slow;
   const q = new URL(request.url).searchParams;
   const lat = Number(q.get("lat"));
   const lon = Number(q.get("lon"));

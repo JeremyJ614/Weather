@@ -1,10 +1,13 @@
 import { PLACES } from "@/lib/geo/places.data";
 import { parsePlaces, searchPlaces } from "@/lib/geo/search";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 let rows: ReturnType<typeof parsePlaces> | null = null;
 
 /** GET /api/geo/search?q=dayton oh → up to 8 US places, best match first. */
 export function GET(request: Request) {
+  const slow = limited(request, "geo/search", LIMITS.normal);
+  if (slow) return slow;
   const q = (new URL(request.url).searchParams.get("q") ?? "").slice(0, 80);
   rows ??= parsePlaces(PLACES);
   return Response.json(

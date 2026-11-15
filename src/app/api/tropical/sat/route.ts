@@ -1,7 +1,10 @@
 import { satFrames } from "@/lib/tropical/sat";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 /** GET /api/tropical/sat?src=AL|EP|CP|<storm id>&big=1 → the newest GeoColor frames. */
 export async function GET(req: Request) {
+  const slow = limited(req, "tropical/sat", LIMITS.frames);
+  if (slow) return slow;
   const q = new URL(req.url).searchParams;
   const data = await satFrames(
     String(q.get("src") ?? "")

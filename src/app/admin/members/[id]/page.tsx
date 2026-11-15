@@ -145,7 +145,7 @@ export default async function Member({
             : "They can sign in with their email and the PIN you set."}
         </p>
       )}
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2 min-[420px]:grid-cols-3">
         {[
           ["Points", total()],
           ["Forecast", total("forecast_game")],

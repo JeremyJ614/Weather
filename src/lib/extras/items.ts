@@ -57,13 +57,6 @@ export const EXTRAS_ITEMS = [
     "Where the first thunderstorms will start in the next six hours, and when.",
   ),
   e(
-    "analog",
-    "Severe Analogs",
-    "severe-analogs",
-    "History",
-    "Past days that looked like today, and the severe weather they brought.",
-  ),
-  e(
     "bound",
     "Boundary Collisions",
     "boundary-collisions",
@@ -265,6 +258,13 @@ export const EXTRAS_ITEMS = [
     "curved-spacetime",
     "Orbit",
     "Stars, planets and black holes bending a glowing grid you can throw them across.",
+  ),
+  r(
+    "aurora",
+    "Aurora Painter",
+    "aurora-painter",
+    "Sparkles",
+    "Paint rippling northern lights across a starry sky above the mountains.",
   ),
 ] as const;
 

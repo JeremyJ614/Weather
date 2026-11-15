@@ -1,7 +1,10 @@
 import { fireAlertsAt } from "@/lib/fire/data";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 /** GET /api/fire/here?lat=&lon= → Red Flag Warnings and Fire Weather Watches at a place. */
 export async function GET(req: Request) {
+  const slow = limited(req, "fire/here", LIMITS.normal);
+  if (slow) return slow;
   const q = new URL(req.url).searchParams;
   const lat = Number(q.get("lat"));
   const lon = Number(q.get("lon"));

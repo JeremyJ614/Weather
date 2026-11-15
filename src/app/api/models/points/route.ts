@@ -5,6 +5,7 @@ import {
   paramOf,
   type ModelId,
 } from "@/lib/models/render";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 export const maxDuration = 30;
 
@@ -15,6 +16,8 @@ export const maxDuration = 30;
  * Cached at the edge for a day.
  */
 export async function GET(req: Request) {
+  const slow = limited(req, "models/points", LIMITS.heavy);
+  if (slow) return slow;
   const q = new URL(req.url).searchParams;
   const model = q.get("model") as ModelId;
   const m = MODELS[model];

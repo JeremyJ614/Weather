@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSyncExternalStore } from "react";
 import { orderPosts, readSet, serverReadSet, subscribeRead } from "./readState";
 import s from "./SswxNews.module.css";
+import { Morph } from "@/components/ui/Morph";
 
 export type NewsCard = {
   id: string;
@@ -29,18 +30,22 @@ function Card({ p, unread }: { p: NewsCard; unread: boolean }) {
       >
         {p.cover && (
           // eslint-disable-next-line @next/next/no-img-element -- resized WebP from our bucket
-          <img
-            src={p.cover}
-            alt=""
-            loading="lazy"
-            className="aspect-[16/9] w-full rounded-xl object-cover"
-          />
+          <Morph name={`news-cover-${p.id}`}>
+            <img
+              src={p.cover}
+              alt=""
+              loading="lazy"
+              className="aspect-[16/9] w-full rounded-xl object-cover"
+            />
+          </Morph>
         )}
         <span className="flex items-center gap-2 text-xs text-muted">
           {unread && <b className="text-accent">New</b>}
           {fmt(p.publish_at)}
         </span>
-        <span className="font-bold">{p.title}</span>
+        <Morph name={`news-title-${p.id}`}>
+          <span className="font-bold">{p.title}</span>
+        </Morph>
         {p.excerpt && <span className="text-sm text-muted">{p.excerpt}</span>}
       </Link>
     </li>
