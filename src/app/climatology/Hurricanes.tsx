@@ -16,6 +16,7 @@ import {
   useJson,
   Bars,
 } from "./climo";
+import { InfoScrub } from "@/components/charts/InfoScrub";
 
 export function Hurricanes({
   c,
@@ -300,7 +301,7 @@ export function Hurricanes({
             <svg
               viewBox="0 0 360 110"
               className="w-full"
-              role="img"
+              role="group"
               aria-label="Storms active by day of year"
             >
               {(["AL", "EP"] as const).map((b) => {
@@ -334,6 +335,35 @@ export function Hurricanes({
                   {m}
                 </text>
               ))}
+              {(() => {
+                const max = Math.max(...curve("AL"), ...curve("EP"));
+                const n = curve("AL").length;
+                return (
+                  <InfoScrub
+                    label="Storms active by day of year"
+                    x0={0}
+                    x1={((n - 1) / 365) * 360}
+                    top={8}
+                    bottom={100}
+                    width={360}
+                    height={110}
+                    start={peak}
+                    title={(i) =>
+                      new Date(Date.UTC(2025, 0, 1 + i)).toLocaleDateString(
+                        "en-US",
+                        { month: "short", day: "numeric", timeZone: "UTC" },
+                      )
+                    }
+                    series={(["AL", "EP"] as const).map((b) => ({
+                      key: b,
+                      label: b === "AL" ? "Atlantic" : "E. Pacific",
+                      color: c(b === "AL" ? "atl" : "epac"),
+                      y: curve(b).map((v) => 100 - (v / max) * 92),
+                      text: curve(b).map((v) => `${v.toFixed(1)} storms`),
+                    }))}
+                  />
+                );
+              })()}
             </svg>
             <div className={s.legend}>
               <span>

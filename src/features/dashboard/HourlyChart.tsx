@@ -1,5 +1,6 @@
 import type { Hour } from "@/lib/weather/types";
 import s from "./widgets/widgets.module.css";
+import { InfoScrub } from "@/components/charts/InfoScrub";
 
 /**
  * 24-hour temperature curve: smooth line with a glowing gradient fill that
@@ -122,6 +123,28 @@ export function HourlyChart({
           </text>
         ) : null,
       )}
+      <InfoScrub
+        label="Temperature, next 24 hours"
+        x0={0}
+        x1={W}
+        top={top}
+        bottom={H - bottom}
+        width={W}
+        height={H}
+        title={(i) => (i === 0 ? "Now" : label(h[i].start))}
+        series={[
+          {
+            key: "temp",
+            label: "Temp",
+            color: "var(--accent)",
+            y: pts.map((p) => p[1]),
+            text: temps.map((t) => `${Math.round(t)}°`),
+          },
+        ]}
+        rows={(i) =>
+          h[i]?.pop ? [{ label: "Rain", text: `${h[i].pop}%` }] : []
+        }
+      />
     </svg>
   );
 }

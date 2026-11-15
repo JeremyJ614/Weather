@@ -1,5 +1,6 @@
 "use client";
 
+import { DrawIn, InfoScrub, gridInV } from "@/components/charts/InfoScrub";
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { BarChart3, Clapperboard, Radar } from "lucide-react";
@@ -166,9 +167,20 @@ export function Compare({ colors }: { colors: Colors }) {
         role="img"
         aria-label="Temperature by model, next 48 hours"
       >
+        <g className={gridInV}>
+          {[0, 12, 24, 36].map((h) => (
+            <line
+              key={h}
+              x1={x(h)}
+              x2={x(h)}
+              y1="8"
+              y2="122"
+              stroke="var(--line)"
+            />
+          ))}
+        </g>
         {[0, 12, 24, 36].map((h) => (
           <g key={h}>
-            <line x1={x(h)} x2={x(h)} y1="8" y2="122" stroke="var(--line)" />
             <text x={x(h) + 2} y="134" fontSize="7" fill="var(--muted)">
               {new Date(d.time[h] ?? d.time[0]).toLocaleString("en-US", {
                 weekday: "short",
@@ -182,18 +194,42 @@ export function Compare({ colors }: { colors: Colors }) {
             {Math.round(t)}°
           </text>
         ))}
-        {d.models.map((m) => (
-          <polyline
-            key={m.key}
-            fill="none"
-            stroke={c(m.key)}
-            strokeWidth="1.7"
-            strokeLinejoin="round"
-            points={m.temp
-              .flatMap((t, i) => (t == null ? [] : [`${x(i)},${y(t)}`]))
-              .join(" ")}
-          />
-        ))}
+        <DrawIn width={360} height={140}>
+          {d.models.map((m) => (
+            <polyline
+              key={m.key}
+              fill="none"
+              stroke={c(m.key)}
+              strokeWidth="1.7"
+              strokeLinejoin="round"
+              points={m.temp
+                .flatMap((t, i) => (t == null ? [] : [`${x(i)},${y(t)}`]))
+                .join(" ")}
+            />
+          ))}
+        </DrawIn>
+        <InfoScrub
+          label="Temperature by model"
+          x0={x(0)}
+          x1={x(n - 1)}
+          top={10}
+          bottom={120}
+          width={360}
+          height={140}
+          title={(i) =>
+            new Date(d.time[i] ?? d.time[0]).toLocaleString("en-US", {
+              weekday: "short",
+              hour: "numeric",
+            })
+          }
+          series={d.models.map((m) => ({
+            key: m.key,
+            label: m.label,
+            color: c(m.key),
+            y: m.temp.map((t) => (t == null ? null : y(t))),
+            text: m.temp.map((t) => (t == null ? null : `${Math.round(t)}°`)),
+          }))}
+        />
       </svg>
       <ul className={s.models}>
         {d.models.map((m) => (
