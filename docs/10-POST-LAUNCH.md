@@ -185,3 +185,157 @@ Supabase's free plan keeps no downloadable backups. Members, plans, chase logs, 
 - Cons: A few MB of storage; Needs the service key in the job's secrets
 - Effort: Small
 - Impact: 5/5
+
+## A2. 15 new pages and modules
+
+My best ideas for new pages and modules. I checked each against the 48 pages we have, the 15 page ideas from the October review and the post-launch list (Personal Warnings, Affected Communities, Store, Services, Partnerships, Campaigns, Members Suite, Raffles, FairWeather), so nothing here clashes or repeats. Every data source is free.
+
+### A2.1 Storm Lookup (Tools & Data)
+
+Type an address and a date: did it hail there, how big, how strong was the wind, did a tornado pass, which warnings covered it, and the radar at that moment. One tap makes a clean PDF storm report for an insurance claim or a roofer. A second tab shows today's hail swaths across the country, live.
+
+- Pros: Something people search for after every storm ('did it hail at my house'); Brings in homeowners, not just weather fans; A strong reason to pay for a plan
+- Cons: Hail size is radar-estimated (MESH), so the report says so
+- Data: NOAA MRMS hail size (MESH) archive on AWS since 2020, SPC reports, IEM warning archive, NWS Damage Assessment Toolkit
+- Effort: Medium
+- Impact: 5/5
+
+### A2.2 Warning Scorecard (Severe Weather)
+
+How good are the warnings where you live? For every Weather Service office: how many tornadoes were warned, how many warnings had no tornado, and average lead time, by year. Your office's rank, the best and worst years, and a map of the country colored by lead time.
+
+- Pros: Nobody else shows this in plain words; Great for weather nerds and local news; Updates itself
+- Cons: Can read as criticism of the Weather Service, so it's written respectfully
+- Data: Iowa Environmental Mesonet 'Cow' verification service (free), SPC reports
+- Effort: Small
+- Impact: 3/5
+
+### A2.3 Event Planner (Localized Data)
+
+Add an event (a wedding, a ball game, a camping trip, a cookout) with its place and time. The page counts down with the forecast for that hour, shows how sure the forecast is (it narrows as the day gets closer), and notifies you when it changes for the worse or a watch or warning is issued.
+
+- Pros: A reason to open the app every day for a week; Shareable: 'here's the forecast for our wedding'
+- Cons: Beyond 7 days it can only show odds, which the page explains
+- Data: NWS forecast (api.weather.gov), NOAA GEFS ensemble on AWS for the confidence band
+- Effort: Medium
+- Impact: 4/5
+
+### A2.4 Backyard Stations (Community)
+
+Members connect their own home weather station (Ambient Weather, Ecowitt, WeatherFlow Tempest) with the station's own free key. Their readings show on their dashboard, and with permission on a members' station map beside official airport stations, so the map has far more points than the Weather Service's.
+
+- Pros: Weather hobbyists love this and stay; Our own live data network, free
+- Cons: Some stations are badly placed (shown as 'member station', never official); Members need their own station key
+- Data: Ambient Weather, Ecowitt and Tempest APIs (free for station owners), IEM airport observations
+- Effort: Medium
+- Impact: 4/5
+
+### A2.5 Storm Totals (Localized Data)
+
+'How much did we get?' after any storm: a rain, snow and ice totals map, the totals spotters and the Weather Service reported (with the town and time), your place's total and how it ranks, and 24, 48 and 72 hour views.
+
+- Pros: The most-asked question after every storm; Snow totals are a big draw in winter
+- Cons: Spotter totals come in over a few hours after a storm
+- Data: MRMS multi-sensor rain totals, NWS Public Information Statements (parsed), CoCoRaHS daily reports
+- Effort: Medium
+- Impact: 5/5
+
+### A2.6 Sky Gallery (Community)
+
+Members post their storm, sky and snow photos. Each photo is stamped with the weather at that time and place (warnings, hail size, the radar). A monthly contest with a points prize and a badge, voted by members, plus an admin approve queue.
+
+- Pros: Members make content for us every day; Photos are the most shared thing on social media
+- Cons: Needs moderation (admin queue); Storage: photos shrunk to about 250 KB each, about 4,000 photos per GB
+- Data: Members' uploads to Supabase Storage, our own weather data for the stamp
+- Effort: Medium
+- Impact: 4/5
+
+### A2.7 Chase Day Fantasy (Community (WX Games))
+
+A new WX Games game for storm days: before 18Z, drop a pin where you think the best tornado or hail will be. You score by how close the real reports land. Season standings, a 'called it' badge for a tornado within 25 miles, and it counts on the Leaderboard.
+
+- Pros: Makes every storm day a game; Teaches forecasting by doing it
+- Cons: Only active on days with an SPC Slight risk or higher
+- Data: SPC outlooks (to choose game days) and storm reports (to score)
+- Effort: Small
+- Impact: 4/5
+
+### A2.8 Storm Prep Planner (Everything Else)
+
+A personal plan built from where you live and who's in your home: the hazards your area actually gets (from our climatology), your safe room, a go-bag list with expiry reminders (water, batteries, meds), pets and kids. When a watch is issued for you, the app opens your plan.
+
+- Pros: Real life-safety value, which builds trust; Schools, churches and families share it
+- Cons: Lists must stay simple or people won't finish them
+- Data: Our climatology, Ready.gov and Red Cross guidance (public domain / free to cite)
+- Effort: Small
+- Impact: 4/5
+
+### A2.9 Your Town Through the Years (Educational)
+
+How your town's weather has changed since records began: warming stripes, the hottest and coldest years, rain by decade, first and last freeze dates moving, number of 100° days. Plain-word summaries and a share card.
+
+- Pros: Very shareable ('look at our town's stripes'); Long records for almost every town
+- Cons: Climate is a touchy subject for some (the page sticks to the measurements)
+- Data: RCC-ACIS station records (free, NOAA's regional climate centers)
+- Effort: Small
+- Impact: 3/5
+
+### A2.10 Earth Watch (Specialty Monitoring)
+
+What's happening on the whole planet right now: tropical cyclones, floods, wildfires, volcanoes, dust storms and sea ice on one 3D globe, each with a short story card and how serious it is. A 'biggest event today' banner.
+
+- Pros: A wow page: a live spinning globe; Brings in people from outside the U.S.
+- Cons: Global data is less detailed than our U.S. pages
+- Data: NASA EONET and GDACS (both free and public)
+- Effort: Medium
+- Impact: 3/5
+
+### A2.11 Smoke Forecast (Module: AQI & Pollen, Fire Weather)
+
+An animated 48-hour smoke forecast: smoke at the ground (what you breathe) and smoke overhead (what makes red sunsets), with the hours your air will be worst. Added as a tab to AQI & Pollen and to Fire Weather.
+
+- Pros: Wildfire smoke now affects most of the country every summer; Feeds the Sunset & Sunrise engine too
+- Cons: Only as good as the fire detections the model starts from
+- Data: HRRR-Smoke fields (near-surface and column smoke) from NOAA's AWS archive
+- Effort: Small
+- Impact: 3/5
+
+### A2.12 Ask StormSync (Everything Else)
+
+Ask the weather in plain words: 'Will it storm during the game Saturday at 6?', 'Should I chase Tuesday?', 'Is my drive to Dallas safe tonight?'. The answer comes from our own pages' data (forecast, SPC, warnings, engines) with links to the pages it used, never made up.
+
+- Pros: The most modern-feeling feature in any weather app; Shows off the depth of the app in one box
+- Cons: A daily question cap per member to stay inside the free AI allowance; Must say 'I don't know' when the data doesn't answer
+- Data: Gemini (the owner's keys, free tier) reading only our own API answers
+- Effort: Medium
+- Impact: 5/5
+
+### A2.13 Listen to the Brief (Module: Daily Brief)
+
+A play button on the Daily Brief that reads it aloud like a short radio forecast (about a minute), with the most important line first. Works on the lock screen, so you can listen while getting ready.
+
+- Pros: Costs nothing: the phone's own voice does the reading; Great for drivers and early mornings
+- Cons: Voice quality depends on the phone
+- Data: The Daily Brief we already write; the browser's built-in speech
+- Effort: Small
+- Impact: 3/5
+
+### A2.14 Kids Weather Lab (Educational)
+
+A bright corner for kids and classrooms: how a tornado forms (animated), make-a-cloud and rain-gauge experiments, a safety quiz with a printable certificate, and 'what's the weather doing at your school'. A teacher mode shows a lesson plan.
+
+- Pros: Teachers share it with whole classes (and parents follow); Good-news stories for the brand
+- Cons: Needs a gentle, separate look from the rest of the app
+- Data: NOAA SciJinks and JetStream (public domain), our own forecast
+- Effort: Medium
+- Impact: 3/5
+
+### A2.15 Travel & Aviation Weather (Tools & Data)
+
+Flying or picking someone up? Airport delays and ground stops nationwide, the weather at both airports, turbulence and icing areas along the flight, and pilot-style reports translated into plain words. Pilots get a raw METAR/TAF view.
+
+- Pros: Travelers check this before every flight; Pilots are a loyal niche
+- Cons: Flight-level data is for awareness, never for flight planning (said clearly)
+- Data: FAA airport status (free), aviationweather.gov METAR, TAF, PIREP, G-AIRMET (free)
+- Effort: Medium
+- Impact: 3/5
