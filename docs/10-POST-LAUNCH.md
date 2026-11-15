@@ -433,3 +433,187 @@ Make a post from any page in two taps: the SPC map, SSWXCon, a storm card, On Th
 - Cons: Needs a one-time Facebook page connection (Meta's free Graph API)
 - Effort: Medium
 - Impact: 5/5
+
+## A4. 20 promotions
+
+Twenty promotions beyond the seven we have (Launch first 15, Launch next 10, Storm Season Kickoff, Go Yearly, Bring a Friend, Hurricane Season Pass, Holiday Bundle). Each one would get an on/off switch and its own settings in admin → Pricing & plans → Promotions, so you can run one at a time or several at once. 'Runs' says whether it switches itself on from the weather or a date, or only when you turn it on.
+
+### A4.1 Storm Day Flash Sale (Runs: automatically)
+
+When SPC issues a Moderate or High risk, a 24-hour offer lights up across the app and on the Join page: 'Big severe day ahead: 40% off your first month'. It turns itself off after 24 hours, at most once a week.
+
+- Pros: Hits people exactly when they need the app most; Zero effort once it's on
+- Cons: Some may feel it profits from danger, so the wording is about being ready, not fear
+- Effort: Small
+- Impact: 5/5
+
+### A4.2 Storm Day Pass (Runs: always (when on))
+
+$0.99 for 24 hours of everything, VIP included. For the person who only needs the app on one big day. After it ends, a one-tap offer to keep it with the day pass price taken off the first month.
+
+- Pros: Easy first payment (the hardest one to get); Turns one-day visitors into members
+- Cons: Stripe's fee eats about a third of 99¢ (0.30 + 2.9%)
+- Effort: Small
+- Impact: 4/5
+
+### A4.3 7-day VIP trial (Runs: always (when on))
+
+Try every page free for 7 days, card required, cancel any time in one tap. A countdown in the menu and a reminder two days before it ends (no surprise charges).
+
+- Pros: The most proven way to convert to paid; Shows off the whole app
+- Cons: Some sign up only for the free week (expected)
+- Effort: Small
+- Impact: 5/5
+
+### A4.4 Founding Member price lock (Runs: until N spots are gone)
+
+The first 100 paid members keep the price they joined at for as long as they stay, and get a gold Founder badge on their profile and the leaderboard. A live 'spots left' counter on the Join page.
+
+- Pros: Urgency that's real (the counter is true); Founders become loyal ambassadors
+- Cons: Those members never pay a future price increase
+- Effort: Small
+- Impact: 5/5
+
+### A4.5 Storm Season Wrapped (Runs: every December)
+
+Each member's year in review, Spotify Wrapped style: the storms they tracked, their busiest day, pages they used, points, badges, their best forecast. A shareable card for each slide, and a renewal offer on the last one.
+
+- Pros: Members post it everywhere, for free; A great reason to renew
+- Cons: Only as rich as what members did that year
+- Effort: Medium
+- Impact: 5/5
+
+### A4.6 Students and teachers half off (Runs: always (when on))
+
+50% off any plan with a school email (.edu, .k12) checked by a one-time code. Meteorology students are the app's biggest natural fans.
+
+- Pros: Brings in future meteorologists and their classes; Teachers bring whole classrooms
+- Cons: Some schools don't use .edu (a manual approve option in admin)
+- Effort: Small
+- Impact: 3/5
+
+### A4.7 Spotters and first responders (Runs: always (when on))
+
+30% off for SKYWARN spotters, firefighters, EMS, police and emergency managers, approved in the Contact inbox from a photo of their ID or spotter card.
+
+- Pros: Goodwill and word of mouth in the right circles; These members use the app hard on storm days
+- Cons: A few minutes of admin approval per person
+- Effort: Small
+- Impact: 3/5
+
+### A4.8 Gift a plan (Runs: always (when on))
+
+Buy a month, three months or a year for someone else. They get a branded gift email with a code; you pick the date it arrives. Strong around the holidays and Father's Day.
+
+- Pros: New members who arrive already paid for; Easy holiday marketing
+- Cons: Gifted members need a nudge to renew themselves
+- Effort: Small
+- Impact: 3/5
+
+### A4.9 Come back for $1 (Runs: automatically)
+
+30 days after a member cancels, they get one email and one push: 'Storm season's coming. Come back for $1 your first month.' Sent once per member, ever.
+
+- Pros: Winning back is far cheaper than finding new members; Fully automatic
+- Cons: Some may cancel hoping for the $1 deal (it only comes once)
+- Effort: Small
+- Impact: 4/5
+
+### A4.10 Monthly game champion prize (Runs: monthly)
+
+The top player of the month in WX Games (Forecast Game, Trivia, Weatherdle) wins a free month and a crown on the leaderboard. Shown all month as 'this month's prize'.
+
+- Pros: Gives the games real stakes; Free members have a reason to stay daily
+- Cons: One free month given away each month
+- Effort: Small
+- Impact: 3/5
+
+### A4.11 Referral ladder (Runs: always (when on))
+
+Builds on Bring a Friend: 3 friends who pay unlocks a free add-on for good, 10 unlocks a free year, and the top referrer each month gets VIP free for the next month. A progress ladder on My Profile.
+
+- Pros: Members become the sales team; Rewards only after real payments
+- Cons: Free years for the top referrers
+- Effort: Small
+- Impact: 4/5
+
+### A4.12 Severe Weather Awareness Week (Runs: by date)
+
+Each state's official Severe Weather Awareness Week (most are Feb–Apr): members in that state pick their own price for month 1 ($1 minimum), alongside safety tips from the app.
+
+- Pros: Ties into the week local news already covers; Pay-what-you-want gets a lot of attention
+- Cons: Some will pick $1 (they're still new paying members)
+- Effort: Small
+- Impact: 3/5
+
+### A4.13 Winter Storm Pass (Runs: Dec–Mar)
+
+Winter Center plus the Blizzard Composite and Storm Totals at a seasonal price, December to March, like the Hurricane Season Pass but for snow country.
+
+- Pros: Sells to the Northeast and Great Lakes, who care less about tornadoes; Fills the quiet winter months
+- Cons: One more plan option to explain
+- Effort: Small
+- Impact: 4/5
+
+### A4.14 Chase Season Pass (Runs: Apr–Jun)
+
+Storm Chasing Outlook, the Chasing Log, 3D Soundings and Extras for April through June at one price, with a 'season starts' push in late March.
+
+- Pros: Exactly what chasers want, exactly when; A clear entry point for the chaser crowd
+- Cons: Chasers may skip the rest of the year (the pass offers to roll into a plan)
+- Effort: Small
+- Impact: 4/5
+
+### A4.15 Community goal unlock (Runs: until the goal is hit)
+
+A progress bar everyone sees: 'At 1,000 members, everyone gets Extras free for a week.' Each sign-up moves it. When it fills, confetti and the reward for all.
+
+- Pros: Members invite friends to reach it; A shared win builds community
+- Cons: A free week of a paid page for everyone
+- Effort: Small
+- Impact: 4/5
+
+### A4.16 Birthday month gift (Runs: automatically)
+
+Members who add their birthday get a free add-on for their birthday month and a birthday badge. A friendly email on the day.
+
+- Pros: Feels personal; Free members try a paid add-on
+- Cons: Needs a birthday field (optional, month and day only)
+- Effort: Small
+- Impact: 2/5
+
+### A4.17 Town vs. town challenge (Runs: monthly)
+
+Each month the town (or county) with the most new members wins a free week of everything for every member there. A live board of the top 10 towns.
+
+- Pros: Local pride spreads it on community Facebook groups; Grows us in clusters
+- Cons: Big cities have an edge (it can be scored per 10,000 people)
+- Effort: Small
+- Impact: 3/5
+
+### A4.18 Spin for a discount (Runs: always (when on))
+
+New members spin a wheel once after sign-up: 10% to 100% off month 1 (you set the odds in admin). The wheel is a smooth, satisfying animation with a confetti finish.
+
+- Pros: Fun, and everybody wins something; Pushes people from free to paid right away
+- Cons: Odds must be set so the average discount fits your budget
+- Effort: Small
+- Impact: 3/5
+
+### A4.19 Family & Friends pack (Runs: always (when on))
+
+One payment covers up to four accounts at 40% less than four plans. The payer invites the others by link and manages them from My Profile.
+
+- Pros: One purchase brings in four members; Families share weather worries
+- Cons: Lower price per member
+- Effort: Medium
+- Impact: 3/5
+
+### A4.20 Streak rewards (Runs: always (when on))
+
+Open the app 30 days in a row and get a free week of a paid add-on; 100 days earns a free month. A streak flame on the menu and a gentle nudge before a streak breaks.
+
+- Pros: Builds a daily habit; Free members taste paid pages
+- Cons: A few free weeks given away
+- Effort: Small
+- Impact: 3/5
