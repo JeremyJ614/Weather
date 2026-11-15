@@ -1125,3 +1125,52 @@ How: OpenStreetMap roads, USGS terrain and tree cover (NLCD), FCC mobile coverag
 - Data: OpenStreetMap, USGS NLCD and elevation, FCC coverage
 - Effort: Medium
 - Impact: 3/5
+
+## A8. 5 new Randoms
+
+Five new toys for the Randoms tab, each one playable right here. They join the 13 we have without repeating any (and not Plasma Globe, which you passed on). In the app each gets the usual Stage (paused off screen), lighter settings on slow phones, a still frame with Reduce Motion, and an admin switch.
+
+### A8.1 Lightning Sculptor (Touch to strike)
+
+Touch anywhere and a lightning bolt searches its way down from the clouds to your finger, branching as it goes, then the return stroke flashes and the channel glows and fades. Drag to steer the next one.
+
+- Pros: Instantly fun, works with one tap; Branching follows how real stepped leaders grow
+- Cons: Bright flashes: a softer flash with Reduce Motion
+- Effort: Small
+- Impact: 5/5
+
+### A8.2 Snowflake Forge (Grow your own)
+
+Grow a snowflake crystal live. Two sliders set the temperature and humidity of the cloud, and the crystal grows the shape real ice does there (the Nakaya diagram): thin plates, needles, or wild branching dendrites. Every flake is one of a kind and can be saved as an image.
+
+- Pros: Beautiful and educational at once; Shareable: 'here's my snowflake'
+- Cons: Calm rather than action-packed
+- Effort: Small
+- Impact: 4/5
+
+### A8.3 Rain on Glass (Rainy window)
+
+A rainy window at night with the city lights blurred behind it. Drops land, bead up, merge and race down leaving trails, each one bending the lights like a tiny lens. Tap to make it pour.
+
+- Pros: Deeply relaxing, the kind of thing people leave running; Very realistic for its size
+- Cons: The lens effect is the heaviest part (fewer drops on slow phones)
+- Effort: Small
+- Impact: 4/5
+
+### A8.4 Aurora Painter (Paint the sky)
+
+Drag across a starry night sky above the mountains and paint your own northern lights: green curtains with purple tops that ripple and fade, the way real aurora arcs fold and drift.
+
+- Pros: Gorgeous with almost no instructions; Pairs with Aurora Center
+- Cons: Needs a dark room to look its best (like the real thing)
+- Effort: Small
+- Impact: 4/5
+
+### A8.5 Doppler Playground (How radar sees wind)
+
+Drag a storm around and watch its waves bunch up in front and stretch out behind. A radar on the side reads the storm as coming toward it (green) or going away (red), exactly how velocity radar sees rotation. A quiet lesson in why a red and green couplet means a tornado.
+
+- Pros: Teaches the most important radar idea in seconds; Fun to fling
+- Cons: More of a lesson than the other four
+- Effort: Small
+- Impact: 3/5
