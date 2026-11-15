@@ -1,7 +1,9 @@
+import { cookies } from "next/headers";
 import { getViewer } from "@/lib/auth/viewer";
 import { supabaseServer } from "@/lib/supabase/server";
 import { cleanBilling, planOpens, type MemberPlan } from "@/lib/billing/plans";
 import { SELLABLE_SLUGS } from "@/lib/billing/sellable";
+import { PASS_COOKIE, passValid } from "@/lib/billing/pass";
 
 const SELLABLE_SET = new Set(SELLABLE_SLUGS);
 
@@ -28,7 +30,10 @@ export async function GET() {
       plan?: MemberPlan;
       billing?: unknown;
     } | null;
-    if (gate?.locks) {
+    const pass =
+      v.id &&
+      (await passValid((await cookies()).get(PASS_COOKIE)?.value, v.id));
+    if (gate?.locks && !pass) {
       const b = cleanBilling(gate.billing, SELLABLE_SET);
       locked = SELLABLE_SLUGS.filter(
         (s) => !planOpens(b, gate.plan ?? null, s, SELLABLE_SLUGS),

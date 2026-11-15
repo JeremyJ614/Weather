@@ -124,3 +124,37 @@ export async function setPlanLocks(on: boolean): Promise<PriceState> {
       : "Plan locks are off. Every page is open to every member.",
   };
 }
+
+/** Post-launch A4: approve or decline a spotter / first-responder discount request. */
+export async function reviewResponder(fd: FormData) {
+  const { supabase } = await requireAdmin("billing");
+  const user = String(fd.get("user") ?? "");
+  const status = fd.get("status") === "approved" ? "approved" : "declined";
+  const { getResponders, saveResponders } = await import("@/lib/billing/perks");
+  const r = await getResponders();
+  const it = r.list.find((x) => x.user === user);
+  if (!it) return;
+  it.status = status;
+  await saveResponders(r.list);
+  const { supabaseAdmin } = await import("@/lib/supabase/admin");
+  await supabaseAdmin()
+    .from("notifications")
+    .insert({
+      user_id: user,
+      level: "info",
+      title:
+        status === "approved"
+          ? "Your responder discount is approved"
+          : "About your responder discount",
+      body:
+        status === "approved"
+          ? "Thank you for what you do. The discount is applied when you check out on Plans & Pricing."
+          : "We couldn't confirm it from the photo. Reply through Contact Us if you'd like to try again.",
+    });
+  await supabase.rpc("log_admin", {
+    p_action: `responder_${status}`,
+    p_target: user,
+    p_detail: {},
+  });
+  revalidatePath("/admin/pricing");
+}
