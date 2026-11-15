@@ -22,6 +22,7 @@ import { latticeAreas, soften } from "./areas";
 import { FIELD_BANDS, PROB_BANDS, type FieldId } from "./colors";
 import { nationalStrikes } from "@/lib/lightning/data";
 import { LT_CLASSES } from "@/lib/lightning/style";
+import { decodePng } from "@/lib/lightning/png";
 import { readJson, writeJson } from "@/lib/ops/store";
 import { logFlags, type Flag } from "./verify";
 import { bound } from "./boundary";
@@ -984,6 +985,90 @@ async function dcp(cycle: string): Promise<Computed> {
   };
 }
 
+/** Coarse 0.5° grid the 0–3 km shear is kept on for ProbTor's squall-line check. */
+const SH = 0.5;
+const SW = Math.round((CONUS[2] - CONUS[0]) / SH) + 1;
+const SHH = Math.round((CONUS[3] - CONUS[1]) / SH) + 1;
+type ShearGrid = { cycle: string; fh: number; u: number[]; v: number[] };
+let shearMemo: ShearGrid | null = null;
+
+/**
+ * The HRRR's 0–3 km shear (kt, earth-relative east and north) for the current hour: the wind
+ * about 3 km above the ground (interpolated in log-pressure between 850, 700 and 500 mb at 69%
+ * of the surface pressure) minus the 10 m wind. Worked out once per HRRR run on a 0.5° grid and
+ * kept in private Storage, so only the first ProbTor request of the hour pays for it.
+ */
+export async function shear03(): Promise<
+  (lat: number, lon: number) => [number, number] | null
+> {
+  const cycle = await latestCycle("hrrr");
+  if (!cycle) throw new Error("No HRRR run is available");
+  if (shearMemo?.cycle !== cycle) {
+    const kept = await readJson<ShearGrid | null>("tor/shear03.json", null);
+    if (kept?.cycle === cycle) shearMemo = kept;
+  }
+  if (shearMemo?.cycle !== cycle) {
+    const fh = hourFor(cycle, Date.now());
+    const [u10, v10, u85, v85, u70, v70, u50, v50, ps] = await grab(cycle, fh, [
+      ":UGRD:10 m above ground:",
+      ":VGRD:10 m above ground:",
+      ":UGRD:850 mb:",
+      ":VGRD:850 mb:",
+      ":UGRD:700 mb:",
+      ":VGRD:700 mb:",
+      ":UGRD:500 mb:",
+      ":VGRD:500 mb:",
+      ":PRES:surface:",
+    ]);
+    const at = cellOf(u10.grid);
+    const u: number[] = [];
+    const v: number[] = [];
+    for (let j = 0; j < SHH; j++)
+      for (let i = 0; i < SW; i++) {
+        const lat = CONUS[3] - j * SH;
+        const lon = CONUS[0] + i * SH;
+        const k = at(lat, lon);
+        if (k < 0 || !Number.isFinite(ps.values[k])) {
+          u.push(0);
+          v.push(0);
+          continue;
+        }
+        const p3 = Math.log(0.69 * ps.values[k]);
+        const [lo, hi] =
+          p3 >= Math.log(70000)
+            ? ([
+                [85000, u85, v85],
+                [70000, u70, v70],
+              ] as const)
+            : ([
+                [70000, u70, v70],
+                [50000, u50, v50],
+              ] as const);
+        const f = clamp((Math.log(lo[0]) - p3) / Math.log(lo[0] / hi[0]));
+        const ug =
+          lo[1].values[k] +
+          f * (hi[1].values[k] - lo[1].values[k]) -
+          u10.values[k];
+        const vg =
+          lo[2].values[k] +
+          f * (hi[2].values[k] - lo[2].values[k]) -
+          v10.values[k];
+        const [e, n] = earthWind(u10.grid, lon, ug, vg);
+        u.push(Math.round(e * KT));
+        v.push(Math.round(n * KT));
+      }
+    shearMemo = { cycle, fh, u, v };
+    await writeJson("tor/shear03.json", shearMemo).catch(() => undefined);
+  }
+  const g = shearMemo;
+  return (lat, lon) => {
+    const i = Math.round((lon - CONUS[0]) / SH);
+    const j = Math.round((CONUS[3] - lat) / SH);
+    if (i < 0 || j < 0 || i >= SW || j >= SHH) return null;
+    return [g.u[j * SW + i], g.v[j * SW + i]];
+  };
+}
+
 /** The 0.1° lattice cell of a lat/lon. */
 function latticeCell(lat: number, lon: number) {
   const i = Math.round((lon - CONUS[0]) / 0.1);
@@ -1361,6 +1446,157 @@ const ymdh = (t: number) =>
   new Date(t).toISOString().slice(0, 13).replace(/[-T]/g, "");
 
 /**
+ * The RRFS ensemble's (REFS, 14 members) chance of new storms by hour for First Storms: its
+ * neighborhood chance of a 40 dBZ echo, less the most it had within 25 miles the hour before
+ * (storms already there or moving in), added up over the six hours as independent tries.
+ */
+async function refsNew(base: number, R: number) {
+  const cycle = await latestCycle("refs");
+  if (!cycle) return null;
+  const t = cycleTime(cycle);
+  const fhs = Array.from({ length: 7 }, (_, h) =>
+    Math.round((base + h * 3600_000 - t) / 3600_000),
+  );
+  if (fhs[0] < 1 || fhs[6] > 48) return null;
+  const read = (fh: number) =>
+    record(
+      MODELS.refs.url(cycle.slice(0, 8), cycle.slice(8), fh, "prob"),
+      ":REFC:entire atmosphere",
+      "prob >40",
+    ).then((f) => toLattice(f, 1));
+  const p = await Promise.all(fhs.map((fh) => read(fh).catch(() => null)));
+  if (p.some((f) => !f)) return null;
+  const n = LW * LH;
+  const none = new Float32Array(n).fill(1);
+  const when = new Float32Array(n).fill(Infinity);
+  for (let h = 1; h < 7; h++) {
+    const before = spread(p[h - 1]!, R);
+    for (let i = 0; i < n; i++) {
+      const fresh = clamp((p[h]![i] - before[i]) / 100);
+      none[i] *= 1 - fresh;
+      if (fresh >= 0.1 && when[i] === Infinity) when[i] = h;
+    }
+  }
+  const chance = new Float32Array(n);
+  for (let i = 0; i < n; i++) chance[i] = 1 - none[i];
+  return { chance, when, cycle };
+}
+
+/** Lattice-sized IR frame (bytes, higher is warmer: ~0.6 K a step) from nowCOAST's GOES mosaic. */
+async function irFrame(time: string) {
+  const q = new URLSearchParams({
+    service: "WMS",
+    version: "1.3.0",
+    request: "GetMap",
+    layers: "goes_longwave_imagery",
+    styles: "goes-lir",
+    crs: "CRS:84",
+    bbox: CONUS.join(","),
+    width: String(LW * 2),
+    height: String(LH * 2),
+    format: "image/png",
+    time,
+  });
+  const r = await fetch(
+    `https://nowcoast.noaa.gov/geoserver/satellite/ows?${q}`,
+    {
+      signal: AbortSignal.timeout(20000),
+      next: { revalidate: 3600 },
+    },
+  );
+  if (!r.ok || !r.headers.get("content-type")?.includes("png"))
+    throw new Error(`GOES ${r.status}`);
+  const { rgba } = decodePng(Buffer.from(await r.arrayBuffer()));
+  // The style is a white-to-black ramp over the stored byte: white (0) is the coldest top.
+  // Each lattice cell keeps its coldest of the four pixels; clear of data is NaN.
+  const out = new Float32Array(LW * LH).fill(NaN);
+  const W2 = LW * 2;
+  for (let j = 0; j < LH * 2; j++)
+    for (let i = 0; i < W2; i++) {
+      const k = (j * W2 + i) * 4;
+      if (rgba[k + 3] < 128) continue;
+      const v = rgba[k];
+      const q2 = (j >> 1) * LW + (i >> 1);
+      if (!(out[q2] <= v)) out[q2] = v;
+    }
+  return out;
+}
+
+/**
+ * Towers growing on GOES now (First Storms' first hour): cloud tops 6 K or more colder than
+ * any top within about 20 km 15 minutes earlier (so drifting cloud doesn't count), between
+ * about 230 and 275 K (growing cumulus, not old anvils or
+ * clear ground). Returns 0, 1 (cooling) or 2 (cooling 12 K+) per lattice cell.
+ */
+async function coolingTops() {
+  const caps = await fetch(
+    "https://nowcoast.noaa.gov/geoserver/satellite/ows?service=WMS&version=1.3.0&request=GetCapabilities",
+    { signal: AbortSignal.timeout(20000), next: { revalidate: 300 } },
+  ).then((r) => (r.ok ? r.text() : ""));
+  const i = caps.indexOf("<Name>goes_longwave_imagery</Name>");
+  const dim =
+    i < 0 ? null : /<Dimension name="time"[^>]*>([^<]+)</.exec(caps.slice(i));
+  const times = dim?.[1].split(",").map((x) => x.trim()) ?? [];
+  const now = times.at(-1);
+  if (!now) return null;
+  const then = [...times]
+    .reverse()
+    .find((x) => Date.parse(x) <= Date.parse(now) - 14 * 60_000);
+  if (!then || Date.now() - Date.parse(now) > 40 * 60_000) return null;
+  const [a, b] = await Promise.all([irFrame(then), irFrame(now)]);
+  // Against the coldest top within ~20 km 15 minutes ago, so clouds drifting in don't count.
+  for (let k = 0; k < a.length; k++) if (!(a[k] >= 0)) a[k] = 255;
+  const before = spread(a, 2, true);
+  const out = new Uint8Array(LW * LH);
+  for (let k = 0; k < out.length; k++) {
+    const d = before[k] - b[k];
+    if (!(b[k] >= 95 && b[k] <= 168) || !(d >= 10)) continue;
+    out[k] = d >= 20 ? 2 : 1;
+  }
+  return { cells: out, at: Date.parse(now) };
+}
+
+type FirstCalib = { day: string; f: number[] };
+/** First Storms' calibration bins (35–50%, 50–65%, 65%+). */
+const FIRST_BINS = [35, 50, 65, 101];
+
+/**
+ * How First Storms' flagged chances have verified against radar over the last 60 days, as a
+ * factor per bin: observed share over forecast, pulled toward 1 until a bin has enough flags
+ * (shrinkage over 30) and kept within 0.6–1.4. Worked out once a day.
+ */
+async function firstCalib() {
+  const day = new Date().toISOString().slice(0, 10);
+  const kept = await readJson<FirstCalib | null>("calib/first.json", null);
+  if (kept?.day === day) return kept.f;
+  const { data } = await supabaseAdmin()
+    .from("engine_checks")
+    .select("label, hit")
+    .eq("engine", "first")
+    .not("hit", "is", null)
+    .gt("at", new Date(Date.now() - 60 * 86400_000).toISOString())
+    .limit(5000);
+  const sums = FIRST_BINS.slice(0, -1).map(() => ({ n: 0, hit: 0, p: 0 }));
+  for (const r of data ?? []) {
+    const p = Number(/\((\d+)%\)/.exec(r.label ?? "")?.[1]);
+    const b = FIRST_BINS.findIndex((lo, k) => p >= lo && p < FIRST_BINS[k + 1]);
+    if (b < 0 || b >= sums.length) continue;
+    sums[b].n++;
+    sums[b].p += p / 100;
+    if (r.hit) sums[b].hit++;
+  }
+  const f = sums.map(({ n, hit, p }) => {
+    if (!n) return 1;
+    const raw = (hit + 0.5) / (n + 1) / (p / n);
+    return (
+      Math.round(clamp(1 + (raw - 1) * (n / (n + 30)), 0.6, 1.4) * 100) / 100
+    );
+  });
+  await writeJson("calib/first.json", { day, f }).catch(() => undefined);
+  return f;
+}
+
+/**
  * First Storms: the chance new storms start within about 25 miles over the next 6 hours,
  * from the last four HRRR runs together (a time-lagged ensemble). In each run a new storm is
  * a 35 dBZ echo with none within 25 miles the hour before; the chance is the share of runs
@@ -1408,6 +1644,36 @@ async function first(cycle: string): Promise<Computed> {
       }
   }
   if (!runs) throw new Error("No HRRR runs cover the next 6 hours");
+  // More members (post-launch A6): the RRFS ensemble's 14, the satellite's first hour, and
+  // the calibration from how flagged chances verified.
+  const [refs, sat, calib, storms] = await Promise.all([
+    refsNew(base, R).catch(() => null),
+    coolingTops().catch(() => null),
+    firstCalib().catch(() => [1, 1, 1]),
+    import("./probsevere")
+      .then(async (m) => {
+        const name = (await m.fileNames()).at(-1);
+        return name ? m.cells(await m.file(name)) : [];
+      })
+      .catch(() => []),
+  ]);
+  // Satellite towers count only away from storms radar already has (40 km).
+  const taken = new Uint8Array(n);
+  for (const c of storms) {
+    const q = latticeCell(c.lat, c.lon);
+    if (q < 0) continue;
+    const ci = q % LW;
+    const cj = (q - ci) / LW;
+    for (let b = Math.max(0, cj - 4); b <= Math.min(LH - 1, cj + 4); b++)
+      for (let a = Math.max(0, ci - 5); a <= Math.min(LW - 1, ci + 5); a++)
+        taken[b * LW + a] = 1;
+  }
+  const tower = new Float32Array(n);
+  if (sat)
+    for (let i = 0; i < n; i++)
+      if (sat.cells[i] && !taken[i]) tower[i] = sat.cells[i];
+  const towers = spread(tower, 2);
+  const members = runs + (refs ? 14 : 0);
   const fh = hourFor(cycle, base + 3 * 3600_000);
   const [[cape, u10, v10, land], [cinNow], [cinLater]] = await Promise.all([
     grab(cycle, fh, [
@@ -1442,7 +1708,8 @@ async function first(cycle: string): Promise<Computed> {
   for (let j = 0; j < LH; j++)
     for (let i = 0; i < LW; i++) {
       const q = j * LW + i;
-      if (!votes[q]) continue;
+      if (!votes[q] && !(refs && refs.chance[q] >= 0.05) && !towers[q])
+        continue;
       const [fi, fj] = loc(CONUS[3] - j * 0.1, CONUS[0] + i * 0.1);
       const x = Math.round(fi);
       const y = Math.round(fj);
@@ -1456,13 +1723,37 @@ async function first(cycle: string): Promise<Computed> {
       const meet = conv[k] < -1e-5;
       factors[q] =
         (weaker ? 1 : 0) + (meet ? 2 : 0) + (!weaker && none ? 4 : 0);
-      prob[q] =
-        100 *
-        (votes[q] / runs) *
-        (0.75 + 0.125 * (cap ? 1 : 0) + 0.125 * (meet ? 1 : 0));
+      const share = (votes[q] + (refs ? 14 * refs.chance[q] : 0)) / members;
+      let p =
+        100 * share * (0.75 + 0.125 * (cap ? 1 : 0) + 0.125 * (meet ? 1 : 0));
+      // A tower already growing makes the first hour near-certain where it is.
+      if (towers[q]) {
+        p = Math.max(p, towers[q] >= 2 ? 80 : 60);
+        factors[q] |= 8;
+      }
+      prob[q] = p;
+      let wSum = whenSum[q];
+      let wN = whenN[q];
+      if (refs && refs.when[q] < Infinity) {
+        wSum += refs.when[q] * 2;
+        wN += 2;
+      }
+      if (towers[q]) {
+        wSum += 0.5 * 4;
+        wN += 4;
+      }
+      whenSum[q] = wSum;
+      whenN[q] = wN;
       // Earlier is higher, so the nested timing areas put the soonest on top.
-      if (prob[q] >= 15) time[q] = 7 - whenSum[q] / whenN[q];
+      if (prob[q] >= 15 && wN) time[q] = 7 - wSum / wN;
     }
+  // Neighborhood odds, smoothed over about 40 km the way SPC's guidance is, then calibrated.
+  const smoothed = smooth(smooth(prob, LW, LH, 2), LW, LH, 2);
+  for (let q = 0; q < n; q++) {
+    const p = Math.max(smoothed[q], towers[q] ? prob[q] * 0.9 : 0);
+    const b = FIRST_BINS.findIndex((lo, k) => p >= lo && p < FIRST_BINS[k + 1]);
+    prob[q] = clamp(p * (calib[Math.max(0, b)] ?? 1), 0, 100);
+  }
   const at = (lat: number, lon: number) => {
     const i = Math.round((lon - CONUS[0]) / 0.1);
     const j = Math.round((CONUS[3] - lat) / 0.1);
@@ -1475,9 +1766,15 @@ async function first(cycle: string): Promise<Computed> {
     alt: { field: { grid: LATTICE, values: time }, levels: [1, 3, 5] },
     nearMiles: 40,
     note:
-      runs < 4
-        ? `${runs} of the last 4 HRRR runs reach 6 hours ahead; the chance uses those.`
-        : undefined,
+      [
+        runs < 4 ? `${runs} of the last 4 HRRR runs reach 6 hours ahead.` : "",
+        refs ? "" : "The RRFS ensemble isn't in yet, so this is HRRR only.",
+        sat
+          ? ""
+          : "Satellite isn't answering, so the first hour is model only.",
+      ]
+        .filter(Boolean)
+        .join(" ") || undefined,
     detail: (lat, lon) => {
       const q = at(lat, lon);
       if (q < 0 || !whenN[q]) return undefined;
@@ -1485,8 +1782,10 @@ async function first(cycle: string): Promise<Computed> {
         factors[q] & 1 ? "cap weakening" : "",
         factors[q] & 4 ? "little or no cap" : "",
         factors[q] & 2 ? "winds converging" : "",
+        factors[q] & 8 ? "towers growing on satellite" : "",
       ].filter(Boolean);
-      return `${votes[q]} of ${runs} runs${why.length ? ` · ${why.join(", ")}` : ""}`;
+      const ens = refs ? ` + RRFS ${Math.round(refs.chance[q] * 100)}%` : "";
+      return `${votes[q]} of ${runs} HRRR runs${ens}${why.length ? ` · ${why.join(", ")}` : ""}`;
     },
     when: (lat, lon) => {
       const q = at(lat, lon);

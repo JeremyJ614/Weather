@@ -65,6 +65,8 @@ import type { Areas } from "@/lib/engines/areas";
 import radars from "@/lib/engines/radars.json";
 import s from "./Engines.module.css";
 import { HIT_MEANS, HitCard, type HitStats } from "./HitCard";
+import { RadarFlags, useRadarReads } from "./RadarCheck";
+import { withRadar, type TorOutlook } from "@/lib/engines/project";
 
 type Engine = "tor" | "surge" | "blind" | FieldId | OutdoorId;
 const FIELDS: FieldId[] = [
@@ -340,6 +342,8 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
     body: [
       "Every storm comes from NOAA and the University of Wisconsin's ProbSevere v3, which blends radar, satellite, lightning and the HRRR model into a tornado chance for each storm, updated every two minutes.",
       "ProbTor carries that chance 20 minutes forward and nudges it by what the storm is doing right now: whether its low-level rotation (radar azimuthal shear) has grown or weakened over the last 10 minutes, and whether its lightning has suddenly jumped, which often comes 10 to 20 minutes before severe weather.",
+      "Storms in a line (a squall line, where ProbSevere misses many tornadoes) are tested with the Three Ingredients Method forecasters use: 0–3 km shear of 30 knots or more from the HRRR, 30 knots of it running across the line, and a segment surging ahead of the rest. Two or three ingredients raise the chance by half or double it.",
+      "For the leading storms (or any storm you tap), your phone reads the nearest Weather Service radar's newest lowest scan straight from NOAA's public archive and measures the rotation itself: the strongest inbound-outbound couplet near the storm, as rotational velocity. The chance moves toward what NWS studies found for that much rotation (about 10% at 20 knots, half at 45, up to 85% past 65). A drop in correlation coefficient right on the rotation is a debris signature and means a tornado is likely on the ground. Rotation more than 10,000 feet up or 90 miles out is too high to read.",
       "Each storm is projected along its own motion for 0–20, 20–40 and 40–60 minutes, and the map draws the chances the way SPC draws an outlook: nested, outlined areas around each path that fade with distance, merging where storms run together. Zoom in to see each storm's own 20-minute cones. The later chances only fade: past half an hour nobody can say much more.",
       "This is an experimental guide, never a warning. Act on National Weather Service warnings.",
     ],
@@ -348,7 +352,8 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
     lead: "A 10 to 20 minute heads-up, with false alarms.",
     body: [
       "A storm's lightning often jumps just before it turns severe, as a strengthening updraft lofts more ice and charges the cloud faster. This engine follows each storm NOAA and the University of Wisconsin's ProbSevere is tracking, reading its total flash rate from every new file (one every 2 minutes) for the last 20 minutes.",
-      'It uses the "2σ" lightning jump from research by Schultz and others: the change in flash rate over each 2 minutes is compared with how much it varied over the 10 minutes before. A rise more than two standard deviations above that, in a storm flashing at least 10 times a minute, is a jump, and the storm stays flagged for 10 minutes. A jump of three or more, or one the radar backs up with tightening low-level rotation or a hail core growing by a quarter inch, is a strong jump.',
+      'It uses the "2σ" lightning jump from research by Schultz and others: the change in flash rate over each 2 minutes is compared with how much it varied over the 10 minutes before. A rise more than two standard deviations above that, in a storm flashing at least 10 times a minute, is a jump, and the storm stays flagged for 10 minutes. A jump of three or more, or one the radar backs up with tightening low-level rotation or a hail core growing by a quarter inch, is a strong jump. The bars show the jump\'s size, 2σ, 3σ or 4σ and up: the bigger the jump, the more often severe weather follows.',
+      "Storms are followed from file to file by where they are, not only by their ID: an older storm belongs to a current one when its center, carried forward on the storm's motion, lands inside its outline. When two storms merge their flash rates are added together, and when one splits its rate is shared by size, so neither looks like a jump.",
       "In research with ground-based lightning networks about 4 in 5 severe storms jumped first, with roughly a third of jumps never followed by severe weather. Ordinary storms jump too, and reports are missed where few people live. The hit rate below is this engine's own, checked every hour against the Weather Service's storm reports.",
       "This is an experimental guide, never a warning. Act on National Weather Service warnings.",
     ],
@@ -430,7 +435,9 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
   first: {
     lead: "Placement within about 50 miles half the time; timing within 1–2 hours.",
     body: [
-      "Where the first storms of the day break through the cap is one of the hardest things to forecast, and one of the most useful for chasing. This engine asks the last four HRRR runs together (a time-lagged ensemble): in each, a new storm is an echo of 35 dBZ or more with none within 25 miles the hour before. The chance is the share of runs that start a storm within 25 miles of a spot in the next 6 hours.",
+      "Where the first storms of the day break through the cap is one of the hardest things to forecast, and one of the most useful for chasing. This engine asks the last four HRRR runs together (a time-lagged ensemble): in each, a new storm is an echo of 35 dBZ or more with none within 25 miles the hour before. The RRFS ensemble's 14 members join them, through its chance of a 40 dBZ echo appearing where it had none within 25 miles the hour before. The chance is the share of all those members that start a storm within 25 miles of a spot in the next 6 hours.",
+      "For the first hour, GOES satellite watches for towers growing now: cloud tops 6 K or more colder than any top nearby 15 minutes earlier, still between about −45 and 0 °C, away from storms radar already has. Where they are, the first hour is near-certain.",
+      "The chances are then smoothed over about 40 km, the way SPC's own guidance is, and calibrated against how this engine's flagged chances have verified over the last 60 days.",
       "That share is weighed by the newest run's support: whether the cap (the inhibition, CIN) is weakening over the next three hours, and whether the surface winds are converging, which gives the air its push. Places without the instability to use (most-unstable CAPE under 100 J/kg) are left out, so winter rain bands don't count as storms.",
       "Switch to Timing to see when the first storms start, soonest on top. Each listed spot gives the time, how many runs agree and why.",
       "Every spot of 35% or more is checked once its 6 hours are over against radar (any storm NOAA's ProbSevere tracked within 25 miles), and the hit rate shows below.",
@@ -1311,6 +1318,10 @@ export function EnginesTab({
   ]);
 
   const storms = data?.storms ?? [];
+  const { reads, run: readRadar } = useRadarReads(
+    engine === "tor" ? storms : [],
+    data?.at,
+  );
   const how = HOW[engine];
   const current = ENGINES.find((e) => e.id === engine)!;
   const legend: [string, string][] =
@@ -1485,56 +1496,71 @@ export function EnginesTab({
             </p>
           )}
           <ul className={s.storms}>
-            {storms.map((x) => (
-              <li key={x.id}>
-                <button type="button" onClick={() => focus(x)}>
-                  <span className={s.where}>
-                    <b>{x.place}</b>
-                    <small>
-                      <ArrowRight aria-hidden /> {x.toward} at {x.mph} mph
-                    </small>
-                  </span>
-                  <span className={s.odds}>
-                    {(
-                      [
-                        ["Now", x.tor],
-                        ["20 min", x.p20],
-                        ["40", x.p40],
-                        ["60", x.p60],
-                      ] as const
-                    ).map(([k, v]) => (
-                      <span key={k}>
-                        <i
-                          style={{
-                            background: torColor(torBin(v)),
-                            transform: `scaleY(${Math.max(0.06, v / 100)})`,
-                          }}
-                        />
-                        <b>{v}%</b>
-                        <small>{k}</small>
+            {storms.map((x) => {
+              const r = reads[x.id];
+              const o = withRadar(
+                { ...x, now: x.tor, trend: x.trend as TorOutlook["trend"] },
+                typeof r === "object" ? r : undefined,
+              );
+              return (
+                <li key={x.id}>
+                  <button type="button" onClick={() => focus(x)}>
+                    <span className={s.where}>
+                      <b>{x.place}</b>
+                      <small>
+                        <ArrowRight aria-hidden /> {x.toward} at {x.mph} mph
+                      </small>
+                    </span>
+                    <span className={s.odds}>
+                      {(
+                        [
+                          ["Now", o.now],
+                          ["20 min", o.p20],
+                          ["40", o.p40],
+                          ["60", o.p60],
+                        ] as const
+                      ).map(([k, v]) => (
+                        <span key={k}>
+                          <i
+                            style={{
+                              background: torColor(torBin(v)),
+                              transform: `scaleY(${Math.max(0.06, v / 100)})`,
+                            }}
+                          />
+                          <b>{v}%</b>
+                          <small>{k}</small>
+                        </span>
+                      ))}
+                    </span>
+                  </button>
+                  <p className={s.flags}>
+                    {x.trend === "rising" && (
+                      <span data-k="up">
+                        <ArrowUpRight aria-hidden /> Rotation tightening
                       </span>
-                    ))}
-                  </span>
-                </button>
-                <p className={s.flags}>
-                  {x.trend === "rising" && (
-                    <span data-k="up">
-                      <ArrowUpRight aria-hidden /> Rotation tightening
-                    </span>
-                  )}
-                  {x.trend === "falling" && (
-                    <span>
-                      <ArrowDownRight aria-hidden /> Rotation weakening
-                    </span>
-                  )}
-                  {x.jump && (
-                    <span data-k="up">
-                      <Zap aria-hidden /> Lightning jump
-                    </span>
-                  )}
-                </p>
-              </li>
-            ))}
+                    )}
+                    {x.trend === "falling" && (
+                      <span>
+                        <ArrowDownRight aria-hidden /> Rotation weakening
+                      </span>
+                    )}
+                    {x.jump && (
+                      <span data-k="up">
+                        <Zap aria-hidden /> Lightning jump
+                      </span>
+                    )}
+                    {x.line && (
+                      <span data-k={x.line.boost > 1 ? "up" : undefined}>
+                        <GitMerge aria-hidden /> Squall line: {x.line.met} of 3
+                        ingredients ({x.line.across} kt shear across it
+                        {x.line.surge ? ", surging" : ""})
+                      </span>
+                    )}
+                    <RadarFlags x={x} read={r} run={readRadar} />
+                  </p>
+                </li>
+              );
+            })}
           </ul>
         </section>
       )}
@@ -1599,8 +1625,22 @@ export function EnginesTab({
                       <span data-k="up">
                         <Zap aria-hidden />{" "}
                         {x.band === 2 ? "Strong jump" : "Jump"}{" "}
-                        {x.since === 0 ? "just now" : `${x.since} min ago`} (
-                        {x.peak}σ)
+                        {x.since === 0 ? "just now" : `${x.since} min ago`}
+                        <em
+                          className={s.sigma}
+                          aria-label={`${x.peak} sigma, level ${x.level} of 4`}
+                        >
+                          {[2, 3, 4].map((l) => (
+                            <i key={l} data-on={x.level >= l || undefined} />
+                          ))}
+                          {x.level >= 4 ? "4σ+" : `${x.level}σ`}
+                        </em>
+                      </span>
+                    )}
+                    {x.merged && (
+                      <span>
+                        <GitMerge aria-hidden /> Merger or split followed by
+                        overlap
                       </span>
                     )}
                     {x.band === 0 && (
