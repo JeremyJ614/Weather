@@ -34,6 +34,7 @@ import { pick, type Colors } from "@/lib/colors/pick";
 import { stateOf, type ExtrasStates } from "@/lib/extras/items";
 import {
   BLIND_BANDS,
+  BLIND_LOST,
   BOUND_POINTS,
   FIELD_BANDS,
   FIRST_TIME_BANDS,
@@ -64,9 +65,19 @@ import {
 import type { EngineStorm, WrapStorm } from "@/lib/engines/probsevere";
 import type { SurgeStorm } from "@/lib/engines/surge";
 import type { Areas } from "@/lib/engines/areas";
-import radars from "@/lib/engines/radars.json";
+import {
+  NONE,
+  bandOf,
+  beamAtPixel,
+  loadBlind,
+  milesTo,
+  pixelAt,
+  radarsDown,
+  type Blind,
+} from "@/lib/engines/blindspot";
 import s from "./Engines.module.css";
 import { HIT_MEANS, HitCard, type HitStats } from "./HitCard";
+import { LljNight } from "./LljNight";
 import {
   FineLineFact,
   RadarFlags,
@@ -167,6 +178,11 @@ type Fire = {
   lapse: number;
   chance: number;
   blowup: string;
+  /** Satellite fire radiative power (MW): newest pass and the day's peak. */
+  frp?: { now: number; peak: number; at: number; sat: string } | null;
+  /** PyroCb Firepower Threshold (GW) and the plume's condensation height (km). */
+  pft?: { gw: number; zKm: number } | null;
+  heatGw?: number | null;
 };
 type FieldData = {
   cycle: string;
@@ -386,7 +402,10 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
     lead: "Precise: it is geometry.",
     body: [
       "Radar beams travel in a straight line while the Earth curves away underneath, so the farther a spot is from a radar, the higher the lowest beam passes over it.",
-      "This shows the center of the lowest (0.5°) beam from the nearest of the 159 NWS radars, using the standard 4/3-Earth model, measured above the radar. Terrain is not included, so in the West mountains block more than this shows.",
+      "This shows how high the lowest beam that gets through passes above the ground, from 236 radars: the 159 NWS radars, the 45 FAA airport radars (TDWR, out to 90 km where their Doppler winds work) and Canada's 32 radars near the border, using the standard 4/3-Earth model.",
+      "Terrain blocking: every radar's beams are traced outward over elevation data (USGS NED and SRTM, about 2 km). Where the ground rises above a tilt's center line, that tilt is blocked from there on and the next tilt up is used, which is why valleys behind ridges in the West light up as blind.",
+      "Lowest real tilt: each U.S. radar's angle comes from its own newest lowest-tilt product (some airport radars scan as low as 0.1°); Canadian radars use 0.4°.",
+      "Radars down now: the NWS radar status feed is checked each time this opens. A radar that isn't operating or hasn't sent data for 30 minutes is marked, and the area it covered is striped with the next radar's height.",
       "Where the beam is thousands of feet up, a tornado's rotation near the ground can hide under it. Tap anywhere to see the beam height there.",
     ],
   },
@@ -394,8 +413,9 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
     lead: "Good for tonight's pattern; placement within about 100 miles.",
     body: [
       "After sunset the ground cools, friction drops away and the wind a few thousand feet up speeds into a nocturnal low-level jet, which feeds overnight storms and can turn them severe after dark.",
-      "From the latest HRRR run, this compares the 850 and 925 mb wind at about 1 a.m. Central with six hours earlier, then weighs in 0–1 km storm-relative helicity and most-unstable CAPE. 0–100: the higher, the stronger and faster the ramp-up where storms could use it.",
-      "Each spot is rated on Bonner's scale (a jet peaking at 25, 32 or 40 knots with the wind dropping off above it) from the 925, 850 and 700 mb winds, and weighted by how much moisture the jet is carrying north (mixing ratio times the 850 mb wind). The detail line says when the jet peaks between 10 p.m. and 4 a.m. Central, how strong, and whether it is a wet or dry jet.",
+      "From the latest HRRR run, this finds the real jet at about 1 a.m. Central: the fastest wind on any of six levels between 950 and 750 mb that sits above the ground (the jet's core), compared with six hours earlier, then weighs in 0–1 km storm-relative helicity and most-unstable CAPE. 0–100: the higher, the stronger and faster the ramp-up where storms could use it.",
+      "Each spot is rated on Bonner's scale (a core of 25, 32 or 40 knots with the wind dropping off by 12, 16 or 20 knots at 700 mb; broad flow without that drop counts half) and weighted by how much moisture the jet is carrying north (mixing ratio times the 850 mb wind). The detail line says when the jet peaks between 10 p.m. and 4 a.m. Central, how strong, the level of its core, and whether it is a wet or dry jet.",
+      "Through the night: below the map, your place (or any spot you tap) hour by hour from 6 p.m. to 9 a.m., with the core speed, its Bonner class and the hours it carries deep moisture.",
       "Mountains are left blank where those pressure levels are underground, and the open ocean is skipped.",
     ],
   },
@@ -404,8 +424,8 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
     body: [
       "Landspouts and waterspouts don't come from rotating supercells. They form when a growing storm stretches spin that already sits along a wind boundary at the ground.",
       "This is the Storm Prediction Center's Non-Supercell Tornado parameter from the HRRR for the next hour: steep low-level lapse rates, CAPE in the lowest 3 km, little inhibition, weak deep-layer shear and spin in the 10 m wind. 1 and up is favorable.",
-      "On land it is weighted up where the HRRR has a boundary: surface winds running into each other or a sharp dew point edge, since that is where the spin waiting to be stretched lives.",
-      "Over water it follows Szilagyi's waterspout index instead: how much warmer the water is than the air at 850 mb, how deep the clouds can grow and how light the wind is. It is counted only within about 40 miles of land. A storm still has to form on the boundary for anything to happen.",
+      "On land it is weighted up where the HRRR has a boundary (surface winds running into each other or a sharp dew point edge), and up to 60% more around the meeting points Boundary Collisions expects in the next few hours, since that is where the spin waiting to be stretched lives.",
+      "Over water it follows Szilagyi's Waterspout Index instead: how much warmer the water is than the air at 850 mb, how deep the clouds can grow and how light the wind is. The water temperature is measured wherever it can be (NOAA buoys and shore stations, the Great Lakes satellite analysis and lake gauges, blended out to about 40 miles), and the model's elsewhere. It is counted only within about 40 miles of land. A storm still has to form on the boundary for anything to happen.",
     ],
   },
   pyro: {
@@ -413,6 +433,8 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
     body: [
       "The map is the Hot-Dry-Windy Index at the afternoon peak (about 4 p.m. Central) from the HRRR: how dry the air is (vapor pressure deficit) times the 80 m wind. Around 100 and up, fires can blow up.",
       "Each large active fire (100 acres and up, from the national incident feed) gets a pyrocumulonimbus chance: the HDWI there, a steep 700–500 mb lapse rate, enough mid-level moisture for the smoke plume to build into its own thunderstorm, the fire's size, and how much of it is still uncontained.",
+      "Fire power from satellite: NASA FIRMS detections from the VIIRS (NOAA-20, NOAA-21, Suomi NPP) and MODIS passes of the last 24 hours, added up over each fire, give its fire radiative power, the strongest single predictor of a pyroCb. Each fire shows its newest pass and the day's peak.",
+      "PyroCb Firepower Threshold (Tory and Kepert, 2021): from a model sounding over the fire at the afternoon peak, how much heat the fire must put out for its plume to rise past the condensation level and keep going on its own. A fire's total heat is taken as about 6.5 times its radiative power. When the fire gives more than the threshold, the chance goes up sharply; a fire the satellites haven't seen burning in a day keeps only 40% of its weather-only chance.",
     ],
   },
   stp: {
@@ -508,8 +530,9 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
     lead: "A conditions guide built on anglers' wisdom; reports make it better.",
     body: [
       "The science is thin: solunar theory has little evidence and the pressure effect is mostly anglers' rule of thumb. This scores what anglers swear by, hour by hour: low light at dawn and dusk (20%), the moon's major periods (overhead and underfoot) and minor ones (rise and set) (20%), pressure (25%: slowly falling ahead of a front is best, a fast rise behind one is worst), a light chop (10%) and clouds (10%) for the species that like them, and water in the species' comfortable range (15%).",
-      "The map is an outlook for the lower 48, Days 1 to 3, drawn like SPC's: every half degree is scored at its own dawn and dusk from the GFS model's 3-hourly forecast (recomputed with each new run), with water estimated from five days of air temperature. Categories run Fair, Good, Very good, Excellent and Peak.",
-      "Pick a species; tap the map or use your place for three days hour by hour, with water from the nearest USGS gauge that measures it (or estimated from the past week's air), the best times and when the next front passes.",
+      "The map is an outlook for the lower 48, Days 1 to 3, drawn like SPC's: every half degree is scored at its own dawn and dusk from the GFS model's 3-hourly forecast (recomputed with each new run), using measured water wherever it exists: about 2,000 USGS stream and lake gauges reporting now, NOAA's Great Lakes buoys and the Great Lakes satellite analysis (GLSEA), blended with the five-day air temperature estimate farther than 15 miles from a measurement. Categories run Fair, Good, Very good, Excellent and Peak.",
+      "Pick a species; tap the map or use your place for three days hour by hour, with water from the nearest gauge, buoy or lake satellite reading (or estimated from the past week's air), the best times and when the next front passes.",
+      "On a river, the nearest USGS flow gauge within 10 miles is checked against its normal for the date: muddy high water (over 1.5 times normal, or in the top 5% for the date) cuts the score, more so while it is still rising.",
       "Log your catches: they are compared with the score and tune the weights over time.",
     ],
   },
@@ -517,56 +540,77 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
     lead: "Good for the broad zone; band tornadoes are brief.",
     body: [
       "Landfalling tropical storms and hurricanes spawn quick tornadoes in their outer rain bands, mostly on the right side of the track and 50 to 400 miles from the center.",
-      "This multiplies 0–1 km storm-relative helicity by 0–3 km CAPE from the HRRR a few hours ahead, only in that right-side zone around each active storm near the U.S. When no storm is close, the map stays empty.",
+      "This multiplies 0–1 km storm-relative helicity by 0–3 km CAPE from the HRRR, weighted by where around the storm tornadoes really happen. When no storm is close, the map stays empty.",
+      "Shear-relative quadrant: the 0–6 km wind shear around each storm (200 to 500 miles out) points downshear. Research on tropical tornadoes (Edwards; Schenkel and others, 2020) puts most of them downshear right, then downshear left, so those sides weigh most. Where the shear is too weak to read, the side is set by how tornadoes have sat relative to storm motion in the past.",
+      "Along the forecast track: the storm is moved along the National Hurricane Center's forecast points every 6 hours for the next 48 hours (the HRRR's long runs), and each spot keeps its worst time, listed with each top spot.",
+      "Calibrated with history: how risk falls off with distance from the center comes from SPC's tropical tornado database (TCTOR, all 1,783 tropical cyclone tornadoes 1995–2023): it peaks 250 to 400 km (150 to 250 miles) out, half are within 303 km, and few are past 500 km.",
     ],
   },
 };
 
-/** Height (ft) of the lowest radar beam over a point, and which radar, or null if none reaches. */
-function beamAt(lat: number, lon: number) {
-  const Re = (4 / 3) * 6371;
-  const sinT = Math.sin((0.5 * Math.PI) / 180);
-  let best: { ft: number; id: string; mi: number } | null = null;
-  for (const r of radars.radars) {
-    const dlat = ((r.lat - lat) * Math.PI) / 180;
-    const dlon = ((r.lon - lon) * Math.PI) / 180;
-    const a =
-      Math.sin(dlat / 2) ** 2 +
-      Math.cos((lat * Math.PI) / 180) *
-        Math.cos((r.lat * Math.PI) / 180) *
-        Math.sin(dlon / 2) ** 2;
-    const km = 12742 * Math.asin(Math.sqrt(a));
-    if (km > radars.maxKm) continue;
-    const ft =
-      (Math.sqrt(km * km + Re * Re + 2 * km * Re * sinT) - Re) * 3280.84;
-    if (!best || ft < best.ft) best = { ft, id: r.id, mi: km * 0.621 };
-  }
-  return best;
+/** The beam readout where someone taps, with radars that are down taken out. */
+function beamAt(b: Blind, down: Set<number>, lat: number, lon: number) {
+  const got = beamAtPixel(b, pixelAt(b, lat, lon), down);
+  if (!got) return null;
+  const dead = b.r1[pixelAt(b, lat, lon)];
+  if (got.radar === NONE)
+    return {
+      ft: -1,
+      id: "",
+      kind: "",
+      mi: 0,
+      low: 0,
+      lost: b.radars[dead]?.id ?? "",
+    };
+  const r = b.radars[got.radar];
+  return {
+    ft: got.step * b.stepFt,
+    id: r.id,
+    kind: r.kind,
+    mi: milesTo(r, lat, lon),
+    low: r.low,
+    lost: got.lost ? (b.radars[dead]?.id ?? "") : "",
+  };
 }
 
-/** Decodes the blind-spot grid and paints it in the (editable) band colors. */
-async function blindImage(colors: Colors) {
-  const buf = new Uint8Array(
-    await (await fetch("/extras/blindspot.bin")).arrayBuffer(),
-  );
-  const { width, height } = radars;
+/** Paints the blind-spot grid in the (editable) band colors; lost coverage is striped. */
+function blindImage(b: Blind, down: Set<number>, colors: Colors) {
+  const { width, height } = b;
   const c = document.createElement("canvas");
   c.width = width;
   c.height = height;
   const ctx = c.getContext("2d")!;
   const img = ctx.createImageData(width, height);
-  const rgb = BLIND_BANDS.map((b, i) => {
-    const hex = pick(colors, `engine:blind:${i}`, b.color).replace("#", "");
-    const n = parseInt(hex.length === 3 ? hex.replace(/./g, "$&$&") : hex, 16);
-    return [(n >> 16) & 255, (n >> 8) & 255, n & 255, i === 0 ? 90 : 150];
-  });
-  for (let i = 0, k = 0; i < buf.length; i += 2) {
-    const col = rgb[buf[i]] ?? rgb[0];
-    for (let n = 0; n < buf[i + 1]; n++, k++) img.data.set(col, k * 4);
+  const rgbOf = (hex: string, alpha: number) => {
+    const h = hex.replace("#", "");
+    const n = parseInt(h.length === 3 ? h.replace(/./g, "$&$&") : h, 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255, alpha];
+  };
+  const rgb = BLIND_BANDS.map((x, i) =>
+    rgbOf(pick(colors, `engine:blind:${i}`, x.color), i === 0 ? 90 : 150),
+  );
+  const lost = rgbOf(pick(colors, "engine:blind:lost", BLIND_LOST.color), 200);
+  for (let k = 0; k < width * height; k++) {
+    const got = beamAtPixel(b, k, down);
+    const band = got ? bandOf(b, got.step) : 0;
+    const x = k % width;
+    const y = (k / width) | 0;
+    img.data.set(got?.lost && (x + y) % 6 < 2 ? lost : rgb[band], k * 4);
   }
   ctx.putImageData(img, 0, 0);
   return c.toDataURL("image/png");
 }
+
+/** FIRMS satellite codes in plain words. */
+const satName = (s: string) =>
+  ({
+    N: "Suomi NPP",
+    N20: "NOAA-20",
+    N21: "NOAA-21",
+    "1": "NOAA-20",
+    T: "Terra",
+    A: "Aqua",
+  })[s] ?? s;
 
 /** What a listed spot's time means, by engine and view. */
 /** One field engine's map, unpacked. */
@@ -658,6 +702,11 @@ export function EnginesTab({
     Partial<Record<FieldId, FieldData | "error">>
   >({});
   const engineRef = useRef(engine);
+  /** Radar Blind Spot's grid and the radars down now, loaded the first time it is opened. */
+  const blindRef = useRef<{ data: Blind; down: Set<number> } | null>(null);
+  const [blindState, setBlindState] = useState<
+    { down: string[]; at: string } | "loading" | "error" | null
+  >(null);
   useEffect(() => {
     engineRef.current = engine;
   });
@@ -1134,46 +1183,28 @@ export function EnginesTab({
         "circle-stroke-width": 1.2,
       },
     });
-    m.addSource("radars", {
-      type: "geojson",
-      data: {
-        type: "FeatureCollection",
-        features: radars.radars.map((r) => ({
-          type: "Feature",
-          properties: { id: r.id },
-          geometry: { type: "Point", coordinates: [r.lon, r.lat] },
-        })),
-      },
-    });
+    m.addSource("radars", { type: "geojson", data: EMPTY });
     m.addLayer({
       id: "radars",
       type: "circle",
       source: "radars",
       paint: {
-        "circle-radius": 3,
-        "circle-color": "#ffffff",
+        "circle-radius": ["case", ["get", "down"], 6, 3],
+        "circle-color": [
+          "case",
+          ["get", "down"],
+          pick(colors, "engine:blind:lost", BLIND_LOST.color),
+          "#ffffff",
+        ],
         "circle-stroke-color": "#000000",
         "circle-stroke-width": 1,
       },
     });
-    blindImage(colors).then((url) => {
-      const [W, S, E, N] = radars.bounds;
-      m.addSource("blind", {
-        type: "image",
-        url,
-        coordinates: [
-          [W, N],
-          [E, N],
-          [E, S],
-          [W, S],
-        ],
-      });
-      m.addLayer({ id: "blind", type: "raster", source: "blind" }, "radars");
-      show(m, engineRef.current);
-    });
     m.on("click", (e: MapMouseEvent) => {
       if (engineRef.current === "blind") {
-        setBeam(beamAt(e.lngLat.lat, e.lngLat.lng) ?? "none");
+        const b = blindRef.current;
+        if (b)
+          setBeam(beamAt(b.data, b.down, e.lngLat.lat, e.lngLat.lng) ?? "none");
         return;
       }
       if (engineRef.current === "deer" || engineRef.current === "fish")
@@ -1205,6 +1236,55 @@ export function EnginesTab({
     vis("fires", e === "pyro");
     vis("roads-hi", e === "blizz");
   };
+
+  // Radar Blind Spot: the grid (about 0.5 MB) and the radars down now load on first open.
+  const blindStarted = useRef(false);
+  useEffect(() => {
+    if (!map || engine !== "blind" || blindStarted.current) return;
+    blindStarted.current = true;
+    let live = true;
+    loadBlind()
+      .then(async (data) => {
+        const down = await radarsDown(data).catch(() => new Set<number>());
+        if (!live) return;
+        blindRef.current = { data, down };
+        (map.getSource("radars") as GeoJSONSource | undefined)?.setData({
+          type: "FeatureCollection",
+          features: data.radars.map((r, i) => ({
+            type: "Feature",
+            properties: { id: r.id, down: down.has(i) },
+            geometry: { type: "Point", coordinates: [r.lon, r.lat] },
+          })),
+        });
+        const [W, S, E, N] = data.bounds;
+        map.addSource("blind", {
+          type: "image",
+          url: blindImage(data, down, colors),
+          coordinates: [
+            [W, N],
+            [E, N],
+            [E, S],
+            [W, S],
+          ],
+        });
+        map.addLayer(
+          { id: "blind", type: "raster", source: "blind" },
+          "radars",
+        );
+        show(map, engineRef.current);
+        setBlindState({
+          down: [...down].map((i) => data.radars[i].id).sort(),
+          at: new Date().toISOString(),
+        });
+      })
+      .catch(() => {
+        blindStarted.current = false;
+        if (live) setBlindState("error");
+      });
+    return () => {
+      live = false;
+    };
+  }, [map, engine]); // eslint-disable-line react-hooks/exhaustive-deps -- colors are read once
 
   // Deer and Fishing cover the lower 48: fit all of it on any screen.
   useEffect(() => {
@@ -1352,7 +1432,22 @@ export function EnginesTab({
           : (engine === "stp" || engine === "scp") && view === 1
             ? PROB_BANDS.labels.map((l, i) => [l, probColor(i)])
             : engine === "blind"
-              ? BLIND_BANDS.map((b, i) => [b.label, blindColor(i)])
+              ? [
+                  ...BLIND_BANDS.map(
+                    (b, i) => [b.label, blindColor(i)] as [string, string],
+                  ),
+                  ...(blindState &&
+                  blindState !== "error" &&
+                  blindState !== "loading" &&
+                  blindState.down.length
+                    ? [
+                        [
+                          BLIND_LOST.label,
+                          pick(colors, "engine:blind:lost", BLIND_LOST.color),
+                        ] as [string, string],
+                      ]
+                    : []),
+                ]
               : engine === "deer" || engine === "fish"
                 ? OUTMAP_BANDS.labels.map((l, i) => [l, outColor(i)])
                 : bandsOf(engine).labels.map((l, i) => [
@@ -1877,6 +1972,16 @@ export function EnginesTab({
                             : ""}{" "}
                           · blowup {f.blowup.toLowerCase()} (HDWI {f.hdwi})
                         </small>
+                        {(f.frp || f.pft) && (
+                          <small>
+                            {f.frp
+                              ? `Fire power ${f.frp.now.toLocaleString("en-US")} MW (${satName(f.frp.sat)} ${time(new Date(f.frp.at).toISOString())}; day's peak ${f.frp.peak.toLocaleString("en-US")} MW)`
+                              : "No satellite fire power in the last day"}
+                            {f.pft
+                              ? ` · PyroCb needs ~${f.pft.gw} GW${f.heatGw !== null && f.heatGw !== undefined ? `, fire gives ~${f.heatGw} GW` : ""}`
+                              : ""}
+                          </small>
+                        )}
                       </span>
                       <span className={s.hail}>
                         <i
@@ -1892,6 +1997,15 @@ export function EnginesTab({
             </>
           )}
         </section>
+      )}
+
+      {engine === "llj" && spot && (
+        <LljNight
+          lat={spot.lat}
+          lon={spot.lon}
+          label={spot.label}
+          color={(c) => fieldColor("llj", [0, 2, 3, 4][c])}
+        />
       )}
 
       {isField(engine) && field && field !== "error" && field.stats && (
@@ -2160,22 +2274,50 @@ export function EnginesTab({
           <header>
             <h3>Beam height where you tap</h3>
           </header>
-          {beam === null && <p className={s.small}>Tap anywhere on the map.</p>}
-          {beam === "none" && (
+          {beam === null && (
             <p className={s.small}>
-              No NWS radar reaches this spot at the lowest tilt.
+              {blindState === "error"
+                ? "The radar grid didn't load. Reopen the engine to try again."
+                : blindState
+                  ? "Tap anywhere on the map."
+                  : "Loading the radar grid…"}
             </p>
           )}
-          {beam && beam !== "none" && (
+          {beam === "none" && (
+            <p className={s.small}>
+              No radar reaches this spot with a beam that gets past the terrain.
+            </p>
+          )}
+          {beam && beam !== "none" && beam.ft < 0 && (
+            <p className={s.small}>
+              {beam.lost} is down right now and no other radar reaches here.
+            </p>
+          )}
+          {beam && beam !== "none" && beam.ft >= 0 && (
             <p className={s.readout}>
               <b>
-                {Math.round(beam.ft / 100) * 100 >= 1000
-                  ? `${(Math.round(beam.ft / 100) * 100).toLocaleString("en-US")} ft`
-                  : `${Math.round(beam.ft)} ft`}
+                {beam.ft >= 1000
+                  ? `${beam.ft.toLocaleString("en-US")} ft`
+                  : `${beam.ft} ft`}
               </b>
               <span>
-                above the {beam.id} radar, {Math.round(beam.mi)} miles away
+                above the ground, from{" "}
+                {beam.kind === "TDWR"
+                  ? "the airport radar "
+                  : beam.kind === "CA"
+                    ? "Canada's radar "
+                    : ""}
+                {beam.id}, {Math.round(beam.mi)} miles away (lowest tilt{" "}
+                {beam.low}°)
+                {beam.lost ? `; ${beam.lost} is down right now` : ""}
               </span>
+            </p>
+          )}
+          {blindState && blindState !== "error" && blindState !== "loading" && (
+            <p className={s.small}>
+              {blindState.down.length
+                ? `Down right now: ${blindState.down.join(", ")}. Striped areas lost their closest beam and show the next radar's.`
+                : "Every NWS and FAA radar is up right now."}
             </p>
           )}
         </section>

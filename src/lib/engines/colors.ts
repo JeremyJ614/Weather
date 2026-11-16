@@ -19,6 +19,12 @@ export const BLIND_BANDS = [
   { label: "Over 10,000 ft", color: "#8b5cf6" },
 ];
 
+/** Coverage lost while a radar is down (striped), and the down radar's marker. */
+export const BLIND_LOST = {
+  label: "Lost while a radar is down",
+  color: "#f472b6",
+};
+
 /**
  * The model-driven engines (Extras → Weather Engines): each field's band edges, legend labels
  * and default colors, one color per band. Editable as `engine:<id>:<band>`.

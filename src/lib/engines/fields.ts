@@ -3,6 +3,7 @@ import { PLACES } from "@/lib/geo/places.data";
 import { nearestPlace, parsePlaces } from "@/lib/geo/search";
 import {
   gridSize,
+  latLonOf,
   locator,
   type Field,
   type LatLonGrid,
@@ -15,10 +16,13 @@ import {
   record,
 } from "@/lib/models/render";
 import { activeFires } from "@/lib/fire/data";
+import { hotspots, pftAt, powerNear } from "@/lib/fire/pyrocb";
 import { nextSunEvent, sunPosition } from "@/lib/sky/astro";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getOutlook } from "@/lib/tropical/nhc";
 import { latticeAreas, soften } from "./areas";
+import { waterObs } from "./water";
+import TCTOR from "./tctor-climo.json";
 import { FIELD_BANDS, PROB_BANDS, type FieldId } from "./colors";
 import { nationalStrikes } from "@/lib/lightning/data";
 import { LT_CLASSES } from "@/lib/lightning/style";
@@ -140,6 +144,15 @@ export type Computed = {
  * carries (850 mb mixing ratio × wind) weighs in; each top spot says when the jet peaks
  * (03Z, 06Z or 09Z) and how strong it gets.
  */
+/** Rough height of each level above sea level (standard atmosphere), for the detail line. */
+const FT: Record<number, string> = {
+  950: "1,800",
+  925: "2,500",
+  900: "3,200",
+  850: "4,800",
+  800: "6,400",
+  750: "8,100",
+};
 async function llj(cycle: string): Promise<Computed> {
   const target = nextUtc(6, 1);
   const fh = hourFor(cycle, target);
@@ -151,7 +164,12 @@ async function llj(cycle: string): Promise<Computed> {
     ":UGRD:925 mb:",
     ":VGRD:925 mb:",
   ];
-  const [now, before, early, late] = await Promise.all([
+  // The pressure-level file carries the levels between: 950, 900, 800 and 750 mb.
+  const prs = MODELS.hrrr
+    .url(cycle.slice(0, 8), cycle.slice(8), fh)
+    .replace("wrfsfcf", "wrfprsf");
+  const MID = [950, 900, 800, 750];
+  const [now, before, early, late, mid] = await Promise.all([
     grab(cycle, fh, [
       ...W,
       ":UGRD:700 mb:",
@@ -167,6 +185,12 @@ async function llj(cycle: string): Promise<Computed> {
     fhAt(cycle, target + 3 * 3600_000) <= 18
       ? grab(cycle, fhAt(cycle, target + 3 * 3600_000), W).catch(() => null)
       : null,
+    Promise.all(
+      MID.flatMap((l) => [
+        record(prs, `:UGRD:${l} mb:`),
+        record(prs, `:VGRD:${l} mb:`),
+      ]),
+    ).catch(() => null),
   ]);
   const [u8, v8, u9, v9, u7, v7, d8, srh, cape, ps, land] = now;
   const s8 = hypot(u8.values, v8.values);
@@ -174,10 +198,21 @@ async function llj(cycle: string): Promise<Computed> {
   const s7 = hypot(u7.values, v7.values);
   const b8 = hypot(before[0].values, before[1].values);
   const b9 = hypot(before[2].values, before[3].values);
+  // Every level below about 3 km, lowest first: [pressure, speed (m/s)].
+  const levels: [number, Float32Array][] = [
+    [925, s9],
+    [850, s8],
+  ];
+  if (mid && mid[0].values.length === s8.length)
+    MID.forEach((l, k) =>
+      levels.push([l, hypot(mid[2 * k].values, mid[2 * k + 1].values)]),
+    );
+  levels.sort((a, b) => b[0] - a[0]);
   const n = s8.length;
   const out = new Float32Array(n);
   const cls = new Uint8Array(n);
   const mt = new Float32Array(n);
+  const core = new Int16Array(n);
   for (let i = 0; i < n; i++) {
     const p = ps.values[i] / 100;
     // A pressure level below the ground is the model's extrapolation, not wind.
@@ -187,7 +222,14 @@ async function llj(cycle: string): Promise<Computed> {
       out[i] = NaN;
       continue;
     }
-    const jetMs = Math.max(s8[i], use9 ? s9[i] : 0);
+    // Find the real jet (post-launch A6): the fastest wind on any level at least 25 mb above
+    // the ground and below 700 mb, and the level it sits on.
+    let jetMs = 0;
+    for (const [lev, sp] of levels)
+      if (p >= lev + 25 && sp[i] > jetMs) {
+        jetMs = sp[i];
+        core[i] = lev;
+      }
     const jet = jetMs * KT;
     const was = Math.max(b8[i], use9 ? b9[i] : 0) * KT;
     // Bonner (1968): 12/16/20 m/s at the peak, falling 6/8/10 m/s by 3 km (700 mb).
@@ -257,7 +299,10 @@ async function llj(cycle: string): Promise<Computed> {
           : mt[i] >= 90
             ? " carrying moisture"
             : "";
-      return `Peaks near ${at} CT at ${Math.round(kt)} kt: ${kind}${wet}`;
+      const lev = core[i]
+        ? `, core at ${core[i]} mb (about ${FT[core[i]] ?? "?"} ft up)`
+        : "";
+      return `Peaks near ${at} CT at ${Math.round(kt)} kt: ${kind}${wet}${lev}`;
     },
   };
 }
@@ -325,6 +370,89 @@ async function nst(cycle: string): Promise<Computed> {
   const g = t2.grid;
   const [w, h] = gridSize(g);
   const dx = g.kind === "lambert" ? g.dx : 3000;
+  // Post-launch A6: measured water (buoys, the Great Lakes satellite analysis, lake gauges)
+  // corrects the model's water temperature near each reading, and Boundary Collisions' stored
+  // meeting points for the next few hours raise the landspout value around them.
+  const [obs, meets] = await Promise.all([
+    waterObs(true).catch(() => []),
+    Promise.resolve(
+      supabaseAdmin()
+        .from("engine_maps")
+        .select("points:data->points")
+        .eq("id", "bound")
+        .maybeSingle(),
+    )
+      .then(
+        (r) =>
+          (
+            r.data as {
+              points?: {
+                lat: number;
+                lon: number;
+                at: number;
+                chance: number;
+              }[];
+            } | null
+          )?.points ?? [],
+      )
+      .catch(() => []),
+  ]);
+  const loc = locator(g);
+  const R = 14;
+  const near = new Float32Array(w * h).fill(Infinity);
+  const sw = new Float32Array(w * h);
+  const sb = new Float32Array(w * h);
+  for (const o of obs) {
+    const [fi, fj] = loc(o.lat, o.lon);
+    const i0 = Math.round(fi);
+    const j0 = Math.round(fj);
+    if (i0 < R || j0 < R || i0 >= w - R || j0 >= h - R) continue;
+    // The reading's own water cell (a shore station's cell can be land in the model).
+    let k0 = -1;
+    for (let r = 0; r <= 3 && k0 < 0; r++)
+      for (let b = -r; b <= r && k0 < 0; b++)
+        for (let a = -r; a <= r; a++) {
+          const k = (j0 + b) * w + i0 + a;
+          if (land.values[k] < 0.5) {
+            k0 = k;
+            break;
+          }
+        }
+    if (k0 < 0) continue;
+    const bias = o.c + 273.15 - tsf.values[k0];
+    if (!(Math.abs(bias) < 12)) continue;
+    for (let b = -R; b <= R; b++)
+      for (let a = -R; a <= R; a++) {
+        const d = Math.hypot(a, b);
+        const k = (j0 + b) * w + i0 + a;
+        if (d > R || land.values[k] >= 0.5) continue;
+        const wt = 1 / Math.max(d, 1) ** 2;
+        sw[k] += wt;
+        sb[k] += wt * bias;
+        if (d < near[k]) near[k] = d;
+      }
+  }
+  const water = (k: number) =>
+    sw[k]
+      ? tsf.values[k] + (sb[k] / sw[k]) * clamp((R - near[k]) / (R - 5))
+      : tsf.values[k];
+  const meetBoost = new Float32Array(w * h);
+  const soon = Date.now();
+  for (const m of meets) {
+    if (!(m.at > soon - 3600_000 && m.at < soon + 4 * 3600_000)) continue;
+    const [fi, fj] = loc(m.lat, m.lon);
+    const i0 = Math.round(fi);
+    const j0 = Math.round(fj);
+    if (i0 < R || j0 < R || i0 >= w - R || j0 >= h - R) continue;
+    const c = clamp(m.chance / 80);
+    for (let b = -R; b <= R; b++)
+      for (let a = -R; a <= R; a++) {
+        const d = Math.hypot(a, b);
+        if (d > R) continue;
+        const k = (j0 + b) * w + i0 + a;
+        meetBoost[k] = Math.max(meetBoost[k], c * (1 - d / R));
+      }
+  }
   // Relative vorticity of the 10 m wind (grid-relative winds, so dv/dx − du/dy on the grid).
   const raw = new Float32Array(w * h);
   for (let j = 1; j < h - 1; j++)
@@ -364,7 +492,7 @@ async function nst(cycle: string): Promise<Computed> {
       // Szilagyi Waterspout Index (simplified): warm water under cold air aloft (water − 850 mb
       // ≥ 8 °C, best near 20), deep enough convection (EL − LCL) and light 850 mb winds
       // (best under 15 kt, none past 25), mapped onto the NST scale (full = 4).
-      const dT = tsf.values[k] - t8.values[k];
+      const dT = water(k) - t8.values[k];
       const depth = el.values[k] - lcl.values[k];
       const wind = Math.hypot(u85.values[k], v85.values[k]) * KT;
       const wsi =
@@ -384,10 +512,13 @@ async function nst(cycle: string): Promise<Computed> {
     const e = clamp(vort[k] / 8e-5, 0, 3);
     const nst = a * b * c * d * e;
     // On land, boundaries raise the landspout value by up to 40%; away from them it drops 40%.
+    // A Boundary Collisions meeting point nearby in the next few hours adds up to 60% more.
     const bnd = clamp(convS[k] / 4e-5) * clamp(edgeS[k] / 4e-5);
     out[k] = Math.max(
       out[k],
-      land.values[k] < 0.5 ? nst : nst * (0.6 + 0.8 * bnd),
+      land.values[k] < 0.5
+        ? nst
+        : nst * (0.6 + 0.8 * bnd) * (1 + 0.6 * meetBoost[k]),
     );
   }
   return {
@@ -473,11 +604,54 @@ async function pyro(cycle: string): Promise<Computed> {
     .filter((f) => Number.isFinite(f.hdwi))
     .sort((a, b) => b.chance - a.chance || b.hdwi - a.hdwi)
     .slice(0, 40);
+  // Post-launch A6: the fire power satellites measured over each fire, and Tory and Kepert's
+  // PyroCb Firepower Threshold over it at the afternoon peak. A fire's total heat is taken as
+  // about 6.5 times its radiative power (radiant heat is ~15% of the total, Wooster and others).
+  const [hot, thresholds] = await Promise.all([
+    hotspots().catch(() => []),
+    pftAt(
+      list.slice(0, 25).map((f) => ({ lat: f.lat, lon: f.lon })),
+      cycleTime(cycle) + fh * 3600_000,
+    ).catch(() => []),
+  ]);
+  const ranked = list
+    .map((f, i) => {
+      const power = hot.length ? powerNear(hot, f.lat, f.lon, f.acres) : null;
+      const t = thresholds[i] ?? null;
+      const heatGw = power ? (power.peakMw * 6.5) / 1000 : null;
+      const ratio = heatGw !== null && t ? heatGw / Math.max(t.gw, 1) : null;
+      // Power against the threshold decides most of the chance once both are known; a fire the
+      // satellites haven't seen burning in a day keeps 40% of the weather-only chance.
+      const fp =
+        ratio !== null
+          ? clamp((Math.log10(ratio) + 1) / 1.3)
+          : power
+            ? clamp(Math.log10(Math.max(power.peakMw, 1)) / 4)
+            : hot.length
+              ? 0
+              : 1;
+      const chance = Math.round(f.chance * (0.4 + 0.6 * fp));
+      return {
+        ...f,
+        chance,
+        frp: power
+          ? {
+              now: power.nowMw,
+              peak: power.peakMw,
+              at: power.at,
+              sat: power.sat,
+            }
+          : null,
+        pft: t ? { gw: t.gw, zKm: t.zKm } : null,
+        heatGw: heatGw !== null ? Math.round(heatGw) : null,
+      };
+    })
+    .sort((a, b) => b.chance - a.chance || b.hdwi - a.hdwi);
   return {
     field: { grid: t2.grid, values: out },
     cycle,
     fh,
-    extra: { fires: list },
+    extra: { fires: ranked },
     rough: true,
   };
 }
@@ -499,7 +673,17 @@ const bearingDeg = (a: number, b: number, c: number, d: number) => {
   return ((Math.atan2(y, x) / r + 360) % 360) as number;
 };
 
-/** Landfalling tropical cyclone tornado risk: 0–1 km helicity × 0–3 km CAPE near the storm. */
+/**
+ * Landfalling tropical cyclone tornado risk: 0–1 km helicity × 0–3 km CAPE near the storm.
+ * Post-launch A6:
+ *  - Shear-relative quadrant: the 0–6 km shear around each storm (200–800 km out) sets
+ *    downshear; tornadoes favor downshear right, then downshear left (Edwards; Schenkel and
+ *    others 2020). Where the shear can't be read, the motion-relative pattern from history.
+ *  - Along the forecast track: the storm is moved along NHC's forecast points every 6 hours
+ *    for 48 hours (the HRRR's long runs), and each spot keeps its worst time.
+ *  - Calibrated with history: the fall-off with distance from the center comes from SPC's
+ *    tropical tornado database (TCTOR, every TC tornado since 1995).
+ */
 async function tctor(cycle: string): Promise<Computed> {
   const outlook = await getOutlook().catch(() => null);
   const storms = (outlook?.storms ?? []).filter(
@@ -511,41 +695,215 @@ async function tctor(cycle: string): Promise<Computed> {
       s.lon < -64 &&
       (s.basin === "AL" || s.basin === "EP"),
   );
-  const fh = hourFor(cycle, Date.now() + 3 * 3600_000);
-  const [srh, cape] = await grab(cycle, fh, [
-    ":HLCY:1000-0 m above ground:",
-    ":CAPE:0-3000 m above ground:",
-  ]);
-  const out = new Float32Array(srh.values.length);
-  for (let i = 0; i < out.length; i++)
-    out[i] =
-      clamp(srh.values[i] / 100, 0, 6) * clamp(cape.values[i] / 40, 0, 4);
-  // Tornadoes in landfalling storms come from the outer bands on the right of the track,
-  // roughly 100–600 km from the center.
-  const keep = (lat: number, lon: number) =>
-    storms.some((s) => {
-      const d = distKm(s.lat, s.lon, lat, lon);
-      if (d < 80 || d > 650) return false;
-      const head = s.dir ?? 0;
-      const rel = (bearingDeg(s.lat, s.lon, lat, lon) - head + 360) % 360;
-      return rel <= 180;
+  const now = Date.now();
+  if (!storms.length) {
+    const fh = hourFor(cycle, now + 3 * 3600_000);
+    const [srh] = await grab(cycle, fh, [":HLCY:1000-0 m above ground:"]);
+    return {
+      field: { grid: srh.grid, values: new Float32Array(srh.values.length) },
+      cycle,
+      fh,
+      keep: () => false,
+      extra: { storms: [] },
+      note: "No tropical storm or hurricane is near the U.S. coast right now.",
+    };
+  }
+  const long = (await longRun(cycle).catch(() => null)) ?? cycle;
+  const reach = long === cycle ? 18 : 48;
+  const t0 = cycleTime(long);
+  const times: number[] = [];
+  for (let h = 0; h <= 48; h += 6) {
+    const t = Math.ceil((now + 3600_000) / 3600_000) * 3600_000 + h * 3600_000;
+    const fh = Math.round((t - t0) / 3600_000);
+    if (fh >= 0 && fh <= reach) times.push(t);
+  }
+  /** Where a storm is at time t: NHC's forecast points, linear between them. */
+  const at = (s: (typeof storms)[number], t: number) => {
+    const base = Date.parse(s.updated) - 3 * 3600_000;
+    const h = (t - base) / 3600_000;
+    const pts = s.points.length
+      ? s.points
+      : [{ lat: s.lat, lon: s.lon, tau: 0 } as (typeof s.points)[number]];
+    if (h <= pts[0].tau) return { lat: s.lat, lon: s.lon, ok: true };
+    for (let k = 1; k < pts.length; k++)
+      if (h <= pts[k].tau) {
+        const f = (h - pts[k - 1].tau) / (pts[k].tau - pts[k - 1].tau);
+        return {
+          lat: pts[k - 1].lat + f * (pts[k].lat - pts[k - 1].lat),
+          lon: pts[k - 1].lon + f * (pts[k].lon - pts[k - 1].lon),
+          ok: true,
+        };
+      }
+    return { ...pts[pts.length - 1], ok: false };
+  };
+  const fields = await Promise.all(
+    times.map((t, k) =>
+      grab(long, Math.round((t - t0) / 3600_000), [
+        ":HLCY:1000-0 m above ground:",
+        ":CAPE:0-3000 m above ground:",
+        // Shear at the first step and at 24 h is enough: it turns slowly.
+        ...(k === 0 || k === 4
+          ? [":VUCSH:0-6000 m above ground:", ":VVCSH:0-6000 m above ground:"]
+          : []),
+      ]),
+    ),
+  );
+  const g = fields[0][0].grid;
+  const [w, h] = gridSize(g);
+  const loc = locator(g);
+  const ll = latLonOf(g);
+  /** Downshear direction (degrees) around a storm center from one step's shear, or null. */
+  const shearDir = (f: Field[], lat: number, lon: number) => {
+    let su = 0;
+    let sv = 0;
+    let n = 0;
+    for (let db = -7; db <= 7; db += 1)
+      for (let dl = -9; dl <= 9; dl += 1) {
+        const la = lat + db;
+        const lo = lon + dl;
+        const d = distKm(lat, lon, la, lo);
+        if (d < 200 || d > 800) continue;
+        const [fi, fj] = loc(la, lo);
+        const x = Math.round(fi);
+        const y = Math.round(fj);
+        if (x < 0 || y < 0 || x >= w || y >= h) continue;
+        const [u, v] = earthWind(
+          g,
+          lo,
+          f[2].values[y * w + x],
+          f[3].values[y * w + x],
+        );
+        su += u;
+        sv += v;
+        n++;
+      }
+    if (n < 8 || Math.hypot(su / n, sv / n) < 2.5) return null;
+    return ((Math.atan2(su, sv) * 180) / Math.PI + 360) % 360;
+  };
+  const RADIAL = TCTOR.radial50km;
+  const MOTION = TCTOR.motion45;
+  /** How tornado-prone a spot is relative to one storm position (0–1), from history and shear. */
+  const weight = (
+    lat: number,
+    lon: number,
+    c: { lat: number; lon: number },
+    shear: number | null,
+    motion: number | null,
+  ) => {
+    const d = distKm(c.lat, c.lon, lat, lon);
+    if (d > 800) return 0;
+    const radial = RADIAL[Math.min(15, Math.floor(d / 50))];
+    const brg = bearingDeg(c.lat, c.lon, lat, lon);
+    let quad: number;
+    if (shear !== null) {
+      // Clockwise from downshear: 0–90 downshear right, 270–360 downshear left.
+      const rel = (brg - shear + 360) % 360;
+      quad = rel < 90 ? 1 : rel >= 270 ? 0.7 : rel < 180 ? 0.3 : 0.1;
+    } else if (motion !== null) {
+      quad = MOTION[Math.floor(((brg - motion + 360) % 360) / 45)];
+    } else quad = 0.5;
+    return radial * quad;
+  };
+  const shear: (number | null)[][] = storms.map((s) => {
+    const p0 = at(s, times[0]);
+    const p1 = times.length > 4 ? at(s, times[4]) : p0;
+    return [
+      shearDir(fields[0], p0.lat, p0.lon),
+      fields[4] && fields[4].length > 2
+        ? shearDir(fields[4], p1.lat, p1.lon)
+        : null,
+    ];
+  });
+  const out = new Float32Array(w * h);
+  const peak = new Float64Array(w * h);
+  const who = new Int8Array(w * h).fill(-1);
+  const cos = Math.cos;
+  // Only cells within 800 km of a storm position are worth the work: test a coarse box first.
+  times.forEach((t, k) => {
+    const [srh, cape] = fields[k];
+    const pos = storms.map((s) => at(s, t));
+    const mot = storms.map((s, i) => {
+      const a = at(s, t - 3 * 3600_000);
+      const b2 = at(s, t + 3 * 3600_000);
+      return Math.hypot(b2.lat - a.lat, b2.lon - a.lon) > 0.05
+        ? bearingDeg(a.lat, a.lon, b2.lat, b2.lon)
+        : (storms[i].dir ?? null);
     });
+    for (let j = 0; j < h; j += 1)
+      for (let i = 0; i < w; i += 1) {
+        const kk = j * w + i;
+        const env =
+          clamp(srh.values[kk] / 100, 0, 6) * clamp(cape.values[kk] / 40, 0, 4);
+        if (!(env > 0.05)) continue;
+        const [lat, lon] = ll(i, j);
+        let best = 0;
+        let bi = -1;
+        pos.forEach((c, si) => {
+          if (
+            !c.ok ||
+            Math.abs(c.lat - lat) > 7.5 ||
+            Math.abs(c.lon - lon) * cos((lat * Math.PI) / 180) > 7.5
+          )
+            return;
+          const wv = weight(
+            lat,
+            lon,
+            c,
+            shear[si][k < 3 ? 0 : 1] ?? shear[si][0],
+            mot[si],
+          );
+          if (wv > best) {
+            best = wv;
+            bi = si;
+          }
+        });
+        const v = env * best * 1.6;
+        if (v > out[kk]) {
+          out[kk] = v;
+          peak[kk] = t;
+          who[kk] = bi;
+        }
+      }
+  });
+  const cell = cellOf(g);
   return {
-    field: { grid: srh.grid, values: out },
-    cycle,
-    fh,
-    keep,
+    field: { grid: g, values: out },
+    cycle: long,
+    fh: Math.round((times[0] - t0) / 3600_000),
+    keep: (lat, lon) => {
+      const k = cell(lat, lon);
+      return k >= 0 && who[k] >= 0;
+    },
+    when: (lat, lon) => {
+      const k = cell(lat, lon);
+      return k >= 0 && peak[k] ? peak[k] : undefined;
+    },
+    detail: (lat, lon) => {
+      const k = cell(lat, lon);
+      if (k < 0 || who[k] < 0) return undefined;
+      const st = storms[who[k]];
+      const sh = shear[who[k]][0];
+      return `${st.title}${sh !== null ? ", downshear side" : ""}`;
+    },
     extra: {
-      storms: storms.map((s) => ({
+      storms: storms.map((s, i) => ({
         name: s.title,
         lat: s.lat,
         lon: s.lon,
         mph: s.mph,
+        shear: shear[i][0] === null ? null : Math.round(shear[i][0]!),
+        track: times.map((t) => {
+          const p = at(s, t);
+          return {
+            t,
+            lat: Math.round(p.lat * 100) / 100,
+            lon: Math.round(p.lon * 100) / 100,
+          };
+        }),
       })),
+      hours: Math.round((times[times.length - 1] - times[0]) / 3600_000),
+      climo: { source: TCTOR.source, n: TCTOR.n, medianKm: TCTOR.medianKm },
     },
-    note: storms.length
-      ? undefined
-      : "No tropical storm or hurricane is near the U.S. coast right now.",
   };
 }
 
