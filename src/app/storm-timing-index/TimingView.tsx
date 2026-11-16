@@ -15,6 +15,7 @@ import {
   type Haz,
 } from "@/lib/timing/calc";
 import s from "./Timing.module.css";
+import { InfoScrub } from "@/components/charts/InfoScrub";
 
 type Hour = {
   time: string;
@@ -303,7 +304,12 @@ export function TimingView({ colors }: { colors: TimingColors }) {
         <div className={s.head}>
           <h3>Chances by hour</h3>
         </div>
-        <svg viewBox={`0 0 ${W} ${H}`} className={s.chart} aria-hidden>
+        <svg
+          viewBox={`0 0 ${W} ${H}`}
+          className={s.chart}
+          role="group"
+          aria-label="Chances by hour"
+        >
           {nightRuns.map(([a, b]) => (
             <rect
               key={a}
@@ -338,6 +344,28 @@ export function TimingView({ colors }: { colors: TimingColors }) {
           {sel !== null && (
             <line x1={X(i)} x2={X(i)} y1={4} y2={H - 12} className={s.cursor} />
           )}
+          <InfoScrub
+            label="Chances by hour"
+            x0={X(0)}
+            x1={X(hours.length - 1)}
+            top={4}
+            bottom={H - 14}
+            width={W}
+            height={H}
+            start={i}
+            onIndex={setSel}
+            title={(j) => full(hours[j].time)}
+            series={HAZARDS.map((k) => ({
+              key: k,
+              label: HAZ[k].label,
+              color: colors.haz[k],
+              y: hours.map((x) => Y(x.prob[k])),
+              text: hours.map((x) => `${Math.round(x.prob[k])}%`),
+            }))}
+            rows={(j) =>
+              night[j] ? [{ label: "After dark", text: "Night" }] : []
+            }
+          />
         </svg>
         <div className={s.legend}>
           {HAZARDS.map((k) => (

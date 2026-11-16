@@ -1,9 +1,12 @@
 import { getColors } from "@/lib/colors/server";
 import { probMap } from "@/lib/winter/data";
 import { PROB_KINDS, type ProbKind } from "@/lib/winter/style";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 /** GET /api/winter/odds?day=1..3&kind=snow4|snow8|snow12|ice → WPC odds as colored GeoJSON. */
 export async function GET(req: Request) {
+  const slow = limited(req, "winter/odds", LIMITS.normal);
+  if (slow) return slow;
   const q = new URL(req.url).searchParams;
   const day = Number(q.get("day"));
   const kind = q.get("kind") as ProbKind;

@@ -1,12 +1,9 @@
 import { probSevere } from "@/lib/engines/probsevere";
-import { analogAreas, dayReports, type Analog } from "@/lib/analogs/analogs";
-import { supabaseAdmin } from "@/lib/supabase/admin";
 import { surges } from "@/lib/engines/surge";
 import { rainbowNow } from "@/lib/engines/rainbow";
 import { storedOutdoor } from "@/lib/engines/outmap";
 import { unpackAreas } from "@/lib/engines/pack";
 import {
-  ANALOG_BANDS,
   BOUND_POINTS,
   FIELD_BANDS,
   pyroBin,
@@ -17,7 +14,8 @@ import type { Areas } from "@/lib/engines/areas";
 import { geoPath } from "@/lib/map/geo";
 
 export const maxDuration = 60;
-import radars from "@/lib/engines/radars.json";
+import { bandOf, loadBlind, pixelAt } from "@/lib/engines/blindspot";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 /** An engine's band areas as key-carrying paths for the color editor's live preview. */
 const polys = (a: Areas | null | undefined, id: string) =>
@@ -30,6 +28,8 @@ const polys = (a: Areas | null | undefined, id: string) =>
 
 /** Previews for admin → Map & data colors: today's engine areas, fires or grid. */
 export async function GET(req: Request) {
+  const slow = limited(req, "engines/preview", LIMITS.heavy);
+  if (slow) return slow;
   const e = new URL(req.url).searchParams.get("e");
   if (e === "pyrocb") {
     const r = await fieldPreview("pyro").catch(() => null);
@@ -41,28 +41,9 @@ export async function GET(req: Request) {
       })),
     });
   }
-  if (e === "analog" || e === "analogdot") {
-    const { data } = await supabaseAdmin()
-      .from("analog_days")
-      .select("analogs")
-      .eq("day", new Date().toISOString().slice(0, 10))
-      .maybeSingle();
-    const list = (data?.analogs ?? []) as Analog[];
-    if (e === "analog") {
-      const m = await analogAreas(
-        list,
-        ANALOG_BANDS.map((b) => b.min),
-      ).catch(() => null);
-      return Response.json({ polys: polys(m?.areas, "analog") });
-    }
-    const r = list[0] ? await dayReports(list[0].day) : null;
-    return Response.json({
-      dots: (r ?? []).map((x) => ({
-        lat: x.lat,
-        lon: x.lon,
-        key: `engine:analogdot:${x.kind}`,
-      })),
-    });
+  if (e === "prob") {
+    const r = await fieldPreview("stp").catch(() => null);
+    return Response.json({ polys: polys(r?.alt, "prob") });
   }
   if (e === "rainbow") {
     const d = await rainbowNow().catch(() => null);
@@ -96,26 +77,16 @@ export async function GET(req: Request) {
     return Response.json({ polys: polys(r?.areas, e) });
   }
   if (e === "blind") {
-    const buf = new Uint8Array(
-      await (
-        await fetch(new URL("/extras/blindspot.bin", req.url))
-      ).arrayBuffer(),
-    );
-    const { width, height, bounds } = radars;
-    const grid = new Uint8Array(width * height);
-    for (let i = 0, k = 0; i < buf.length; i += 2)
-      grid.fill(buf[i], k, (k += buf[i + 1]));
-    const [W, S, E, N] = bounds;
-    const merc = (lat: number) =>
-      Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360));
+    const grid = await loadBlind(new URL(req.url).origin);
     const dots = [];
-    for (let lat = S + 0.25; lat < N; lat += 0.5)
-      for (let lon = W + 0.25; lon < E; lon += 0.5) {
-        const x = Math.floor(((lon - W) / (E - W)) * width);
-        const y = Math.floor(
-          ((merc(N) - merc(lat)) / (merc(N) - merc(S))) * height,
-        );
-        dots.push({ lat, lon, key: `engine:blind:${grid[y * width + x]}` });
+    for (let lat = grid.bounds[1] + 0.25; lat < grid.bounds[3]; lat += 0.5)
+      for (let lon = grid.bounds[0] + 0.25; lon < grid.bounds[2]; lon += 0.5) {
+        const k = pixelAt(grid, lat, lon);
+        dots.push({
+          lat,
+          lon,
+          key: `engine:blind:${k < 0 ? 0 : bandOf(grid, grid.h1[k])}`,
+        });
       }
     return Response.json({ dots });
   }

@@ -15,7 +15,8 @@
     "format": "prettier --write \"**/*.{ts,tsx,css,json}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,css,json}\"",
     "perf:budget": "node scripts/perf-budget.mjs",
-    "verify": "npm run typecheck && npm run lint && npm run format:check && npm run test && npm run build && npm run perf:budget"
+    "verify": "npm run typecheck && npm run lint && npm run format:check && npm run test && npm run build && npm run perf:budget",
+    "smoke": "node scripts/smoke.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",
@@ -23,9 +24,11 @@
     "animejs": "^4.5.0",
     "border-beam": "^1.4.1",
     "bz2": "^1.0.1",
+    "gifenc": "1.0.3",
     "lucide-react": "^0.469.0",
     "mapbox-gl": "3.32.0",
     "maplibre-gl": "6.11.2",
+    "mp4-muxer": "5.2.2",
     "next": "16.3.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
@@ -46,8 +49,10 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.0",
     "jsdom": "^30.0.1",
+    "playwright": "1.63.0",
     "prettier": "^3.9.6",
     "tailwindcss": "^4",
+    "tsx": "^4.20.6",
     "typescript": "^5",
     "vitest": "^4.1.10"
   }

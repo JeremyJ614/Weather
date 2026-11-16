@@ -868,3 +868,22 @@ export function SpacetimeScene() {
     </>
   );
 }
+
+export function AuroraScene() {
+  return (
+    <>
+      <Stage
+        label="Aurora Painter: northern lights you paint across a night sky"
+        load={async (el, ctx) =>
+          (await import("./engines/aurora")).mount(el, ctx)
+        }
+        shape="tall"
+      />
+      <p className={s.hint}>
+        Drag across the sky to paint the northern lights. Green curtains with
+        violet tops ripple and fold like real aurora arcs, then slowly fade.
+        Leave it alone and a new arc drifts in by itself.
+      </p>
+    </>
+  );
+}

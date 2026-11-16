@@ -155,7 +155,11 @@ export async function storedField(
  * The scheduled refresh: every engine someone viewed in the last `hours` whose stored map is
  * behind the newest run, oldest first, until `budgetMs` runs out.
  */
-export async function refreshWanted(hours = 3, budgetMs = 40_000) {
+export async function refreshWanted(
+  hours = 3,
+  budgetMs = 40_000,
+  always: FieldId[] = [],
+) {
   const start = Date.now();
   const newest = await latestCycle("hrrr");
   if (!newest) return { newest: null, refreshed: [] as string[] };
@@ -171,6 +175,24 @@ export async function refreshWanted(hours = 3, budgetMs = 40_000) {
     const id = r.id as FieldId;
     // A retired engine's last map stays in the table until it is pruned.
     if (!(id in FIELD_BANDS) || !(await claim(id))) continue;
+    try {
+      await refreshField(id);
+      refreshed.push(id);
+    } catch (e) {
+      console.error("engine refresh", id, e);
+    }
+  }
+  // Maps kept fresh whether or not anyone looked (the GitHub Actions job: Blizzard in the
+  // cold season, so its page opens at once with the whole two days counted).
+  for (const id of always) {
+    if (refreshed.includes(id) || Date.now() - start > budgetMs) continue;
+    const { data: row } = await supabaseAdmin()
+      .from("engine_maps")
+      .select("cycle")
+      .eq("id", id)
+      .maybeSingle();
+    if (row && row.cycle >= newest) continue;
+    if (!(await claim(id))) continue;
     try {
       await refreshField(id);
       refreshed.push(id);

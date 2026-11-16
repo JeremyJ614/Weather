@@ -12,6 +12,18 @@ import { useViewer } from "@/features/account/useViewer";
 import { MENU_STYLES, pickMenus } from "./styles";
 
 const KEY = "sswx-menus";
+/** The SSWX section: listed only for SSWX Members and Recruits (owner, 2026-11-13). */
+const SSWX_GROUP: NavGroup = {
+  id: "sswx",
+  label: "SSWX",
+  icon: "ShieldCheck",
+  pages: [
+    ["", "SSWX Section", "ShieldCheck"],
+    ["/roster", "Active Roster", "Users"],
+    ["/onboarding", "Onboarding Process", "Route"],
+    ["/applications", "Application Center", "ClipboardList"],
+  ].map(([p, label, icon]) => ({ slug: "sswx" + p, label, icon, phase: "S" })),
+};
 const ADMIN_GROUP: NavGroup = {
   id: "admin-shortcuts",
   label: "Admin",
@@ -104,7 +116,8 @@ export function MenuHost({
     else delete root.dataset.topRight;
   }, [bar, topLeft, topRight]);
   // Admin-only pages are listed only for admins; the pages themselves check on the server.
-  const { isAdmin, signedIn, adminShortcuts, pending, locked } = useViewer();
+  const { isAdmin, signedIn, adminShortcuts, pending, locked, roles } =
+    useViewer();
   const guest = !signedIn && !pending;
   let picks: string[] = [];
   try {
@@ -154,6 +167,8 @@ export function MenuHost({
   if (adminShortcuts) seconds.push(ADMIN_GROUP);
   if (immersive) return null;
   const mains = visibleNav(mainGroups, isAdmin, signedIn, guest);
+  if (roles?.includes("member") || roles?.includes("recruit"))
+    mains.push(SSWX_GROUP);
   return (
     <>
       <M.Component groups={mains} placement={mp} role="main" />

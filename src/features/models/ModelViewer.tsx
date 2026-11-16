@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import type { ImageSource, Map as MaplibreMap } from "maplibre-gl";
 import { ChevronLeft, ChevronRight, Pause, Play } from "lucide-react";
 import { WeatherMap, type ReadyMap } from "@/features/map/WeatherMap";
@@ -8,6 +9,7 @@ import { MODEL_CITIES } from "@/lib/models/cities";
 import type { Recipe } from "@/lib/models/core";
 import { fill } from "@/lib/models/tpl";
 import { canDraw, drawFrame } from "./frames";
+import { FieldPicker } from "./FieldPicker";
 import s from "./Models.module.css";
 
 type P = Recipe & {
@@ -16,6 +18,8 @@ type P = Recipe & {
   unit: string;
   full: boolean;
   colors: string[];
+  /** Hours the field exists at, where fewer than the run's. */
+  hours?: number[];
 };
 type Run = {
   label: string;
@@ -28,7 +32,6 @@ type Run = {
   regions: { id: string; label: string; b: number[]; f?: number[] }[];
   params: P[];
 };
-const GROUPS = ["Severe Weather", "Surface & Precipitation", "Upper Air"];
 const SPEED = { Slow: 1100, Normal: 650, Fast: 330 } as const;
 
 const cycleDate = (c: string) =>
@@ -45,6 +48,9 @@ const validLabel = (c: string, fh: number) =>
     hour: "numeric",
     minute: "2-digit",
   });
+const MotionShare = dynamic(() => import("@/features/share/MotionShare"), {
+  ssr: false,
+});
 /** The outline casing: the model frames are slipped in under it, so the lines stay on top. */
 const UNDER = "us-lines-case";
 /** A frame's city values, from its map URL. */
@@ -129,15 +135,17 @@ export function ModelViewer({ model }: { model: "hrrr" | "gfs" | "refs" }) {
   const r = run && run !== "error" ? run : null;
   const p = r?.params.find((x) => x.key === key) ?? r?.params[0];
   const reg = r?.regions.find((x) => x.id === region) ?? r?.regions[0];
+  // The field's own hours where it has fewer (multi-hour REFS totals), else the run's.
+  const hours = useMemo(() => p?.hours ?? r?.hours ?? [], [p, r]);
   const urls = useMemo(
     () =>
       r && p && cycle
-        ? r.hours.map(
+        ? hours.map(
             (fh) =>
               `/api/models/map?model=${model}&cycle=${cycle}&fh=${fh}&p=${p.key}&region=${region}`,
           )
         : [],
-    [r, p, cycle, region, model],
+    [r, p, hours, cycle, region, model],
   );
 
   // HRRR and GFS frames are drawn on this device from NOAA's own files (frame.worker.ts), so
@@ -162,9 +170,11 @@ export function ModelViewer({ model }: { model: "hrrr" | "gfs" | "refs" }) {
     const width = reg.id === "conus" ? 2400 : 2000;
     const fetchFrame = async (u: string) => {
       if (direct) {
-        const fh = r.hours[urls.indexOf(u)];
+        const fh = hours[urls.indexOf(u)];
+        // Fields built from many records read GFS's half-degree file (phone-sized downloads).
+        const tpl = p.coarse ? r.tpl!.replace("0p25", "0p50") : r.tpl!;
         const d = await drawFrame({
-          url: fill(r.tpl!, cycle.slice(0, 8), cycle.slice(8), fh),
+          url: fill(tpl, cycle.slice(0, 8), cycle.slice(8), fh),
           recipe: p,
           colors: p.colors,
           box,
@@ -206,8 +216,9 @@ export function ModelViewer({ model }: { model: "hrrr" | "gfs" | "refs" }) {
       const n = urls.length;
       const here = Math.min(at.current, n - 1);
       if (!started.has(urls[here])) load(urls[here]);
-      // Server frames: just ahead of the playhead.
-      const reach = direct ? n : looping.current ? 4 : 2;
+      // Server frames, and fields built from several records: just ahead of the playhead.
+      const heavy = (p.extra?.length ?? 0) >= 3;
+      const reach = direct && !heavy ? n : looping.current ? 4 : 2;
       for (let k = 1; k < reach && busy < 3; k++) {
         const u = urls[(here + k) % n];
         if (!started.has(u)) load(u);
@@ -309,7 +320,7 @@ export function ModelViewer({ model }: { model: "hrrr" | "gfs" | "refs" }) {
         r.tpl,
         cycle.slice(0, 8),
         cycle.slice(8),
-        r.hours[urls.indexOf(detail)],
+        hours[urls.indexOf(detail)],
       ),
       recipe: p,
       colors: p.colors,
@@ -463,7 +474,7 @@ export function ModelViewer({ model }: { model: "hrrr" | "gfs" | "refs" }) {
     );
   if (!r || !p || !reg)
     return <p className={s.muted}>Finding the newest run…</p>;
-  const fh = r.hours[Math.min(i, r.hours.length - 1)];
+  const fh = hours[Math.min(i, hours.length - 1)];
   const done = urls.filter((u) => loaded[u]).length;
   return (
     <div className="grid gap-3">
@@ -492,8 +503,8 @@ export function ModelViewer({ model }: { model: "hrrr" | "gfs" | "refs" }) {
         <div>
           <small>Range</small>
           <b>
-            F{String(r.hours[0]).padStart(3, "0")}–F
-            {String(r.hours[r.hours.length - 1]).padStart(3, "0")}
+            F{String(hours[0]).padStart(3, "0")}–F
+            {String(hours[hours.length - 1]).padStart(3, "0")}
           </b>
         </div>
         <div>
@@ -501,25 +512,7 @@ export function ModelViewer({ model }: { model: "hrrr" | "gfs" | "refs" }) {
           <b>{r.res}</b>
         </div>
       </div>
-      {GROUPS.filter((g) => r.params.some((x) => x.group === g)).map((g) => (
-        <div key={g} className="grid gap-1.5">
-          <small className={s.group}>{g}</small>
-          <div className={s.pills} role="group" aria-label={g}>
-            {r.params
-              .filter((x) => x.group === g)
-              .map((x) => (
-                <button
-                  key={x.key}
-                  type="button"
-                  aria-pressed={x.key === p.key}
-                  onClick={() => setKey(x.key)}
-                >
-                  {x.label}
-                </button>
-              ))}
-          </div>
-        </div>
-      ))}
+      <FieldPicker params={r.params} value={p.key} onPick={setKey} />
       <div className={s.tabs} role="group" aria-label="Region">
         {r.regions.map((x) => (
           <button
@@ -539,6 +532,7 @@ export function ModelViewer({ model }: { model: "hrrr" | "gfs" | "refs" }) {
           label={`${r.label} ${p.label} map`}
           className="h-[58dvh] min-h-80"
           onReady={onReady}
+          actions={false}
         />
         <span className={s.stamp}>
           {r.label} · {p.label}
@@ -546,7 +540,9 @@ export function ModelViewer({ model }: { model: "hrrr" | "gfs" | "refs" }) {
         {loaded[cur] !== "ok" && (
           <span className={s.wait}>
             {loaded[cur] === "err"
-              ? "This hour isn't in the run."
+              ? direct
+                ? "This hour couldn't be drawn on this device."
+                : "This hour isn't in the run."
               : "Rendering from NOAA's data…"}
           </span>
         )}
@@ -608,13 +604,46 @@ export function ModelViewer({ model }: { model: "hrrr" | "gfs" | "refs" }) {
           aria-label="Forecast hour"
         />
         <div className={s.ends}>
-          <span>F{String(r.hours[0]).padStart(3, "0")}</span>
+          <span>F{String(hours[0]).padStart(3, "0")}</span>
           <span>
             {done < urls.length ? `${done}/${urls.length} frames ready` : ""}
           </span>
-          <span>F{String(r.hours[r.hours.length - 1]).padStart(3, "0")}</span>
+          <span>F{String(hours[hours.length - 1]).padStart(3, "0")}</span>
         </div>
       </div>
+      {ready && reg && (
+        <MotionShare
+          file={`sswx-${model}-${p.key}-${cycle}`}
+          frames={urls.length}
+          reel={async () =>
+            (await import("@/features/share/reels")).modelReel({
+              map: map.current,
+              model: r.label,
+              param: p,
+              region: reg.label,
+              run: cycleLabel(cycle),
+              count: urls.length,
+              at: Math.min(i, urls.length - 1),
+              blob: (k) => blobs.current.get(urls[k]),
+              want: (k) => {
+                at.current = k;
+                kick.current();
+              },
+              cities: (k) =>
+                cityLabels(values.current.get(pointsUrl(urls[k])) ?? null),
+              coords: corners(reg.f ?? reg.b),
+              frame: reg.f ?? reg.b,
+              view: reg.b,
+              values: (k) => values.current.get(pointsUrl(urls[k])) ?? null,
+              label: (k) => [
+                validLabel(cycle, hours[k]),
+                `F${String(hours[k]).padStart(3, "0")}`,
+              ],
+              pause: () => setPlaying(false),
+            })
+          }
+        />
+      )}
       <div className={s.legend}>
         <small>
           {p.label}

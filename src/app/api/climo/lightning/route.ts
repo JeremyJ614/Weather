@@ -1,11 +1,14 @@
 import { lightningAt } from "@/lib/climo/lis";
 import GRID from "@/lib/climo/lightning.json";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 /**
  * GET /api/climo/lightning?lat=&lon= → LIS flash-rate climatology at a place (annual and by
  * month); ?grid → the national LIS/OTD grid (kept off the page bundle).
  */
 export async function GET(req: Request) {
+  const slow = limited(req, "climo/lightning", LIMITS.heavy);
+  if (slow) return slow;
   const q = new URL(req.url).searchParams;
   if (q.has("grid"))
     return Response.json(GRID, {

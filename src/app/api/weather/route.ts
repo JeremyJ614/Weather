@@ -1,8 +1,11 @@
 import { snap, validCoords } from "@/lib/weather/geo";
 import { UpstreamError, getWeather } from "@/lib/weather/nws";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 /** GET /api/weather?lat=..&lon=.. → WeatherBundle. Cached at the edge per grid cell. */
 export async function GET(request: Request) {
+  const slow = limited(request, "weather", LIMITS.normal);
+  if (slow) return slow;
   const q = new URL(request.url).searchParams;
   const lat = Number(q.get("lat"));
   const lon = Number(q.get("lon"));

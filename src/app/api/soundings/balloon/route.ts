@@ -1,7 +1,10 @@
 import { balloon } from "@/lib/soundings/data";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 /** GET /api/soundings/balloon?id=KOUN&ts=YYYYMMDDHH00 → one balloon sounding. */
 export async function GET(req: Request) {
+  const slow = limited(req, "soundings/balloon", LIMITS.heavy);
+  if (slow) return slow;
   const q = new URL(req.url).searchParams;
   const id = q.get("id") ?? "";
   const ts = q.get("ts") ?? "";

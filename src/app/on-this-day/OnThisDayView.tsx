@@ -1,6 +1,7 @@
 "use client";
 
 import { UsMap } from "@/features/maps/UsMap";
+import { ShareStory } from "./ShareStory";
 import { EF_COLORS } from "@/lib/colors/ef";
 import { pick, type Colors } from "@/lib/colors/pick";
 import type { OtdFeature } from "@/lib/history/onthisday";
@@ -74,6 +75,9 @@ export function OnThisDayView({
           .map((k) => ({ label: `${KIND[k].label} reports`, color: rep(k) })),
       ];
 
+  const mapTitle = f.storm
+    ? `${story?.title ?? f.label}: its track`
+    : `${date}, ${f.year}: ${f.tracks.length ? "tornado tracks" : ""}${f.tracks.length && drawn.reports.length ? " and " : ""}${drawn.reports.length ? "storm reports" : ""}`;
   return (
     <article className="grid gap-5">
       <header className={s.story}>
@@ -82,6 +86,18 @@ export function OnThisDayView({
         </p>
         <h2>{story?.title ?? f.label}</h2>
         <p className={s.lead}>{story?.headline ?? f.facts[0]}</p>
+        <ShareStory
+          title={story?.title ?? f.label}
+          headline={story?.headline ?? f.facts[0]}
+          paragraphs={story?.story ?? f.facts.slice(1)}
+          year={f.year}
+          md={md}
+          places={f.places}
+          stats={f.stats}
+          mapTitle={mapTitle}
+          legend={legend}
+          file={`sswx-on-this-day-${f.year}-${md}`}
+        />
       </header>
 
       {story && story.photos.length > 0 && (
@@ -129,62 +145,60 @@ export function OnThisDayView({
         ))}
       </dl>
 
-      <UsMap
-        title={
-          f.storm
-            ? `${story?.title ?? f.label}: its track`
-            : `${date}, ${f.year}: ${f.tracks.length ? "tornado tracks" : ""}${f.tracks.length && drawn.reports.length ? " and " : ""}${drawn.reports.length ? "storm reports" : ""}`
-        }
-        sub={null}
-        legend={legend}
-        status="ready"
-        file={`sswx-on-this-day-${f.year}-${md}`}
-        view={drawn.view}
-        maxZoom={30}
-      >
-        {drawn.reports.map((r, i) => (
-          <circle
-            key={`r${i}`}
-            cx={r.x}
-            cy={r.y}
-            r={1.6}
-            fill={rep(r.k)}
-            opacity={0.8}
-          />
-        ))}
-        {drawn.tracks.map((t, i) => (
-          <path
-            key={`t${i}`}
-            d={t.d}
-            stroke={ef(t.mag)}
-            strokeWidth={t.mag >= 4 ? 2.8 : t.mag >= 2 ? 2 : 1.4}
-            strokeLinecap="round"
-            fill="none"
-          />
-        ))}
-        {drawn.storm?.segs.map((g, i) => (
-          <path
-            key={`s${i}`}
-            d={g.d}
-            stroke={trop(g.kt)}
-            strokeWidth={2.6}
-            strokeLinecap="round"
-            fill="none"
-          />
-        ))}
-        {drawn.storm && (
-          <circle
-            cx={drawn.storm.land[0]}
-            cy={drawn.storm.land[1]}
-            r={5}
-            fill="none"
-            stroke={trop(130)}
-            strokeWidth={2}
-          >
-            <title>Landfall</title>
-          </circle>
-        )}
-      </UsMap>
+      <div data-otd-map>
+        <UsMap
+          title={mapTitle}
+          sub={null}
+          legend={legend}
+          status="ready"
+          file={`sswx-on-this-day-${f.year}-${md}`}
+          view={drawn.view}
+          maxZoom={30}
+        >
+          {drawn.reports.map((r, i) => (
+            <circle
+              key={`r${i}`}
+              cx={r.x}
+              cy={r.y}
+              r={1.6}
+              fill={rep(r.k)}
+              opacity={0.8}
+            />
+          ))}
+          {drawn.tracks.map((t, i) => (
+            <path
+              key={`t${i}`}
+              d={t.d}
+              stroke={ef(t.mag)}
+              strokeWidth={t.mag >= 4 ? 2.8 : t.mag >= 2 ? 2 : 1.4}
+              strokeLinecap="round"
+              fill="none"
+            />
+          ))}
+          {drawn.storm?.segs.map((g, i) => (
+            <path
+              key={`s${i}`}
+              d={g.d}
+              stroke={trop(g.kt)}
+              strokeWidth={2.6}
+              strokeLinecap="round"
+              fill="none"
+            />
+          ))}
+          {drawn.storm && (
+            <circle
+              cx={drawn.storm.land[0]}
+              cy={drawn.storm.land[1]}
+              r={5}
+              fill="none"
+              stroke={trop(130)}
+              strokeWidth={2}
+            >
+              <title>Landfall</title>
+            </circle>
+          )}
+        </UsMap>
+      </div>
 
       <p className={s.fine}>
         {f.storm

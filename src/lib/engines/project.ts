@@ -22,6 +22,8 @@ export type Cell = {
   /** Storm motion toward the east and north (m/s). */
   east: number;
   north: number;
+  /** Storm object area (km²), when known. */
+  size?: number;
 };
 
 const clamp = (x: number, lo: number, hi: number) =>
@@ -50,6 +52,57 @@ export function torOutlook(c: Cell, before?: Cell): TorOutlook {
     p60: Math.round(p20 * 0.45),
     trend,
     jump,
+  };
+}
+
+/** Scales the 20-minute chance (and the fade after it) by a multiplier, keeping 95% the top. */
+export function boosted(o: TorOutlook, by: number): TorOutlook {
+  if (by === 1) return o;
+  const p20 = Math.round(clamp(o.p20 * by, 0, 95));
+  return { ...o, p20, p40: Math.round(p20 * 0.7), p60: Math.round(p20 * 0.45) };
+}
+
+/** What the browser reads from the nearest radar's lowest scan for one storm. */
+export type RadarRead = {
+  site: string;
+  /** Minutes old when read, beam height (ft) and range (mi) at the storm. */
+  age: number;
+  beamFt: number;
+  miles: number;
+  /** Rotational velocity (kt) of the strongest cyclonic couplet, or 0. */
+  vrot: number;
+  /** A tornado debris signature at the couplet. */
+  debris: boolean;
+};
+
+/**
+ * Rotational velocity on the lowest scan to a tornado chance, after the NWS studies of 0.5°
+ * Vrot (Smith and others, 2015): about 10% at 20–30 kt rising to 75% and up past 60 kt.
+ */
+export function vrotChance(vrot: number) {
+  if (vrot < 20) return 0;
+  return Math.round(clamp(10 + (vrot - 20) * 1.6, 0, 85));
+}
+
+/**
+ * Blends a radar read into the outlook: the 20-minute chance moves halfway toward the Vrot
+ * chance when that is higher, and a debris signature means a tornado is likely on the ground.
+ * Rotation more than 10,000 ft up or over 90 miles out is too high to read and is left out.
+ */
+export function withRadar(o: TorOutlook, r: RadarRead | undefined): TorOutlook {
+  if (!r || r.age > 15) return o;
+  const usable = r.beamFt <= 10_000 && r.miles <= 90;
+  const v = usable ? vrotChance(r.vrot) : 0;
+  let p20 = o.p20;
+  if (v > p20) p20 = Math.round((p20 + v) / 2);
+  if (r.debris && r.vrot >= 30) p20 = Math.max(p20, 85);
+  if (p20 === o.p20) return o;
+  return {
+    ...o,
+    now: r.debris && r.vrot >= 30 ? Math.max(o.now, 85) : o.now,
+    p20,
+    p40: Math.round(p20 * 0.7),
+    p60: Math.round(p20 * 0.45),
   };
 }
 

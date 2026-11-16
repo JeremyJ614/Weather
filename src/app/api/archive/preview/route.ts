@@ -1,7 +1,10 @@
 import type { ArchiveEvent } from "@/features/replay/archive/types";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 /** Dots for admin → Map & data colors: one archive day's warnings and hail. */
 export async function GET(req: Request) {
+  const slow = limited(req, "archive/preview", LIMITS.heavy);
+  if (slow) return slow;
   const e = (await (
     await fetch(new URL("/archive/2024-05-21-greenfield.json", req.url))
   ).json()) as ArchiveEvent;

@@ -1,0 +1,123 @@
+/* Post-launch A4 offers. Dark glass, gold as text, outline and glow only. */
+.perks {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 270px), 1fr));
+  gap: 12px;
+  margin-block: 8px 18px;
+}
+.card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 86%, transparent);
+}
+.card[data-tone="gold"] {
+  border-color: var(--lit-line);
+  box-shadow: var(--glow);
+}
+.card > svg {
+  width: 26px;
+  height: 26px;
+  color: var(--accent);
+  filter: drop-shadow(
+    0 0 6px color-mix(in srgb, var(--accent) 60%, transparent)
+  );
+}
+.card h3 {
+  margin: 0;
+  font-size: 16px;
+}
+.card p {
+  margin: 4px 0 10px;
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+.on {
+  color: var(--text) !important;
+}
+.on svg {
+  width: 14px;
+  height: 14px;
+  vertical-align: -2px;
+  color: var(--accent);
+}
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--lit-line);
+  background: var(--lit);
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 14px;
+  box-shadow: var(--glow);
+  transition:
+    transform var(--t-fast, 0.15s) var(--ease, ease),
+    opacity 0.2s;
+}
+.btn:active {
+  transform: scale(0.97);
+}
+.btn:disabled {
+  opacity: 0.55;
+}
+.spots {
+  height: 6px;
+  border-radius: 6px;
+  background: var(--line);
+  overflow: hidden;
+}
+.spots i {
+  display: block;
+  height: 100%;
+  transform-origin: left;
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--accent);
+}
+.count {
+  display: block;
+  margin-top: 6px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--accent);
+}
+.form {
+  display: grid;
+  gap: 8px;
+}
+.form label {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.form select,
+.form input:not([type="file"]) {
+  min-height: 38px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 16px;
+}
+.form input[type="file"] {
+  font-size: 13px;
+  color: var(--muted);
+}
+.muted {
+  color: var(--muted);
+  font-size: 12px;
+}
+.err {
+  color: #ef7a7a;
+  font-size: 13px;
+}

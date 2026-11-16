@@ -16,6 +16,7 @@ import {
   type Pastel,
 } from "@/lib/ingredients/calc";
 import s from "./Ing.module.css";
+import { InfoScrub } from "@/components/charts/InfoScrub";
 
 export type Hour = {
   time: string;
@@ -65,29 +66,43 @@ function Spark({ vals, color }: { vals: number[]; color: string }) {
   );
 }
 
+const UNIT: Record<string, string> = {
+  cape: "J/kg",
+  shear: "kt",
+  srh: "m²/s²",
+};
+
 function Chart({
   hours,
   a,
   b,
   sel,
+  onSel,
 }: {
   hours: Hour[];
   a: { key: keyof Hour; label: string; color: string };
   b: { key: keyof Hour; label: string; color: string };
   sel: number;
+  onSel: (i: number) => void;
 }) {
   const W = 340;
   const H = 120;
-  const line = (k: keyof Hour) => {
+  const ys = (k: keyof Hour) => {
     const v = hours.map((h) => Number(h[k]));
     const hi = Math.max(1, ...v);
-    return v
+    return v.map((x) => H - 14 - (x / hi) * (H - 26));
+  };
+  const line = (k: keyof Hour) =>
+    ys(k)
       .map(
-        (x, i) =>
-          `${i ? "L" : "M"} ${(8 + (i / (v.length - 1)) * (W - 16)).toFixed(1)} ${(H - 14 - (x / hi) * (H - 26)).toFixed(1)}`,
+        (y, i) =>
+          `${i ? "L" : "M"} ${(8 + (i / (hours.length - 1)) * (W - 16)).toFixed(1)} ${y.toFixed(1)}`,
       )
       .join(" ");
-  };
+  const fmt = (k: keyof Hour, v: number) =>
+    k === "stp"
+      ? v.toFixed(1)
+      : `${Math.round(v).toLocaleString()} ${UNIT[k as string] ?? ""}`.trim();
   const x = 8 + (sel / Math.max(1, hours.length - 1)) * (W - 16);
   return (
     <figure className={s.chart}>
@@ -95,7 +110,11 @@ function Chart({
         <span style={{ color: a.color }}>{a.label}</span> ·{" "}
         <span style={{ color: b.color }}>{b.label}</span>
       </figcaption>
-      <svg viewBox={`0 0 ${W} ${H}`} aria-hidden>
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        role="group"
+        aria-label={`${a.label} and ${b.label}, next 72 hours`}
+      >
         <line x1={x} x2={x} y1="6" y2={H - 12} className={s.cursor} />
         <path d={line(a.key)} stroke={a.color} className={s.chartLine} />
         <path
@@ -103,6 +122,25 @@ function Chart({
           stroke={b.color}
           className={s.chartLine}
           strokeDasharray="5 4"
+        />
+        <InfoScrub
+          label={`${a.label} and ${b.label}`}
+          x0={8}
+          x1={W - 8}
+          top={12}
+          bottom={H - 14}
+          width={W}
+          height={H}
+          start={sel}
+          onIndex={onSel}
+          title={(i) => when(hours[i].time)}
+          series={[a, b].map((m) => ({
+            key: String(m.key),
+            label: m.label,
+            color: m.color,
+            y: ys(m.key),
+            text: hours.map((h) => fmt(m.key, Number(h[m.key]))),
+          }))}
         />
       </svg>
     </figure>
@@ -364,12 +402,14 @@ export function IngredientsView({ tones }: { tones: Record<Pastel, string> }) {
       <Chart
         hours={hours}
         sel={i}
+        onSel={setSel}
         a={{ key: "cape", label: "CAPE", color: tones.peach }}
         b={{ key: "shear", label: "Shear", color: tones.sky }}
       />
       <Chart
         hours={hours}
         sel={i}
+        onSel={setSel}
         a={{ key: "srh", label: "SRH", color: tones.rose }}
         b={{ key: "stp", label: "STP", color: tones.lavender }}
       />

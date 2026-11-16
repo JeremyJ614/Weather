@@ -1,7 +1,10 @@
 import { stepsAt } from "@/lib/colors/spc-server";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 /** GET /api/spc/point?lat=&lon= → the probability step (0–5) at one place for Days 1–8. */
 export async function GET(request: Request) {
+  const slow = limited(request, "spc/point", LIMITS.normal);
+  if (slow) return slow;
   const q = new URL(request.url).searchParams;
   const lat = Number(q.get("lat"));
   const lon = Number(q.get("lon"));

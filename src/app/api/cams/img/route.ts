@@ -1,8 +1,11 @@
 import { canSeeCams } from "@/lib/cams/access";
 import { HTTP_HOSTS } from "@/lib/cams/sources";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 /** GET /api/cams/img?u= → a camera still from an http-only DOT host, served over https. */
 export async function GET(req: Request) {
+  const slow = limited(req, "cams/img", LIMITS.frames);
+  if (slow) return slow;
   if (!(await canSeeCams())) return new Response(null, { status: 404 });
   let u: URL;
   try {

@@ -1,7 +1,10 @@
 import { COMPARE } from "@/lib/radar/products";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 /** GET /api/models/compare?lat=&lon= → each model's next 48 hours of temperature and rain. */
 export async function GET(req: Request) {
+  const slow = limited(req, "models/compare", LIMITS.normal);
+  if (slow) return slow;
   const q = new URL(req.url).searchParams;
   const lat = Number(q.get("lat"));
   const lon = Number(q.get("lon"));

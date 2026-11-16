@@ -1,8 +1,11 @@
+"use client";
+
 import type { Band } from "@/lib/sswxcon/score";
 
 const bandIn = (bands: Band[], v: number) =>
   [...bands].reverse().find((b) => v >= b.min) ?? bands[0];
 import s from "./Con.module.css";
+import { InfoScrub } from "@/components/charts/InfoScrub";
 
 export type Snap = { at: string; total: number };
 
@@ -102,6 +105,32 @@ export function Trend({
         <text x={W - 8} y={H - 4} className={s.axis} textAnchor="end">
           {stamp(last.at)}
         </text>
+        <InfoScrub
+          label="SSWXCon over the last 48 hours"
+          xs={snaps.map((p) => x(Date.parse(p.at)))}
+          top={12}
+          bottom={H - 18}
+          width={W}
+          height={H}
+          start={snaps.length - 1}
+          title={(i) => stamp(snaps[i].at)}
+          series={[
+            {
+              key: "con",
+              label: "Score",
+              color: bandFor(peak).color,
+              y: snaps.map((p) => y(p.total)),
+              text: snaps.map((p) => String(p.total)),
+            },
+          ]}
+          rows={(i) => [
+            {
+              label: "Level",
+              text: bandFor(snaps[i].total).label,
+              color: bandFor(snaps[i].total).color,
+            },
+          ]}
+        />
       </svg>
       <figcaption>
         48-hour high: <b>{hi.total}</b> ({bandFor(hi.total).label}) ·{" "}

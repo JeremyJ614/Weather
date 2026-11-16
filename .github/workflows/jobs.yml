@@ -1,0 +1,57 @@
+name: Scheduled jobs
+
+# The heavy scheduled jobs, run here instead of on Vercel (post-launch A1 "cost-guard"): free
+# and unlimited for a public repository. No secrets: the job proves itself with GitHub's OIDC
+# token and reads and writes the database through the site's relay (/api/jobs/sb), which checks
+# that token. JOBS_ON_ACTIONS=1 in Vercel makes the database scheduler's calls stand down.
+on:
+  schedule:
+    - cron: "7,27,47 * * * *" # engine maps (as pg_cron engine-maps)
+    - cron: "37 * * * *" # Deer and Fishing outlooks (engine-outdoor)
+    - cron: "41 * * * *" # engine report cards (engine-verify)
+    - cron: "8,18,28,38,48,58 * * * *" # lightning surges (engine-surge)
+    - cron: "23 9 * * *" # sitemap to IndexNow (Bing and others), daily
+  workflow_dispatch:
+    inputs:
+      job:
+        description: "engines, outdoor, verify, surge or indexnow"
+        required: true
+        default: engines
+
+concurrency:
+  group: jobs-${{ github.event.schedule || inputs.job }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  run:
+    if: ${{ vars.JOBS_ON_ACTIONS != '0' && github.repository == 'JeremyJ614/Weather' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      # Public values (they ship in the site's own pages).
+      NEXT_PUBLIC_SUPABASE_URL: https://ztzqemzuanwqwqzsaigd.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_524pcbnxZXnvh3AL-UPm9A_cxQj3oNq
+      JOBS_RELAY: https://weather.sswx.space/api/jobs/sb
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Pick the job
+        id: pick
+        run: |
+          case "${{ github.event.schedule }}" in
+            "7,27,47 * * * *") echo "job=engines" >> "$GITHUB_OUTPUT" ;;
+            "37 * * * *") echo "job=outdoor" >> "$GITHUB_OUTPUT" ;;
+            "41 * * * *") echo "job=verify" >> "$GITHUB_OUTPUT" ;;
+            "8,18,28,38,48,58 * * * *") echo "job=surge" >> "$GITHUB_OUTPUT" ;;
+            "23 9 * * *") echo "job=indexnow" >> "$GITHUB_OUTPUT" ;;
+            *) echo "job=${{ inputs.job }}" >> "$GITHUB_OUTPUT" ;;
+          esac
+      - run: npx tsx --conditions=react-server scripts/jobs/run.ts ${{ steps.pick.outputs.job }}

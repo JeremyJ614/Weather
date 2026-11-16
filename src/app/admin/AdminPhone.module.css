@@ -1,0 +1,59 @@
+/*
+ * Admin on a phone (post-launch A1 "admin-mobile"): one layer over every admin section.
+ * Inputs at 16px (iPhone zooms the page on smaller ones), comfortable tap targets, wide
+ * tables swipe sideways inside their own box instead of widening the page, long words wrap,
+ * and a form's Save stays within thumb reach at the bottom of long forms.
+ */
+.admin {
+  min-width: 0;
+}
+@media (max-width: 640px) {
+  .admin
+    :where(
+      input:not(
+        [type="checkbox"],
+        [type="radio"],
+        [type="range"],
+        [type="color"]
+      ),
+      select,
+      textarea
+    ) {
+    font-size: 16px;
+  }
+  .admin :where(button, select, input[type="submit"]) {
+    min-height: 38px;
+  }
+  .admin table {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+  }
+  .admin :where(p, li, td, dd, dt, label, h1, h2, h3, small, figcaption) {
+    overflow-wrap: anywhere;
+  }
+  .admin :where(pre, code) {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  .admin :where(img, video, canvas, svg) {
+    max-width: 100%;
+  }
+  /* Save at the end of a long form rides along the bottom edge while you scroll. */
+  .admin form > :last-child:is(button[type="submit"]),
+  .admin form > :last-child:has(> button[type="submit"]) {
+    position: sticky;
+    bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    z-index: 6;
+    border-radius: 999px;
+    box-shadow:
+      0 8px 24px -8px rgb(0 0 0 / 0.7),
+      0 0 0 6px color-mix(in srgb, var(--bg) 85%, transparent);
+  }
+  .admin form > :last-child:has(> button[type="submit"]) {
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(8px);
+    padding: 6px;
+  }
+}

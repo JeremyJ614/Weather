@@ -57,13 +57,6 @@ export const EXTRAS_ITEMS = [
     "Where the first thunderstorms will start in the next six hours, and when.",
   ),
   e(
-    "analog",
-    "Severe Analogs",
-    "severe-analogs",
-    "History",
-    "Past days that looked like today, and the severe weather they brought.",
-  ),
-  e(
     "bound",
     "Boundary Collisions",
     "boundary-collisions",
@@ -160,6 +153,13 @@ export const EXTRAS_ITEMS = [
     "wildfire-pyrocb",
     "Flame",
     "Fire weather, and which wildfires could blow up into their own storms.",
+  ),
+  e(
+    "coast",
+    "Coastal Impact",
+    "coastal-impact",
+    "Waves",
+    "When a hurricane threatens: the chance of 3, 6 or 9 feet of storm surge on each stretch of coast and at your places, and when tropical-storm winds arrive.",
   ),
   e(
     "tctor",
@@ -265,6 +265,13 @@ export const EXTRAS_ITEMS = [
     "curved-spacetime",
     "Orbit",
     "Stars, planets and black holes bending a glowing grid you can throw them across.",
+  ),
+  r(
+    "aurora",
+    "Aurora Painter",
+    "aurora-painter",
+    "Sparkles",
+    "Paint rippling northern lights across a starry sky above the mountains.",
   ),
 ] as const;
 

@@ -1,7 +1,10 @@
 import { nearby } from "@/lib/rivers/data";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 /** GET /api/rivers/near?lat=&lon= → the river gauges nearest a place. */
 export async function GET(req: Request) {
+  const slow = limited(req, "rivers/near", LIMITS.normal);
+  if (slow) return slow;
   const q = new URL(req.url).searchParams;
   const lat = Number(q.get("lat"));
   const lon = Number(q.get("lon"));

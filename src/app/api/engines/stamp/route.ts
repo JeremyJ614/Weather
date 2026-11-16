@@ -1,6 +1,7 @@
 import type { FieldId } from "@/lib/engines/colors";
 import { FIELD_BANDS } from "@/lib/engines/colors";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 /**
  * GET ?e=<engine id>: which model run a field engine's stored map is from, so an open page can
@@ -8,6 +9,8 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
  * held at the edge for a minute.
  */
 export async function GET(req: Request) {
+  const slow = limited(req, "engines/stamp", LIMITS.heavy);
+  if (slow) return slow;
   const e = new URL(req.url).searchParams.get("e") as FieldId;
   if (!(e in FIELD_BANDS)) return new Response("Bad request", { status: 400 });
   const { data } = await supabaseAdmin()

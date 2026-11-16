@@ -2,6 +2,10 @@ import { sendReceipt } from "@/lib/billing/receipt";
 import { recordDonation } from "@/lib/billing/donations";
 import { planStatus, verifySignature } from "@/lib/billing/stripe";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { claimFounder, markTrial, savePass } from "@/lib/billing/perks";
+import { DAY_PASS, perkOn } from "@/lib/billing/plans";
+import { getBilling, today } from "@/lib/billing/server";
+import { send } from "@/lib/notify/deliver";
 
 type Event = {
   type: string;
@@ -40,6 +44,18 @@ export async function POST(req: Request) {
           (typeof o.customer_email === "string" ? o.customer_email : null),
         first: true,
       }).catch(() => null);
+  } else if (
+    ev.type === "checkout.session.completed" &&
+    meta.kind === "daypass"
+  ) {
+    // Post-launch A4: 24 hours of everything from now (the return route may have set it first).
+    const user = String(o.client_reference_id ?? meta.user_id ?? "");
+    if (/^[0-9a-f-]{36}$/.test(user) && o.payment_status === "paid")
+      await savePass(user, {
+        until: Date.now() + DAY_PASS.hours * 3600_000,
+        session: String(o.id ?? ""),
+        credit: Number(o.amount_total ?? DAY_PASS.cents),
+      }).catch(() => null);
   } else if (ev.type === "checkout.session.completed") {
     const user = String(
       o.client_reference_id ??
@@ -56,6 +72,37 @@ export async function POST(req: Request) {
           updated_at: now,
         })
         .eq("user_id", user);
+    if (/^[0-9a-f-]{36}$/.test(user) && meta.trial === "1")
+      await markTrial(user).catch(() => null);
+  } else if (ev.type === "customer.subscription.trial_will_end") {
+    // Post-launch A4: a reminder before the trial turns into a charge (no surprises).
+    const user = String(meta.user_id ?? "");
+    const end = Number(o.trial_end ?? 0) * 1000;
+    if (/^[0-9a-f-]{36}$/.test(user)) {
+      const when = end
+        ? new Date(end).toLocaleDateString("en-US", {
+            weekday: "long",
+            month: "short",
+            day: "numeric",
+          })
+        : "soon";
+      const title = "Your VIP trial ends " + (end ? when : "soon");
+      const body =
+        "Keep it and nothing changes. To stop, open Plans & Pricing → Manage billing before then.";
+      await db
+        .from("notifications")
+        .insert({ user_id: user, level: "info", title, body });
+      await send([
+        {
+          user_id: user,
+          topic: "news",
+          key: `trial-${String(o.id)}`,
+          title,
+          body,
+          url: "/join",
+        },
+      ]).catch(() => null);
+    }
   } else if (
     ev.type === "customer.subscription.updated" ||
     ev.type === "customer.subscription.deleted"
@@ -92,7 +139,21 @@ export async function POST(req: Request) {
         }).catch(() => null);
     }
     // A failed email must not make Stripe retry the whole event.
-    else await sendReceipt(o).catch(() => null);
+    else {
+      await sendReceipt(o).catch(() => null);
+      // Post-launch A4: the first payments take the Founding Member spots.
+      const user = sub?.user_id;
+      if (
+        user &&
+        /^[0-9a-f-]{36}$/.test(user) &&
+        Number(o.amount_paid ?? 0) > 0
+      ) {
+        const b = await getBilling().catch(() => null);
+        const f = b?.promos.find((x) => x.kind === "founder");
+        if (b && f && perkOn(b, "founder", today()))
+          await claimFounder(user, f.firstN ?? 100).catch(() => null);
+      }
+    }
   }
   return Response.json({ received: true });
 }

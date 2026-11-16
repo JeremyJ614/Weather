@@ -1,4 +1,5 @@
 import { tornadoTracks } from "@/lib/history/data";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 export const maxDuration = 60;
 
@@ -8,6 +9,8 @@ export const maxDuration = 60;
  * A finished year never changes, so it is cached for a week; recent windows for an hour.
  */
 export async function GET(req: Request) {
+  const slow = limited(req, "history/tornadoes", LIMITS.heavy);
+  if (slow) return slow;
   const q = new URL(req.url).searchParams;
   const now = new Date();
   const thisYear = now.getUTCFullYear();

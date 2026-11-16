@@ -1,0 +1,178 @@
+/* Drag-to-read chart layer (B1). Gold is light here: outlines, text and glow; surfaces stay dark. */
+.root {
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+.hit {
+  fill: transparent;
+  cursor: ew-resize;
+  touch-action: pan-y;
+  outline: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+.hit:focus-visible {
+  stroke: var(--accent);
+  stroke-width: 0.6;
+  stroke-dasharray: 2 2;
+}
+.beam {
+  opacity: 0;
+  pointer-events: none;
+}
+.lit {
+  opacity: 0;
+  pointer-events: none;
+  fill: none;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 2.5px currentColor) brightness(1.35);
+  color: var(--accent);
+}
+.tether {
+  stroke: var(--accent);
+  stroke-width: 1;
+  opacity: 0;
+  pointer-events: none;
+}
+.dot {
+  pointer-events: none;
+  animation: dotIn 0.7s 0.9s var(--ease, ease) both;
+}
+.halo {
+  fill: color-mix(in srgb, var(--c, var(--accent)) 16%, transparent);
+  stroke: color-mix(in srgb, var(--c, var(--accent)) 45%, transparent);
+  stroke-width: 0.8;
+}
+.core {
+  fill: var(--text);
+  stroke-width: 1.4;
+  filter: drop-shadow(0 0 2px var(--accent));
+}
+.bubble {
+  pointer-events: none;
+  opacity: 0;
+  filter: drop-shadow(0 3px 6px rgb(0 0 0 / 0.55))
+    drop-shadow(0 0 5px color-mix(in srgb, var(--accent) 45%, transparent));
+}
+.bubble rect {
+  fill: color-mix(in srgb, var(--surface) 94%, transparent);
+  stroke: var(--accent);
+  stroke-width: 0.8;
+}
+.head {
+  fill: var(--muted);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  letter-spacing: 0.04em;
+}
+.name {
+  fill: var(--muted);
+}
+.value {
+  fill: var(--text);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.draw {
+  transform-box: fill-box;
+  transform-origin: 0 50%;
+  animation: drawIn 1.6s 0.15s cubic-bezier(0.65, 0, 0.35, 1) both;
+}
+.gridIn > * {
+  transform-box: fill-box;
+  transform-origin: 0 50%;
+  animation: gridIn 0.9s var(--ease, ease) both;
+}
+.gridInV > * {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: gridInV 0.9s var(--ease, ease) both;
+}
+.gridIn > :nth-child(2),
+.gridInV > :nth-child(2) {
+  animation-delay: 0.08s;
+}
+.gridIn > :nth-child(3),
+.gridInV > :nth-child(3) {
+  animation-delay: 0.16s;
+}
+.gridIn > :nth-child(4),
+.gridInV > :nth-child(4) {
+  animation-delay: 0.24s;
+}
+.gridIn > :nth-child(5),
+.gridInV > :nth-child(5) {
+  animation-delay: 0.32s;
+}
+.gridIn > :nth-child(6),
+.gridInV > :nth-child(6) {
+  animation-delay: 0.4s;
+}
+.gridIn > :nth-child(n + 7),
+.gridInV > :nth-child(n + 7) {
+  animation-delay: 0.48s;
+}
+
+/* Scroll-built sections (B6): a chart further down the page draws its lines as it scrolls in. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    :global(html:not([data-tier="low"])) .draw {
+      animation: drawIn linear both;
+      animation-timeline: view();
+      animation-range: entry 10% cover 45%;
+    }
+  }
+}
+@keyframes drawIn {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+@keyframes gridIn {
+  from {
+    transform: scaleX(0);
+    opacity: 0;
+  }
+  to {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+}
+@keyframes gridInV {
+  from {
+    transform: scaleY(0);
+    opacity: 0;
+  }
+  to {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+@keyframes dotIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+:global(html[data-tier="low"]) .draw,
+:global(html[data-tier="low"]) .gridIn > *,
+:global(html[data-tier="low"]) .gridInV > *,
+:global(html[data-tier="low"]) .dot {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .draw,
+  .gridIn > *,
+  .gridInV > *,
+  .dot {
+    animation: none;
+  }
+}

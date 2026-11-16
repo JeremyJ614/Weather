@@ -5,7 +5,6 @@ import { revalidateTag } from "next/cache";
 import { CalendarDays } from "lucide-react";
 import { ModuleOff } from "@/components/ops/ModuleOff";
 import { FrontDoorCta } from "@/features/account/FrontDoorCta";
-import { ShareButton } from "@/components/ShareButton";
 import { PageHero } from "@/components/ui/PageHero";
 import { getColors } from "@/lib/colors/server";
 import { ensureDay, readDay, todayMd } from "@/lib/history/days";
@@ -158,10 +157,6 @@ export default async function OnThisDay() {
         subtitle={`${dateName(md)} in weather history: one storm that made its mark on this date, and its story.`}
       />
       <FrontDoorCta what="On This Day" />
-      <ShareButton
-        title={`On this day in weather history: ${dateName(md)}`}
-        className="justify-self-start"
-      />
     </div>
   );
   if (disabled.includes("onthisday"))

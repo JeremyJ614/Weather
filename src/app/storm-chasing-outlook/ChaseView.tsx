@@ -14,6 +14,7 @@ import {
   Trophy,
 } from "lucide-react";
 import { UsMap } from "@/features/maps/UsMap";
+import { CardButtons } from "@/features/share/CardButtons";
 import { Polys, useLayer } from "@/features/maps/useLayer";
 import { slideIn } from "@/features/news/HomeTabs";
 import { project } from "@/lib/map/usAlbers";
@@ -114,8 +115,26 @@ export function ChaseView({
       ? `A quiet day: no SPC marginal risk or higher. The best of the usual chase country is ${t1.place}.`
       : `${t1.mode.mode}: ${t1.place.replace(/^near /, "around ")}${t2 ? `, with a second option ${t2.place.replace(/^near /, "around ")}` : ""}.`);
 
+  const color = band(t1.score);
+  const share = (kind: "overview" | "params" | "mode") => (
+    <CardButtons
+      file={`sswx-chase-${day.day}-${kind}`}
+      title="Storm Chasing Outlook"
+      make={async () =>
+        (await import("./share")).card(kind, {
+          day,
+          tone,
+          color,
+          notes,
+          summary,
+          rank,
+        })
+      }
+    />
+  );
+
   return (
-    <div className={s.page} style={{ ["--c" as string]: band(t1.score) }}>
+    <div className={s.page} style={{ ["--c" as string]: color }}>
       <section className={s.hero} aria-label="Today's chase potential">
         <span className={s.heroGlow} aria-hidden />
         <p className={s.date}>
@@ -183,96 +202,97 @@ export function ChaseView({
             {day.candidates} points scored
           </span>
         </header>
-        <UsMap
-          title="Today's chase targets"
-          sub={null}
-          legend={day.targets.map((x) => ({
-            label: x.rank === 1 ? "Best target" : "Alternative",
-            color: tone(x),
-          }))}
-          status={spc.status === "loading" ? "loading" : "ready"}
-          file="sswx-chase-targets"
-          actions={false}
-          overlay={
-            <g>
-              {t2 &&
-                (() => {
-                  const a = project(t1.lon, t1.lat);
-                  const b = project(t2.lon, t2.lat);
-                  return (
-                    <line
-                      className={s.link}
-                      x1={a.x}
-                      y1={a.y}
-                      x2={b.x}
-                      y2={b.y}
-                      stroke="var(--text)"
-                      strokeOpacity={0.45}
-                      strokeWidth={1.5}
-                      strokeDasharray="4 5"
-                    />
-                  );
-                })()}
-              {[...day.targets].reverse().map((x) => {
-                const p = project(x.lon, x.lat);
-                const c = tone(x);
-                const w = x.place.length * 6.8 + 12;
-                return (
-                  <g
-                    key={x.rank}
-                    transform={`translate(${p.x} ${p.y}) scale(1.8)`}
-                  >
-                    <circle
-                      r={14}
-                      fill="none"
-                      stroke={c}
-                      strokeWidth={2}
-                      className={s.pulse}
-                    />
-                    <g
-                      className={s.pin}
-                      style={{
-                        ["--d" as string]: x.rank === 1 ? "550ms" : "350ms",
-                      }}
-                    >
-                      <circle r={20} fill={c} opacity={0.18} />
-                      <circle
-                        r={8}
-                        fill="var(--bg)"
-                        stroke={c}
-                        strokeWidth={3}
+        <div data-chase-map>
+          <UsMap
+            title="Today's chase targets"
+            sub={null}
+            legend={day.targets.map((x) => ({
+              label: x.rank === 1 ? "Best target" : "Alternative",
+              color: tone(x),
+            }))}
+            status={spc.status === "loading" ? "loading" : "ready"}
+            file="sswx-chase-targets"
+            overlay={
+              <g>
+                {t2 &&
+                  (() => {
+                    const a = project(t1.lon, t1.lat);
+                    const b = project(t2.lon, t2.lat);
+                    return (
+                      <line
+                        className={s.link}
+                        x1={a.x}
+                        y1={a.y}
+                        x2={b.x}
+                        y2={b.y}
+                        stroke="var(--text)"
+                        strokeOpacity={0.45}
+                        strokeWidth={1.5}
+                        strokeDasharray="4 5"
                       />
-                      <circle r={3} fill={c} />
-                      <g transform="translate(0 24)">
-                        <rect
-                          x={-w / 2}
-                          y={-9}
-                          width={w}
-                          height={18}
-                          rx={5}
+                    );
+                  })()}
+                {[...day.targets].reverse().map((x) => {
+                  const p = project(x.lon, x.lat);
+                  const c = tone(x);
+                  const w = x.place.length * 6.8 + 12;
+                  return (
+                    <g
+                      key={x.rank}
+                      transform={`translate(${p.x} ${p.y}) scale(1.8)`}
+                    >
+                      <circle
+                        r={14}
+                        fill="none"
+                        stroke={c}
+                        strokeWidth={2}
+                        className={s.pulse}
+                      />
+                      <g
+                        className={s.pin}
+                        style={{
+                          ["--d" as string]: x.rank === 1 ? "550ms" : "350ms",
+                        }}
+                      >
+                        <circle r={20} fill={c} opacity={0.18} />
+                        <circle
+                          r={8}
                           fill="var(--bg)"
                           stroke={c}
-                          strokeWidth={1}
+                          strokeWidth={3}
                         />
-                        <text
-                          y={4}
-                          textAnchor="middle"
-                          fontSize={11}
-                          fontWeight={700}
-                          fill="var(--text)"
-                        >
-                          {x.place}
-                        </text>
+                        <circle r={3} fill={c} />
+                        <g transform="translate(0 24)">
+                          <rect
+                            x={-w / 2}
+                            y={-9}
+                            width={w}
+                            height={18}
+                            rx={5}
+                            fill="var(--bg)"
+                            stroke={c}
+                            strokeWidth={1}
+                          />
+                          <text
+                            y={4}
+                            textAnchor="middle"
+                            fontSize={11}
+                            fontWeight={700}
+                            fill="var(--text)"
+                          >
+                            {x.place}
+                          </text>
+                        </g>
                       </g>
                     </g>
-                  </g>
-                );
-              })}
-            </g>
-          }
-        >
-          {spc.layer && <Polys polys={spc.layer.polys} />}
-        </UsMap>
+                  );
+                })}
+              </g>
+            }
+          >
+            {spc.layer && <Polys polys={spc.layer.polys} />}
+          </UsMap>
+        </div>
         <p className={s.small}>
           Shaded by SPC&apos;s Day 1 outlook.{" "}
           {t2
@@ -287,20 +307,33 @@ export function ChaseView({
             id: "overview",
             label: "Overview",
             icon: <LayoutGrid aria-hidden />,
-            panel: <OverviewPanel day={day} tone={tone} />,
+            panel: (
+              <div className="grid gap-3">
+                {share("overview")}
+                <OverviewPanel day={day} tone={tone} />
+              </div>
+            ),
           },
           {
             id: "params",
             label: "Parameters",
             icon: <Gauge aria-hidden />,
-            panel: <ParamsPanel targets={day.targets} tone={tone} />,
+            panel: (
+              <div className="grid gap-3">
+                {share("params")}
+                <ParamsPanel targets={day.targets} tone={tone} />
+              </div>
+            ),
           },
           {
             id: "mode",
             label: "Storm Mode",
             icon: <Tornado aria-hidden />,
             panel: (
-              <ModePanel targets={day.targets} notes={notes} tone={tone} />
+              <div className="grid gap-3">
+                {share("mode")}
+                <ModePanel targets={day.targets} notes={notes} tone={tone} />
+              </div>
             ),
           },
           {

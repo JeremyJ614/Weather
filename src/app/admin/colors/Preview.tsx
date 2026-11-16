@@ -96,20 +96,15 @@ export function previewSource(
         url: "/api/engines/preview?e=outmap",
         title: "Day 1's Deer Activity outlook, from the latest GFS run",
       };
-    case "engine-analog":
-      return {
-        url: "/api/engines/preview?e=analog",
-        title: "Today's analog outlook (15 closest past days)",
-      };
-    case "engine-analogdot":
-      return {
-        url: "/api/engines/preview?e=analogdot",
-        title: "Reports on today's closest past day",
-      };
     case "engine-boundpt":
       return {
         url: "/api/engines/preview?e=boundpt",
         title: "Where boundaries meet in the next 3 hours",
+      };
+    case "engine-prob":
+      return {
+        url: "/api/engines/preview?e=prob",
+        title: "Chance of STP 1+ from the last three HRRR runs",
       };
     case "engine-firstT":
       return {

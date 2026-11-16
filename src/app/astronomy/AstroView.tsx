@@ -20,6 +20,7 @@ import { planetsTonight } from "@/lib/sky/planets";
 import { nextShowers } from "@/lib/sky/showers";
 import { ASTRO_LINES } from "@/lib/sky/style";
 import s from "./Astro.module.css";
+import { InfoScrub } from "@/components/charts/InfoScrub";
 
 const tm = (d: Date | null | undefined) =>
   d
@@ -307,7 +308,7 @@ function Tonight({
         <svg
           viewBox={`0 0 ${W} ${H + 16}`}
           className="w-full"
-          role="img"
+          role="group"
           aria-label="Sun and moon height above the horizon over the next day"
         >
           <rect
@@ -347,6 +348,30 @@ function Tonight({
           <text x={4} y={H / 2 - 4} fontSize={8.5} fill="var(--muted)">
             horizon
           </text>
+          <InfoScrub
+            label="Sun and moon height"
+            x0={0}
+            x1={W}
+            top={6}
+            bottom={H - 6}
+            width={W}
+            height={H + 16}
+            title={(i) =>
+              arc[i].at.toLocaleTimeString("en-US", {
+                hour: "numeric",
+                minute: "2-digit",
+              })
+            }
+            series={(["sun", "moon"] as const).map((k) => ({
+              key: k,
+              label: k === "sun" ? "Sun" : "Moon",
+              color: c(k),
+              y: arc.map((p) => y(p[k])),
+              text: arc.map((p) =>
+                p[k] > 0 ? `${Math.round(p[k])}° up` : "below",
+              ),
+            }))}
+          />
         </svg>
         <div className={s.legend}>
           <span>

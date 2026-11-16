@@ -3,7 +3,9 @@ import { PLACES } from "@/lib/geo/places.data";
 import { nearestPlace, parsePlaces } from "@/lib/geo/search";
 import { pathAreas, type Segment } from "./areas";
 import { TOR_BINS } from "./colors";
-import { ahead, cone, motion, torOutlook, type Cell } from "./project";
+import { shear03 } from "./fields";
+import { ahead, boosted, cone, motion, torOutlook, type Cell } from "./project";
+import { findLines, ingredients, type Ingredients } from "./qlcs";
 
 /**
  * Reads NOAA/CIMSS ProbSevere v3 (MRMS, new every 2 minutes) and turns it into the ProbTor
@@ -43,6 +45,7 @@ export function cells(raw: Raw): Cell[] {
         jump: num(p.LJA) > 0,
         east: num(p.MOTION_EAST),
         north: -num(p.MOTION_SOUTH),
+        size: num(p.SIZE),
       };
     });
 }
@@ -81,6 +84,12 @@ export type EngineStorm = {
   wind: number;
   mph: number;
   toward: string;
+  /** Storm motion (m/s east and north) and the storm's outline, for the radar check. */
+  east: number;
+  north: number;
+  size: number;
+  /** In a line of storms: the Three Ingredients and the boost they gave. */
+  line?: Ingredients;
 };
 
 /** Every ProbSevere file on the server (about the last 25 hours), oldest first. */
@@ -105,6 +114,26 @@ export function placeOf(lat: number, lon: number) {
     : `${lat.toFixed(2)}, ${lon.toFixed(2)}`;
 }
 
+/**
+ * Storms in a line (post-launch A6 "squall-line boost") with their Three Ingredients. Only
+ * storms ProbSevere rates 30%+ severe count, and the HRRR shear is only read when a line exists.
+ */
+async function squallLines(all: Cell[]) {
+  const out = new Map<string, Ingredients>();
+  const lines = findLines(all.filter((c) => c.severe >= 30));
+  if (!lines.length) return out;
+  const shear = await shear03().catch(() => null);
+  if (!shear) return out;
+  const byId = new Map(all.map((c) => [c.id, c] as const));
+  for (const l of lines)
+    for (const id of l.ids) {
+      const c = byId.get(id)!;
+      const sh = shear(c.lat, c.lon);
+      if (sh) out.set(id, ingredients(c, l, sh));
+    }
+  return out;
+}
+
 export async function probSevere() {
   const names = await fileNames();
   const latest = names.at(-1);
@@ -121,8 +150,11 @@ export async function probSevere() {
   const tor: GeoJSON.Feature[] = [];
   const torPaths: Segment[] = [];
   const storms: EngineStorm[] = [];
-  for (const c of cells(now)) {
-    const o = torOutlook(c, prev.get(c.id));
+  const all = cells(now);
+  const lineOf = await squallLines(all);
+  for (const c of all) {
+    const line = lineOf.get(c.id);
+    const o = boosted(torOutlook(c, prev.get(c.id)), line?.boost ?? 1);
     if (o.p20 < 3) continue;
     const m = motion(c);
     storms.push({
@@ -139,6 +171,10 @@ export async function probSevere() {
       wind: Math.round(c.wind),
       mph: m.mph,
       toward: m.toward,
+      east: c.east,
+      north: c.north,
+      size: c.size ?? 0,
+      ...(line && line.met > 0 ? { line } : {}),
     });
     for (const [from, to, p, step] of [
       [40, 60, o.p60, 2],
@@ -182,6 +218,10 @@ export type WrapStorm = {
   srw: number;
   pwat: number;
   lcl: number;
+  /** Storm motion (m/s) and area (km²), for the radar read. */
+  east: number;
+  north: number;
+  size: number;
 };
 
 /**
@@ -220,6 +260,9 @@ export async function wrapStorms() {
       srw: Math.round(srw),
       pwat: Math.round(pwat * 100) / 100,
       lcl: Math.round((lcl * 3.281) / 100) * 100,
+      east: num(p.MOTION_EAST),
+      north: -num(p.MOTION_SOUTH),
+      size: num(p.SIZE),
     });
   }
   out.sort((a, b) => b.tor - a.tor || b.wrap - a.wrap);

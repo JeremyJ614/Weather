@@ -13,3 +13,4 @@ public/samples/
 src/data/archive/
 # Built by scripts/build-us-lines.py; kept compact.
 public/geo/
+public/extras/blindspot.json

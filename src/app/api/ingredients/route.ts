@@ -1,6 +1,7 @@
 import { shear06, srh } from "@/lib/sswxcon/kinematics";
 import { stp, swti } from "@/lib/ingredients/calc";
 import { hazardProbs, threat } from "@/lib/timing/calc";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 const LEVELS = ["10m", "925hPa", "850hPa", "700hPa", "500hPa"] as const;
 const MODELS = [
@@ -38,6 +39,8 @@ async function getJson(
  * sunrise and sunset. Open-Meteo, cached 30 minutes.
  */
 export async function GET(request: Request) {
+  const slow = limited(request, "ingredients", LIMITS.normal);
+  if (slow) return slow;
   const q = new URL(request.url).searchParams;
   const lat = Number(q.get("lat"));
   const lon = Number(q.get("lon"));

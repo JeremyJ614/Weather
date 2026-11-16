@@ -26,6 +26,7 @@ import {
   kpNeeded,
 } from "@/lib/aurora/style";
 import s from "./Aurora.module.css";
+import { InfoScrub } from "@/components/charts/InfoScrub";
 
 type Ovation = {
   observed: string;
@@ -112,7 +113,7 @@ export function AuroraView({ colors }: { colors: Colors }) {
             id: "au-map",
             label: "Interactive",
             icon: <MapIcon aria-hidden />,
-            panel: <OvalMap o={d.ovation} a={a} />,
+            panel: <OvalMap o={d.ovation} a={a} kp={d.kp} kc={kc} />,
           },
           {
             id: "au-img",
@@ -295,9 +296,13 @@ const runs = (pts: [number, number][]) =>
 export function OvalMap({
   o,
   a,
+  kp,
+  kc,
 }: {
   o: Ovation | null;
   a: (k: string) => string;
+  kp?: Now["kp"];
+  kc?: (k: string) => string;
 }) {
   const { active } = usePlaces();
   const map = useRef<MaplibreMap | null>(null);
@@ -405,6 +410,31 @@ export function OvalMap({
         label="Aurora oval map"
         className="h-[55dvh] min-h-80"
         onReady={onReady}
+        file="sswx-aurora-forecast"
+        card={async (shot) => {
+          const k = kp?.now?.kp ?? null;
+          const band = k != null ? kpBand(k) : null;
+          const peak = (kp?.bars ?? [])
+            .filter(
+              (b) =>
+                b.kind === "predicted" &&
+                Date.parse(b.at) < now() + 15 * 3600_000,
+            )
+            .reduce((m, b) => Math.max(m, b.kp), 0);
+          const { auroraCard } = await import("./share");
+          return auroraCard({
+            shot,
+            accent: a("p20"),
+            kp: k,
+            band,
+            kpColor: band && kc ? kc(band.key) : a("p20"),
+            peak,
+            forecast: o ? hr(o.forecast) : null,
+            legend: [...AURORA_RAMP, ...AURORA_LINES].map(
+              (r) => [r.label, a(r.key)] as [string, string],
+            ),
+          });
+        }}
       />
       <div className={s.legend}>
         {AURORA_RAMP.map((r) => (
@@ -547,6 +577,40 @@ export function KpPanel({
               </text>
             ) : null,
           )}
+          <InfoScrub
+            label="Kp index, observed and forecast"
+            xs={k.bars.map((_, i) => i * bw + bw / 2)}
+            top={0}
+            bottom={H}
+            width={W}
+            height={H + 16}
+            lit={false}
+            start={Math.max(0, nowIdx - 1)}
+            title={(i) =>
+              new Date(k.bars[i].at).toLocaleString("en-US", {
+                weekday: "short",
+                hour: "numeric",
+              })
+            }
+            series={[
+              {
+                key: "kp",
+                label: "Kp",
+                color: "var(--accent)",
+                y: k.bars.map((b) => H - (Math.max(0.15, b.kp) / 9) * H),
+                text: k.bars.map((b) => `Kp ${b.kp.toFixed(1)}`),
+              },
+            ]}
+            rows={(i) => [
+              {
+                label: k.bars[i].kind === "predicted" ? "Forecast" : "Observed",
+                text:
+                  KP_SCALE.find((x) => x.key === kpBand(k.bars[i].kp).key)
+                    ?.label ?? "",
+                color: kc(kpBand(k.bars[i].kp).key),
+              },
+            ]}
+          />
         </svg>
         <p className={s.muted}>
           Solid bars are observed, faded bars forecast; the dashed line is now.
@@ -642,6 +706,41 @@ function WindPanel({ w, a }: { w: Wind | null; a: (k: string) => string }) {
           <text x={4} y={12} fontSize={8.5} fill="var(--muted)">
             northward
           </text>
+          <InfoScrub
+            label="Bz over the last three hours"
+            x0={0}
+            x1={W}
+            top={4}
+            bottom={H - 4}
+            width={W}
+            height={H}
+            start={w.length - 1}
+            title={(i) =>
+              new Date(w[i].t).toLocaleTimeString("en-US", {
+                hour: "numeric",
+                minute: "2-digit",
+              })
+            }
+            series={[
+              {
+                key: "bz",
+                label: "Bz",
+                color: "var(--accent)",
+                y: w.map((p) => (p.bz == null ? null : y(p.bz))),
+                text: w.map((p) =>
+                  p.bz == null ? null : `${p.bz > 0 ? "+" : ""}${p.bz} nT`,
+                ),
+              },
+            ]}
+            rows={(i) => [
+              ...(w[i].v != null
+                ? [{ label: "Speed", text: `${w[i].v} km/s` }]
+                : []),
+              ...(w[i].n != null
+                ? [{ label: "Density", text: `${w[i].n} p/cm³` }]
+                : []),
+            ]}
+          />
         </svg>
         <p className={s.read}>
           {south

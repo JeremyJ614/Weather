@@ -18,6 +18,7 @@ import { pick, type Colors } from "@/lib/colors/pick";
 import type { WinterAlert, WinterHere } from "@/lib/winter/data";
 import { PROB, PROB_KINDS, type ProbKind } from "@/lib/winter/style";
 import s from "./Winter.module.css";
+import { InfoScrub } from "@/components/charts/InfoScrub";
 
 type Overlay = {
   id: string;
@@ -408,7 +409,7 @@ function Timeline() {
       <svg
         viewBox="0 0 360 120"
         className="w-full"
-        role="img"
+        role="group"
         aria-label="Snowfall and temperature, next 72 hours"
       >
         <line
@@ -462,6 +463,35 @@ function Timeline() {
               })}
             </text>
           ))}
+        <InfoScrub
+          label="Snowfall and temperature, next 72 hours"
+          x0={2}
+          x1={(d.hours.length - 1) * 5 + 2}
+          top={16}
+          bottom={100}
+          width={360}
+          height={120}
+          title={(i) =>
+            new Date(d.hours[i].t).toLocaleString("en-US", {
+              weekday: "short",
+              hour: "numeric",
+            })
+          }
+          series={[
+            {
+              key: "temp",
+              label: "Temp",
+              color: "var(--accent)",
+              y: d.hours.map((h) => y(h.temp)),
+              text: d.hours.map((h) => `${Math.round(h.temp)}°`),
+            },
+          ]}
+          rows={(i) =>
+            d.hours[i].snow
+              ? [{ label: "Snow", text: inch(d.hours[i].snow) }]
+              : []
+          }
+        />
       </svg>
       <p className={s.muted}>
         Bars: snowfall per hour (peak {inch(max === 0.3 ? 0 : max)}). Line:

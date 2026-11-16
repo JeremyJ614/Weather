@@ -1,7 +1,10 @@
 import { winterHere } from "@/lib/winter/data";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 /** GET /api/winter/here?lat=&lon= → winter alerts plus hourly and daily snow at a place. */
 export async function GET(req: Request) {
+  const slow = limited(req, "winter/here", LIMITS.normal);
+  if (slow) return slow;
   const q = new URL(req.url).searchParams;
   const lat = Number(q.get("lat"));
   const lon = Number(q.get("lon"));

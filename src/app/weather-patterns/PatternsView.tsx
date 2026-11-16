@@ -18,7 +18,9 @@ import { ERO_LEVELS } from "@/lib/flood/levels";
 import type { OutlookDay, Period } from "@/lib/patterns/data";
 import type { Season } from "@/lib/patterns/season";
 import { INDEX_LABELS, PAT_COLORS, indexBand } from "@/lib/patterns/style";
+import { CardButtons } from "@/features/share/CardButtons";
 import s from "./Patterns.module.css";
+import { InfoScrub } from "@/components/charts/InfoScrub";
 
 const REGIONS = [
   ["nw", "Northwest"],
@@ -300,6 +302,17 @@ export function PatternsView({
               surveys added: one storm can make several reports, and counts
               change as offices review them.
             </p>
+            <CardButtons
+              file={`sswx-weather-patterns-${p.id}`}
+              title={`Weather Patterns · ${p.label}`}
+              make={async () =>
+                (await import("./share")).periodCard({
+                  p,
+                  range: range(p),
+                  color: c,
+                })
+              }
+            />
           </>
         )}
       </section>
@@ -466,6 +479,20 @@ export function PatternsView({
               this year); the strongest tornado, EF3+ days, deaths and pace come
               from NWS damage surveys. Updated twice a day.
             </p>
+            <CardButtons
+              file={`sswx-season-so-far-${season.year}`}
+              title="Weather Patterns · Season so far"
+              make={async () =>
+                (await import("./share")).seasonCard({
+                  season,
+                  range:
+                    season.since && season.through
+                      ? `${day(season.since)} – ${day(season.through)}`
+                      : "Since Jan 1",
+                  color: c,
+                })
+              }
+            />
           </>
         )}
       </section>
@@ -533,7 +560,7 @@ function Series({
       <svg
         viewBox="0 0 320 104"
         className="w-full"
-        role="img"
+        role="group"
         aria-label={`Storm reports per ${bin > 1 ? "week" : "day"}, ${when({ ...bars[0], to: bars.at(-1)!.to })}`}
       >
         <line x1={L} x2={R} y1={B} y2={B} className={s.axis} />
@@ -589,6 +616,35 @@ function Series({
             </g>
           );
         })}
+        <InfoScrub
+          label={`Storm reports per ${bin > 1 ? "week" : "day"}`}
+          xs={bars.map((_, i) => L + i * w + w / 2)}
+          top={T}
+          bottom={B}
+          width={320}
+          height={104}
+          lit={false}
+          start={bars.length - 1}
+          title={(i) => when(bars[i])}
+          series={[
+            {
+              key: "all",
+              label: "Reports",
+              color: "var(--accent)",
+              y: bars.map(
+                (b) => B - ((b.torn + b.hail + b.wind) / max) * (B - T),
+              ),
+              text: bars.map((b) => String(b.torn + b.hail + b.wind)),
+            },
+          ]}
+          rows={(i) =>
+            (["torn", "hail", "wind"] as const).map((k) => ({
+              label: k === "torn" ? "Tornado" : k === "hail" ? "Hail" : "Wind",
+              text: String(bars[i][k]),
+              color: c(k),
+            }))
+          }
+        />
       </svg>
       <figcaption className={s.legend}>
         {(["torn", "hail", "wind"] as const).map((k) => (
@@ -598,7 +654,8 @@ function Series({
           </span>
         ))}
         <span className={s.per}>
-          reports per {bin > 1 ? "week" : "day"} · tap a bar for its numbers
+          reports per {bin > 1 ? "week" : "day"} · drag across the bars for
+          their numbers
         </span>
       </figcaption>
     </figure>

@@ -5,6 +5,7 @@ import { engineStats } from "@/lib/engines/verify";
 import { reportSummary } from "@/lib/engines/reports";
 import { isLive } from "@/lib/extras/items";
 import { getSiteDefaults } from "@/lib/settings";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 export const maxDuration = 60;
 
@@ -24,7 +25,16 @@ const IDS: FieldId[] = [
   "bound",
 ];
 // Engines that flag places and show their own hit rate.
-const CHECKED = new Set<FieldId>(["blizz", "first", "bound"]);
+const CHECKED = new Set<FieldId>([
+  "blizz",
+  "first",
+  "bound",
+  "stp",
+  "scp",
+  "dcp",
+  "nst",
+  "tctor",
+]);
 
 /**
  * GET ?e=<engine id>: one model-driven engine's map and list,
@@ -32,6 +42,8 @@ const CHECKED = new Set<FieldId>(["blizz", "first", "bound"]);
  * refresh key press) skips the server's own copy and reads the stored map.
  */
 export async function GET(req: Request) {
+  const slow = limited(req, "engines/field", LIMITS.heavy);
+  if (slow) return slow;
   const q = new URL(req.url).searchParams;
   const e = q.get("e") as FieldId;
   if (!IDS.includes(e)) return new Response("Bad request", { status: 400 });

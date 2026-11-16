@@ -58,11 +58,41 @@ export async function engineStats(engine: string, days = 30) {
       .select("id", { count: "exact", head: true })
       .eq("engine", engine)
       .gt("at", since);
-  const [all, hits] = await Promise.all([
+  const [all, hits, last] = await Promise.all([
     q().not("hit", "is", null),
     q().eq("hit", true),
+    db
+      .from("engine_checks")
+      .select("at, label")
+      .eq("engine", engine)
+      .eq("hit", true)
+      .order("at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
-  return { days, checked: all.count ?? 0, hits: hits.count ?? 0 };
+  return {
+    days,
+    checked: all.count ?? 0,
+    hits: hits.count ?? 0,
+    last: last.data
+      ? { at: last.data.at as string, label: last.data.label as string }
+      : null,
+  };
+}
+
+export type EngineStats = Awaited<ReturnType<typeof engineStats>>;
+
+/** Every checked engine's report card (admin → Extras): last 30 and 120 days. */
+export async function reportCards(engines: readonly string[]) {
+  return Promise.all(
+    engines.map(async (e) => {
+      const [m, q] = await Promise.all([
+        engineStats(e, 30).catch(() => null),
+        engineStats(e, 120).catch(() => null),
+      ]);
+      return { engine: e, month: m, season: q };
+    }),
+  );
 }
 
 const stamp = (t: number) =>
@@ -123,9 +153,21 @@ type Check = {
 };
 
 /** Which reports count for each engine's flags. */
+const isTornado = (r: Report) => r.type === "TORNADO";
 const COUNTS: Record<string, (r: Report) => boolean> = {
   surge: isSevere,
   blizz: (r) => r.type === "BLIZZARD" || r.type === "SNOW SQUALL",
+  // Post-launch A1 "skill-scores": the evening-parameter engines and ProbTor are checked too.
+  tor: isTornado,
+  stp: isTornado,
+  tctor: isTornado,
+  nst: (r) =>
+    r.type === "TORNADO" ||
+    r.type === "FUNNEL CLOUD" ||
+    r.type === "WATERSPOUT",
+  scp: (r) => r.type === "TORNADO" || (r.type === "HAIL" && r.mag >= 1),
+  dcp: (r) =>
+    r.type === "TSTM WND DMG" || (r.type === "TSTM WND GST" && r.mag >= 58),
 };
 
 /**

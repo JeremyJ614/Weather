@@ -17,6 +17,17 @@ import {
   type SpeciesId,
 } from "./outdoor";
 import { rainbowAt } from "./rainbow";
+import { riverFlow, waterIndex, waterObs } from "./water";
+import { pressureFactor, rutFor } from "./rut";
+import { stateAt } from "@/lib/history/states";
+import { project } from "@/lib/map/usAlbers";
+
+/** The state a place is in, and its own rut (the owner's state from admin). */
+function rutAt(lat: number, lon: number, cfg: DeerConfig) {
+  const p = project(lon, lat);
+  const st = stateAt(p.x, p.y);
+  return { st, rut: rutFor(st, lat, lon, cfg) ?? cfg.rut };
+}
 
 /**
  * Deer Activity and Fishing Bite (Extras engines) for one place: a 3-day hour-by-hour readout
@@ -250,21 +261,46 @@ export async function placeDetail(
   sp: SpeciesId = "bass",
   tz = "America/New_York",
 ) {
-  const [[h], w, cfg, water] = await Promise.all([
+  const fishing = kind === "fish";
+  const [[h], w, cfg, gauge, lake, flow] = await Promise.all([
     hourly([lat], [lon], 1800),
     tuned(kind),
     kind === "deer" ? deerConfig() : null,
-    kind === "fish" ? gaugeWater(lat, lon) : null,
+    fishing ? gaugeWater(lat, lon) : null,
+    // Post-launch A6: Great Lakes buoys and the GLSEA satellite analysis where no gauge is near.
+    fishing
+      ? waterObs()
+          .then((o) =>
+            waterIndex(o.filter((x) => x.src !== "gauge"))(lat, lon, 25),
+          )
+          .catch(() => null)
+      : null,
+    fishing ? riverFlow(lat, lon).catch(() => null) : null,
   ]);
+  const water =
+    lake && (!gauge || lake.miles < gauge.miles)
+      ? {
+          f: Math.round(lake.f),
+          miles: lake.miles,
+          name:
+            lake.src === "buoy"
+              ? "NOAA Great Lakes buoy"
+              : "Great Lakes satellite analysis",
+        }
+      : gauge;
   const species = speciesOf(sp);
+  const here = cfg ? rutAt(lat, lon, cfg) : null;
   const list = rows(h, lat, lon, 72).map((r) => {
     if (water) r.fish.water = water.f;
     return {
       r,
       v:
         kind === "deer"
-          ? deerScore(r.deer, rutBoost(new Date(r.t), cfg!.rut), w)
-          : fishScore(r.fish, species, w),
+          ? Math.round(
+              deerScore(r.deer, rutBoost(new Date(r.t), here!.rut), w) *
+                pressureFactor(here!.st, r.t, cfg!),
+            )
+          : Math.round(fishScore(r.fish, species, w) * (flow?.factor ?? 1)),
     };
   });
   if (!list.length) throw new Error("No forecast for this place");
@@ -282,7 +318,8 @@ export async function placeDetail(
         .filter((s) => s.start > day)
         .sort((a, b) => a.start.localeCompare(b.start))[0] ?? null;
     extra.state = cfg!.state;
-    extra.rut = rutBoost(new Date(), cfg!.rut);
+    extra.rut = rutBoost(new Date(), here!.rut);
+    extra.hunted = pressureFactor(here!.st, Date.now(), cfg!) < 1;
     extra.legal =
       today.sunrise && today.sunset
         ? {
@@ -315,7 +352,10 @@ export async function placeDetail(
     extra.water = water
       ? {
           f: water.f,
-          from: `${water.name.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())} (${water.miles} mi)`,
+          from: `${water.name
+            .toLowerCase()
+            .replace(/\b\w/g, (c) => c.toUpperCase())
+            .replace(/\bNoaa\b/, "NOAA")} (${water.miles} mi)`,
         }
       : {
           f: Math.round(now.fish.water),
@@ -330,6 +370,7 @@ export async function placeDetail(
     extra.majors = soon(moon.majors, 60 * 60_000).slice(0, 3);
     extra.minors = soon(moon.minors, 30 * 60_000).slice(0, 3);
     extra.species = species.name;
+    extra.flow = flow;
   }
   return {
     at: new Date().toISOString(),
@@ -368,8 +409,14 @@ export async function placeInputs(
   const r = rows(h, lat, lon, 4).find((x) => Math.abs(x.t - at) < 3600_000);
   if (!r) return null;
   if (kind === "deer") {
-    const rut = rutBoost(new Date(at), cfg!.rut);
-    return { inputs: { ...r.deer, rut }, score: deerScore(r.deer, rut, w) };
+    const here = rutAt(lat, lon, cfg!);
+    const rut = rutBoost(new Date(at), here.rut);
+    return {
+      inputs: { ...r.deer, rut },
+      score: Math.round(
+        deerScore(r.deer, rut, w) * pressureFactor(here.st, at, cfg!),
+      ),
+    };
   }
   const sp =
     SPECIES.find((s) => s.name === detail || s.id === detail) ?? SPECIES[0];

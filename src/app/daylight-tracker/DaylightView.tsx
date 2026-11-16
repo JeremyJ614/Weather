@@ -27,6 +27,7 @@ import {
   type SunDay,
 } from "@/lib/weather/daylight";
 import s from "./Daylight.module.css";
+import { InfoScrub } from "@/components/charts/InfoScrub";
 
 const fmtT = (t: Date | null, tz: string) =>
   t
@@ -170,7 +171,12 @@ function YearCurve({
     days.findIndex((d) => d.ymd === today),
   );
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className={s.year} aria-hidden>
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      className={s.year}
+      role="group"
+      aria-label="Day length through the year"
+    >
       <defs>
         <linearGradient id="dl-year" x1="0" x2="1">
           <stop offset="0" stopColor="#4b5fa8" />
@@ -214,6 +220,46 @@ function YearCurve({
         cy={y(days[ti].dayMinutes)}
         r="4.5"
         className={s.todayDot}
+      />
+      <InfoScrub
+        label="Day length through the year"
+        x0={0}
+        x1={W}
+        top={12}
+        bottom={H - 22}
+        width={W}
+        height={H}
+        start={ti}
+        title={(i) =>
+          new Date(`${days[i].ymd}T12:00:00Z`).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            timeZone: "UTC",
+          })
+        }
+        series={[
+          {
+            key: "day",
+            label: "Daylight",
+            color: "var(--accent)",
+            y: days.map((d) => y(d.dayMinutes)),
+            text: days.map(
+              (d) =>
+                `${Math.floor(d.dayMinutes / 60)}h ${Math.round(d.dayMinutes % 60)}m`,
+            ),
+          },
+        ]}
+        rows={(i) => {
+          const diff = Math.round(days[i].dayMinutes - days[ti].dayMinutes);
+          if (i === ti) return [{ label: "Today", text: "" }];
+          const a = Math.abs(diff);
+          return [
+            {
+              label: "vs today",
+              text: `${diff < 0 ? "−" : "+"}${Math.floor(a / 60)}h ${a % 60}m`,
+            },
+          ];
+        }}
       />
     </svg>
   );

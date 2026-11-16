@@ -1,7 +1,10 @@
 import { near } from "@/lib/lightning/data";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 /** GET /api/lightning/near?lat=&lon= → lightning around a place over the last hour. */
 export async function GET(req: Request) {
+  const slow = limited(req, "lightning/near", LIMITS.normal);
+  if (slow) return slow;
   const q = new URL(req.url).searchParams;
   const lat = Math.round(Number(q.get("lat")) * 100) / 100;
   const lon = Math.round(Number(q.get("lon")) * 100) / 100;

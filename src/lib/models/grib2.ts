@@ -359,5 +359,45 @@ export function rowLocator(grid: Grid, lons: Float64Array) {
   };
 }
 
+/** The inverse of `locator`: the lat/lon of grid position (i, j). */
+export function latLonOf(
+  grid: Grid,
+): (i: number, j: number) => [number, number] {
+  if (grid.kind === "latlon")
+    return (i, j) => [
+      grid.southward ? grid.lat1 - j * grid.dj : grid.lat1 + j * grid.dj,
+      ((((grid.lon1 + i * grid.di + 180) % 360) + 360) % 360) - 180,
+    ];
+  const rad = Math.PI / 180;
+  const p1 = grid.latin1 * rad;
+  const p2 = grid.latin2 * rad;
+  const n =
+    Math.abs(p1 - p2) < 1e-9
+      ? Math.sin(p1)
+      : Math.log(Math.cos(p1) / Math.cos(p2)) /
+        Math.log(
+          Math.tan(Math.PI / 4 + p2 / 2) / Math.tan(Math.PI / 4 + p1 / 2),
+        );
+  const F = (Math.cos(p1) * Math.tan(Math.PI / 4 + p1 / 2) ** n) / n;
+  const rho = (lat: number) =>
+    (grid.radius * F) / Math.tan(Math.PI / 4 + (lat * rad) / 2) ** n;
+  const rho0 = rho(grid.lad);
+  let d0 = grid.lon1 - grid.lov;
+  d0 = ((((d0 + 180) % 360) + 360) % 360) - 180;
+  const r1 = rho(grid.lat1);
+  const x0 = r1 * Math.sin(n * d0 * rad);
+  const y0 = rho0 - r1 * Math.cos(n * d0 * rad);
+  return (i, j) => {
+    const x = x0 + i * grid.dx;
+    const y = rho0 - (y0 + j * grid.dy);
+    const r = Math.sign(n) * Math.hypot(x, y);
+    const th = Math.atan2(Math.sign(n) * x, Math.sign(n) * y);
+    const lat =
+      (2 * Math.atan(((grid.radius * F) / r) ** (1 / n)) - Math.PI / 2) / rad;
+    const lon = grid.lov + th / n / rad;
+    return [lat, ((((lon + 180) % 360) + 360) % 360) - 180];
+  };
+}
+
 export const gridSize = (g: Grid) =>
   g.kind === "latlon" ? [g.ni, g.nj] : [g.nx, g.ny];

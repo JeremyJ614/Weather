@@ -80,24 +80,49 @@ export async function checkoutUrl(o: {
   regular: number;
   first: number[];
   origin: string;
+  /** Free days before the first charge (the 7-day VIP trial). */
+  trialDays?: number;
+  /** Percent off for as long as the plan runs (approved spotters and first responders). */
+  forever?: number;
 }) {
   const firstPrice = o.first[0] ?? o.regular;
   const off = o.regular - firstPrice;
+  if (o.forever) {
+    // A lasting discount replaces the first-period price (the member gets the better deal).
+    const lasting = Math.round((o.regular * o.forever) / 100);
+    if (lasting >= off)
+      return checkoutWith(o, { percent_off: o.forever, duration: "forever" });
+  }
   const repeat =
     o.cycle === "month" &&
     o.first.length > 1 &&
     o.first.every((c) => c === firstPrice);
-  const coupon =
+  return checkoutWith(
+    o,
     off > 0
-      ? await stripe<{ id: string }>("coupons", {
+      ? {
           amount_off: off,
           currency: "usd",
           duration: repeat ? "repeating" : "once",
           ...(repeat ? { duration_in_months: o.first.length } : {}),
-          max_redemptions: 1,
-          name: "StormSync first-period price",
-        })
-      : null;
+        }
+      : null,
+  );
+}
+
+async function checkoutWith(
+  o: Parameters<typeof checkoutUrl>[0],
+  couponSpec: Record<string, unknown> | null,
+) {
+  const coupon = couponSpec
+    ? await stripe<{ id: string }>("coupons", {
+        ...couponSpec,
+        max_redemptions: 1,
+        name: couponSpec.percent_off
+          ? "StormSync responder discount"
+          : "StormSync first-period price",
+      })
+    : null;
   const session = await stripe<{ url: string }>("checkout/sessions", {
     mode: "subscription",
     client_reference_id: o.user,
@@ -118,12 +143,66 @@ export async function checkoutUrl(o: {
       },
     ],
     ...(coupon ? { discounts: [{ coupon: coupon.id }] } : {}),
-    metadata: { user_id: o.user },
-    subscription_data: { metadata: { user_id: o.user } },
+    metadata: { user_id: o.user, ...(o.trialDays ? { trial: "1" } : {}) },
+    subscription_data: {
+      metadata: { user_id: o.user },
+      ...(o.trialDays ? { trial_period_days: o.trialDays } : {}),
+    },
     success_url: `${o.origin}/join?paid=1`,
     cancel_url: `${o.origin}/join?canceled=1`,
   });
   return session.url;
+}
+
+/** The Storm Day Pass: one payment, 24 hours of everything. */
+export async function dayPassCheckoutUrl(o: {
+  user: string;
+  email?: string | null;
+  cents: number;
+  hours: number;
+  origin: string;
+}) {
+  const session = await stripe<{ url: string }>("checkout/sessions", {
+    mode: "payment",
+    client_reference_id: o.user,
+    ...(o.email ? { customer_email: o.email } : {}),
+    line_items: [
+      {
+        quantity: 1,
+        price_data: {
+          currency: "usd",
+          unit_amount: o.cents,
+          product_data: {
+            name: `StormSync Weather · Storm Day Pass (${o.hours} hours)`,
+          },
+        },
+      },
+    ],
+    metadata: { user_id: o.user, kind: "daypass" },
+    success_url: `${o.origin}/api/billing/daypass?session={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${o.origin}/join?canceled=1`,
+  });
+  return session.url;
+}
+
+/** One Checkout Session, read back (to confirm a Day Pass on return). */
+export async function getCheckoutSession(id: string) {
+  const r = await fetch(
+    `https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(id)}`,
+    {
+      headers: { Authorization: `Bearer ${process.env.STRIPE_SECRET_KEY}` },
+      cache: "no-store",
+      signal: AbortSignal.timeout(15000),
+    },
+  );
+  if (!r.ok) return null;
+  return (await r.json()) as {
+    id: string;
+    payment_status: string;
+    client_reference_id: string | null;
+    metadata?: Record<string, string>;
+    amount_total?: number;
+  };
 }
 
 /** Stripe's billing portal: update the card, see invoices, cancel. */

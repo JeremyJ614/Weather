@@ -66,7 +66,7 @@ export const MODELS: Record<ModelId, Def> = {
   },
   // HREF retires when REFS goes operational (NWS SCN 26-47/26-48, Fix list 2026-10-30 #8).
   refs: {
-    label: "REFS Ensemble",
+    label: "RRFS Ensemble",
     res: "3 km · 14 members",
     params: REFS,
     cycles: [0, 6, 12, 18],
@@ -199,6 +199,7 @@ export function fieldFor(
       serverGet,
       [m.url(...at), ...(m.alt ? [m.alt(...at)] : [])],
       p,
+      fh,
     );
     recent.set(k, f);
     f.catch(() => recent.delete(k));

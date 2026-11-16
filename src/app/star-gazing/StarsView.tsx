@@ -30,6 +30,7 @@ import {
   type SkyHour,
 } from "@/lib/sky/score";
 import s from "./Stars.module.css";
+import { InfoScrub } from "@/components/charts/InfoScrub";
 
 const Targets = dynamic(() => import("./Targets").then((m) => m.Targets), {
   loading: () => <p className={s.muted}>Loading…</p>,
@@ -66,6 +67,58 @@ function useJson<T>(url: string | null) {
     };
   }, [url]);
   return url && res?.url === url ? res.d : null;
+}
+
+type ScoredHour = SkyHour & { f: ReturnType<typeof skyScore> };
+
+/** The first dark night in the hours given: its best run at 60+ and its peak hour. */
+function nightOf(hours: ScoredHour[], place: { lat: number; lon: number }) {
+  const dark = hours.filter(
+    (h) => sunPosition(h.at, place.lat, place.lon).altitude < -12,
+  );
+  const first: ScoredHour[] = [];
+  for (const h of dark) {
+    if (
+      first.length &&
+      h.at.getTime() - first[first.length - 1].at.getTime() > 3600_000
+    )
+      break;
+    first.push(h);
+  }
+  return {
+    best: bestRun(first, 60),
+    peak: first.reduce<ScoredHour | null>(
+      (b, h) => (!b || h.score > b.score ? h : b),
+      null,
+    ),
+  };
+}
+
+/** What the map's share card says about your night, when you have a place. */
+function nightCard(
+  hours: ScoredHour[],
+  place: { lat: number; lon: number; label: string } | null,
+  c: (k: string) => string,
+) {
+  if (!place || !hours.length) return null;
+  const { best, peak } = nightOf(hours, place);
+  if (!peak) return null;
+  const band = bandOf(peak.score);
+  const at = new Date(now());
+  const n = nightWindow(place.lat, place.lon, at);
+  const ill = moonIllumination(at);
+  return {
+    place: place.label,
+    score: peak.score,
+    band: band.label,
+    color: c(band.key),
+    read: `${best ? `Good skies ${hr(best.start)}–${hr(best.end)} (${best.hours} hours at 60+). ` : `Peaks around ${hr(peak.at)}. `}${peak.f.limiting ? `Holding it back: ${peak.f.limiting.label.toLowerCase()}, ${peak.f.limiting.detail}.` : "Nothing is holding it back."}`,
+    tiles: [
+      { k: "Dark from", v: hm(n.darkStart) },
+      { k: "Dark until", v: hm(n.darkEnd) },
+      { k: "Moon", v: `${Math.round(ill.fraction * 100)}% lit` },
+    ],
+  };
 }
 
 /** Star Gazing Forecast: your night, the national map, and what to point at. */
@@ -145,7 +198,13 @@ export function StarsView({ colors }: { colors: Colors }) {
             id: "sg-map",
             label: "Map",
             icon: <MapIcon aria-hidden />,
-            panel: <SkyMap c={c} onPick={setPicked} />,
+            panel: (
+              <SkyMap
+                c={c}
+                onPick={setPicked}
+                night={() => nightCard(hours, place, c)}
+              />
+            ),
           },
           {
             id: "sg-hours",
@@ -200,23 +259,7 @@ function Tonight({
       mt.map((m) => m[k]).find((t) => t && t > at) ?? null;
     return { n, ill, rise: next("rise"), set: next("set") };
   }, [place.lat, place.lon]);
-  const dark = hours.filter(
-    (h) => sunPosition(h.at, place.lat, place.lon).altitude < -12,
-  );
-  const firstNight: typeof hours = [];
-  for (const h of dark) {
-    if (
-      firstNight.length &&
-      h.at.getTime() - firstNight[firstNight.length - 1].at.getTime() > 3600_000
-    )
-      break;
-    firstNight.push(h);
-  }
-  const best = bestRun(firstNight, 60);
-  const peak = firstNight.reduce<(typeof hours)[number] | null>(
-    (b, h) => (!b || h.score > b.score ? h : b),
-    null,
-  );
+  const { best, peak } = nightOf(hours, place);
   const band = peak ? bandOf(peak.score) : null;
   return (
     <section className={s.tonight}>
@@ -296,9 +339,11 @@ function Tonight({
 function SkyMap({
   c,
   onPick,
+  night,
 }: {
   c: (k: string) => string;
   onPick: (p: { lat: number; lon: number }) => void;
+  night: () => ReturnType<typeof nightCard>;
 }) {
   const g = useJson<Grid>("/api/sky/grid");
   const [view, setView] = useState<"tonight" | "tomorrow" | "hour">("tonight");
@@ -400,6 +445,18 @@ function SkyMap({
         }))}
         status={!g ? "loading" : g === "error" ? "error" : "ready"}
         file={`sswx-stargazing-${view}`}
+        card={async (map) => {
+          const { starsCard } = await import("./share");
+          return starsCard({
+            map,
+            accent: c("excellent"),
+            title,
+            legend: SKY_BANDS.map(
+              (b) => [`${b.label} ${b.min}+`, c(b.key)] as [string, string],
+            ),
+            night: night(),
+          });
+        }}
         onTap={(x, y) => onPick(unproject(x, y))}
       >
         {img?.key === key && img.url && (
@@ -443,7 +500,7 @@ function Hours({
       <svg
         viewBox={`0 0 ${W} ${H + 18}`}
         className="w-full"
-        role="img"
+        role="group"
         aria-label="Stargazing score by hour"
       >
         {[20, 40, 60, 80].map((v) => (
@@ -490,6 +547,32 @@ function Hours({
             )}
           </g>
         ))}
+        <InfoScrub
+          label="Stargazing score by hour"
+          xs={hours.map((_, i) => i * bw + bw / 2)}
+          top={0}
+          bottom={H}
+          width={W}
+          height={H + 18}
+          lit={false}
+          title={(i) => `${day(hours[i].at)} ${hr(hours[i].at)}`}
+          series={[
+            {
+              key: "sky",
+              label: "Score",
+              color: "var(--accent)",
+              y: hours.map((h) => H - (h.score / 100) * H),
+              text: hours.map((h) => `${h.score}/100`),
+            },
+          ]}
+          rows={(i) => [
+            {
+              label: bandOf(hours[i].score).label,
+              text: hours[i].f.limiting?.label ?? "Clear and dark",
+              color: c(bandOf(hours[i].score).key),
+            },
+          ]}
+        />
       </svg>
       <p className={s.muted}>
         Shaded columns are dark hours. Each bar is that hour&apos;s score out of

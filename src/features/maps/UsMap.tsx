@@ -46,11 +46,13 @@ const PROPS = [
   "image-rendering",
 ];
 
-async function toPng(
+export async function toPng(
   svg: SVGSVGElement,
   title: string,
   sub: string,
   legend: Swatch[],
+  /** Just the map, without the title band and legend (for layouts that frame it). */
+  bare = false,
 ) {
   const css = getComputedStyle(document.documentElement);
   // CSS-module classes do not travel with a standalone SVG, so copy each
@@ -97,6 +99,13 @@ async function toPng(
   img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(xml)}`;
   await img.decode();
   const k = 2;
+  if (bare) {
+    const c = document.createElement("canvas");
+    c.width = W * k;
+    c.height = H * k;
+    c.getContext("2d")!.drawImage(img, 0, 0, W * k, H * k);
+    return new Promise<Blob>((ok) => c.toBlob((b) => ok(b!), "image/png"));
+  }
   const band = 92;
   const foot = legend.length ? 70 : 24;
   const c = document.createElement("canvas");
@@ -155,6 +164,7 @@ export function UsMap({
   overlay,
   onTap,
   actions = true,
+  card,
   zoomable = true,
   view,
   maxZoom = 10,
@@ -175,6 +185,8 @@ export function UsMap({
   onTap?: (x: number, y: number) => void;
   /** Show the Download/Share buttons. */
   actions?: boolean;
+  /** The page's own share card, drawn around the bare map. */
+  card?: (map: Blob) => Promise<Blob>;
   title: string;
   sub?: string | null;
   legend: Swatch[];
@@ -259,7 +271,8 @@ export function UsMap({
     if (!svg.current) return;
     setBusy(true);
     try {
-      const blob = await toPng(svg.current, title, sub ?? "", legend);
+      const png = await toPng(svg.current, title, sub ?? "", legend, !!card);
+      const blob = card ? await card(png) : png;
       const name = `${file}.png`;
       const f = new File([blob], name, { type: "image/png" });
       if (share && navigator.canShare?.({ files: [f] })) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import {
   ChevronDown,
   CloudLightning,
@@ -73,7 +73,18 @@ const until = (iso: string) =>
     ? `until ${new Date(iso).toLocaleString("en-US", { timeZone: "America/Chicago", weekday: "short", hour: "numeric", minute: "2-digit" })} CT`
     : "";
 
-function Card({ w, i, big }: { w: Warning; i: number; big?: boolean }) {
+function Card({
+  w,
+  i,
+  big,
+  arrived,
+}: {
+  w: Warning;
+  i: number;
+  big?: boolean;
+  /** Issued since the page opened: arrives with a flash and a ring (post-launch A5). */
+  arrived?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState<
     { description: string; instruction: string } | null | "err"
@@ -94,7 +105,7 @@ function Card({ w, i, big }: { w: Warning; i: number; big?: boolean }) {
   };
   return (
     <article
-      className={`${s.card} ${big ? s.big : ""} ${w.tags.some((t) => t.level === 3) ? s.critical : ""}`}
+      className={`${s.card} ${big ? s.big : ""} ${w.tags.some((t) => t.level === 3) ? s.critical : ""} ${arrived ? (/Tornado Warning/.test(w.event) ? `${s.arrive} ${s.arriveTor}` : s.arrive) : ""}`}
       style={{ ["--c" as string]: w.color, ["--i" as string]: Math.min(i, 12) }}
     >
       <button className={s.cardHead} onClick={toggle} aria-expanded={open}>
@@ -164,6 +175,39 @@ export function WarningsView({
   const [type, setType] = useState("");
   const [here, setHere] = useState<string[]>([]);
   const { active } = usePlaces();
+  // A warning arrives once per device: ones issued while the page is open, and (B6) ones issued
+  // in the last 10 minutes that this phone hasn't shown before. Older ones never animate.
+  const seen = useRef<Set<string> | null>(null);
+  const [arrived, setArrived] = useState<Set<string>>(() => new Set());
+  useEffect(() => {
+    let shown: string[] = [];
+    try {
+      shown = JSON.parse(localStorage.getItem("sswx-warn-seen") ?? "[]");
+    } catch {}
+    seen.current ??= new Set(
+      items
+        .filter(
+          (w) =>
+            shown.includes(w.id) ||
+            !(Date.now() - Date.parse(w.sent) < 10 * 60_000),
+        )
+        .map((w) => w.id),
+    );
+    const fresh = items
+      .filter((w) => !seen.current!.has(w.id))
+      .map((w) => w.id);
+    try {
+      localStorage.setItem(
+        "sswx-warn-seen",
+        JSON.stringify([...new Set([...fresh, ...shown])].slice(0, 300)),
+      );
+    } catch {}
+    if (!fresh.length) return;
+    fresh.forEach((id) => seen.current!.add(id));
+    setArrived(new Set(fresh));
+    const t = setTimeout(() => setArrived(new Set()), 4000);
+    return () => clearTimeout(t);
+  }, [items]);
 
   useEffect(() => {
     const load = () =>
@@ -267,7 +311,7 @@ export function WarningsView({
         <section className="grid gap-2">
           <p className="eyebrow">Most serious right now</p>
           {top.map((w, i) => (
-            <Card key={w.id} w={w} i={i} big />
+            <Card key={w.id} w={w} i={i} big arrived={arrived.has(w.id)} />
           ))}
         </section>
       )}
@@ -303,7 +347,11 @@ export function WarningsView({
         {shown.length === 0 ? (
           <p className={s.empty}>Nothing active for this filter.</p>
         ) : (
-          shown.slice(0, 150).map((w, i) => <Card key={w.id} w={w} i={i} />)
+          shown
+            .slice(0, 150)
+            .map((w, i) => (
+              <Card key={w.id} w={w} i={i} arrived={arrived.has(w.id)} />
+            ))
         )}
         {shown.length > 150 && (
           <p className={s.muted}>

@@ -19,6 +19,29 @@ export const BLIND_BANDS = [
   { label: "Over 10,000 ft", color: "#8b5cf6" },
 ];
 
+/** Coastal Impact: chance of more than 3, 6 or 9 ft of surge (low end of NHC's bins, %). */
+export const COAST_BANDS = [
+  { min: 5, label: "5–20%", color: "#38bdf8" },
+  { min: 20, label: "20–40%", color: "#facc15" },
+  { min: 40, label: "40–60%", color: "#fb923c" },
+  { min: 60, label: "60–80%", color: "#f43f5e" },
+  { min: 80, label: "80% and up", color: "#c026d3" },
+];
+/** Coastal Impact: hours until tropical-storm winds most likely arrive. */
+export const TOA_BANDS = [
+  { max: 12, label: "Under 12 h", color: "#ef4444" },
+  { max: 24, label: "12–24 h", color: "#f97316" },
+  { max: 36, label: "24–36 h", color: "#facc15" },
+  { max: 48, label: "36–48 h", color: "#a3e635" },
+  { max: Infinity, label: "48 h or more", color: "#22d3ee" },
+];
+
+/** Coverage lost while a radar is down (striped), and the down radar's marker. */
+export const BLIND_LOST = {
+  label: "Lost while a radar is down",
+  color: "#f472b6",
+};
+
 /**
  * The model-driven engines (Extras → Weather Engines): each field's band edges, legend labels
  * and default colors, one color per band. Editable as `engine:<id>:<band>`.
@@ -152,18 +175,14 @@ export const BOUND_POINTS = [
   { min: 80, label: "Strong", color: "#f43f5e" },
 ];
 
-/** Severe Analogs: the share of matched days with a severe report within 25 miles. */
-export const ANALOG_BANDS = [
-  { min: 10, label: "10%", color: "#4ade80" },
-  { min: 20, label: "20%", color: "#facc15" },
-  { min: 35, label: "35%", color: "#fb923c" },
-  { min: 50, label: "50%+", color: "#f43f5e" },
-];
-/** Severe Analogs: one matched day's reports. */
-export const ANALOG_DOTS = {
-  torn: { label: "Tornado", color: "#ef4444" },
-  wind: { label: "Wind", color: "#60a5fa" },
-  hail: { label: "Hail", color: "#4ade80" },
+/**
+ * Chance maps (post-launch A6): the share of the last three HRRR runs past an engine's
+ * threshold (STP ≥ 1, SCP ≥ 1), drawn as nested areas. Editable as `engine:prob:<i>`.
+ */
+export const PROB_BANDS = {
+  levels: [10, 30, 50, 70, 90],
+  labels: ["10%", "30%", "50%", "70%", "90%"],
+  colors: ["#5eead4", "#38bdf8", "#a78bfa", "#f472b6", "#fb7185"],
 };
 
 /** First Storms' timing map: when the first storms start, latest first (nested). */

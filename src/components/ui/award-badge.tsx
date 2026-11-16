@@ -1,6 +1,8 @@
 "use client";
 
 import {
+  lazy,
+  Suspense,
   useEffect,
   useId,
   useRef,
@@ -60,6 +62,39 @@ const OVERLAY_KEYFRAMES =
   // The stripe holds still for reduced motion and on low-tier devices.
   "@media (prefers-reduced-motion: reduce){.award-stripe{animation:none!important}}html[data-tier=low] .award-stripe{animation:none!important}";
 
+/*
+ * Phone tilt (post-launch A5 "holo"): on touch screens the plates follow the phone's own
+ * motion, with a foil sheen sliding across. iPhone asks once, on the first tap of a badge;
+ * Android needs no permission. Only plates on screen listen; still for low-tier phones and
+ * Reduce Motion.
+ */
+const HoloSheen = lazy(() => import("./HoloSheen"));
+
+type Tilt = { x: number; y: number };
+function useGyro(el: React.RefObject<HTMLSpanElement | null>) {
+  const [tilt, setTilt] = useState<Tilt | null>(null);
+  useEffect(() => {
+    const node = el.current;
+    if (
+      !node ||
+      !matchMedia("(hover: none)").matches ||
+      matchMedia("(prefers-reduced-motion: reduce)").matches ||
+      document.documentElement.dataset.tier === "low"
+    )
+      return;
+    let stop: (() => void) | null = null;
+    let live = true;
+    void import("./gyro").then((m) => {
+      if (live) stop = m.listenTilt(node, setTilt);
+    });
+    return () => {
+      live = false;
+      stop?.();
+    };
+  }, [el]);
+  return tilt;
+}
+
 export function AwardBadge({
   kicker,
   title,
@@ -80,6 +115,8 @@ export function AwardBadge({
   const [overlayOff, setOverlayOff] = useState(false);
   const [ready, setReady] = useState(false);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const gyro = useGyro(ref);
+  const [sheen, setSheen] = useState(0);
 
   const box = () => {
     const r = ref.current?.getBoundingClientRect();
@@ -156,11 +193,14 @@ export function AwardBadge({
     later(() => setReady(true), 200);
   };
   const onMove = (e: MouseEvent<HTMLSpanElement>) => {
+    const { left, right } = box();
+    setSheen(((e.clientX - left) / Math.max(1, right - left)) * 2 - 1);
     const pos = spread(e);
     later(() => setOverlayPos(pos), 150);
     if (ready) setCurrent(getMatrix(e.clientX, e.clientY));
   };
   const onLeave = (e: MouseEvent<HTMLSpanElement>) => {
+    setSheen(0);
     setCurrent(opposite(shown, e.clientY, false));
     later(() => setCurrent(IDENTITY), 200);
     const pos = overlayPos;
@@ -193,14 +233,19 @@ export function AwardBadge({
       onMouseMove={onMove}
       onMouseLeave={onLeave}
       onMouseEnter={onEnter}
+      onClick={() => void import("./gyro").then((m) => m.askTilt())}
     >
       <style>{OVERLAY_KEYFRAMES}</style>
       <span
         className="block"
         style={{
-          transform: `perspective(700px) matrix3d(${shown})`,
+          transform: gyro
+            ? `perspective(700px) rotateY(${gyro.x * 14}deg) rotateX(${-gyro.y * 12}deg)`
+            : `perspective(700px) matrix3d(${shown})`,
           transformOrigin: "center center",
-          transition: "transform 200ms ease-out",
+          transition: gyro
+            ? "transform 120ms linear"
+            : "transform 200ms ease-out",
         }}
       >
         <svg
@@ -291,6 +336,13 @@ export function AwardBadge({
               </g>
             ))}
           </g>
+          <Suspense fallback={null}>
+            <HoloSheen
+              id={uid}
+              x={gyro ? gyro.x : sheen}
+              on={Boolean(gyro || sheen)}
+            />
+          </Suspense>
         </svg>
       </span>
     </span>

@@ -3,9 +3,12 @@ import {
   hurricaneSummary,
   majorTracks,
 } from "@/lib/climo/server";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 /** GET /api/climo/hurricane → national hurricane climatology; with ?lat=&lon= → within 60 miles of a place; ?tracks → major-hurricane tracks. */
 export async function GET(req: Request) {
+  const slow = limited(req, "climo/hurricane", LIMITS.heavy);
+  if (slow) return slow;
   const q = new URL(req.url).searchParams;
   const headers = {
     "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=604800",

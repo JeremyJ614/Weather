@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { InfoScrub } from "@/components/charts/InfoScrub";
 
 export type Grid = {
   lat0: number;
@@ -122,6 +123,10 @@ export function Bars({
   overColor,
   h = 110,
   every: step = 1,
+  name = "Chart",
+  overName = "Near you",
+  fmt = (v) => (Math.round(v * 10) / 10).toLocaleString(),
+  titles,
 }: {
   values: number[];
   over?: number[];
@@ -130,6 +135,12 @@ export function Bars({
   overColor?: string;
   h?: number;
   every?: number;
+  /** What the bars count, for the readout and screen readers. */
+  name?: string;
+  overName?: string;
+  fmt?: (v: number) => string;
+  /** Readout heading for each bar, when the axis labels skip some. */
+  titles?: string[];
 }) {
   const W = 360;
   const max = Math.max(1, ...values);
@@ -138,8 +149,8 @@ export function Bars({
     <svg
       viewBox={`0 0 ${W} ${h + (labels ? 14 : 0)}`}
       className="w-full"
-      role="img"
-      aria-label="Chart"
+      role="group"
+      aria-label={name}
     >
       {values.map((v, i) => (
         <g key={i}>
@@ -175,6 +186,32 @@ export function Bars({
           )}
         </g>
       ))}
+      {h >= 50 && values.some((v) => v > 0) && (
+        <InfoScrub
+          label={name}
+          xs={values.map((_, i) => i * bw + bw / 2)}
+          top={0}
+          bottom={h}
+          width={W}
+          height={h + (labels ? 14 : 0)}
+          lit={false}
+          title={(i) => titles?.[i] || labels?.[i] || String(i + 1)}
+          series={[
+            {
+              key: "v",
+              label: over ? "All" : name,
+              color,
+              y: values.map((v) => h - (v / max) * h),
+              text: values.map(fmt),
+            },
+          ]}
+          rows={(i) =>
+            over
+              ? [{ label: overName, text: fmt(over[i]), color: overColor }]
+              : []
+          }
+        />
+      )}
     </svg>
   );
 }

@@ -5,9 +5,12 @@ import {
   firePoints,
   perimeters,
 } from "@/lib/fire/data";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 /** GET /api/fire/map?layer=fires|perimeters|day1|day2 → colored GeoJSON for Fire Weather. */
 export async function GET(req: Request) {
+  const slow = limited(req, "fire/map", LIMITS.normal);
+  if (slow) return slow;
   const layer = new URL(req.url).searchParams.get("layer");
   try {
     const colors = await getColors();

@@ -5,6 +5,7 @@ import { GUEST_PATHS } from "@/lib/nav/registry";
 import { EVERY_PAGE } from "@/lib/nav/extras";
 import { cleanBilling, planOpens, type MemberPlan } from "@/lib/billing/plans";
 import { SELLABLE_SLUGS } from "@/lib/billing/sellable";
+import { PASS_COOKIE, passValid } from "@/lib/billing/pass";
 
 const SLUGS = new Set(EVERY_PAGE.map((p) => p.slug).filter(Boolean));
 const SELLABLE_SET = new Set(SELLABLE_SLUGS);
@@ -59,8 +60,26 @@ export async function proxy(request: NextRequest) {
       to.search = `?page=${slug}`;
       return NextResponse.redirect(to);
     }
+    // SSWX Members and Recruits see every page (owner, 2026-11-04).
+    const sswx =
+      (claims?.claims?.app_metadata as { sswx_recruit?: boolean } | undefined)
+        ?.sswx_recruit ||
+      (gate?.locks &&
+        Boolean(
+          (
+            await supabase
+              .from("user_roles")
+              .select("role")
+              .eq("user_id", user.id)
+              .eq("role", "member")
+              .maybeSingle()
+          ).data,
+        ));
     if (
+      !sswx &&
       gate?.locks &&
+      // A Storm Day Pass opens everything until it runs out (post-launch A4).
+      !(await passValid(request.cookies.get(PASS_COOKIE)?.value, user.id)) &&
       !planOpens(
         cleanBilling(gate.billing, SELLABLE_SET),
         gate.plan ?? null,
@@ -80,6 +99,6 @@ export const config = {
   // Skip static files, images, share images, feeds, the service worker and API routes that
   // don't need a session.
   matcher: [
-    "/((?!_next/static|_next/image|\\.well-known|downloads/|vendor|icons|brand|archive/|extras/|sw.js|manifest.webmanifest|api/weather|api/geo|api/cron|api/sswxcon|api/warnings|api/reports|api/spc|api/ingredients|api/maps|api/tropical|api/hazards|api/flood|api/fire|api/winter|api/history|api/models|api/rivers|api/soundings|api/sky|api/aurora|api/lightning|api/climo|api/patterns|api/engines|api/archive|api/stripe/webhook|.*opengraph-image|.*twitter-image|.*\\.(?:png|jpe?g|webp|svg|ico|mjs|txt|xml)$).*)",
+    "/((?!_next/static|_next/image|\\.well-known|downloads/|vendor|icons|brand|archive/|extras/|sw.js|manifest.webmanifest|api/weather|api/geo|api/cron|api/sswxcon|api/warnings|api/reports|api/spc|api/ingredients|api/maps|api/tropical|api/hazards|api/flood|api/fire|api/winter|api/history|api/models|api/rivers|api/soundings|api/sky|api/aurora|api/lightning|api/climo|api/patterns|api/engines|api/archive|api/stripe/webhook|api/jobs/|embed/|news-sitemap|web-stories/|.*opengraph-image|.*twitter-image|.*\\.(?:png|jpe?g|webp|svg|ico|mjs|txt|xml)$).*)",
   ],
 };

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import type {
   GeoJSONSource,
   Map as MaplibreMap,
@@ -16,7 +17,6 @@ import {
   Flame,
   FlaskConical,
   GitMerge,
-  History,
   Radar,
   Rainbow,
   Snowflake,
@@ -34,12 +34,13 @@ import { RefreshKey } from "@/components/ui/RefreshKey";
 import { pick, type Colors } from "@/lib/colors/pick";
 import { stateOf, type ExtrasStates } from "@/lib/extras/items";
 import {
-  ANALOG_BANDS,
-  ANALOG_DOTS,
   BLIND_BANDS,
+  BLIND_LOST,
+  COAST_BANDS,
   BOUND_POINTS,
   FIELD_BANDS,
   FIRST_TIME_BANDS,
+  PROB_BANDS,
   OUTDOOR_BANDS,
   OUTMAP_BANDS,
   PYRO_BINS,
@@ -56,6 +57,8 @@ import { read as readPlaces } from "@/features/location/store";
 import {
   PlacePanel,
   ReportBox,
+  useJustSet,
+  useRainbowHere,
   ReportSummary,
   SpeciesPicker,
   type PlaceData,
@@ -64,10 +67,32 @@ import {
 import type { EngineStorm, WrapStorm } from "@/lib/engines/probsevere";
 import type { SurgeStorm } from "@/lib/engines/surge";
 import type { Areas } from "@/lib/engines/areas";
-import radars from "@/lib/engines/radars.json";
+import {
+  NONE,
+  bandOf,
+  beamAtPixel,
+  loadBlind,
+  milesTo,
+  pixelAt,
+  radarsDown,
+  type Blind,
+} from "@/lib/engines/blindspot";
 import s from "./Engines.module.css";
+import { HIT_MEANS, HitCard, type HitStats } from "./HitCard";
+import { LljNight } from "./LljNight";
+const CoastPanel = dynamic(() => import("./CoastPanel"), { ssr: false });
+import {
+  FineLineFact,
+  RadarFlags,
+  WrapFlags,
+  useFineLines,
+  useRadarReads,
+  useWrapReads,
+  wrapShown,
+} from "./RadarCheck";
+import { withRadar, type TorOutlook } from "@/lib/engines/project";
 
-type Engine = "tor" | "surge" | "analog" | "blind" | FieldId | OutdoorId;
+type Engine = "tor" | "surge" | "blind" | "coast" | FieldId | OutdoorId;
 const FIELDS: FieldId[] = [
   "llj",
   "nst",
@@ -91,9 +116,10 @@ const bandsOf = (e: FieldId | OutdoorId) =>
 /** The map's second and third views, by engine. */
 const VIEWS: Partial<Record<Engine, string[]>> = {
   first: ["Chance", "Timing"],
+  stp: ["Evening peak", "Chance of 1+"],
+  scp: ["Evening peak", "Chance of 1+"],
   sunset: ["Sunset", "Sunrise"],
   rainbow: ["Now", "+30 min", "+60 min"],
-  analog: ["Today", "Tomorrow"],
   bound: ["Now", "In 3 hours"],
   deer: ["Day 1", "Day 2", "Day 3"],
   fish: ["Day 1", "Day 2", "Day 3"],
@@ -106,28 +132,10 @@ type Collision = {
   spread: number;
   kinds: string;
   score: number;
+  /** Maps saved before the storm chance (A6) have only the score. */
+  chance?: number;
+  storms?: string;
   evidence: string[];
-};
-type AnalogData = {
-  day: string;
-  ready: boolean;
-  made_at?: string;
-  cycle?: string;
-  p10?: number;
-  p25?: number;
-  p50?: number;
-  torn?: number;
-  analogs?: { day: string; dist: number; n: number; torn: number }[];
-  areas?: Areas;
-  used?: number;
-  score: {
-    days: number;
-    scored: number;
-    brier: number | null;
-    low: { n: number; hit: number };
-    mid: { n: number; hit: number };
-    high: { n: number; hit: number };
-  } | null;
 };
 type RainbowData = {
   at: string;
@@ -173,6 +181,11 @@ type Fire = {
   lapse: number;
   chance: number;
   blowup: string;
+  /** Satellite fire radiative power (MW): newest pass and the day's peak. */
+  frp?: { now: number; peak: number; at: number; sat: string } | null;
+  /** PyroCb Firepower Threshold (GW) and the plume's condensation height (km). */
+  pft?: { gw: number; zKm: number } | null;
+  heatGw?: number | null;
 };
 type FieldData = {
   cycle: string;
@@ -185,7 +198,7 @@ type FieldData = {
   fires?: Fire[];
   storms?: { name: string; lat: number; lon: number; mph: number }[];
   note: string | null;
-  stats?: { days: number; checked: number; hits: number } | null;
+  stats?: HitStats;
   altSpots?: Spot[] | null;
   points?: Collision[];
   reports?: Summary;
@@ -196,6 +209,7 @@ type Data = {
   storms: EngineStorm[];
   tor: GeoJSON.FeatureCollection;
   torAreas: Areas;
+  stats?: HitStats;
 };
 type SurgeData = {
   at: string;
@@ -203,7 +217,7 @@ type SurgeData = {
   minutes: number;
   storms: SurgeStorm[];
   polys: GeoJSON.FeatureCollection;
-  stats: { days: number; checked: number; hits: number } | null;
+  stats: HitStats;
 };
 const EMPTY: GeoJSON.FeatureCollection = {
   type: "FeatureCollection",
@@ -215,20 +229,9 @@ const SECTIONS: { name: string; ids: Engine[] }[] = [
   { name: "Storms now", ids: ["tor", "surge", "bound", "first"] },
   {
     name: "Forecast",
-    ids: [
-      "analog",
-      "stp",
-      "scp",
-      "rwrap",
-      "dcp",
-      "ltg",
-      "llj",
-      "nst",
-      "blizz",
-      "pyro",
-      "tctor",
-    ],
+    ids: ["stp", "scp", "rwrap", "dcp", "ltg", "llj", "nst", "blizz", "pyro"],
   },
+  { name: "Tropical", ids: ["coast", "tctor"] },
   { name: "Outdoors", ids: ["sunset", "rainbow", "deer", "fish"] },
   { name: "Tools", ids: ["blind"] },
 ];
@@ -262,12 +265,6 @@ const ENGINES: {
     name: "First Storms",
     sub: "Where storms start, 6 h",
     icon: <Sprout aria-hidden />,
-  },
-  {
-    id: "analog",
-    name: "Severe Analogs",
-    sub: "Past days like today",
-    icon: <History aria-hidden />,
   },
   {
     id: "stp",
@@ -348,6 +345,12 @@ const ENGINES: {
     icon: <Fish aria-hidden />,
   },
   {
+    id: "coast",
+    name: "Coastal Impact",
+    sub: "Surge odds and wind arrival",
+    icon: <Waves aria-hidden />,
+  },
+  {
     id: "tctor",
     name: "Hurricane Tornadoes",
     sub: "Landfalling storm risk",
@@ -367,6 +370,8 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
     body: [
       "Every storm comes from NOAA and the University of Wisconsin's ProbSevere v3, which blends radar, satellite, lightning and the HRRR model into a tornado chance for each storm, updated every two minutes.",
       "ProbTor carries that chance 20 minutes forward and nudges it by what the storm is doing right now: whether its low-level rotation (radar azimuthal shear) has grown or weakened over the last 10 minutes, and whether its lightning has suddenly jumped, which often comes 10 to 20 minutes before severe weather.",
+      "Storms in a line (a squall line, where ProbSevere misses many tornadoes) are tested with the Three Ingredients Method forecasters use: 0–3 km shear of 30 knots or more from the HRRR, 30 knots of it running across the line, and a segment surging ahead of the rest. Two or three ingredients raise the chance by half or double it.",
+      "For the leading storms (or any storm you tap), your phone reads the nearest Weather Service radar's newest lowest scan straight from NOAA's public archive and measures the rotation itself: the strongest inbound-outbound couplet near the storm, as rotational velocity. The chance moves toward what NWS studies found for that much rotation (about 10% at 20 knots, half at 45, up to 85% past 65). A drop in correlation coefficient right on the rotation is a debris signature and means a tornado is likely on the ground. Rotation more than 10,000 feet up or 90 miles out is too high to read.",
       "Each storm is projected along its own motion for 0–20, 20–40 and 40–60 minutes, and the map draws the chances the way SPC draws an outlook: nested, outlined areas around each path that fade with distance, merging where storms run together. Zoom in to see each storm's own 20-minute cones. The later chances only fade: past half an hour nobody can say much more.",
       "This is an experimental guide, never a warning. Act on National Weather Service warnings.",
     ],
@@ -375,7 +380,8 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
     lead: "A 10 to 20 minute heads-up, with false alarms.",
     body: [
       "A storm's lightning often jumps just before it turns severe, as a strengthening updraft lofts more ice and charges the cloud faster. This engine follows each storm NOAA and the University of Wisconsin's ProbSevere is tracking, reading its total flash rate from every new file (one every 2 minutes) for the last 20 minutes.",
-      'It uses the "2σ" lightning jump from research by Schultz and others: the change in flash rate over each 2 minutes is compared with how much it varied over the 10 minutes before. A rise more than two standard deviations above that, in a storm flashing at least 10 times a minute, is a jump, and the storm stays flagged for 10 minutes. A jump of three or more, or one the radar backs up with tightening low-level rotation or a hail core growing by a quarter inch, is a strong jump.',
+      'It uses the "2σ" lightning jump from research by Schultz and others: the change in flash rate over each 2 minutes is compared with how much it varied over the 10 minutes before. A rise more than two standard deviations above that, in a storm flashing at least 10 times a minute, is a jump, and the storm stays flagged for 10 minutes. A jump of three or more, or one the radar backs up with tightening low-level rotation or a hail core growing by a quarter inch, is a strong jump. The bars show the jump\'s size, 2σ, 3σ or 4σ and up: the bigger the jump, the more often severe weather follows.',
+      "Storms are followed from file to file by where they are, not only by their ID: an older storm belongs to a current one when its center, carried forward on the storm's motion, lands inside its outline. When two storms merge their flash rates are added together, and when one splits its rate is shared by size, so neither looks like a jump.",
       "In research with ground-based lightning networks about 4 in 5 severe storms jumped first, with roughly a third of jumps never followed by severe weather. Ordinary storms jump too, and reports are missed where few people live. The hit rate below is this engine's own, checked every hour against the Weather Service's storm reports.",
       "This is an experimental guide, never a warning. Act on National Weather Service warnings.",
     ],
@@ -386,23 +392,19 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
       "Storms and tornadoes favor the places where two boundaries meet: a front and a dryline (the triple point), an outflow boundary running into a front or a sea breeze. This engine follows your ten-step design.",
       "It reads the newest HRRR run hour by hour for the next three, and marks boundaries where the surface wind converges along a sharp change in temperature (fronts, outflow) or dew point (drylines). Stretches at least 50 km long are followed from hour to hour, which gives their movement; where two join, or a temperature boundary runs into a moisture boundary, is a collision, timed with an uncertainty that grows with lead time.",
       "Each collision is checked against what is there now: airport winds converging (a least-squares fit of every station within 50 miles), dew points or temperatures splitting across it, the Weather Prediction Center's analyzed fronts, and the HRRR's CAPE, inhibition, low-level spin and shear. The score weighs that evidence; the list says which sources agree.",
+      "Each collision then gets a storm chance: how sure the meeting is, times the fuel (CAPE) and how much the cap gives way, a little more with deep shear to organize storms, and more again where the HRRR itself starts a storm within 25 miles in that hour. It is calibrated against how past collisions verified, so 60% means storms formed about six times in ten.",
+      "For the two leading collisions (or any you tap), your phone reads the nearest Weather Service radar within 70 miles and looks for fine lines: the thin bands of weak echo that insects and dust draw where air is converging, which is how forecasters actually see outflow boundaries, fronts and drylines. It says how far the nearest one is, how long and which way it runs.",
       "Strong collisions are checked afterwards against radar (did storms form within 25 miles?) and the hit rate shows below. Station spacing means a boundary can't be placed closer than 15–25 miles.",
-    ],
-  },
-  analog: {
-    lead: "Moderate skill: better than the date's averages, checked every day.",
-    body: [
-      "Forecasters have long asked what happened on days that looked like this one. After Saint Louis University's CIPS analogs, this compares today's and tomorrow's weather from the newest GFS run (daily means of 500 mb height, 850 mb temperature, 850 and 500 mb winds, precipitable water and the lifted index, on a 2.5° grid over the Lower 48) with every day since 2004 within six weeks of the same date, from NOAA's NCEP/NCAR reanalysis.",
-      "Each past day is boiled down to a 40-number fingerprint (principal components, weighted toward instability and moisture), and the 15 closest days are the analogs. The chances are the share of them that had 10, 25 or 50 or more severe reports (tornadoes, 1-inch hail, 58 mph wind or damage) in SPC's database; the map is the share with a report within 25 miles of each spot.",
-      "It runs four times a day after each GFS run. Once a day is over, it is scored against that day's real reports; the score below is the last 90 days. The reanalysis is coarse, so analogs catch the pattern, not where a storm will be.",
-      "Tap a past day to see its reports on the map.",
     ],
   },
   blind: {
     lead: "Precise: it is geometry.",
     body: [
       "Radar beams travel in a straight line while the Earth curves away underneath, so the farther a spot is from a radar, the higher the lowest beam passes over it.",
-      "This shows the center of the lowest (0.5°) beam from the nearest of the 159 NWS radars, using the standard 4/3-Earth model, measured above the radar. Terrain is not included, so in the West mountains block more than this shows.",
+      "This shows how high the lowest beam that gets through passes above the ground, from 236 radars: the 159 NWS radars, the 45 FAA airport radars (TDWR, out to 90 km where their Doppler winds work) and Canada's 32 radars near the border, using the standard 4/3-Earth model.",
+      "Terrain blocking: every radar's beams are traced outward over elevation data (USGS NED and SRTM, about 2 km). Where the ground rises above a tilt's center line, that tilt is blocked from there on and the next tilt up is used, which is why valleys behind ridges in the West light up as blind.",
+      "Lowest real tilt: each U.S. radar's angle comes from its own newest lowest-tilt product (some airport radars scan as low as 0.1°); Canadian radars use 0.4°.",
+      "Radars down now: the NWS radar status feed is checked each time this opens. A radar that isn't operating or hasn't sent data for 30 minutes is marked, and the area it covered is striped with the next radar's height.",
       "Where the beam is thousands of feet up, a tornado's rotation near the ground can hide under it. Tap anywhere to see the beam height there.",
     ],
   },
@@ -410,7 +412,9 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
     lead: "Good for tonight's pattern; placement within about 100 miles.",
     body: [
       "After sunset the ground cools, friction drops away and the wind a few thousand feet up speeds into a nocturnal low-level jet, which feeds overnight storms and can turn them severe after dark.",
-      "From the latest HRRR run, this compares the 850 and 925 mb wind at about 1 a.m. Central with six hours earlier, then weighs in 0–1 km storm-relative helicity and most-unstable CAPE. 0–100: the higher, the stronger and faster the ramp-up where storms could use it.",
+      "From the latest HRRR run, this finds the real jet at about 1 a.m. Central: the fastest wind on any of six levels between 950 and 750 mb that sits above the ground (the jet's core), compared with six hours earlier, then weighs in 0–1 km storm-relative helicity and most-unstable CAPE. 0–100: the higher, the stronger and faster the ramp-up where storms could use it.",
+      "Each spot is rated on Bonner's scale (a core of 25, 32 or 40 knots with the wind dropping off by 12, 16 or 20 knots at 700 mb; broad flow without that drop counts half) and weighted by how much moisture the jet is carrying north (mixing ratio times the 850 mb wind). The detail line says when the jet peaks between 10 p.m. and 4 a.m. Central, how strong, the level of its core, and whether it is a wet or dry jet.",
+      "Through the night: below the map, your place (or any spot you tap) hour by hour from 6 p.m. to 9 a.m., with the core speed, its Bonner class and the hours it carries deep moisture.",
       "Mountains are left blank where those pressure levels are underground, and the open ocean is skipped.",
     ],
   },
@@ -419,7 +423,8 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
     body: [
       "Landspouts and waterspouts don't come from rotating supercells. They form when a growing storm stretches spin that already sits along a wind boundary at the ground.",
       "This is the Storm Prediction Center's Non-Supercell Tornado parameter from the HRRR for the next hour: steep low-level lapse rates, CAPE in the lowest 3 km, little inhibition, weak deep-layer shear and spin in the 10 m wind. 1 and up is favorable.",
-      "Over water it is a waterspout index, counted only within about 40 miles of land. A storm still has to form on the boundary for anything to happen.",
+      "On land it is weighted up where the HRRR has a boundary (surface winds running into each other or a sharp dew point edge), and up to 60% more around the meeting points Boundary Collisions expects in the next few hours, since that is where the spin waiting to be stretched lives.",
+      "Over water it follows Szilagyi's Waterspout Index instead: how much warmer the water is than the air at 850 mb, how deep the clouds can grow and how light the wind is. The water temperature is measured wherever it can be (NOAA buoys and shore stations, the Great Lakes satellite analysis and lake gauges, blended out to about 40 miles), and the model's elsewhere. It is counted only within about 40 miles of land. A storm still has to form on the boundary for anything to happen.",
     ],
   },
   pyro: {
@@ -427,19 +432,23 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
     body: [
       "The map is the Hot-Dry-Windy Index at the afternoon peak (about 4 p.m. Central) from the HRRR: how dry the air is (vapor pressure deficit) times the 80 m wind. Around 100 and up, fires can blow up.",
       "Each large active fire (100 acres and up, from the national incident feed) gets a pyrocumulonimbus chance: the HDWI there, a steep 700–500 mb lapse rate, enough mid-level moisture for the smoke plume to build into its own thunderstorm, the fire's size, and how much of it is still uncontained.",
+      "Fire power from satellite: NASA FIRMS detections from the VIIRS (NOAA-20, NOAA-21, Suomi NPP) and MODIS passes of the last 24 hours, added up over each fire, give its fire radiative power, the strongest single predictor of a pyroCb. Each fire shows its newest pass and the day's peak.",
+      "PyroCb Firepower Threshold (Tory and Kepert, 2021): from a model sounding over the fire at the afternoon peak, how much heat the fire must put out for its plume to rise past the condensation level and keep going on its own. A fire's total heat is taken as about 6.5 times its radiative power. When the fire gives more than the threshold, the chance goes up sharply; a fire the satellites haven't seen burning in a day keeps only 40% of its weather-only chance.",
     ],
   },
   stp: {
     lead: "Good for where the setup is; storms still have to form.",
     body: [
-      "The Significant Tornado Parameter is the Storm Prediction Center's go-to ingredient blend for tornadoes rated EF2 and up. This is the fixed-layer version from the HRRR at this evening's peak (7 p.m. Central), or as far ahead as the latest run reaches: surface-based CAPE, how low the cloud base (LCL) is, 0–1 km storm-relative helicity, 0–6 km shear and how much the cap is holding storms back.",
+      "The Significant Tornado Parameter is the Storm Prediction Center's go-to ingredient blend for tornadoes rated EF2 and up. This is the effective-layer version SPC prefers, from the HRRR: mixed-layer CAPE, how low the cloud base (LCL) is, effective storm-relative helicity (the HRRR's own), deep-layer shear (0–6 km standing in for the effective layer, which the HRRR doesn't carry) and how much the cap is holding storms back.",
+      "Evening peak shows the highest value between 21Z and 03Z (about 4 to 10 p.m. Central) with the hour it peaks. Chance of 1+ is the share of the last three HRRR runs with STP of 1 or more at 00Z, so you can see how sure the model is.",
       "1 and up marks the environments most significant tornadoes form in; values over 4 are rare and come with the big days. A high number with no storms means nothing happens, so pair it with SPC's outlook.",
     ],
   },
   scp: {
     lead: "Good for where supercells could thrive.",
     body: [
-      "The Supercell Composite Parameter weighs whether a storm would rotate as a supercell: most-unstable CAPE, 0–3 km storm-relative helicity and 0–6 km shear, cut down where the cap is strong. From the HRRR at this evening's peak (or as far ahead as the latest run reaches).",
+      "The Supercell Composite Parameter weighs whether a storm would rotate as a supercell: most-unstable CAPE, effective storm-relative helicity and deep-layer shear (Thompson's effective-layer version), cut down where the cap is strong. Evening peak is the highest value from 21Z to 03Z; Chance of 1+ is the share of the last three HRRR runs at 1 or more at 00Z.",
+      "Each top spot carries a storm-mode hint: deep shear crossing the edge of the instability (where storms start) favors discrete supercells; shear running along it tends to line storms up.",
       "1 and up favors supercells, which bring most large hail and strong tornadoes; above 8 is a classic supercell day. Left-moving storms are left off.",
     ],
   },
@@ -448,19 +457,23 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
     body: [
       "The Derecho Composite Parameter (Evans and Doswell) looks for long-lived, damaging wind storms: downdraft CAPE (how hard cold air can crash down out of a storm), most-unstable CAPE, 0–6 km shear and a fast 0–6 km mean wind to carry the line along. From the HRRR at this evening's peak (or as far ahead as the latest run reaches).",
       "The HRRR doesn't carry downdraft CAPE, so it is worked out here: a parcel let down from the drier of 700 and 500 mb at its wet-bulb temperature to the ground. 2 and up favors derecho-producing systems once a line of storms gets going.",
+      "DCP was built for places a storm complex already exists, so the map counts it in full only within about 125 miles of an organized line in the HRRR (40 dBZ, 60+ miles long, in the three hours before) and at a third elsewhere. The HRRR's own hourly peak gusts weigh it too (half at 30 mph or less, full at 58 mph and up). Each top spot says where a complex would race, from the Corfidi vectors (cloud-layer mean wind and the low-level jet).",
     ],
   },
   ltg: {
     lead: "Good for the next few hours.",
     body: [
       "The HRRR forecasts lightning itself: flashes per square kilometer every five minutes, from the ice and graupel moving up and down inside its storms. This is the most each spot gets over the next three hours.",
+      "The latest real strikes (the last two frames of NOAA's nowCOAST lightning density) are blended in, nudged 40 minutes along the steering wind so they sit where the storms are heading. Each region's model numbers are also scaled by how they have compared with real strikes lately, so a run that keeps over- or under-doing lightning gets corrected.",
       "Isolated means the odd strike; frequent and up means lightning every few seconds nearby. Any thunder you hear means you are close enough to be struck, so head indoors.",
     ],
   },
   first: {
     lead: "Placement within about 50 miles half the time; timing within 1–2 hours.",
     body: [
-      "Where the first storms of the day break through the cap is one of the hardest things to forecast, and one of the most useful for chasing. This engine asks the last four HRRR runs together (a time-lagged ensemble): in each, a new storm is an echo of 35 dBZ or more with none within 25 miles the hour before. The chance is the share of runs that start a storm within 25 miles of a spot in the next 6 hours.",
+      "Where the first storms of the day break through the cap is one of the hardest things to forecast, and one of the most useful for chasing. This engine asks the last four HRRR runs together (a time-lagged ensemble): in each, a new storm is an echo of 35 dBZ or more with none within 25 miles the hour before. The RRFS ensemble's 14 members join them, through its chance of a 40 dBZ echo appearing where it had none within 25 miles the hour before. The chance is the share of all those members that start a storm within 25 miles of a spot in the next 6 hours.",
+      "For the first hour, GOES satellite watches for towers growing now: cloud tops 6 K or more colder than any top nearby 15 minutes earlier, still between about −45 and 0 °C, away from storms radar already has. Where they are, the first hour is near-certain.",
+      "The chances are then smoothed over about 40 km, the way SPC's own guidance is, and calibrated against how this engine's flagged chances have verified over the last 60 days.",
       "That share is weighed by the newest run's support: whether the cap (the inhibition, CIN) is weakening over the next three hours, and whether the surface winds are converging, which gives the air its push. Places without the instability to use (most-unstable CAPE under 100 J/kg) are left out, so winter rain bands don't count as storms.",
       "Switch to Timing to see when the first storms start, soonest on top. Each listed spot gives the time, how many runs agree and why.",
       "Every spot of 35% or more is checked once its 6 hours are over against radar (any storm NOAA's ProbSevere tracked within 25 miles), and the hit rate shows below.",
@@ -470,17 +483,18 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
     lead: "Fair to good: storm type is forecast right about two times in three.",
     body: [
       "Some supercells drop their rain far from the tornado, so it stands out against clear sky (low-precipitation, LP). Others wrap it in curtains of heavy rain, where it can't be seen coming (heavy-precipitation, HP), the most dangerous kind for anyone on the road or chasing.",
-      "Research by Rasmussen and Straka (1998) found the difference is mostly the wind at anvil level relative to the storm: weak flow (under about 18 m/s) lets the rain fall back around the updraft; strong flow (over about 28 m/s) carries it away. From this evening's HRRR (about 7 p.m. Central) the index weighs that wind between 250 and 300 mb against the model's own storm motion (Bunkers right mover) for 60%, deep moisture (precipitable water) for 30% and a low cloud base for 10%, from 1 (visible) to 100 (rain-wrapped).",
+      "Research by Rasmussen and Straka (1998) found the difference is mostly the wind at anvil level relative to the storm: weak flow (under about 18 m/s) lets the rain fall back around the updraft; strong flow (over about 28 m/s) carries it away. From this evening's HRRR (about 7 p.m. Central) the index weighs that wind 9 to 11 km above the ground (Thompson's layer, which separates rain-wrapped from classic supercells best) against the model's own storm motion (Bunkers right mover) for 60%, deep moisture (precipitable water) for 30% and a low cloud base for 10%, from 1 (visible) to 100 (rain-wrapped).",
       "It is shown only where supercells are possible (Supercell Composite 1 or more). Storms that merge or run into each other often turn HP whatever the forecast said.",
-      "The live list scores the rotating storms ProbSevere is tracking right now the same way, from the 4–6 km storm-relative wind and moisture ProbSevere attaches to each (Brooks and others, 1994).",
+      "The live list scores the rotating storms ProbSevere is tracking right now the same way, from the 4–6 km storm-relative wind and moisture ProbSevere attaches to each (Brooks and others, 1994). For the two leading storms (or any you tap), your phone also reads the nearest radar's lowest scan and counts how many of 16 sides of the rotation have heavy rain (35 dBZ and up) 1 to 5 miles out: a classic storm's hook leaves its inflow side open, a rain-wrapped one is wet nearly all the way round. Once read, the score leans 60% on what radar sees.",
     ],
   },
   blizz: {
     lead: "Wind good, snowfall fair, visibility fair to poor.",
     body: [
       "The National Weather Service calls it a blizzard when gusts reach 35 mph with snow, falling or blowing, cutting visibility to a quarter mile or less for three hours or more.",
-      "This counts the hours each place meets that test over the next two days: the newest HRRR run every 2 hours out to 18, then the newest 48-hour run (from 00, 06, 12 or 18Z) every 3 hours. Falling snow counts where the model snows with visibility under half a mile; blowing snow counts where at least 2 inches of snow already lie, it is −5 °C (23 °F) or colder so the snow is dry and loose, and gusts reach 40 mph, even with no snow falling.",
-      "The model's visibility in snow is its weakest part, and it can't know how crusted the snow on the ground is, so marginal places get false alarms. Interstates are drawn bright so you can see which ones cross the whiteout areas.",
+      "This counts the hours each place meets that test over the next two days: the newest HRRR run every 2 hours out to 18, then the newest 48-hour run (from 00, 06, 12 or 18Z) every 3 hours. Falling snow counts where the model snows with visibility under half a mile; blowing snow counts where at least 2 inches of snow lie, even with no snow falling.",
+      "Snow on the ground starts from NOAA NOHRSC's National Snow Analysis (observed depth from stations, aircraft and satellite) instead of the model's guess, plus whatever the model snows after it. Whether it blows follows Li and Pomeroy's research: dry snow starts drifting at a 10 m wind of about 19 mph at −5 °C and less in deeper cold; snow that fell in the last day blows at that, older snow needs about 4 mph more, and snow that has thawed above freezing since it fell is crusted and doesn't blow at all. Visibility drops to a quarter mile at about one and a half times the wind that starts it moving.",
+      "The model's visibility in falling snow is its weakest part, so marginal places can still get false alarms. Interstates are drawn bright so you can see which ones cross the whiteout areas.",
       "Each place with 3 or more hours is checked while it happens against airport reports (a quarter mile or less with 30 kt winds) and afterwards against Weather Service blizzard reports, and the hit rate shows below.",
     ],
   },
@@ -488,24 +502,26 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
     lead: "Right about two times in three on good vs. poor; less a day out.",
     body: [
       "A colorful sunset needs clouds to catch the light, but not in the way: high and middle clouds overhead (best near half cover), little low cloud, and a clear horizon toward the sun so its last light can get under them.",
-      "At each place's own next sunset (and sunrise) this reads the HRRR's low, middle and high cloud there and along the line toward the sun 60 to 400 km out, the haze and smoke (aerosol optical thickness: a little smoke deepens the reds, heavy smoke dims them), the humidity, and whether rain fell in the two hours before, which leaves the air clean.",
-      "The model is weakest at thin high clouds, which make the best sunsets, and \"good\" is a matter of taste. Rate tonight's sunset below: members' stars are compared with the score and tune how much each part counts.",
+      "At each place's own next sunset (and sunrise) this reads the HRRR's low, middle and high cloud there and along the line toward the sun 60 to 400 km out, the smoke over you and toward the sun (HRRR-Smoke's column of wildfire smoke, as an optical depth: a little deepens the reds, heavy smoke dims them), the humidity, and whether rain fell in the two hours before, which leaves the air clean.",
+      "For sunsets in the next three hours, what GOES satellite sees now counts more the nearer sunset is: its infrared cloud tops split into high (colder than −28 °C), middle (−28 to −8 °C) and low cloud (warmer, but colder than the ground), there and along the sun line.",
+      'The model is weakest at thin high clouds, which make the best sunsets, and "good" is a matter of taste. Right after the sun sets where you are, this page asks for a star rating: members\' stars are compared with the score and tune how much each part counts.',
     ],
   },
   rainbow: {
     lead: "About 50–70% right with live radar; poor more than an hour ahead.",
     body: [
       "The physics is exact: a rainbow forms 42° around the point straight opposite the sun, so you need the sun behind you and lower than 42°, rain in front of you, and sunlight reaching that rain.",
-      "For each place this checks NOAA's national radar 5 to 20 km opposite the sun, GOES satellite for open sky toward the sun, and the sun's height. For +30 and +60 minutes the rain and cloud are carried forward on the HRRR's 700 mb wind and the sun moves on. The list says which way to look and how high the top of the bow will stand.",
-      "Showers are small and short-lived, and satellite can't always tell thin cloud from clear sky. Seen one? Tell us below; members' sightings are how this engine is checked.",
+      "For each place this checks NOAA's national radar 5 to 20 km opposite the sun, GOES satellite for open sky toward the sun, and the sun's height. For +30 and +60 minutes the rain and cloud are carried forward on each shower's own tracked motion (NOAA's ProbSevere storms within 50 miles), or the HRRR's 700 mb wind away from them, and the sun moves on. Heavier showers (40 dBZ and up) count a little more and light ones a little less, since bigger drops make brighter bows. The list says which way to look and how high the top of the bow will stand.",
+      "Showers are small and short-lived, and satellite can't always tell thin cloud from clear sky. Seen one? Tell us below (the page asks when a rainbow is likely near your saved place); members' sightings are how this engine is checked.",
     ],
   },
   deer: {
     lead: "Points the right way; the effects are modest.",
     body: [
       "Deer move most at dawn and dusk, more after a cold snap, more as pressure rises behind a front, and less in strong wind or heavy rain. Studies that GPS-collared deer find these effects are real but modest; a sharp drop below recent temperatures is the best supported. The moon matters little, so it is left out.",
-      "Each window gets a score: light 35%, colder than the two days before 25%, pressure change 15%, wind 15%, rain 10%. The rut lifts the whole day (the dates set in admin, Ohio's by default: late October to early December, peaking about November 5–20); outside it the best hour tops out at 80.",
-      "The map is an outlook for the lower 48, Days 1 to 3, drawn like SPC's: every half degree is scored at its own dawn and dusk from the GFS model's 3-hourly forecast (recomputed with each new run), and the better window counts. Categories run Fair, Good, Very good, Excellent and Peak.",
+      "Each window gets a score weighted the way the collar studies found: light 50%, colder than the two days before 20%, wind 14%, pressure change 8%, rain 8%. The rut lifts the whole day, from each state's own peak as its wildlife agency reports it (zones where a state's rut runs months apart: South Florida breeds in late summer, south Alabama and Mississippi in January, South Texas in December), and your own state's dates from admin; outside the rut the best hour tops out at 80.",
+      "The opening days of each state's firearms season cut daylight movement (by a fifth for three days, a tenth to day ten), since hunting pressure pushes deer to move after dark. Openers follow each state's usual rule and can shift a few days by year or zone.",
+      "The map is an outlook for the lower 48, Days 1 to 3, drawn like SPC's: every half degree is scored at its own dawn and dusk from the GFS model's 3-hourly forecast (recomputed with each new run), with Day 1's temperature and wind from the 3 km HRRR where its 48-hour run reaches, and the better window counts. Categories run Fair, Good, Very good, Excellent and Peak.",
       "Tap the map (or use your place) for that spot's next three days hour by hour from Open-Meteo, legal shooting hours, today's season and where to sit with the wind. Season dates are kept in admin; always check the state's regulations. Log deer you see: reports tune the weights.",
     ],
   },
@@ -513,65 +529,96 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
     lead: "A conditions guide built on anglers' wisdom; reports make it better.",
     body: [
       "The science is thin: solunar theory has little evidence and the pressure effect is mostly anglers' rule of thumb. This scores what anglers swear by, hour by hour: low light at dawn and dusk (20%), the moon's major periods (overhead and underfoot) and minor ones (rise and set) (20%), pressure (25%: slowly falling ahead of a front is best, a fast rise behind one is worst), a light chop (10%) and clouds (10%) for the species that like them, and water in the species' comfortable range (15%).",
-      "The map is an outlook for the lower 48, Days 1 to 3, drawn like SPC's: every half degree is scored at its own dawn and dusk from the GFS model's 3-hourly forecast (recomputed with each new run), with water estimated from five days of air temperature. Categories run Fair, Good, Very good, Excellent and Peak.",
-      "Pick a species; tap the map or use your place for three days hour by hour, with water from the nearest USGS gauge that measures it (or estimated from the past week's air), the best times and when the next front passes.",
+      "The map is an outlook for the lower 48, Days 1 to 3, drawn like SPC's: every half degree is scored at its own dawn and dusk from the GFS model's 3-hourly forecast (recomputed with each new run), using measured water wherever it exists: about 2,000 USGS stream and lake gauges reporting now, NOAA's Great Lakes buoys and the Great Lakes satellite analysis (GLSEA), blended with the five-day air temperature estimate farther than 15 miles from a measurement. Categories run Fair, Good, Very good, Excellent and Peak.",
+      "Pick a species; tap the map or use your place for three days hour by hour, with water from the nearest gauge, buoy or lake satellite reading (or estimated from the past week's air), the best times and when the next front passes.",
+      "On a river, the nearest USGS flow gauge within 10 miles is checked against its normal for the date: muddy high water (over 1.5 times normal, or in the top 5% for the date) cuts the score, more so while it is still rising.",
       "Log your catches: they are compared with the score and tune the weights over time.",
+    ],
+  },
+  coast: {
+    lead: "Official NHC data in our design; only on when NHC issues advisories for a U.S. threat.",
+    body: [
+      "Storm surge kills more people in hurricanes than wind. When a hurricane or tropical storm threatens the U.S., the National Hurricane Center runs P-Surge: hundreds of storm tracks, sizes and strengths spread around its forecast, each pushed through its surge model, giving the chance that water rises more than 3, 6 or 9 feet above the ground on every stretch of coast within the next three days.",
+      "It also publishes when tropical-storm-force winds (39 mph) are likely to arrive: the earliest reasonable time (a 1 in 10 chance they come sooner) and the most likely time. That arrival is the deadline to finish preparing, since outdoor work gets dangerous once those winds start.",
+      "The map shows the surge odds for the height you pick as dots and the most likely arrival as shaded squares. Below are the coast's worst stretches (about 15 miles each, named for the nearest town) and every place you have saved.",
+      "When nothing is threatening, an example from Hurricane Helene (2024) can be shown, clearly labeled as the past.",
     ],
   },
   tctor: {
     lead: "Good for the broad zone; band tornadoes are brief.",
     body: [
       "Landfalling tropical storms and hurricanes spawn quick tornadoes in their outer rain bands, mostly on the right side of the track and 50 to 400 miles from the center.",
-      "This multiplies 0–1 km storm-relative helicity by 0–3 km CAPE from the HRRR a few hours ahead, only in that right-side zone around each active storm near the U.S. When no storm is close, the map stays empty.",
+      "This multiplies 0–1 km storm-relative helicity by 0–3 km CAPE from the HRRR, weighted by where around the storm tornadoes really happen. When no storm is close, the map stays empty.",
+      "Shear-relative quadrant: the 0–6 km wind shear around each storm (200 to 500 miles out) points downshear. Research on tropical tornadoes (Edwards; Schenkel and others, 2020) puts most of them downshear right, then downshear left, so those sides weigh most. Where the shear is too weak to read, the side is set by how tornadoes have sat relative to storm motion in the past.",
+      "Along the forecast track: the storm is moved along the National Hurricane Center's forecast points every 6 hours for the next 48 hours (the HRRR's long runs), and each spot keeps its worst time, listed with each top spot.",
+      "Calibrated with history: how risk falls off with distance from the center comes from SPC's tropical tornado database (TCTOR, all 1,783 tropical cyclone tornadoes 1995–2023): it peaks 250 to 400 km (150 to 250 miles) out, half are within 303 km, and few are past 500 km.",
     ],
   },
 };
 
-/** Height (ft) of the lowest radar beam over a point, and which radar, or null if none reaches. */
-function beamAt(lat: number, lon: number) {
-  const Re = (4 / 3) * 6371;
-  const sinT = Math.sin((0.5 * Math.PI) / 180);
-  let best: { ft: number; id: string; mi: number } | null = null;
-  for (const r of radars.radars) {
-    const dlat = ((r.lat - lat) * Math.PI) / 180;
-    const dlon = ((r.lon - lon) * Math.PI) / 180;
-    const a =
-      Math.sin(dlat / 2) ** 2 +
-      Math.cos((lat * Math.PI) / 180) *
-        Math.cos((r.lat * Math.PI) / 180) *
-        Math.sin(dlon / 2) ** 2;
-    const km = 12742 * Math.asin(Math.sqrt(a));
-    if (km > radars.maxKm) continue;
-    const ft =
-      (Math.sqrt(km * km + Re * Re + 2 * km * Re * sinT) - Re) * 3280.84;
-    if (!best || ft < best.ft) best = { ft, id: r.id, mi: km * 0.621 };
-  }
-  return best;
+/** The beam readout where someone taps, with radars that are down taken out. */
+function beamAt(b: Blind, down: Set<number>, lat: number, lon: number) {
+  const got = beamAtPixel(b, pixelAt(b, lat, lon), down);
+  if (!got) return null;
+  const dead = b.r1[pixelAt(b, lat, lon)];
+  if (got.radar === NONE)
+    return {
+      ft: -1,
+      id: "",
+      kind: "",
+      mi: 0,
+      low: 0,
+      lost: b.radars[dead]?.id ?? "",
+    };
+  const r = b.radars[got.radar];
+  return {
+    ft: got.step * b.stepFt,
+    id: r.id,
+    kind: r.kind,
+    mi: milesTo(r, lat, lon),
+    low: r.low,
+    lost: got.lost ? (b.radars[dead]?.id ?? "") : "",
+  };
 }
 
-/** Decodes the blind-spot grid and paints it in the (editable) band colors. */
-async function blindImage(colors: Colors) {
-  const buf = new Uint8Array(
-    await (await fetch("/extras/blindspot.bin")).arrayBuffer(),
-  );
-  const { width, height } = radars;
+/** Paints the blind-spot grid in the (editable) band colors; lost coverage is striped. */
+function blindImage(b: Blind, down: Set<number>, colors: Colors) {
+  const { width, height } = b;
   const c = document.createElement("canvas");
   c.width = width;
   c.height = height;
   const ctx = c.getContext("2d")!;
   const img = ctx.createImageData(width, height);
-  const rgb = BLIND_BANDS.map((b, i) => {
-    const hex = pick(colors, `engine:blind:${i}`, b.color).replace("#", "");
-    const n = parseInt(hex.length === 3 ? hex.replace(/./g, "$&$&") : hex, 16);
-    return [(n >> 16) & 255, (n >> 8) & 255, n & 255, i === 0 ? 90 : 150];
-  });
-  for (let i = 0, k = 0; i < buf.length; i += 2) {
-    const col = rgb[buf[i]] ?? rgb[0];
-    for (let n = 0; n < buf[i + 1]; n++, k++) img.data.set(col, k * 4);
+  const rgbOf = (hex: string, alpha: number) => {
+    const h = hex.replace("#", "");
+    const n = parseInt(h.length === 3 ? h.replace(/./g, "$&$&") : h, 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255, alpha];
+  };
+  const rgb = BLIND_BANDS.map((x, i) =>
+    rgbOf(pick(colors, `engine:blind:${i}`, x.color), i === 0 ? 90 : 150),
+  );
+  const lost = rgbOf(pick(colors, "engine:blind:lost", BLIND_LOST.color), 200);
+  for (let k = 0; k < width * height; k++) {
+    const got = beamAtPixel(b, k, down);
+    const band = got ? bandOf(b, got.step) : 0;
+    const x = k % width;
+    const y = (k / width) | 0;
+    img.data.set(got?.lost && (x + y) % 6 < 2 ? lost : rgb[band], k * 4);
   }
   ctx.putImageData(img, 0, 0);
   return c.toDataURL("image/png");
 }
+
+/** FIRMS satellite codes in plain words. */
+const satName = (s: string) =>
+  ({
+    N: "Suomi NPP",
+    N20: "NOAA-20",
+    N21: "NOAA-21",
+    "1": "NOAA-20",
+    T: "Terra",
+    A: "Aqua",
+  })[s] ?? s;
 
 /** What a listed spot's time means, by engine and view. */
 /** One field engine's map, unpacked. */
@@ -581,9 +628,6 @@ async function fetchField(id: FieldId, v?: string): Promise<FieldData> {
   const d: FieldData = await r.json();
   return { ...d, areas: unpackAreas(d.areas), alt: unpackAreas(d.alt) };
 }
-
-/** Which build of the analogs a page shows. */
-const analogStamp = (a: AnalogData) => a.made_at ?? a.cycle ?? a.day;
 
 const whenLabel = (e: Engine, view: number) =>
   e === "first"
@@ -637,13 +681,6 @@ export function EnginesTab({
   const [view, setView] = useState(0);
   const timing = engine === "first" && view === 1;
   const [rainbow, setRainbow] = useState<RainbowData | "error" | null>(null);
-  const [analogs, setAnalogs] = useState<Record<number, AnalogData | "error">>(
-    {},
-  );
-  const [pastDay, setPastDay] = useState<string | null>(null);
-  const [pastReports, setPastReports] = useState<
-    Record<string, { kind: string; lat: number; lon: number }[] | "error">
-  >({});
   const [species, setSpecies] = useState<SpeciesId>("bass");
   const [placeMaps, setPlaceMaps] = useState<
     Record<string, PlaceMap | "error">
@@ -673,6 +710,11 @@ export function EnginesTab({
     Partial<Record<FieldId, FieldData | "error">>
   >({});
   const engineRef = useRef(engine);
+  /** Radar Blind Spot's grid and the radars down now, loaded the first time it is opened. */
+  const blindRef = useRef<{ data: Blind; down: Set<number> } | null>(null);
+  const [blindState, setBlindState] = useState<
+    { down: string[]; at: string } | "loading" | "error" | null
+  >(null);
   useEffect(() => {
     engineRef.current = engine;
   });
@@ -712,6 +754,8 @@ export function EnginesTab({
     pick(colors, `engine:surge:${i}`, SURGE_BANDS[i].color);
   const timeColor = (i: number) =>
     pick(colors, `engine:firstT:${i}`, FIRST_TIME_BANDS[i].color);
+  const probColor = (i: number) =>
+    pick(colors, `engine:prob:${i}`, PROB_BANDS.colors[i]);
   const pyroColor = (i: number) =>
     pick(colors, `engine:pyrocb:${i}`, PYRO_BINS[i].color);
 
@@ -797,42 +841,6 @@ export function EnginesTab({
       clearInterval(t);
     };
   }, [engine, hold]);
-
-  // Severe Analogs: today's or tomorrow's matches once per visit, and a picked day's reports.
-  const wantAnalog = engine === "analog" && !analogs[view] ? view : null;
-  useEffect(() => {
-    if (wantAnalog == null) return;
-    let live = true;
-    fetch(`/api/engines/analogs?d=${wantAnalog + 1}`)
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then(
-        (d: AnalogData) =>
-          live && setAnalogs((m) => ({ ...m, [wantAnalog]: d })),
-      )
-      .catch(
-        () => live && setAnalogs((m) => ({ ...m, [wantAnalog]: "error" })),
-      );
-    return () => {
-      live = false;
-    };
-  }, [wantAnalog]);
-  const wantPast = pastDay && !pastReports[pastDay] ? pastDay : null;
-  useEffect(() => {
-    if (!wantPast) return;
-    let live = true;
-    fetch(`/api/engines/analogs?a=${wantPast}`)
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then(
-        (d: { reports: { kind: string; lat: number; lon: number }[] }) =>
-          live && setPastReports((m) => ({ ...m, [wantPast]: d.reports })),
-      )
-      .catch(
-        () => live && setPastReports((m) => ({ ...m, [wantPast]: "error" })),
-      );
-    return () => {
-      live = false;
-    };
-  }, [wantPast]);
 
   // Rainbow chances every five minutes while that engine is open.
   useEffect(() => {
@@ -945,28 +953,21 @@ export function EnginesTab({
     };
   }, [engine, hold]);
 
-  // Analogs and the Deer/Fishing outlooks are looked at again every 30 minutes while open.
-  const slowKey = engine === "analog" ? `analog:${view}` : mapKey;
+  // The Deer/Fishing outlooks are looked at again every 30 minutes while open.
+  const slowKey = mapKey;
   useEffect(() => {
     if (!slowKey) return;
     const [kind, part] = slowKey.split(":");
-    const url =
-      kind === "analog"
-        ? `/api/engines/analogs?d=${Number(part) + 1}`
-        : `/api/engines/place?e=${kind}${part ? `&sp=${part}` : ""}`;
+    const url = `/api/engines/place?e=${kind}${part ? `&sp=${part}` : ""}`;
     const check = () =>
       document.visibilityState === "visible" &&
       fetch(url)
         .then((r) => (r.ok ? r.json() : null))
-        .then((d: (AnalogData & PlaceMap) | null) => {
+        .then((d: PlaceMap | null) => {
           const shown = stamps.current[slowKey];
-          const now = d && (kind === "analog" ? analogStamp(d) : d.at);
+          const now = d?.at;
           if (!d || !shown || !now || now === shown) return;
-          hold(engine, "slow", () =>
-            kind === "analog"
-              ? setAnalogs((m) => ({ ...m, [Number(part)]: d }))
-              : showPlaceMap(slowKey, d),
-          );
+          hold(engine, "slow", () => showPlaceMap(slowKey, d));
         })
         .catch(() => undefined);
     const t = setInterval(check, 1_800_000);
@@ -987,8 +988,6 @@ export function EnginesTab({
       if (v && v !== "error") st[k] = v.cycle;
     for (const [k, v] of Object.entries(placeMaps))
       if (v && v !== "error") st[k] = v.at;
-    for (const [k, v] of Object.entries(analogs))
-      if (v && v !== "error") st[`analog:${k}`] = analogStamp(v);
     stamps.current = st;
   });
 
@@ -1019,12 +1018,6 @@ export function EnginesTab({
     if (e === "rainbow")
       jobs.push(get<RainbowData>(`/api/engines/rainbow?${r}`).then(setRainbow));
     if (isField(e)) jobs.push(loadField(e, String(Date.now())));
-    if (e === "analog")
-      jobs.push(
-        get<AnalogData>(`/api/engines/analogs?d=${view + 1}&${r}`).then((d) =>
-          setAnalogs((m) => ({ ...m, [view]: d })),
-        ),
-      );
     if (mapKey && (e === "deer" || e === "fish")) {
       const [k, sp] = mapKey.split(":");
       jobs.push(
@@ -1176,26 +1169,6 @@ export function EnginesTab({
         "circle-stroke-width": 1.5,
       },
     });
-    m.addSource("pastday", { type: "geojson", data: EMPTY });
-    m.addLayer({
-      id: "pastday",
-      type: "circle",
-      source: "pastday",
-      paint: {
-        "circle-color": [
-          "match",
-          ["get", "kind"],
-          "torn",
-          pick(colors, "engine:analogdot:torn", ANALOG_DOTS.torn.color),
-          "hail",
-          pick(colors, "engine:analogdot:hail", ANALOG_DOTS.hail.color),
-          pick(colors, "engine:analogdot:wind", ANALOG_DOTS.wind.color),
-        ],
-        "circle-radius": 3.5,
-        "circle-stroke-color": "#000000",
-        "circle-stroke-width": 0.8,
-      },
-    });
     m.addSource("fires", { type: "geojson", data: EMPTY });
     m.addLayer({
       id: "fires",
@@ -1218,46 +1191,28 @@ export function EnginesTab({
         "circle-stroke-width": 1.2,
       },
     });
-    m.addSource("radars", {
-      type: "geojson",
-      data: {
-        type: "FeatureCollection",
-        features: radars.radars.map((r) => ({
-          type: "Feature",
-          properties: { id: r.id },
-          geometry: { type: "Point", coordinates: [r.lon, r.lat] },
-        })),
-      },
-    });
+    m.addSource("radars", { type: "geojson", data: EMPTY });
     m.addLayer({
       id: "radars",
       type: "circle",
       source: "radars",
       paint: {
-        "circle-radius": 3,
-        "circle-color": "#ffffff",
+        "circle-radius": ["case", ["get", "down"], 6, 3],
+        "circle-color": [
+          "case",
+          ["get", "down"],
+          pick(colors, "engine:blind:lost", BLIND_LOST.color),
+          "#ffffff",
+        ],
         "circle-stroke-color": "#000000",
         "circle-stroke-width": 1,
       },
     });
-    blindImage(colors).then((url) => {
-      const [W, S, E, N] = radars.bounds;
-      m.addSource("blind", {
-        type: "image",
-        url,
-        coordinates: [
-          [W, N],
-          [E, N],
-          [E, S],
-          [W, S],
-        ],
-      });
-      m.addLayer({ id: "blind", type: "raster", source: "blind" }, "radars");
-      show(m, engineRef.current);
-    });
     m.on("click", (e: MapMouseEvent) => {
       if (engineRef.current === "blind") {
-        setBeam(beamAt(e.lngLat.lat, e.lngLat.lng) ?? "none");
+        const b = blindRef.current;
+        if (b)
+          setBeam(beamAt(b.data, b.down, e.lngLat.lat, e.lngLat.lng) ?? "none");
         return;
       }
       if (engineRef.current === "deer" || engineRef.current === "fish")
@@ -1277,9 +1232,8 @@ export function EnginesTab({
       m.setLayoutProperty(id, "visibility", on ? "visible" : "none");
     vis("torA-fill", e === "tor");
     vis("torA-line", e === "tor");
-    vis("fieldA-fill", isField(e) || isPlace(e) || e === "analog");
-    vis("fieldA-line", isField(e) || isPlace(e) || e === "analog");
-    vis("pastday", e === "analog");
+    vis("fieldA-fill", isField(e) || isPlace(e));
+    vis("fieldA-line", isField(e) || isPlace(e));
     vis("collide", e === "bound");
     vis("tor-fill", e === "tor");
     vis("tor-line", e === "tor");
@@ -1290,6 +1244,55 @@ export function EnginesTab({
     vis("fires", e === "pyro");
     vis("roads-hi", e === "blizz");
   };
+
+  // Radar Blind Spot: the grid (about 0.5 MB) and the radars down now load on first open.
+  const blindStarted = useRef(false);
+  useEffect(() => {
+    if (!map || engine !== "blind" || blindStarted.current) return;
+    blindStarted.current = true;
+    let live = true;
+    loadBlind()
+      .then(async (data) => {
+        const down = await radarsDown(data).catch(() => new Set<number>());
+        if (!live) return;
+        blindRef.current = { data, down };
+        (map.getSource("radars") as GeoJSONSource | undefined)?.setData({
+          type: "FeatureCollection",
+          features: data.radars.map((r, i) => ({
+            type: "Feature",
+            properties: { id: r.id, down: down.has(i) },
+            geometry: { type: "Point", coordinates: [r.lon, r.lat] },
+          })),
+        });
+        const [W, S, E, N] = data.bounds;
+        map.addSource("blind", {
+          type: "image",
+          url: blindImage(data, down, colors),
+          coordinates: [
+            [W, N],
+            [E, N],
+            [E, S],
+            [W, S],
+          ],
+        });
+        map.addLayer(
+          { id: "blind", type: "raster", source: "blind" },
+          "radars",
+        );
+        show(map, engineRef.current);
+        setBlindState({
+          down: [...down].map((i) => data.radars[i].id).sort(),
+          at: new Date().toISOString(),
+        });
+      })
+      .catch(() => {
+        blindStarted.current = false;
+        if (live) setBlindState("error");
+      });
+    return () => {
+      live = false;
+    };
+  }, [map, engine]); // eslint-disable-line react-hooks/exhaustive-deps -- colors are read once
 
   // Deer and Fishing cover the lower 48: fit all of it on any screen.
   useEffect(() => {
@@ -1332,35 +1335,6 @@ export function EnginesTab({
       map.setPaintProperty("fieldA-fill", "fill-color", expr);
       map.setPaintProperty("fieldA-line", "line-color", expr);
     }
-    const an = engine === "analog" ? analogs[view] : undefined;
-    if (engine === "analog") {
-      const a = an && an !== "error" && an.areas ? an.areas : EMPTY;
-      (map.getSource("fieldA") as GeoJSONSource | undefined)?.setData(a);
-      const expr = [
-        "match",
-        ["get", "band"],
-        ...ANALOG_BANDS.map((b, i) => [
-          i,
-          pick(colors, `engine:analog:${i}`, b.color),
-        ]).flat(),
-        pick(colors, "engine:analog:0", ANALOG_BANDS[0].color),
-      ] as never;
-      map.setPaintProperty("fieldA-fill", "fill-color", expr);
-      map.setPaintProperty("fieldA-line", "line-color", expr);
-      const pr = pastDay ? pastReports[pastDay] : undefined;
-      (map.getSource("pastday") as GeoJSONSource | undefined)?.setData(
-        pr && pr !== "error"
-          ? {
-              type: "FeatureCollection",
-              features: pr.map((r) => ({
-                type: "Feature",
-                properties: { kind: r.kind },
-                geometry: { type: "Point", coordinates: [r.lon, r.lat] },
-              })),
-            }
-          : EMPTY,
-      );
-    }
     if (isPlace(engine) && placeAreas) {
       (map.getSource("fieldA") as GeoJSONSource | undefined)?.setData(
         placeAreas,
@@ -1384,21 +1358,28 @@ export function EnginesTab({
         type: "FeatureCollection",
         features: (f.points ?? []).map((p) => ({
           type: "Feature",
-          properties: { score: p.score },
+          properties: { score: p.chance ?? p.score },
           geometry: { type: "Point", coordinates: [p.lon, p.lat] },
         })),
       });
     if (f && f !== "error" && isField(engine)) {
       const alt = view === 1 && f.alt;
       const timeBands = engine === "first" && alt;
+      const probBands = (engine === "stp" || engine === "scp") && alt;
       (map.getSource("fieldA") as GeoJSONSource | undefined)?.setData(
         alt ? f.alt! : f.areas,
       );
       const n = timeBands
         ? FIRST_TIME_BANDS.length
-        : FIELD_BANDS[engine].levels.length;
+        : probBands
+          ? PROB_BANDS.levels.length
+          : FIELD_BANDS[engine].levels.length;
       const color = (i: number) =>
-        timeBands ? timeColor(i) : fieldColor(engine, i);
+        timeBands
+          ? timeColor(i)
+          : probBands
+            ? probColor(i)
+            : fieldColor(engine, i);
       const expr = [
         "match",
         ["get", "band"],
@@ -1439,49 +1420,71 @@ export function EnginesTab({
     rainbow,
     placeMaps,
     mapKey,
-    analogs,
-    pastDay,
-    pastReports,
     colors,
   ]);
 
   const storms = data?.storms ?? [];
+  const { reads, run: readRadar } = useRadarReads(
+    engine === "tor" ? storms : [],
+    data?.at,
+  );
   const how = HOW[engine];
+  const current = ENGINES.find((e) => e.id === engine)!;
   const legend: [string, string][] =
     engine === "tor"
       ? TOR_BINS.map((b, i) => [b.label, torColor(i)])
       : engine === "surge"
         ? SURGE_BANDS.map((b, i) => [b.label, surgeColor(i)])
-        : engine === "analog"
-          ? [
-              ...ANALOG_BANDS.map((b, i): [string, string] => [
-                b.label,
-                pick(colors, `engine:analog:${i}`, b.color),
-              ]),
-              ...(pastDay
-                ? (
-                    Object.keys(ANALOG_DOTS) as (keyof typeof ANALOG_DOTS)[]
-                  ).map((k): [string, string] => [
-                    ANALOG_DOTS[k].label,
-                    pick(colors, `engine:analogdot:${k}`, ANALOG_DOTS[k].color),
-                  ])
-                : []),
-            ]
-          : engine === "first" && timing
-            ? FIRST_TIME_BANDS.map((b, i) => [b.label, timeColor(i)])
+        : engine === "first" && timing
+          ? FIRST_TIME_BANDS.map((b, i) => [b.label, timeColor(i)])
+          : (engine === "stp" || engine === "scp") && view === 1
+            ? PROB_BANDS.labels.map((l, i) => [l, probColor(i)])
             : engine === "blind"
-              ? BLIND_BANDS.map((b, i) => [b.label, blindColor(i)])
-              : engine === "deer" || engine === "fish"
-                ? OUTMAP_BANDS.labels.map((l, i) => [l, outColor(i)])
-                : bandsOf(engine).labels.map((l, i) => [
-                    l,
-                    fieldColor(engine, i),
-                  ]);
+              ? [
+                  ...BLIND_BANDS.map(
+                    (b, i) => [b.label, blindColor(i)] as [string, string],
+                  ),
+                  ...(blindState &&
+                  blindState !== "error" &&
+                  blindState !== "loading" &&
+                  blindState.down.length
+                    ? [
+                        [
+                          BLIND_LOST.label,
+                          pick(colors, "engine:blind:lost", BLIND_LOST.color),
+                        ] as [string, string],
+                      ]
+                    : []),
+                ]
+              : engine === "coast"
+                ? COAST_BANDS.map((b, i) => [
+                    b.label,
+                    pick(colors, `engine:coast:${i}`, b.color),
+                  ])
+                : engine === "deer" || engine === "fish"
+                  ? OUTMAP_BANDS.labels.map((l, i) => [l, outColor(i)])
+                  : bandsOf(engine).labels.map((l, i) => [
+                      l,
+                      fieldColor(engine, i),
+                    ]);
   const placeNow =
     mapKey && placeMaps[mapKey] && placeMaps[mapKey] !== "error"
       ? (placeMaps[mapKey] as PlaceMap)
       : null;
+  const wrapRadar = useWrapReads(
+    engine === "rwrap" && wraps && wraps !== "error" ? wraps.storms : [],
+    wraps && wraps !== "error" ? wraps.at : undefined,
+  );
+  const justSet = useJustSet();
+  const bowHere = useRainbowHere(
+    rainbow && rainbow !== "error" ? rainbow.spots[0] : [],
+  );
   const field = isField(engine) ? fields[engine] : undefined;
+  const fine = useFineLines(
+    engine === "bound" && field && field !== "error"
+      ? (field.points ?? [])
+      : [],
+  );
   const valid = (iso: string) =>
     new Date(iso).toLocaleString("en-US", {
       weekday: "short",
@@ -1550,11 +1553,20 @@ export function EnginesTab({
           label="Weather engines map"
           className={s.map}
           onReady={onReady}
+          file={`sswx-engine-${engine}`}
+          card={async (shot) =>
+            (await import("@/features/map/snapshot")).enginePng(shot, {
+              name: current.name,
+              sub: current.sub,
+              how: [how.lead, how.body[0]],
+              legend,
+            })
+          }
         />
         <span className={s.badge}>
           <FlaskConical aria-hidden /> Experimental
         </span>
-        {engine !== "blind" && (
+        {engine !== "blind" && engine !== "coast" && (
           <RefreshKey
             className={s.refresh}
             onPress={refresh}
@@ -1612,6 +1624,9 @@ export function EnginesTab({
           {!data && !failed && (
             <p className={s.small}>Reading the latest scan…</p>
           )}
+          {data?.stats !== undefined && (
+            <HitCard stats={data.stats ?? null} what={HIT_MEANS.tor} />
+          )}
           {data && storms.length === 0 && (
             <p className={s.small}>
               No storm is showing tornado potential right now. ProbSevere is
@@ -1620,56 +1635,71 @@ export function EnginesTab({
             </p>
           )}
           <ul className={s.storms}>
-            {storms.map((x) => (
-              <li key={x.id}>
-                <button type="button" onClick={() => focus(x)}>
-                  <span className={s.where}>
-                    <b>{x.place}</b>
-                    <small>
-                      <ArrowRight aria-hidden /> {x.toward} at {x.mph} mph
-                    </small>
-                  </span>
-                  <span className={s.odds}>
-                    {(
-                      [
-                        ["Now", x.tor],
-                        ["20 min", x.p20],
-                        ["40", x.p40],
-                        ["60", x.p60],
-                      ] as const
-                    ).map(([k, v]) => (
-                      <span key={k}>
-                        <i
-                          style={{
-                            background: torColor(torBin(v)),
-                            transform: `scaleY(${Math.max(0.06, v / 100)})`,
-                          }}
-                        />
-                        <b>{v}%</b>
-                        <small>{k}</small>
+            {storms.map((x) => {
+              const r = reads[x.id];
+              const o = withRadar(
+                { ...x, now: x.tor, trend: x.trend as TorOutlook["trend"] },
+                typeof r === "object" ? r : undefined,
+              );
+              return (
+                <li key={x.id}>
+                  <button type="button" onClick={() => focus(x)}>
+                    <span className={s.where}>
+                      <b>{x.place}</b>
+                      <small>
+                        <ArrowRight aria-hidden /> {x.toward} at {x.mph} mph
+                      </small>
+                    </span>
+                    <span className={s.odds}>
+                      {(
+                        [
+                          ["Now", o.now],
+                          ["20 min", o.p20],
+                          ["40", o.p40],
+                          ["60", o.p60],
+                        ] as const
+                      ).map(([k, v]) => (
+                        <span key={k}>
+                          <i
+                            style={{
+                              background: torColor(torBin(v)),
+                              transform: `scaleY(${Math.max(0.06, v / 100)})`,
+                            }}
+                          />
+                          <b>{v}%</b>
+                          <small>{k}</small>
+                        </span>
+                      ))}
+                    </span>
+                  </button>
+                  <p className={s.flags}>
+                    {x.trend === "rising" && (
+                      <span data-k="up">
+                        <ArrowUpRight aria-hidden /> Rotation tightening
                       </span>
-                    ))}
-                  </span>
-                </button>
-                <p className={s.flags}>
-                  {x.trend === "rising" && (
-                    <span data-k="up">
-                      <ArrowUpRight aria-hidden /> Rotation tightening
-                    </span>
-                  )}
-                  {x.trend === "falling" && (
-                    <span>
-                      <ArrowDownRight aria-hidden /> Rotation weakening
-                    </span>
-                  )}
-                  {x.jump && (
-                    <span data-k="up">
-                      <Zap aria-hidden /> Lightning jump
-                    </span>
-                  )}
-                </p>
-              </li>
-            ))}
+                    )}
+                    {x.trend === "falling" && (
+                      <span>
+                        <ArrowDownRight aria-hidden /> Rotation weakening
+                      </span>
+                    )}
+                    {x.jump && (
+                      <span data-k="up">
+                        <Zap aria-hidden /> Lightning jump
+                      </span>
+                    )}
+                    {x.line && (
+                      <span data-k={x.line.boost > 1 ? "up" : undefined}>
+                        <GitMerge aria-hidden /> Squall line: {x.line.met} of 3
+                        ingredients ({x.line.across} kt shear across it
+                        {x.line.surge ? ", surging" : ""})
+                      </span>
+                    )}
+                    <RadarFlags x={x} read={r} run={readRadar} />
+                  </p>
+                </li>
+              );
+            })}
           </ul>
         </section>
       )}
@@ -1734,8 +1764,22 @@ export function EnginesTab({
                       <span data-k="up">
                         <Zap aria-hidden />{" "}
                         {x.band === 2 ? "Strong jump" : "Jump"}{" "}
-                        {x.since === 0 ? "just now" : `${x.since} min ago`} (
-                        {x.peak}σ)
+                        {x.since === 0 ? "just now" : `${x.since} min ago`}
+                        <em
+                          className={s.sigma}
+                          aria-label={`${x.peak} sigma, level ${x.level} of 4`}
+                        >
+                          {[2, 3, 4].map((l) => (
+                            <i key={l} data-on={x.level >= l || undefined} />
+                          ))}
+                          {x.level >= 4 ? "4σ+" : `${x.level}σ`}
+                        </em>
+                      </span>
+                    )}
+                    {x.merged && (
+                      <span>
+                        <GitMerge aria-hidden /> Merger or split followed by
+                        overlap
                       </span>
                     )}
                     {x.band === 0 && (
@@ -1758,12 +1802,8 @@ export function EnginesTab({
               ))}
             </ul>
           )}
-          {surge && surge !== "error" && surge.stats && (
-            <p className={s.small}>
-              {surge.stats.checked >= 10
-                ? `Hit rate, last ${surge.stats.days} days: ${Math.round((100 * surge.stats.hits) / surge.stats.checked)}% of ${surge.stats.checked} jumps were followed by a severe storm report within 45 minutes and 15 miles.`
-                : `The hit rate shows once 10 jumps have been checked against storm reports (${surge.stats.checked} so far).`}
-            </p>
+          {surge && surge !== "error" && (
+            <HitCard stats={surge.stats} what={HIT_MEANS.surge} />
           )}
         </section>
       )}
@@ -1814,7 +1854,8 @@ export function EnginesTab({
                       <span className={s.where}>
                         <b>{p.place}</b>
                         <small>
-                          {p.kinds}, around {when(p.at)} (±{p.spread} min)
+                          {p.storms ?? "Meeting"} around {when(p.at)} (±
+                          {p.spread} min): {p.kinds}
                         </small>
                       </span>
                       <span className={s.hail}>
@@ -1825,22 +1866,25 @@ export function EnginesTab({
                               `engine:boundpt:${Math.max(
                                 0,
                                 BOUND_POINTS.findLastIndex(
-                                  (b) => p.score >= b.min,
+                                  (b) => (p.chance ?? p.score) >= b.min,
                                 ),
                               )}`,
                               BOUND_POINTS[
                                 Math.max(
                                   0,
                                   BOUND_POINTS.findLastIndex(
-                                    (b) => p.score >= b.min,
+                                    (b) => (p.chance ?? p.score) >= b.min,
                                   ),
                                 )
                               ].color,
                             ),
                           }}
                         />
-                        <b>{p.score}</b>
-                        <small>score</small>
+                        <b>
+                          {p.chance ?? p.score}
+                          {p.chance != null && "%"}
+                        </b>
+                        <small>{p.chance != null ? "storms" : "score"}</small>
                       </span>
                     </button>
                     <ul className={s.facts}>
@@ -1849,6 +1893,12 @@ export function EnginesTab({
                           {e}
                         </li>
                       ))}
+                      <FineLineFact
+                        p={p}
+                        read={fine.reads[`${p.lat},${p.lon}`]}
+                        run={fine.run}
+                        className={`${s.fine} ${s.flags}`}
+                      />
                     </ul>
                   </li>
                 ))}
@@ -1935,6 +1985,16 @@ export function EnginesTab({
                             : ""}{" "}
                           · blowup {f.blowup.toLowerCase()} (HDWI {f.hdwi})
                         </small>
+                        {(f.frp || f.pft) && (
+                          <small>
+                            {f.frp
+                              ? `Fire power ${f.frp.now.toLocaleString("en-US")} MW (${satName(f.frp.sat)} ${time(new Date(f.frp.at).toISOString())}; day's peak ${f.frp.peak.toLocaleString("en-US")} MW)`
+                              : "No satellite fire power in the last day"}
+                            {f.pft
+                              ? ` · PyroCb needs ~${f.pft.gw} GW${f.heatGw !== null && f.heatGw !== undefined ? `, fire gives ~${f.heatGw} GW` : ""}`
+                              : ""}
+                          </small>
+                        )}
                       </span>
                       <span className={s.hail}>
                         <i
@@ -1952,156 +2012,34 @@ export function EnginesTab({
         </section>
       )}
 
-      {isField(engine) && field && field !== "error" && field.stats && (
-        <p className={s.small}>
-          {field.stats.checked >= 10
-            ? `Hit rate, last ${field.stats.days} days: ${Math.round((100 * field.stats.hits) / field.stats.checked)}% of ${field.stats.checked} flagged places saw it happen.`
-            : `The hit rate shows once 10 flagged places have been checked against what happened (${field.stats.checked} so far).`}
-        </p>
+      {engine === "coast" && <CoastPanel map={map} colors={colors} />}
+
+      {engine === "llj" && spot && (
+        <LljNight
+          lat={spot.lat}
+          lon={spot.lon}
+          label={spot.label}
+          color={(c) => fieldColor("llj", [0, 2, 3, 4][c])}
+        />
       )}
 
-      {engine === "analog" && (
-        <section className={s.card}>
-          <header>
-            <h3>{view ? "Tomorrow" : "Today"}, by days like it</h3>
-            {(() => {
-              const a = analogs[view];
-              return a && a !== "error" && a.ready ? (
-                <small>GFS {a.cycle!.slice(8)}Z run</small>
-              ) : null;
-            })()}
-          </header>
-          {(() => {
-            const a = analogs[view];
-            if (!a) return <p className={s.small}>Finding the closest days…</p>;
-            if (a === "error")
-              return (
-                <p className={s.small}>
-                  The analogs aren&apos;t answering right now. Try again in a
-                  few minutes.
-                </p>
-              );
-            if (!a.ready)
-              return (
-                <p className={s.small}>
-                  This day&apos;s match is made after the next GFS run (four
-                  times a day). Check back shortly.
-                </p>
-              );
-            const pct = (x: number) => `${Math.round(x * 100)}%`;
-            return (
-              <>
-                <p className={s.small}>
-                  Chance of this many severe reports across the country:
-                </p>
-                <div className={s.odds}>
-                  {(
-                    [
-                      ["10+", a.p10!],
-                      ["25+", a.p25!],
-                      ["50+", a.p50!],
-                    ] as const
-                  ).map(([k, v]) => (
-                    <span key={k}>
-                      <i
-                        style={{
-                          background: pick(
-                            colors,
-                            `engine:analog:${Math.max(
-                              0,
-                              ANALOG_BANDS.findLastIndex(
-                                (b) => v * 100 >= b.min,
-                              ),
-                            )}`,
-                            ANALOG_BANDS[
-                              Math.max(
-                                0,
-                                ANALOG_BANDS.findLastIndex(
-                                  (b) => v * 100 >= b.min,
-                                ),
-                              )
-                            ].color,
-                          ),
-                          transform: `scaleY(${Math.max(0.06, v)})`,
-                        }}
-                      />
-                      <b>{pct(v)}</b>
-                      <small>{k}</small>
-                    </span>
-                  ))}
-                </div>
-                <p className={s.small}>
-                  The 15 closest days averaged {a.torn} tornado
-                  {a.torn === 1 ? "" : "es"}.{" "}
-                  {a.used! < 15
-                    ? `Report maps were found for ${a.used} of them.`
-                    : ""}
-                </p>
-                <ul className={s.storms}>
-                  {a.analogs!.map((x, i) => (
-                    <li key={x.day}>
-                      <button
-                        type="button"
-                        aria-pressed={pastDay === x.day}
-                        onClick={() =>
-                          setPastDay((d) => (d === x.day ? null : x.day))
-                        }
-                      >
-                        <span className={s.where}>
-                          <b>
-                            {new Date(`${x.day}T12:00:00Z`).toLocaleDateString(
-                              "en-US",
-                              {
-                                month: "long",
-                                day: "numeric",
-                                year: "numeric",
-                                timeZone: "UTC",
-                              },
-                            )}
-                          </b>
-                          <small>
-                            Match #{i + 1} · {x.torn} tornado
-                            {x.torn === 1 ? "" : "es"}
-                            {pastDay === x.day
-                              ? pastReports[x.day] === "error"
-                                ? " · no report file"
-                                : pastReports[x.day]
-                                  ? " · on the map"
-                                  : " · loading…"
-                              : ""}
-                          </small>
-                        </span>
-                        <span className={s.hail}>
-                          <b>{x.n}</b>
-                          <small>reports</small>
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-                {a.score && a.score.scored >= 10 ? (
-                  <p className={s.small}>
-                    Last {a.score.days} days ({a.score.scored} scored): when we
-                    gave 50%+ for 10+ reports it happened {a.score.high.hit} of{" "}
-                    {a.score.high.n} times; under 20%, {a.score.low.hit} of{" "}
-                    {a.score.low.n}. Brier score {a.score.brier} (lower is
-                    better).
-                  </p>
-                ) : (
-                  <p className={s.small}>
-                    The score shows once 10 days have been checked against their
-                    reports ({a.score?.scored ?? 0} so far).
-                  </p>
-                )}
-              </>
-            );
-          })()}
-        </section>
+      {isField(engine) && field && field !== "error" && field.stats && (
+        <HitCard
+          stats={field.stats}
+          what={HIT_MEANS[engine] ?? "A hit is the weather following a flag."}
+        />
       )}
 
       {engine === "sunset" && (
         <>
-          <ReportBox kind="sunset" />
+          <ReportBox
+            kind="sunset"
+            prompt={
+              justSet
+                ? "The sun just set where you are. How was it?"
+                : undefined
+            }
+          />
           {field && field !== "error" && (
             <ReportSummary kind="sunset" sum={field.reports ?? null} />
           )}
@@ -2163,7 +2101,14 @@ export function EnginesTab({
               ))}
             </ul>
           )}
-          <ReportBox kind="rainbow" />
+          <ReportBox
+            kind="rainbow"
+            prompt={
+              bowHere
+                ? "A rainbow could be out near you now. Look away from the sun. See one?"
+                : undefined
+            }
+          />
           {rainbow && rainbow !== "error" && (
             <ReportSummary kind="rainbow" sum={rainbow.reports} />
           )}
@@ -2305,9 +2250,11 @@ export function EnginesTab({
           {wraps && wraps !== "error" && (
             <ul className={s.storms}>
               {wraps.storms.map((x) => {
+                const r = wrapRadar.reads[x.id];
+                const shown = wrapShown(x.wrap, r);
                 const band = Math.max(
                   0,
-                  FIELD_BANDS.rwrap.levels.findLastIndex((l) => x.wrap >= l),
+                  FIELD_BANDS.rwrap.levels.findLastIndex((l) => shown >= l),
                 );
                 return (
                   <li key={x.id}>
@@ -2322,10 +2269,13 @@ export function EnginesTab({
                       </span>
                       <span className={s.hail}>
                         <i style={{ background: fieldColor("rwrap", band) }} />
-                        <b>{x.wrap}</b>
+                        <b>{shown}</b>
                         <small>{FIELD_BANDS.rwrap.labels[band]}</small>
                       </span>
                     </button>
+                    <p className={s.flags}>
+                      <WrapFlags x={x} read={r} run={wrapRadar.run} />
+                    </p>
                   </li>
                 );
               })}
@@ -2339,22 +2289,50 @@ export function EnginesTab({
           <header>
             <h3>Beam height where you tap</h3>
           </header>
-          {beam === null && <p className={s.small}>Tap anywhere on the map.</p>}
-          {beam === "none" && (
+          {beam === null && (
             <p className={s.small}>
-              No NWS radar reaches this spot at the lowest tilt.
+              {blindState === "error"
+                ? "The radar grid didn't load. Reopen the engine to try again."
+                : blindState
+                  ? "Tap anywhere on the map."
+                  : "Loading the radar grid…"}
             </p>
           )}
-          {beam && beam !== "none" && (
+          {beam === "none" && (
+            <p className={s.small}>
+              No radar reaches this spot with a beam that gets past the terrain.
+            </p>
+          )}
+          {beam && beam !== "none" && beam.ft < 0 && (
+            <p className={s.small}>
+              {beam.lost} is down right now and no other radar reaches here.
+            </p>
+          )}
+          {beam && beam !== "none" && beam.ft >= 0 && (
             <p className={s.readout}>
               <b>
-                {Math.round(beam.ft / 100) * 100 >= 1000
-                  ? `${(Math.round(beam.ft / 100) * 100).toLocaleString("en-US")} ft`
-                  : `${Math.round(beam.ft)} ft`}
+                {beam.ft >= 1000
+                  ? `${beam.ft.toLocaleString("en-US")} ft`
+                  : `${beam.ft} ft`}
               </b>
               <span>
-                above the {beam.id} radar, {Math.round(beam.mi)} miles away
+                above the ground, from{" "}
+                {beam.kind === "TDWR"
+                  ? "the airport radar "
+                  : beam.kind === "CA"
+                    ? "Canada's radar "
+                    : ""}
+                {beam.id}, {Math.round(beam.mi)} miles away (lowest tilt{" "}
+                {beam.low}°)
+                {beam.lost ? `; ${beam.lost} is down right now` : ""}
               </span>
+            </p>
+          )}
+          {blindState && blindState !== "error" && blindState !== "loading" && (
+            <p className={s.small}>
+              {blindState.down.length
+                ? `Down right now: ${blindState.down.join(", ")}. Striped areas lost their closest beam and show the next radar's.`
+                : "Every NWS and FAA radar is up right now."}
             </p>
           )}
         </section>

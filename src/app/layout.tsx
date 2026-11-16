@@ -10,6 +10,10 @@ import { Suspense } from "react";
 import { MenuHost } from "@/features/menus/MenuHost";
 import { AppHeader } from "@/components/AppHeader";
 import { introBootScript } from "@/features/intro/schedule";
+import { decodeBootScript } from "@/features/motion/decode";
+import { pullBootScript } from "@/features/motion/pull";
+import { tapMorphBootScript } from "@/features/motion/tapmorph";
+import { holoBootScript } from "@/features/motion/holo";
 import { themeBootScript, themeCss } from "@/lib/theme/css";
 import { fontClassNames } from "@/lib/theme/fonts";
 import { getSiteDefaults } from "@/lib/settings";
@@ -51,6 +55,18 @@ export const metadata: Metadata = {
       "application/rss+xml": [{ url: "/feed.xml", title: "SSWX News" }],
     },
   },
+  // Google Discover shows big pictures only for sites that allow them (B7).
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
   // Search Console and Bing Webmaster ownership, when the owner sets the env vars.
   verification: {
     ...(verify.google && { google: verify.google }),
@@ -84,6 +100,10 @@ export default async function RootLayout({
         <style id="themes" dangerouslySetInnerHTML={{ __html: css }} />
         <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
         <script dangerouslySetInnerHTML={{ __html: introBootScript }} />
+        <script dangerouslySetInnerHTML={{ __html: decodeBootScript }} />
+        <script dangerouslySetInnerHTML={{ __html: pullBootScript }} />
+        <script dangerouslySetInnerHTML={{ __html: tapMorphBootScript }} />
+        <script dangerouslySetInnerHTML={{ __html: holoBootScript }} />
       </head>
       <body>
         <JsonLd data={siteGraph} />

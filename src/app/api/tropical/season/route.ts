@@ -5,6 +5,7 @@ import {
   seasonTotals,
   summariseStorm,
 } from "@/lib/tropical/season";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 const ATCF = "https://ftp.nhc.noaa.gov/atcf";
 
@@ -14,6 +15,8 @@ const ATCF = "https://ftp.nhc.noaa.gov/atcf";
  * are final and kept for 30 days.
  */
 export async function GET(req: Request) {
+  const slow = limited(req, "tropical/season", LIMITS.normal);
+  if (slow) return slow;
   const q = new URL(req.url).searchParams;
   const year = Number(q.get("year"));
   const basin = String(q.get("basin") ?? "").toLowerCase();

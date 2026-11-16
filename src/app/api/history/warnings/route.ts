@@ -1,4 +1,5 @@
 import { monthDone, warningHistory, warningMonth } from "@/lib/history/data";
+import { LIMITS, limited } from "@/lib/ratelimit";
 
 export const maxDuration = 60;
 
@@ -8,6 +9,8 @@ export const maxDuration = 60;
  * month it needs. A finished month never changes, so it is held at the edge for a week.
  */
 export async function GET(req: Request) {
+  const slow = limited(req, "history/warnings", LIMITS.heavy);
+  if (slow) return slow;
   const q = new URL(req.url).searchParams;
   const month = q.get("month");
   if (month) {

@@ -8,6 +8,7 @@ import { PageHero } from "@/components/ui/PageHero";
 import { getSiteDefaults } from "@/lib/settings";
 import { SOURCE, search, shelves } from "@/lib/library/data";
 import s from "./FreeLibrary.module.css";
+import { Morph } from "@/components/ui/Morph";
 
 export const metadata: Metadata = pageMeta(
   "/free-content-library",
@@ -71,7 +72,9 @@ export default async function FreeContentLibrary({
                   <li key={h.slug}>
                     <Link href={`/free-content-library/${h.slug}`}>
                       <small>{shelfName.get(h.section)}</small>
-                      <b>{h.title}</b>
+                      <Morph name={`lib-${h.slug}`}>
+                        <b>{h.title}</b>
+                      </Morph>
                       <span>{h.snippet}</span>
                     </Link>
                   </li>
@@ -98,7 +101,9 @@ export default async function FreeContentLibrary({
                     {x.articles.map((a) => (
                       <li key={a.slug}>
                         <Link href={`/free-content-library/${a.slug}`}>
-                          <b>{a.title}</b>
+                          <Morph name={`lib-${a.slug}`}>
+                            <b>{a.title}</b>
+                          </Morph>
                           <span>{a.summary}</span>
                           <small>{a.reading_minutes} min read</small>
                         </Link>
