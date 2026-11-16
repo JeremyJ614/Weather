@@ -6,6 +6,8 @@ import { PageHero } from "@/components/ui/PageHero";
 import { getColors } from "@/lib/colors/server";
 import { getSiteDefaults } from "@/lib/settings";
 import { getOutlook } from "@/lib/tropical/nhc";
+import { WORLD_BASINS } from "@/lib/tropical/jtwc";
+import { worldStorms } from "@/lib/tropical/world";
 import { TropicalView } from "./TropicalView";
 
 export const metadata: Metadata = pageMeta(
@@ -19,7 +21,12 @@ export default async function TropicalOutlook() {
   const { disabled } = await getSiteDefaults();
   const off = disabled.includes("tropical");
   const colors = await getColors();
-  const data = off ? null : await getOutlook(colors).catch(() => null);
+  const [data, world] = off
+    ? [null, null]
+    : await Promise.all([
+        getOutlook(colors).catch(() => null),
+        worldStorms().catch(() => null),
+      ]);
   return (
     <main className="mx-auto max-w-2xl px-4 pt-4 pb-28">
       <PageHero
@@ -31,7 +38,18 @@ export default async function TropicalOutlook() {
       {off ? (
         <ModuleOff label="Tropical Outlook" />
       ) : data ? (
-        <TropicalView data={data} colors={colors} />
+        <TropicalView
+          data={data}
+          colors={colors}
+          world={
+            world?.map((w) => ({
+              code: w.code,
+              title: w.title,
+              mph: w.mph,
+              where: WORLD_BASINS[w.basin],
+            })) ?? null
+          }
+        />
       ) : (
         <p className="text-muted">
           The National Hurricane Center feed isn&apos;t answering right now. Try

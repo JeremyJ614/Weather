@@ -1,8 +1,13 @@
 import "server-only";
+import { getOutlook, type Storm } from "@/lib/tropical/nhc";
+import { BASINS, compass } from "@/lib/tropical/style";
+import { WORLD_BASINS, type WorldStorm } from "@/lib/tropical/jtwc";
+import { worldStorms } from "@/lib/tropical/world";
 
 /**
  * Earth Watch (post-launch A2, B10): what is happening on the whole planet right now, from
- * free global feeds: GDACS (the UN and EU's disaster alert system: cyclones, floods, wildfires,
+ * free global feeds: tropical cyclones from NHC and the Joint Typhoon Warning Center (the same
+ * storms as the Tropical Outlook page, with their forecast tracks), GDACS (the UN and EU's disaster alert system: cyclones, floods, wildfires,
  * volcanoes, droughts, earthquakes, with alert levels), NASA EONET (storm tracks, wildfires, dust,
  * icebergs, volcanoes), USGS (strong earthquakes) and NSIDC (sea ice extent against 1981–2010).
  * Merged into one list, each event with a 1–5 level, a short story and its source.
@@ -43,14 +48,59 @@ export type EarthEvent = {
   started: string | null;
   updated: string | null;
   source: { name: string; url: string };
+  /** Where a storm has been, oldest first ([lon, lat]). */
   track?: [number, number][];
+  /** A storm's official forecast track from now on ([lon, lat]). */
+  forecast?: [number, number][];
 };
 export type Earth = {
   at: string;
   events: EarthEvent[];
   biggest: string | null;
   counts: Record<Kind, number>;
+  /** The newest satellite frames NASA has published, per satellite (ISO, oldest first). */
+  sat: Record<string, string[]>;
 };
+
+/** The geostationary infrared layers that make up the cloud globe. */
+export const SAT_LAYERS = [
+  "GOES-East_ABI_Band13_Clean_Infrared",
+  "GOES-West_ABI_Band13_Clean_Infrared",
+  "Himawari_AHI_Band13_Clean_Infrared",
+] as const;
+
+/**
+ * NASA publishes geostationary imagery on its own schedule (often 1 to 2 hours behind), so
+ * instead of guessing, ask GIBS which frames exist and take the newest four of each.
+ */
+async function newestFrames(): Promise<Record<string, string[]>> {
+  // A stable window (the six hours up to the next whole hour) so the answer caches.
+  const end = Math.ceil(Date.now() / 3600_000) * 3600_000;
+  const iso = (ms: number) => new Date(ms).toISOString().slice(0, 19) + "Z";
+  const out: Record<string, string[]> = {};
+  await Promise.all(
+    SAT_LAYERS.map(async (l) => {
+      const xml = await get<string>(
+        `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/1.0.0/${l}/default/GoogleMapsCompatible_Level6/all/${iso(end - 6 * 3600_000)}--${iso(end)}.xml`,
+        600,
+      );
+      // "start/end/PT10M" periods (or single times), comma separated.
+      const parts =
+        /<Domain>([^<]+)<\/Domain>/.exec(xml ?? "")?.[1].split(",") ?? [];
+      const times: number[] = [];
+      for (const part of parts.reverse()) {
+        const [a, b, step] = part.trim().split("/");
+        const from = Date.parse(a);
+        const to = b ? Date.parse(b) : from;
+        const dt = step === "PT10M" ? 600_000 : to - from || 600_000;
+        for (let t = to; t >= from && times.length < 4; t -= dt) times.push(t);
+        if (times.length >= 4) break;
+      }
+      if (times.length) out[l] = times.reverse().map(iso);
+    }),
+  );
+  return out;
+}
 
 async function get<T>(url: string, revalidate = 900): Promise<T | null> {
   const r = await fetch(url, {
@@ -59,7 +109,7 @@ async function get<T>(url: string, revalidate = 900): Promise<T | null> {
     signal: AbortSignal.timeout(20000),
   }).catch(() => null);
   if (!r?.ok) return null;
-  return (url.endsWith(".csv") ? r.text() : r.json()).catch(
+  return (/\.(csv|xml)$/.test(url) ? r.text() : r.json()).catch(
     () => null,
   ) as Promise<T | null>;
 }
@@ -82,6 +132,130 @@ const tidy = (s: string) =>
       /\b([A-Z])([A-Z]{2,})\b/g,
       (_, a: string, b: string) => a + b.toLowerCase(),
     );
+
+/* ── Tropical cyclones (NHC and JTWC) ──────────────────────────────────── */
+const tcLevel = (kt: number) =>
+  kt >= 113 ? 5 : kt >= 96 ? 4 : kt >= 64 ? 3 : kt >= 34 ? 2 : 1;
+const toMph = (kt: number) => Math.round(kt * 1.15078);
+/** "in about 2 days", "within a day". */
+const inTime = (tau: number) =>
+  tau <= 24
+    ? "within a day"
+    : `in about ${Math.round(tau / 24)} ${Math.round(tau / 24) === 1 ? "day" : "days"}`;
+/** Where a storm outside NHC's basins is, in words a reader knows. */
+function region(w: WorldStorm) {
+  if (w.basin === "wp") return "West Pacific";
+  if (w.basin === "io") return w.lon < 80 ? "Arabian Sea" : "Bay of Bengal";
+  if (w.lon > 160 || w.lon < -100) return "South Pacific";
+  if (w.lon >= 90) return "off Australia";
+  return "South Indian Ocean";
+}
+function tcEvent(t: {
+  id: string;
+  title: string;
+  place: string;
+  kt: number;
+  lat: number;
+  lon: number;
+  dir: number | null;
+  speedMph: number | null;
+  pressure: number | null;
+  valid: string | null;
+  forecast: { tau: number; lat: number; lon: number; kt: number }[];
+  past: [number, number][];
+  agency: string;
+  source: { name: string; url: string };
+}): EarthEvent {
+  const ahead = t.forecast.filter((p) => p.tau > 0);
+  const peak = ahead.reduce<(typeof ahead)[number] | null>(
+    (a, p) => (!a || p.kt > a.kt ? p : a),
+    null,
+  );
+  const stats: EarthEvent["stats"] = [
+    { label: "Winds now", value: `${toMph(t.kt)} mph` },
+  ];
+  let outlook = "";
+  if (peak && peak.kt >= t.kt + 10) {
+    stats.push({ label: "Forecast peak", value: `${toMph(peak.kt)} mph` });
+    outlook = ` ${t.agency} expects it to strengthen to about ${toMph(peak.kt)} mph ${inTime(peak.tau)}.`;
+  } else if (ahead.length && ahead.at(-1)!.kt <= t.kt - 10)
+    outlook = ` ${t.agency} expects it to weaken over the next few days.`;
+  else if (ahead.length)
+    outlook = ` ${t.agency} expects it to hold near this strength.`;
+  if (t.dir != null && t.speedMph)
+    stats.push({
+      label: "Moving",
+      value: `${compass(t.dir)} ${t.speedMph} mph`,
+    });
+  if (t.pressure) stats.push({ label: "Pressure", value: `${t.pressure} mb` });
+  const move =
+    t.dir != null && t.speedMph
+      ? `, moving ${compass(t.dir)} at ${t.speedMph} mph`
+      : t.speedMph === 0
+        ? ", nearly stationary"
+        : "";
+  return {
+    id: `tc-${t.id}`,
+    kind: "cyclone",
+    title: t.title,
+    place: t.place,
+    lat: t.lat,
+    lon: t.lon,
+    level: Math.max(tcLevel(t.kt), peak ? tcLevel(peak.kt) - 1 : 1),
+    story: `${t.title} has winds near ${toMph(t.kt)} mph${move}.${outlook}${ahead.length ? " The solid line is its forecast track" : ""}${ahead.length && t.past.length > 1 ? ", the dashed line where it has been." : ahead.length ? "." : ""}`,
+    stats,
+    started: null,
+    updated: t.valid,
+    source: t.source,
+    track: t.past.length > 1 ? [...t.past, [t.lon, t.lat]] : undefined,
+    forecast: ahead.length
+      ? [
+          [t.lon, t.lat],
+          ...ahead.map((p) => [p.lon, p.lat] as [number, number]),
+        ]
+      : undefined,
+  };
+}
+const fromNhc = (x: Storm) =>
+  tcEvent({
+    id: x.id,
+    title: x.title,
+    place: BASINS.find((b) => b.id === x.basin)?.name ?? "",
+    kt: x.kt,
+    lat: x.lat,
+    lon: x.lon,
+    dir: x.dir,
+    speedMph: x.speedMph,
+    pressure: x.pressure,
+    valid: x.updated,
+    forecast: x.points,
+    past: [],
+    agency: "The National Hurricane Center",
+    source: {
+      name: "NHC",
+      url: x.links.graphics ?? x.links.advisory ?? "https://www.nhc.noaa.gov",
+    },
+  });
+const fromJtwc = (w: WorldStorm) =>
+  tcEvent({
+    id: w.code,
+    title: w.title,
+    place: region(w),
+    kt: w.kt,
+    lat: w.lat,
+    lon: w.lon,
+    dir: w.dir,
+    speedMph: w.speedMph,
+    pressure: w.pressure,
+    valid: w.valid,
+    forecast: w.forecast,
+    past: w.past.map((p) => [p.lon, p.lat] as [number, number]),
+    agency: "The Joint Typhoon Warning Center",
+    source: {
+      name: `JTWC · ${WORLD_BASINS[w.basin]}`,
+      url: w.links.text,
+    },
+  });
 
 /* ── GDACS ─────────────────────────────────────────────────────────────── */
 type Gdacs = {
@@ -192,6 +366,17 @@ type Eonet = {
     }[];
   }[];
 };
+/** How old (hours) EONET's latest report on an event may be, by how often each kind is updated. */
+const EONET_FRESH: Record<Kind, number> = {
+  cyclone: 36,
+  fire: 72,
+  dust: 48,
+  flood: 168,
+  volcano: 240,
+  ice: 240,
+  quake: 48,
+  drought: 720,
+};
 const EKIND: Record<string, Kind> = {
   severeStorms: "cyclone",
   wildfires: "fire",
@@ -212,6 +397,10 @@ function eonetEvent(e: Eonet["events"][number]): EarthEvent | null {
   }[];
   const last = pts.at(-1);
   if (!last) return null;
+  // EONET closes events days or weeks late, so anything without a recent report is left
+  // off rather than shown as if it were still happening.
+  if (Date.now() - Date.parse(last.date) > EONET_FRESH[kind] * 3600_000)
+    return null;
   const [lon, lat] = last.coordinates;
   const stats: EarthEvent["stats"] = [];
   let level = 1;
@@ -295,6 +484,8 @@ type Usgs = {
 function usgsEvent(f: Usgs["features"][number]): EarthEvent | null {
   const p = f.properties;
   if (!(p.mag >= 5.5)) return null;
+  // The last two days, or the past week for a magnitude 7 or stronger.
+  if (Date.now() - p.time > (p.mag >= 7 ? 168 : 48) * 3600_000) return null;
   const [lon, lat, depth] = f.geometry.coordinates;
   const pager: Record<string, number> = {
     green: 1,
@@ -414,15 +605,22 @@ const PRIORITY: Record<Kind, number> = {
 };
 
 export async function earthNow(): Promise<Earth> {
-  const [gd, eo, us, ice] = await Promise.all([
+  const [nhc, world, gd, eo, us, ice, sat] = await Promise.all([
+    getOutlook()
+      .then((o) => o.storms)
+      .catch(() => null),
+    worldStorms().catch(() => null),
     get<Gdacs>(
       "https://www.gdacs.org/gdacsapi/api/events/geteventlist/SEARCH?eventlist=TC,FL,VO,WF,DR,EQ&alertlevel=green;orange;red&pagesize=300",
+      300,
     ),
-    get<Eonet>("https://eonet.gsfc.nasa.gov/api/v3/events?status=open&days=21"),
+    get<Eonet>("https://eonet.gsfc.nasa.gov/api/v3/events?status=open&days=10"),
     get<Usgs>(
       "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_week.geojson",
+      300,
     ),
     seaIce().catch(() => []),
+    newestFrames().catch(() => ({})),
   ]);
   const list: EarthEvent[] = [];
   const add = (e: EarthEvent | null) => {
@@ -439,8 +637,39 @@ export async function earthNow(): Promise<Earth> {
     }
     list.push(e);
   };
-  for (const f of gd?.features ?? []) add(gdacsEvent(f));
-  for (const e of eo?.events ?? []) add(eonetEvent(e));
+  // Storms first, from the forecast centers; GDACS then adds the country it threatens and
+  // raises the level only on its orange or red impact alerts.
+  const tcs = [
+    ...(nhc ?? []).map(fromNhc),
+    ...(world ?? []).map(fromJtwc),
+  ].filter((e) => Number.isFinite(e.lat) && Number.isFinite(e.lon));
+  list.push(...tcs);
+  // While both centers answer, their storms are the whole list (as on the Tropical Outlook
+  // page); the other feeds only fill in. If either is down, GDACS and EONET stand in.
+  const ours = nhc !== null && world !== null;
+  for (const f of gd?.features ?? []) {
+    const e = gdacsEvent(f);
+    if (e?.kind !== "cyclone" || !tcs.length) {
+      if (e?.kind !== "cyclone" || !ours) add(e);
+      continue;
+    }
+    const dup = tcs.find((x) => near(x, e));
+    if (!dup) {
+      if (!ours) add(e);
+      continue;
+    }
+    if (e.place && e.place !== "open water") dup.place = e.place;
+    dup.level = Math.max(dup.level, ALERT[f.properties.alertlevel] ?? 1);
+  }
+  for (const x of eo?.events ?? []) {
+    const e = eonetEvent(x);
+    if (e?.kind === "cyclone" && ours) {
+      const dup = tcs.find((t) => near(t, e));
+      if (dup) dup.track ??= e.track;
+      continue;
+    }
+    add(e);
+  }
   for (const f of us?.features ?? []) add(usgsEvent(f));
   for (const e of ice) add(e);
   list.sort(
@@ -458,5 +687,6 @@ export async function earthNow(): Promise<Earth> {
     events: list,
     biggest: biggest?.id ?? null,
     counts,
+    sat,
   };
 }
