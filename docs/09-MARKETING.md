@@ -13,6 +13,15 @@ What the app now does on its own, and the few one-time steps only the owner can 
 - **Share buttons** on stories, library articles and On This Day.
 - **App shortcuts**: long-press the installed app for SSWXCon, SPC, Radar and Warnings.
 
+## Added in the Multi App Build Plan (B7, B8, 2026-11-16)
+- **Widgets** at `/widgets`: SSWXCon Score, SPC Day 1 Outlook, radar loop and local conditions, each a one-line iframe with a link back.
+- **Google Discover**: `max-image-preview:large` on every page; **Google News sitemap** at `/news-sitemap.xml` (listed in robots.txt).
+- **IndexNow** every day for the whole sitemap (GitHub Actions `jobs.yml`, job `indexnow`).
+- **Web Stories** at `/web-stories`: every Tornado Archive event, and today's outlook on Enhanced-or-higher days.
+- **Press kit** at `/press`; **data reports** at `/reports` (The 2026 tornado season in numbers, updated daily).
+- **Free journalist requests** (owner): sign up free at Featured, Qwoted and Source of Sources as a severe weather and storm chasing source; point reporters to `/press`.
+- **Google News** (owner, optional): add SSWX News in Google's free Publisher Center with the `/feed.xml` feed.
+
 ## One-time steps for the owner
 1. **Google Search Console** (free): add the property `https://weather.sswx.space`, choose the HTML tag method, copy only the `content` value into Vercel → Settings → Environment Variables as `GOOGLE_SITE_VERIFICATION`, redeploy, then press Verify. Submit `https://weather.sswx.space/sitemap.xml`.
 2. **Bing Webmaster Tools** (free, also feeds ChatGPT search and DuckDuckGo): import from Search Console, or set `BING_SITE_VERIFICATION` the same way. Submit the sitemap.

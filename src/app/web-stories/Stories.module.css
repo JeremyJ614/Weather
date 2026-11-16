@@ -1,0 +1,36 @@
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+  padding: 0 16px;
+}
+.card {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+}
+.card img {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+}
+.card span {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px 12px;
+}
+.card b {
+  font-size: 13.5px;
+  line-height: 1.25;
+}
+.card small {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11.5px;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}

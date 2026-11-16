@@ -53,13 +53,24 @@ describe("search and sharing", () => {
       expect(GUEST_PAGES).toContain(s);
       expect(GUEST_PATHS.test(`/${s}`)).toBe(true);
     }
-    for (const p of ["/sitemap.xml", "/robots.txt", "/llms.txt", "/feed.xml"])
+    for (const p of [
+      "/sitemap.xml",
+      "/robots.txt",
+      "/llms.txt",
+      "/feed.xml",
+      "/news-sitemap.xml",
+      "/widgets",
+      "/embed/sswxcon",
+    ])
       expect(GUEST_PATHS.test(p), p).toBe(true);
   });
 
   it("points crawlers at the sitemap and keeps them out of private pages", () => {
     const r = robots();
-    expect(r.sitemap).toBe(`${SITE.url}/sitemap.xml`);
+    expect(r.sitemap).toEqual([
+      `${SITE.url}/sitemap.xml`,
+      `${SITE.url}/news-sitemap.xml`,
+    ]);
     const rules = Array.isArray(r.rules) ? r.rules[0] : r.rules;
     expect(rules.disallow).toEqual(expect.arrayContaining(["/admin", "/api/"]));
   });

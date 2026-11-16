@@ -99,6 +99,6 @@ export const config = {
   // Skip static files, images, share images, feeds, the service worker and API routes that
   // don't need a session.
   matcher: [
-    "/((?!_next/static|_next/image|\\.well-known|downloads/|vendor|icons|brand|archive/|extras/|sw.js|manifest.webmanifest|api/weather|api/geo|api/cron|api/sswxcon|api/warnings|api/reports|api/spc|api/ingredients|api/maps|api/tropical|api/hazards|api/flood|api/fire|api/winter|api/history|api/models|api/rivers|api/soundings|api/sky|api/aurora|api/lightning|api/climo|api/patterns|api/engines|api/archive|api/stripe/webhook|api/jobs/|.*opengraph-image|.*twitter-image|.*\\.(?:png|jpe?g|webp|svg|ico|mjs|txt|xml)$).*)",
+    "/((?!_next/static|_next/image|\\.well-known|downloads/|vendor|icons|brand|archive/|extras/|sw.js|manifest.webmanifest|api/weather|api/geo|api/cron|api/sswxcon|api/warnings|api/reports|api/spc|api/ingredients|api/maps|api/tropical|api/hazards|api/flood|api/fire|api/winter|api/history|api/models|api/rivers|api/soundings|api/sky|api/aurora|api/lightning|api/climo|api/patterns|api/engines|api/archive|api/stripe/webhook|api/jobs/|embed/|news-sitemap|web-stories/|.*opengraph-image|.*twitter-image|.*\\.(?:png|jpe?g|webp|svg|ico|mjs|txt|xml)$).*)",
   ],
 };

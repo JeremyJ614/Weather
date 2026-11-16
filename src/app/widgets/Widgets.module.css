@@ -1,0 +1,70 @@
+.wrap {
+  display: grid;
+  gap: 12px;
+  padding: 0 16px;
+}
+.picker {
+  display: grid;
+  gap: 8px;
+}
+.picker button {
+  display: grid;
+  gap: 2px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  text-align: left;
+}
+.picker button[aria-selected="true"] {
+  border-color: var(--lit-line);
+  box-shadow: var(--glow);
+}
+.picker small,
+.note {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.row {
+  display: flex;
+  gap: 8px;
+}
+.row button {
+  padding: 6px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+.row button[aria-pressed="true"] {
+  border-color: var(--lit-line);
+  color: var(--accent);
+}
+.preview {
+  justify-self: center;
+  max-width: 100%;
+  border: 0;
+  border-radius: 16px;
+}
+.code {
+  display: grid;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.code textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  font: 12px/1.4 var(--font-mono, ui-monospace, monospace);
+  resize: none;
+}
+.copy {
+  justify-self: start;
+  padding: 8px 18px;
+  border: 1px solid var(--lit-line);
+  border-radius: 999px;
+  color: var(--accent);
+  font-weight: 700;
+}

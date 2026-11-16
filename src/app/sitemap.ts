@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { slugs as librarySlugs } from "@/lib/library/data";
 import { getPublishedPosts } from "@/lib/news/posts";
+import { archiveIndex } from "@/lib/stories/build";
 import { FRONT_DOOR } from "@/lib/nav/registry";
 import { SITE } from "@/lib/seo/site";
 
@@ -15,7 +16,10 @@ const abs = (path: string) => `${SITE.url}${path}`;
  * pages are left out: crawlers would only be sent to the sign-up gate.
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const posts = await getPublishedPosts(500);
+  const [posts, events] = await Promise.all([
+    getPublishedPosts(500),
+    archiveIndex().catch(() => []),
+  ]);
   const now = new Date();
   const page = (
     path: string,
@@ -37,6 +41,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ),
     page("/join", "monthly", 0.8),
     page("/faq", "monthly", 0.6),
+    page("/widgets", "monthly", 0.6),
+    page("/web-stories", "daily", 0.7),
+    page("/press", "monthly", 0.5),
+    page("/reports", "monthly", 0.7),
+    page("/reports/tornado-season-2026", "weekly", 0.8),
+    ...events.map((e) => page(`/web-stories/${e.id}`, "yearly", 0.6)),
     page("/disaster-response", "weekly", 0.6),
     page("/donate", "monthly", 0.4),
     page("/contact", "yearly", 0.3),
