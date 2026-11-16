@@ -12,6 +12,8 @@ import { AppHeader } from "@/components/AppHeader";
 import { introBootScript } from "@/features/intro/schedule";
 import { decodeBootScript } from "@/features/motion/decode";
 import { pullBootScript } from "@/features/motion/pull";
+import { tapMorphBootScript } from "@/features/motion/tapmorph";
+import { holoBootScript } from "@/features/motion/holo";
 import { themeBootScript, themeCss } from "@/lib/theme/css";
 import { fontClassNames } from "@/lib/theme/fonts";
 import { getSiteDefaults } from "@/lib/settings";
@@ -88,6 +90,8 @@ export default async function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: introBootScript }} />
         <script dangerouslySetInnerHTML={{ __html: decodeBootScript }} />
         <script dangerouslySetInnerHTML={{ __html: pullBootScript }} />
+        <script dangerouslySetInnerHTML={{ __html: tapMorphBootScript }} />
+        <script dangerouslySetInnerHTML={{ __html: holoBootScript }} />
       </head>
       <body>
         <JsonLd data={siteGraph} />

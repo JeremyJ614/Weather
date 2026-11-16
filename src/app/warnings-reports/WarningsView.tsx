@@ -175,17 +175,33 @@ export function WarningsView({
   const [type, setType] = useState("");
   const [here, setHere] = useState<string[]>([]);
   const { active } = usePlaces();
-  // Warnings already listed when the page opened never "arrive"; later ones do, once.
+  // A warning arrives once per device: ones issued while the page is open, and (B6) ones issued
+  // in the last 10 minutes that this phone hasn't shown before. Older ones never animate.
   const seen = useRef<Set<string> | null>(null);
   const [arrived, setArrived] = useState<Set<string>>(() => new Set());
   useEffect(() => {
-    if (!seen.current) {
-      seen.current = new Set(items.map((w) => w.id));
-      return;
-    }
+    let shown: string[] = [];
+    try {
+      shown = JSON.parse(localStorage.getItem("sswx-warn-seen") ?? "[]");
+    } catch {}
+    seen.current ??= new Set(
+      items
+        .filter(
+          (w) =>
+            shown.includes(w.id) ||
+            !(Date.now() - Date.parse(w.sent) < 10 * 60_000),
+        )
+        .map((w) => w.id),
+    );
     const fresh = items
       .filter((w) => !seen.current!.has(w.id))
       .map((w) => w.id);
+    try {
+      localStorage.setItem(
+        "sswx-warn-seen",
+        JSON.stringify([...new Set([...fresh, ...shown])].slice(0, 300)),
+      );
+    } catch {}
     if (!fresh.length) return;
     fresh.forEach((id) => seen.current!.add(id));
     setArrived(new Set(fresh));

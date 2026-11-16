@@ -224,6 +224,7 @@ export function JoinView({
           aria-pressed={on}
           onClick={() => set({ tier: t.id as TierId, pages: [] })}
           className={`${s.card} ${t.id === "vip" ? s.vip : ""}`}
+          data-holo
         >
           <span className={s.cardTop}>
             <span className={s.cardName}>

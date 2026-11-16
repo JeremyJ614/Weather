@@ -1,13 +1,15 @@
 /**
- * Tornado pull-to-refresh (post-launch A5 "pull-funnel"), in the installed app only (where
- * the browser adds no pull of its own): pull down at the top of a page and a small funnel
+ * Tornado pull-to-refresh (post-launch A5 "pull-funnel"): in the installed app, and (B6) in phone
+ * browsers too, where the browser's own pull is switched off (`overscroll-behavior-y`) so ours
+ * takes its place: pull down at the top of a page and a small funnel
  * forms from the top edge, tightening as you pull; let go past the line and it spins while
  * the page reloads (instant reopen keeps that quick). Touches that start on a map, a canvas
  * or a horizontal swipe are left alone. A plain inline script, so no bundle cost. Transform
  * and opacity only; no spin for Reduce Motion.
  */
 export const pullBootScript = `(function(){try{
-var app=matchMedia("(display-mode: standalone)").matches||navigator.standalone;if(!app)return;
+var app=matchMedia("(display-mode: standalone)").matches||navigator.standalone;
+if(!app){if(!matchMedia("(pointer: coarse)").matches||!("ontouchstart" in window))return;document.documentElement.style.overscrollBehaviorY="contain";}
 var still=matchMedia("(prefers-reduced-motion: reduce)").matches,y0=null,x0=0,d=0,el=null,svg=null,busy=false,LIM=90;
 function make(){if(el)return;el=document.createElement("div");el.setAttribute("aria-hidden","true");
 el.style.cssText="position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 76px);z-index:60;width:58px;height:58px;margin-left:-29px;display:grid;place-items:center;border-radius:50%;background:color-mix(in srgb,var(--surface) 92%,transparent);border:1px solid var(--lit-line);box-shadow:var(--glow),0 10px 30px -10px #000;pointer-events:none;opacity:0;transform-origin:50% 0;color:var(--accent)";

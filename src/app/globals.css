@@ -259,6 +259,7 @@ html[data-immersive] body {
     html:not([data-tier="low"])
       main
       :is(.panel, [class$="__card"], [class*="__card "]):not(
+        [data-holo],
         .rise,
         [class*="Mosquito-module"],
         [class*="Trivia-module"],
@@ -281,7 +282,7 @@ html[data-immersive] body {
 @keyframes scroll-build {
   from {
     opacity: 0;
-    transform: translateY(28px) scale(0.97);
+    transform: translateY(44px) scale(0.94);
   }
   to {
     opacity: 1;
@@ -312,5 +313,76 @@ html[data-immersive] body {
   ::view-transition-old(*),
   ::view-transition-new(*) {
     animation: none !important;
+  }
+}
+
+/* Card grows into the page (B6): the tapped card swells to fill the screen as the new page fades
+   in; tapmorph.ts names it. Transform and opacity only. */
+::view-transition-group(tap-card) {
+  z-index: 50;
+  animation-duration: 0.45s;
+}
+::view-transition-old(tap-card) {
+  animation: tap-grow 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+::view-transition-new(tap-card) {
+  display: none;
+}
+@keyframes tap-grow {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  60% {
+    opacity: 0.85;
+  }
+  100% {
+    transform: scale(2.3);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(tap-card) {
+    animation: none;
+  }
+}
+
+/* Holographic cards (B6, features/motion/holo.ts sets --hx, --hy, --ho): plan and offer cards
+   tilt toward the finger or with the phone, with a foil sheen sliding across. */
+[data-holo] {
+  position: relative;
+  overflow: clip;
+  isolation: isolate;
+  transform: perspective(900px) rotateX(calc(var(--hy, 0) * -7deg))
+    rotateY(calc(var(--hx, 0) * 9deg));
+  transition: transform 220ms ease-out;
+}
+[data-holo]::after {
+  content: "";
+  position: absolute;
+  inset: -60% -60%;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(
+    115deg,
+    transparent 34%,
+    rgb(255 64 200 / 0.22) 43%,
+    rgb(64 255 230 / 0.24) 50%,
+    rgb(255 236 64 / 0.22) 57%,
+    transparent 66%
+  );
+  mix-blend-mode: color-dodge;
+  opacity: var(--ho, 0);
+  transform: translate(calc(var(--hx, 0) * 22%), calc(var(--hy, 0) * 14%));
+  transition:
+    opacity 300ms ease,
+    transform 160ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-holo] {
+    transform: none;
+  }
+  [data-holo]::after {
+    display: none;
   }
 }
