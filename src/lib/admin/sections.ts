@@ -219,6 +219,16 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     href: "/admin/menus",
   },
   {
+    id: "newsbreak",
+    group: "content",
+    desc: "Ready-to-post NewsBreak stories on storm days, and how to apply as a creator",
+    label: "NewsBreak posts",
+    icon: "Newspaper",
+    phase: "B9",
+    href: "/admin/newsbreak",
+    perm: "news",
+  },
+  {
     id: "news",
     group: "content",
     desc: "Write, schedule and pin SSWX News posts",
