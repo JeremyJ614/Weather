@@ -28,7 +28,8 @@ permissions:
 
 jobs:
   run:
-    if: ${{ vars.JOBS_ON_ACTIONS != '0' && github.repository == 'JeremyJ614/Weather' }}
+    # On by default; set the repository variable JOBS_OFF to 1 to pause.
+    if: ${{ vars.JOBS_OFF != '1' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
