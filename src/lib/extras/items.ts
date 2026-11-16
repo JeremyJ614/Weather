@@ -155,6 +155,13 @@ export const EXTRAS_ITEMS = [
     "Fire weather, and which wildfires could blow up into their own storms.",
   ),
   e(
+    "coast",
+    "Coastal Impact",
+    "coastal-impact",
+    "Waves",
+    "When a hurricane threatens: the chance of 3, 6 or 9 feet of storm surge on each stretch of coast and at your places, and when tropical-storm winds arrive.",
+  ),
+  e(
     "tctor",
     "Hurricane Tornadoes",
     "hurricane-tornadoes",

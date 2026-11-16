@@ -1,12 +1,18 @@
 /* Drag-to-read chart layer (B1). Gold is light here: outlines, text and glow; surfaces stay dark. */
 .root {
   -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 .hit {
   fill: transparent;
   cursor: ew-resize;
   touch-action: pan-y;
   outline: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 .hit:focus-visible {
   stroke: var(--accent);

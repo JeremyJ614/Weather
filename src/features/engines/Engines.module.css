@@ -596,3 +596,48 @@
     transition: none;
   }
 }
+.textBtn {
+  justify-self: start;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--lit, var(--text));
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.legendRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  color: var(--muted);
+  font-size: 11.5px;
+}
+.legendRow li {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.legendRow i {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+.chips {
+  display: flex;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.chips b {
+  min-width: 44px;
+  padding: 3px 6px;
+  border: 1.5px solid var(--line);
+  border-radius: 8px;
+  font-size: 11.5px;
+  text-align: center;
+}
+.placeRow {
+  padding: 8px 2px;
+}
+.placeRow small {
+  display: block;
+}
