@@ -1,5 +1,11 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "git": {
+    "deploymentEnabled": {
+      "ccr-*": false,
+      "claude/*": false
+    }
+  },
   "crons": [
     {
       "path": "/api/cron/storage-watchdog",

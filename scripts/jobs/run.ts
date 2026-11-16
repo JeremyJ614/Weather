@@ -48,6 +48,17 @@ async function main() {
       });
       return { submitted: urls.length, status: r.status };
     }
+    case "sizes": {
+      // B11: the newest daily storage snapshots (database and file sizes), read for free-tier checks.
+      const { supabaseAdmin } = await import("../../src/lib/supabase/admin");
+      const { data, error } = await supabaseAdmin()
+        .from("storage_snapshots")
+        .select("*")
+        .order("day", { ascending: false })
+        .limit(3);
+      if (error) throw new Error(error.message);
+      return data;
+    }
     case "dry": {
       // Computes one engine without storing it: proves the runner works on a new machine.
       const id = process.argv[3] ?? "stp";
