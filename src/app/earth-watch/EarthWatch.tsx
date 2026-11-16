@@ -30,6 +30,40 @@ const SATS = [
   "Himawari_AHI_Band13_Clean_Infrared",
 ];
 const FRAMES = 4;
+/**
+ * Each satellite's frame times (ms, oldest first): the newest four NASA has published (the
+ * server asks GIBS), or, if that answer is missing, a guess two hours back.
+ */
+function satFrames(d: Earth | null): Record<string, number[]> {
+  const guess = Math.floor(Date.now() / 600_000) * 600_000 - 12 * 600_000;
+  return Object.fromEntries(
+    SATS.map((l) => {
+      const got = (d?.sat?.[l] ?? []).map((t) => Date.parse(t));
+      const newest = got.at(-1) ?? guess;
+      return [
+        l,
+        got.length >= FRAMES
+          ? got.slice(-FRAMES)
+          : Array.from(
+              { length: FRAMES },
+              (_, i) =>
+                got[i - (FRAMES - got.length)] ??
+                newest - (FRAMES - 1 - i) * 600_000,
+            ),
+      ];
+    }),
+  );
+}
+const tileOf = (sat: string, t: number) =>
+  `${GIBS}/${sat}/default/${new Date(t).toISOString().slice(0, 19)}Z/GoogleMapsCompatible_Level6/{z}/{y}/{x}.png`;
+/** "12 min ago", "3 h ago", or the date for anything older than two days. */
+const ago = (iso: string) => {
+  const m = Math.round((Date.now() - Date.parse(iso)) / 60_000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m} min ago`;
+  if (m < 48 * 60) return `${Math.round(m / 60)} h ago`;
+  return when(iso);
+};
 const STEP = 10 * 60_000;
 const SPEEDS = [1, 2, 4];
 type Layer = "clouds" | "radar" | "dust" | "ice" | "night";
@@ -58,12 +92,22 @@ const when = (iso: string | null) =>
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- see above
 type LooseMap = Record<string, (...args: any[]) => any>;
 
-/** A round marker for each kind, drawn once on a canvas: a dark disc, a colored ring, a glyph. */
-function icon(kind: Kind, color: string) {
+/**
+ * A round marker for each kind, drawn on a canvas: a dark disc, a colored ring, a glyph. A
+ * storm's glyph can be turned (it spins on the globe) and mirrored for the Southern
+ * Hemisphere, where cyclones turn the other way.
+ */
+function icon(
+  kind: Kind,
+  color: string,
+  rot = 0,
+  mirror = false,
+  c = document.createElement("canvas"),
+) {
   const n = 64;
-  const c = document.createElement("canvas");
   c.width = c.height = n;
   const g = c.getContext("2d")!;
+  g.clearRect(0, 0, n, n);
   g.fillStyle = "rgba(8,10,18,0.92)";
   g.beginPath();
   g.arc(32, 32, 26, 0, Math.PI * 2);
@@ -74,6 +118,10 @@ function icon(kind: Kind, color: string) {
   g.lineWidth = 3.2;
   g.lineCap = "round";
   g.lineJoin = "round";
+  g.translate(32, 32);
+  g.rotate(rot);
+  if (mirror) g.scale(-1, 1);
+  g.translate(-32, -32);
   g.beginPath();
   switch (kind) {
     case "cyclone":
@@ -146,6 +194,7 @@ function icon(kind: Kind, color: string) {
   }
   g.strokeStyle = color;
   g.stroke();
+  g.setTransform(1, 0, 0, 1, 0, 0);
   return g.getImageData(0, 0, n, n);
 }
 
@@ -223,25 +272,46 @@ export function EarthWatch({
     [colors],
   );
 
-  // Fresh data every 15 minutes while the page is open.
-  useEffect(() => {
-    const t = setInterval(() => {
-      fetch("/api/earth-watch")
-        .then((r) => (r.ok ? r.json() : null))
-        .then((d: Earth | null) => d?.events && setData(d))
-        .catch(() => {});
-    }, 15 * 60_000);
-    return () => clearInterval(t);
-  }, []);
-
-  // Satellite frame times: the newest GIBS has (about 30 minutes behind), every 10 minutes back.
-  const [times] = useState(() => {
-    const latest = Math.floor(Date.now() / STEP) * STEP - 4 * STEP;
+  // Satellite frames: the newest NASA has for each satellite. Radar: the last 30 minutes.
+  const [sat, setSat] = useState(() => satFrames(initial));
+  const satRef = useRef(sat);
+  const [radarAt] = useState(() => {
+    const latest = Math.floor(Date.now() / 300_000) * 300_000;
     return Array.from(
       { length: FRAMES },
       (_, i) => latest - (FRAMES - 1 - i) * STEP,
     );
   });
+
+  // Fresh data every 5 minutes while the page is on screen, and right away when it comes
+  // back into view; nothing is fetched while it sits in a background tab.
+  useEffect(() => {
+    let last = Date.now();
+    const pull = () => {
+      if (
+        document.visibilityState !== "visible" ||
+        Date.now() - last < 4.5 * 60_000
+      )
+        return;
+      last = Date.now();
+      fetch("/api/earth-watch")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d: Earth | null) => {
+          if (!d?.events) return;
+          setData(d);
+          const next = satFrames(d);
+          if (JSON.stringify(next) !== JSON.stringify(satRef.current))
+            setSat(next);
+        })
+        .catch(() => {});
+    };
+    const t = setInterval(pull, 60_000);
+    document.addEventListener("visibilitychange", pull);
+    return () => {
+      clearInterval(t);
+      document.removeEventListener("visibilitychange", pull);
+    };
+  }, []);
 
   const events = useMemo(
     () => (data?.events ?? []).filter((e) => !hidden.has(e.kind)),
@@ -327,18 +397,13 @@ export function EarthWatch({
         0.8,
       );
       const frames = lowRef.current
-        ? [times.length - 1]
-        : times.map((_, i) => i);
+        ? [FRAMES - 1]
+        : Array.from({ length: FRAMES }, (_, i) => i);
       for (const i of frames)
-        for (const sat of SATS)
-          add(
-            `ir-${sat}-${i}`,
-            `${GIBS}/${sat}/default/${new Date(times[i]).toISOString().slice(0, 19)}Z/GoogleMapsCompatible_Level6/{z}/{y}/{x}.png`,
-            6,
-            0.55,
-          );
+        for (const l of SATS)
+          add(`ir-${l}-${i}`, tileOf(l, satRef.current[l][i]), 6, 0.55);
       for (const i of frames) {
-        const back = (times.length - 1 - i) * 10;
+        const back = (FRAMES - 1 - i) * 10;
         add(
           `radar-${i}`,
           `https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913${back ? `-m${String(back).padStart(2, "0")}m` : ""}/{z}/{x}/{y}.png`,
@@ -361,6 +426,42 @@ export function EarthWatch({
           "line-width": 2,
           "line-opacity": 0.75,
           "line-dasharray": [2, 1.5],
+        },
+      } as never);
+      // A storm's official forecast track: a solid line with a dot at each forecast time.
+      m.addSource("fcst", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
+      m.addLayer({
+        id: "fcst",
+        type: "line",
+        source: "fcst",
+        filter: ["==", ["geometry-type"], "LineString"],
+        layout: { "line-cap": "round", "line-join": "round" },
+        paint: {
+          "line-color": ["get", "c"],
+          "line-width": ["interpolate", ["linear"], ["zoom"], 1, 1.6, 5, 3],
+          "line-opacity": 0.95,
+        },
+      } as never);
+      m.addLayer({
+        id: "fcst-pts",
+        type: "circle",
+        source: "fcst",
+        filter: ["==", ["geometry-type"], "Point"],
+        paint: {
+          "circle-color": ["get", "c"],
+          "circle-radius": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            1,
+            1.8,
+            5,
+            3.6,
+          ],
+          "circle-pitch-alignment": "map",
         },
       } as never);
       m.addSource("ev", {
@@ -391,7 +492,11 @@ export function EarthWatch({
         id: "ev-pulse",
         type: "circle",
         source: "ev",
-        filter: [">=", ["get", "level"], 3],
+        filter: [
+          "any",
+          [">=", ["get", "level"], 3],
+          ["==", ["get", "kind"], "cyclone"],
+        ],
         paint: {
           "circle-color": "rgba(0,0,0,0)",
           "circle-stroke-color": ["get", "lc"],
@@ -404,27 +509,38 @@ export function EarthWatch({
         m.addImage(`ew-${k.id}`, icon(k.id, kindColor(k.id)), {
           pixelRatio: 2,
         });
-      m.addLayer({
-        id: "ev-icon",
-        type: "symbol",
-        source: "ev",
-        layout: {
-          "icon-image": ["concat", "ew-", ["get", "kind"]],
-          "icon-size": [
-            "interpolate",
-            ["linear"],
-            ["zoom"],
-            0,
-            0.55,
-            4,
-            0.8,
-            8,
-            1,
-          ],
-          "icon-allow-overlap": true,
-          "symbol-sort-key": ["-", 10, ["get", "level"]],
-        },
-      } as never);
+      m.addImage(
+        "ew-cyclone-s",
+        icon("cyclone", kindColor("cyclone"), 0, true),
+        { pixelRatio: 2 },
+      );
+      // Storms get their own, larger marker (it spins); everything else shares one layer.
+      for (const [id, tc] of [
+        ["ev-icon", false],
+        ["ev-tc", true],
+      ] as const)
+        m.addLayer({
+          id,
+          type: "symbol",
+          source: "ev",
+          filter: [tc ? "==" : "!=", ["get", "kind"], "cyclone"],
+          layout: {
+            "icon-image": ["concat", "ew-", ["get", "img"]],
+            "icon-size": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              0,
+              tc ? 0.8 : 0.55,
+              4,
+              tc ? 1.15 : 0.8,
+              8,
+              tc ? 1.35 : 1,
+            ],
+            "icon-allow-overlap": true,
+            "symbol-sort-key": ["-", 10, ["get", "level"]],
+          },
+        } as never);
       m.addLayer({
         id: "ev-sel",
         type: "circle",
@@ -437,27 +553,42 @@ export function EarthWatch({
           "circle-radius": 22,
         },
       } as never);
-      m.on(
-        "click",
-        "ev-icon",
-        (e: { features?: { properties?: { id?: string } }[] }) => {
-          const id = e.features?.[0]?.properties?.id;
-          if (id) {
-            setSelected(id);
-            setSpin(false);
-          }
-        },
-      );
-      m.on(
-        "mouseenter",
-        "ev-icon",
-        () => (m.getCanvas().style.cursor = "pointer"),
-      );
-      m.on("mouseleave", "ev-icon", () => (m.getCanvas().style.cursor = ""));
+      for (const layer of ["ev-icon", "ev-tc"]) {
+        m.on(
+          "click",
+          layer,
+          (e: { features?: { properties?: { id?: string } }[] }) => {
+            const id = e.features?.[0]?.properties?.id;
+            if (id) {
+              setSelected(id);
+              setSpin(false);
+            }
+          },
+        );
+        m.on(
+          "mouseenter",
+          layer,
+          () => (m.getCanvas().style.cursor = "pointer"),
+        );
+        m.on("mouseleave", layer, () => (m.getCanvas().style.cursor = ""));
+      }
       setReady(r);
     },
-    [kindColor, times],
+    [kindColor],
   );
+
+  // Newer satellite frames from a refresh: point the existing cloud layers at them.
+  useEffect(() => {
+    const m = ready?.map as unknown as LooseMap | undefined;
+    if (!m || satRef.current === sat) return;
+    for (const l of SATS)
+      for (let i = 0; i < FRAMES; i++)
+        (
+          m.getSource(`ir-${l}-${i}`) as unknown as
+            { setTiles?: (t: string[]) => void } | undefined
+        )?.setTiles?.([tileOf(l, sat[l][i])]);
+    satRef.current = sat;
+  }, [ready, sat]);
 
   // Event data onto the globe.
   useEffect(() => {
@@ -473,6 +604,7 @@ export function EarthWatch({
         properties: {
           id: e.id,
           kind: e.kind,
+          img: e.kind === "cyclone" && e.lat < 0 ? "cyclone-s" : e.kind,
           level: e.level,
           c: kindColor(e.kind),
           lc: levelColor(e.level),
@@ -489,6 +621,25 @@ export function EarthWatch({
           properties: { c: kindColor(e.kind) },
           geometry: { type: "LineString", coordinates: e.track },
         })),
+    });
+    src("fcst")?.setData({
+      type: "FeatureCollection",
+      features: events.flatMap((e) =>
+        e.forecast
+          ? [
+              {
+                type: "Feature",
+                properties: { c: kindColor(e.kind) },
+                geometry: { type: "LineString", coordinates: e.forecast },
+              },
+              ...e.forecast.slice(1).map((p) => ({
+                type: "Feature",
+                properties: { c: kindColor(e.kind) },
+                geometry: { type: "Point", coordinates: p },
+              })),
+            ]
+          : [],
+      ),
     });
   }, [ready, events, kindColor, levelColor]);
 
@@ -518,13 +669,13 @@ export function EarthWatch({
       m.getLayer(id) &&
       m.setLayoutProperty(id, "visibility", on ? "visible" : "none");
     for (const l of ["night", "ice", "dust"] as const) vis(l, layers.has(l));
-    const shown = lowRef.current ? times.length - 1 : frame;
-    times.forEach((_, i) => {
+    const shown = lowRef.current ? FRAMES - 1 : frame;
+    radarAt.forEach((_, i) => {
       for (const sat of SATS)
         vis(`ir-${sat}-${i}`, layers.has("clouds") && i === shown);
       vis(`radar-${i}`, layers.has("radar") && i === shown);
     });
-  }, [ready, layers, frame, times]);
+  }, [ready, layers, frame, radarAt]);
 
   // The timeline: frames advance while playing (all frames are already loaded, so no flicker).
   useEffect(() => {
@@ -544,6 +695,11 @@ export function EarthWatch({
       return;
     let raf = 0;
     let last = 0;
+    // Storm markers turn the way their storms do: counterclockwise north of the equator,
+    // clockwise south of it. Only the small marker image is redrawn, never the map's layers.
+    const north = document.createElement("canvas");
+    const south = document.createElement("canvas");
+    const color = kindColor("cyclone");
     const tick = (now: number) => {
       raf = requestAnimationFrame(tick);
       if (now - last < 50) return;
@@ -551,10 +707,13 @@ export function EarthWatch({
       const p = (now % 1800) / 1800;
       m.setPaintProperty("ev-pulse", "circle-radius", 10 + p * 22);
       m.setPaintProperty("ev-pulse", "circle-stroke-opacity", 0.85 * (1 - p));
+      const a = (now / 1000) * 1.4;
+      m.updateImage?.("ew-cyclone", icon("cyclone", color, -a, false, north));
+      m.updateImage?.("ew-cyclone-s", icon("cyclone", color, a, true, south));
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [ready]);
+  }, [ready, kindColor]);
 
   useEffect(() => {
     const m = ready?.map as unknown as LooseMap | undefined;
@@ -594,7 +753,15 @@ export function EarthWatch({
     else n.add(v);
     return n;
   };
-  const t = new Date(times[low ? FRAMES - 1 : frame]);
+  // The slider's clock: the cloud frame on show (the newest across satellites), or the
+  // radar's when clouds are off, so the time always says how fresh the picture is.
+  const shownFrame = low ? FRAMES - 1 : frame;
+  const clouds = layers.has("clouds");
+  const t = new Date(
+    clouds
+      ? Math.max(...SATS.map((l) => sat[l][shownFrame]))
+      : radarAt[shownFrame],
+  );
 
   return (
     <main className={s.page}>
@@ -688,6 +855,7 @@ export function EarthWatch({
               {speed}×
             </button>
             <small suppressHydrationWarning>
+              {clouds ? "Clouds " : "Radar "}
               {t.toLocaleTimeString("en-US", {
                 hour: "numeric",
                 minute: "2-digit",
@@ -816,7 +984,7 @@ function EventCard({
         </dl>
       )}
       <p className={s.src} suppressHydrationWarning>
-        {e.updated ? `Updated ${when(e.updated)} · ` : ""}
+        {e.updated ? `Updated ${ago(e.updated)} · ` : ""}
         <a href={e.source.url} target="_blank" rel="noopener noreferrer">
           {e.source.name}
         </a>

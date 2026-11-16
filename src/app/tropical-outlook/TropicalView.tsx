@@ -71,13 +71,24 @@ const riskOf = (pct: number | null) =>
   pct == null ? "low" : pct >= 60 ? "high" : pct >= 40 ? "medium" : "low";
 const basinName = (id: string) => BASINS.find((b) => b.id === id)?.name ?? id;
 
+/** A storm outside NHC's basins, from JTWC (the Worldwide tab has the full detail). */
+export type WorldBrief = {
+  code: string;
+  title: string;
+  mph: number;
+  where: string;
+};
+
 /** Tropical Outlook: the basin map, active storms, the text outlooks and satellite. */
 export function TropicalView({
   data,
   colors,
+  world,
 }: {
   data: Outlook;
   colors: Colors;
+  /** Storms elsewhere in the world, or null when JTWC isn't answering. */
+  world: WorldBrief[] | null;
 }) {
   const busiest =
     BASINS.find((b) => data.storms.some((x) => x.basin === b.id))?.id ??
@@ -121,11 +132,15 @@ export function TropicalView({
         />
         <Legend colors={colors} />
       </section>
-      <Summary data={data} airborne={recon?.filter((r) => r.active).length} />
+      <Summary
+        data={data}
+        world={world?.length}
+        airborne={recon?.filter((r) => r.active).length}
+      />
       <HomeTabs
         label="Tropical"
         variant="deck"
-        tabs={[
+        tabs={worldFirst(data.storms.length, world?.length ?? 0, [
           {
             id: "trop-storms",
             label: `Storms${data.storms.length ? ` · ${data.storms.length}` : ""}`,
@@ -141,6 +156,9 @@ export function TropicalView({
               <p className={s.empty}>
                 No active storms in the Atlantic, East Pacific or Central
                 Pacific right now.
+                {world?.length
+                  ? ` Active elsewhere: ${world.map((w) => `${w.title} (${w.where}, ${w.mph} mph)`).join("; ")}. The Worldwide tab tracks ${world.length === 1 ? "it" : "them"}.`
+                  : ""}
               </p>
             ),
           },
@@ -196,7 +214,7 @@ export function TropicalView({
           },
           {
             id: "trop-world",
-            label: "Worldwide",
+            label: `Worldwide${world?.length ? ` · ${world.length}` : ""}`,
             icon: <Globe2 aria-hidden />,
             panel: <WorldView nhc={data.storms} colors={colors} />,
           },
@@ -206,7 +224,7 @@ export function TropicalView({
             icon: <History aria-hidden />,
             panel: <SeasonView colors={colors} start={busiest} />,
           },
-        ]}
+        ])}
       />
       <p className={s.foot}>
         Source: NOAA National Hurricane Center (map service, advisories,
@@ -218,11 +236,27 @@ export function TropicalView({
   );
 }
 
+/**
+ * When nothing is spinning in NHC's basins but storms are active elsewhere, the Worldwide
+ * tab opens first, so the storms in the news are the first thing on the page.
+ */
+function worldFirst<T extends { id: string }>(
+  nhc: number,
+  world: number,
+  tabs: T[],
+): T[] {
+  if (nhc || !world) return tabs;
+  const w = tabs.find((t) => t.id === "trop-world");
+  return w ? [w, ...tabs.filter((t) => t !== w)] : tabs;
+}
+
 function Summary({
   data,
+  world,
   airborne,
 }: {
   data: Outlook;
+  world: number | undefined;
   airborne: number | undefined;
 }) {
   const areas = Math.max(
@@ -235,6 +269,10 @@ function Summary({
       <div data-tone="storm">
         <b>{data.storms.length}</b>
         <span>active {data.storms.length === 1 ? "system" : "systems"}</span>
+      </div>
+      <div data-tone={world ? "storm" : undefined}>
+        <b>{world ?? "–"}</b>
+        <span>elsewhere in the world</span>
       </div>
       <div data-tone="watch">
         <b>{areas}</b>

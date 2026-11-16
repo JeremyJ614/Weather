@@ -4,7 +4,7 @@ import { earthNow } from "@/lib/earth/watch";
 import { getColors } from "@/lib/colors/server";
 import { EarthWatch } from "./EarthWatch";
 
-export const revalidate = 900;
+export const revalidate = 300;
 export const metadata: Metadata = pageMeta(
   "/earth-watch",
   "Earth Watch",
