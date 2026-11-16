@@ -6,8 +6,8 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 const { default: sitemap } = await import("@/app/sitemap");
 const { default: robots } = await import("@/app/robots");
-const { FRONT_DOOR, GUEST_PAGES, GUEST_PATHS } =
-  await import("@/lib/nav/registry");
+const { FRONT_DOOR, GUEST_PAGES } = await import("@/lib/nav/registry");
+const { GUEST_PATHS } = await import("@/lib/nav/guest");
 const { pageMeta, SITE } = await import("@/lib/seo/site");
 
 const files = (dir: string): string[] =>
