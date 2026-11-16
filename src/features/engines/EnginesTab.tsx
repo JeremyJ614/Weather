@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import type {
   GeoJSONSource,
   Map as MaplibreMap,
@@ -35,6 +36,7 @@ import { stateOf, type ExtrasStates } from "@/lib/extras/items";
 import {
   BLIND_BANDS,
   BLIND_LOST,
+  COAST_BANDS,
   BOUND_POINTS,
   FIELD_BANDS,
   FIRST_TIME_BANDS,
@@ -78,6 +80,7 @@ import {
 import s from "./Engines.module.css";
 import { HIT_MEANS, HitCard, type HitStats } from "./HitCard";
 import { LljNight } from "./LljNight";
+const CoastPanel = dynamic(() => import("./CoastPanel"), { ssr: false });
 import {
   FineLineFact,
   RadarFlags,
@@ -89,7 +92,7 @@ import {
 } from "./RadarCheck";
 import { withRadar, type TorOutlook } from "@/lib/engines/project";
 
-type Engine = "tor" | "surge" | "blind" | FieldId | OutdoorId;
+type Engine = "tor" | "surge" | "blind" | "coast" | FieldId | OutdoorId;
 const FIELDS: FieldId[] = [
   "llj",
   "nst",
@@ -226,19 +229,9 @@ const SECTIONS: { name: string; ids: Engine[] }[] = [
   { name: "Storms now", ids: ["tor", "surge", "bound", "first"] },
   {
     name: "Forecast",
-    ids: [
-      "stp",
-      "scp",
-      "rwrap",
-      "dcp",
-      "ltg",
-      "llj",
-      "nst",
-      "blizz",
-      "pyro",
-      "tctor",
-    ],
+    ids: ["stp", "scp", "rwrap", "dcp", "ltg", "llj", "nst", "blizz", "pyro"],
   },
+  { name: "Tropical", ids: ["coast", "tctor"] },
   { name: "Outdoors", ids: ["sunset", "rainbow", "deer", "fish"] },
   { name: "Tools", ids: ["blind"] },
 ];
@@ -350,6 +343,12 @@ const ENGINES: {
     name: "Fishing Bite",
     sub: "Lower 48, Days 1–3",
     icon: <Fish aria-hidden />,
+  },
+  {
+    id: "coast",
+    name: "Coastal Impact",
+    sub: "Surge odds and wind arrival",
+    icon: <Waves aria-hidden />,
   },
   {
     id: "tctor",
@@ -534,6 +533,15 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
       "Pick a species; tap the map or use your place for three days hour by hour, with water from the nearest gauge, buoy or lake satellite reading (or estimated from the past week's air), the best times and when the next front passes.",
       "On a river, the nearest USGS flow gauge within 10 miles is checked against its normal for the date: muddy high water (over 1.5 times normal, or in the top 5% for the date) cuts the score, more so while it is still rising.",
       "Log your catches: they are compared with the score and tune the weights over time.",
+    ],
+  },
+  coast: {
+    lead: "Official NHC data in our design; only on when NHC issues advisories for a U.S. threat.",
+    body: [
+      "Storm surge kills more people in hurricanes than wind. When a hurricane or tropical storm threatens the U.S., the National Hurricane Center runs P-Surge: hundreds of storm tracks, sizes and strengths spread around its forecast, each pushed through its surge model, giving the chance that water rises more than 3, 6 or 9 feet above the ground on every stretch of coast within the next three days.",
+      "It also publishes when tropical-storm-force winds (39 mph) are likely to arrive: the earliest reasonable time (a 1 in 10 chance they come sooner) and the most likely time. That arrival is the deadline to finish preparing, since outdoor work gets dangerous once those winds start.",
+      "The map shows the surge odds for the height you pick as dots and the most likely arrival as shaded squares. Below are the coast's worst stretches (about 15 miles each, named for the nearest town) and every place you have saved.",
+      "When nothing is threatening, an example from Hurricane Helene (2024) can be shown, clearly labeled as the past.",
     ],
   },
   tctor: {
@@ -1448,12 +1456,17 @@ export function EnginesTab({
                       ]
                     : []),
                 ]
-              : engine === "deer" || engine === "fish"
-                ? OUTMAP_BANDS.labels.map((l, i) => [l, outColor(i)])
-                : bandsOf(engine).labels.map((l, i) => [
-                    l,
-                    fieldColor(engine, i),
-                  ]);
+              : engine === "coast"
+                ? COAST_BANDS.map((b, i) => [
+                    b.label,
+                    pick(colors, `engine:coast:${i}`, b.color),
+                  ])
+                : engine === "deer" || engine === "fish"
+                  ? OUTMAP_BANDS.labels.map((l, i) => [l, outColor(i)])
+                  : bandsOf(engine).labels.map((l, i) => [
+                      l,
+                      fieldColor(engine, i),
+                    ]);
   const placeNow =
     mapKey && placeMaps[mapKey] && placeMaps[mapKey] !== "error"
       ? (placeMaps[mapKey] as PlaceMap)
@@ -1553,7 +1566,7 @@ export function EnginesTab({
         <span className={s.badge}>
           <FlaskConical aria-hidden /> Experimental
         </span>
-        {engine !== "blind" && (
+        {engine !== "blind" && engine !== "coast" && (
           <RefreshKey
             className={s.refresh}
             onPress={refresh}
@@ -1998,6 +2011,8 @@ export function EnginesTab({
           )}
         </section>
       )}
+
+      {engine === "coast" && <CoastPanel map={map} colors={colors} />}
 
       {engine === "llj" && spot && (
         <LljNight

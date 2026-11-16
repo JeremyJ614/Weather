@@ -35,6 +35,8 @@ import { BANDS as CHASE_BANDS, CHASE_ALT } from "@/lib/chase/score";
 import {
   BLIND_BANDS,
   BLIND_LOST,
+  COAST_BANDS,
+  TOA_BANDS,
   FIELD_BANDS,
   BOUND_POINTS,
   FIRST_TIME_BANDS,
@@ -339,6 +341,23 @@ export const GROUPS: Group[] = [
       label: b.label,
       def: b.color,
     })),
+  },
+  {
+    id: "engine-coast",
+    label: "Coastal Impact",
+    note: "Extras → Weather Engines: storm surge odds and tropical-storm wind arrival.",
+    entries: [
+      ...COAST_BANDS.map((b, i) => ({
+        key: `engine:coast:${i}`,
+        label: `Surge chance ${b.label}`,
+        def: b.color,
+      })),
+      ...TOA_BANDS.map((b, i) => ({
+        key: `engine:toa:${i}`,
+        label: `Winds arrive ${b.label}`,
+        def: b.color,
+      })),
+    ],
   },
   {
     id: "engine-blind",

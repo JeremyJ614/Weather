@@ -345,6 +345,18 @@ export function InfoScrubCore({
     kick();
   };
 
+  // Taps on phones keep the readout open where they land (B4): it closes on a tap outside the
+  // chart, and the chart never starts a text selection or the long-press menu.
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: PointerEvent) => {
+      if (!g.current?.contains(e.target as Node)) show(false, false);
+    };
+    document.addEventListener("pointerdown", away, true);
+    return () => document.removeEventListener("pointerdown", away, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
   const valueText = useMemo(
     () =>
       `${title(idx)}: ${live
@@ -482,6 +494,8 @@ export function InfoScrubCore({
         aria-valuetext={valueText}
         data-pressed={pressed || undefined}
         onPointerDown={(e) => {
+          // A touch press must not start a page text selection.
+          if (e.pointerType !== "mouse") e.preventDefault();
           (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
           show(true, true);
           setTarget(toIndex(e));
@@ -492,11 +506,13 @@ export function InfoScrubCore({
             setTarget(toIndex(e));
           }
         }}
-        onPointerUp={(e) => {
+        onPointerUp={() => {
           setTarget(st.current.ti, true);
-          show(e.pointerType === "mouse", false);
+          // Stays open where the reader let go; the next tap moves it.
+          show(true, false);
         }}
         onPointerCancel={() => show(false, false)}
+        onContextMenu={(e) => e.preventDefault()}
         onPointerLeave={(e) => {
           if (e.pointerType === "mouse" && !st.current.pressed)
             show(false, false);
