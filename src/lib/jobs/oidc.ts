@@ -3,12 +3,14 @@ import "server-only";
 /**
  * GitHub Actions OIDC (post-launch A1 "cost-guard"): the scheduled jobs workflow proves who it
  * is with a short-lived token GitHub signs, so the database relay needs no shared secret.
- * Only this repository's `jobs.yml` on `main` is accepted.
+ * Only this repository's `jobs.yml` on `main` or the default branch is accepted.
  */
 const ISSUER = "https://token.actions.githubusercontent.com";
 export const JOBS_AUDIENCE = "weather.sswx.space";
 const REPO = "JeremyJ614/Weather";
-const WORKFLOW = `${REPO}/.github/workflows/jobs.yml@refs/heads/main`;
+// main (manual runs) and the default branch, which GitHub runs schedules from and is kept in
+// step with main.
+const REFS = ["refs/heads/main", "refs/heads/ccr-f5e0b71a-4vr2wk"];
 
 type Jwk = JsonWebKey & { kid: string };
 let keys: { at: number; list: Jwk[] } | null = null;
@@ -59,8 +61,9 @@ export async function isJobsToken(token: string | null | undefined) {
       claims.iss === ISSUER &&
       claims.aud === JOBS_AUDIENCE &&
       claims.repository === REPO &&
-      claims.ref === "refs/heads/main" &&
-      claims.job_workflow_ref === WORKFLOW &&
+      REFS.includes(claims.ref) &&
+      claims.job_workflow_ref ===
+        `${REPO}/.github/workflows/jobs.yml@${claims.ref}` &&
       claims.exp > now &&
       claims.nbf <= now + 60
     );
