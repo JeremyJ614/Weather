@@ -33,6 +33,15 @@ export type PlaceData = {
   front?: string | null;
   frontDay?: string | null;
   water?: { f: number; from: string };
+  flow?: {
+    name: string;
+    miles: number;
+    cfs: number;
+    median: number;
+    p95: number | null;
+    rise: number;
+    factor: number;
+  } | null;
   majors?: string[];
   minors?: string[];
   species?: string;
@@ -176,10 +185,37 @@ export function PlacePanel({
               <b>Water:</b> {data.water.f}°F, {data.water.from}
             </li>
           )}
+          {data.flow && (
+            <li>
+              <b>River:</b> {data.flow.cfs.toLocaleString()} cubic feet a second
+              at {data.flow.name} ({data.flow.miles} mi), {flowWords(data.flow)}
+              {data.flow.factor < 1
+                ? `; scores here are cut ${Math.round((1 - data.flow.factor) * 100)}% for high water`
+                : ""}
+            </li>
+          )}
         </ul>
       )}
     </div>
   );
+}
+
+/** River flow against the gauge's normal for today, in words. */
+function flowWords(f: NonNullable<PlaceData["flow"]>) {
+  const r = f.cfs / f.median;
+  const level =
+    f.p95 && f.cfs > f.p95
+      ? "running very high (top 5% for the date)"
+      : r >= 2
+        ? `about ${Math.round(r * 10) / 10}× normal for the date`
+        : r >= 1.3
+          ? "a bit above normal"
+          : r >= 0.7
+            ? "near normal"
+            : "below normal";
+  const trend =
+    f.rise > 0.15 ? " and rising" : f.rise < -0.15 ? " and falling" : "";
+  return level + trend;
 }
 
 export function SpeciesPicker({

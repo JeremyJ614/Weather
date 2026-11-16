@@ -17,6 +17,7 @@ import {
   type SpeciesId,
 } from "./outdoor";
 import { rainbowAt } from "./rainbow";
+import { riverFlow, waterIndex, waterObs } from "./water";
 import { pressureFactor, rutFor } from "./rut";
 import { stateAt } from "@/lib/history/states";
 import { project } from "@/lib/map/usAlbers";
@@ -260,12 +261,33 @@ export async function placeDetail(
   sp: SpeciesId = "bass",
   tz = "America/New_York",
 ) {
-  const [[h], w, cfg, water] = await Promise.all([
+  const fishing = kind === "fish";
+  const [[h], w, cfg, gauge, lake, flow] = await Promise.all([
     hourly([lat], [lon], 1800),
     tuned(kind),
     kind === "deer" ? deerConfig() : null,
-    kind === "fish" ? gaugeWater(lat, lon) : null,
+    fishing ? gaugeWater(lat, lon) : null,
+    // Post-launch A6: Great Lakes buoys and the GLSEA satellite analysis where no gauge is near.
+    fishing
+      ? waterObs()
+          .then((o) =>
+            waterIndex(o.filter((x) => x.src !== "gauge"))(lat, lon, 25),
+          )
+          .catch(() => null)
+      : null,
+    fishing ? riverFlow(lat, lon).catch(() => null) : null,
   ]);
+  const water =
+    lake && (!gauge || lake.miles < gauge.miles)
+      ? {
+          f: Math.round(lake.f),
+          miles: lake.miles,
+          name:
+            lake.src === "buoy"
+              ? "NOAA Great Lakes buoy"
+              : "Great Lakes satellite analysis",
+        }
+      : gauge;
   const species = speciesOf(sp);
   const here = cfg ? rutAt(lat, lon, cfg) : null;
   const list = rows(h, lat, lon, 72).map((r) => {
@@ -278,7 +300,7 @@ export async function placeDetail(
               deerScore(r.deer, rutBoost(new Date(r.t), here!.rut), w) *
                 pressureFactor(here!.st, r.t, cfg!),
             )
-          : fishScore(r.fish, species, w),
+          : Math.round(fishScore(r.fish, species, w) * (flow?.factor ?? 1)),
     };
   });
   if (!list.length) throw new Error("No forecast for this place");
@@ -330,7 +352,10 @@ export async function placeDetail(
     extra.water = water
       ? {
           f: water.f,
-          from: `${water.name.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())} (${water.miles} mi)`,
+          from: `${water.name
+            .toLowerCase()
+            .replace(/\b\w/g, (c) => c.toUpperCase())
+            .replace(/\bNoaa\b/, "NOAA")} (${water.miles} mi)`,
         }
       : {
           f: Math.round(now.fish.water),
@@ -345,6 +370,7 @@ export async function placeDetail(
     extra.majors = soon(moon.majors, 60 * 60_000).slice(0, 3);
     extra.minors = soon(moon.minors, 30 * 60_000).slice(0, 3);
     extra.species = species.name;
+    extra.flow = flow;
   }
   return {
     at: new Date().toISOString(),

@@ -34,6 +34,7 @@ import { COMPARE } from "@/lib/radar/products";
 import { BANDS as CHASE_BANDS, CHASE_ALT } from "@/lib/chase/score";
 import {
   BLIND_BANDS,
+  BLIND_LOST,
   FIELD_BANDS,
   BOUND_POINTS,
   FIRST_TIME_BANDS,
@@ -343,11 +344,18 @@ export const GROUPS: Group[] = [
     id: "engine-blind",
     label: "Radar Blind Spot",
     note: "Extras → Weather Engines: height of the lowest radar beam.",
-    entries: BLIND_BANDS.map((b, i) => ({
-      key: `engine:blind:${i}`,
-      label: b.label,
-      def: b.color,
-    })),
+    entries: [
+      ...BLIND_BANDS.map((b, i) => ({
+        key: `engine:blind:${i}`,
+        label: b.label,
+        def: b.color,
+      })),
+      {
+        key: "engine:blind:lost",
+        label: BLIND_LOST.label,
+        def: BLIND_LOST.color,
+      },
+    ],
   },
   ...(
     [

@@ -22,6 +22,7 @@ import {
   type Weights,
 } from "./outdoor";
 import { deerConfig, solunar } from "./places";
+import { waterIndex, waterObs } from "./water";
 
 /**
  * Deer Activity and Fishing Bite as SPC-style outlooks of the lower 48 (review round, owner
@@ -384,12 +385,14 @@ export async function computeOutdoorMaps(now = Date.now()): Promise<OutMap[]> {
   const allT = [...series.h, ...series.t];
   const t0All = hist[0];
 
-  const [deerW, fishW, cfg, hrrr] = await Promise.all([
+  const [deerW, fishW, cfg, hrrr, obs] = await Promise.all([
     tuned("deer").catch(() => ({}) as Weights),
     tuned("fish").catch(() => ({}) as Weights),
     deerConfig(),
     hrrrDay1(d0).catch(() => null),
+    waterObs().catch(() => []),
   ]);
+  const measured = waterIndex(obs);
   const m = usMask();
   // The moon's major and minor periods for each column of the lattice (they shift about four
   // minutes a degree of longitude; coarser steps leave north-south stripes on the map).
@@ -411,10 +414,13 @@ export async function computeOutdoorMaps(now = Date.now()): Promise<OutMap[]> {
     if (!m[idx]) continue;
     const lat = LAT.N - Math.floor(idx / NW) * LAT.step;
     const lon = LAT.W + (idx % NW) * LAT.step;
-    // Water runs near the mean air temperature of the five days around (°F).
+    // Water runs near the mean air temperature of the five days around (°F), unless a gauge,
+    // buoy or the Great Lakes satellite analysis measured it nearby (post-launch A6).
     let water = 0;
     for (const f of allT) water += K2F(f[idx]);
     water /= allT.length;
+    const got = measured(lat, lon);
+    if (got) water = got.trust * got.f + (1 - got.trust) * water;
     const mo = moon[idx % NW];
     const p = project(lon, lat);
     const st = stateAt(p.x, p.y);

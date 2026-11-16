@@ -14,7 +14,7 @@ import type { Areas } from "@/lib/engines/areas";
 import { geoPath } from "@/lib/map/geo";
 
 export const maxDuration = 60;
-import radars from "@/lib/engines/radars.json";
+import { bandOf, loadBlind, pixelAt } from "@/lib/engines/blindspot";
 import { LIMITS, limited } from "@/lib/ratelimit";
 
 /** An engine's band areas as key-carrying paths for the color editor's live preview. */
@@ -77,26 +77,16 @@ export async function GET(req: Request) {
     return Response.json({ polys: polys(r?.areas, e) });
   }
   if (e === "blind") {
-    const buf = new Uint8Array(
-      await (
-        await fetch(new URL("/extras/blindspot.bin", req.url))
-      ).arrayBuffer(),
-    );
-    const { width, height, bounds } = radars;
-    const grid = new Uint8Array(width * height);
-    for (let i = 0, k = 0; i < buf.length; i += 2)
-      grid.fill(buf[i], k, (k += buf[i + 1]));
-    const [W, S, E, N] = bounds;
-    const merc = (lat: number) =>
-      Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360));
+    const grid = await loadBlind(new URL(req.url).origin);
     const dots = [];
-    for (let lat = S + 0.25; lat < N; lat += 0.5)
-      for (let lon = W + 0.25; lon < E; lon += 0.5) {
-        const x = Math.floor(((lon - W) / (E - W)) * width);
-        const y = Math.floor(
-          ((merc(N) - merc(lat)) / (merc(N) - merc(S))) * height,
-        );
-        dots.push({ lat, lon, key: `engine:blind:${grid[y * width + x]}` });
+    for (let lat = grid.bounds[1] + 0.25; lat < grid.bounds[3]; lat += 0.5)
+      for (let lon = grid.bounds[0] + 0.25; lon < grid.bounds[2]; lon += 0.5) {
+        const k = pixelAt(grid, lat, lon);
+        dots.push({
+          lat,
+          lon,
+          key: `engine:blind:${k < 0 ? 0 : bandOf(grid, grid.h1[k])}`,
+        });
       }
     return Response.json({ dots });
   }
