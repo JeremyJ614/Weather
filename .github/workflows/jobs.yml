@@ -1,10 +1,9 @@
 name: Scheduled jobs
 
-# The heavy scheduled jobs, run here instead of on Vercel (post-launch A1 "cost-guard").
-# Off until the repository variable JOBS_ON_ACTIONS is "1". Then also set JOBS_ON_ACTIONS=1
-# in Vercel so the database scheduler's calls stand down. Needs the secret
-# SUPABASE_SERVICE_ROLE_KEY and the variables NEXT_PUBLIC_SUPABASE_URL and
-# NEXT_PUBLIC_SUPABASE_ANON_KEY. Free and unlimited once the repository is public.
+# The heavy scheduled jobs, run here instead of on Vercel (post-launch A1 "cost-guard"): free
+# and unlimited for a public repository. No secrets: the job proves itself with GitHub's OIDC
+# token and reads and writes the database through the site's relay (/api/jobs/sb), which checks
+# that token. JOBS_ON_ACTIONS=1 in Vercel makes the database scheduler's calls stand down.
 on:
   schedule:
     - cron: "7,27,47 * * * *" # engine maps (as pg_cron engine-maps)
@@ -22,15 +21,20 @@ concurrency:
   group: jobs-${{ github.event.schedule || inputs.job }}
   cancel-in-progress: false
 
+permissions:
+  contents: read
+  id-token: write
+
 jobs:
   run:
-    if: ${{ vars.JOBS_ON_ACTIONS == '1' }}
+    if: ${{ vars.JOBS_ON_ACTIONS != '0' && github.repository == 'JeremyJ614/Weather' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      # Public values (they ship in the site's own pages).
+      NEXT_PUBLIC_SUPABASE_URL: https://ztzqemzuanwqwqzsaigd.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_524pcbnxZXnvh3AL-UPm9A_cxQj3oNq
+      JOBS_RELAY: https://weather.sswx.space/api/jobs/sb
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
