@@ -61,7 +61,7 @@ export function Perks({ d }: { d: PerksData }) {
   return (
     <section className={s.perks} aria-label="Offers">
       {d.founder && (
-        <article className={s.card} data-tone="gold">
+        <article className={s.card} data-tone="gold" data-holo>
           <Crown aria-hidden />
           <div>
             <h3>Founding Members</h3>

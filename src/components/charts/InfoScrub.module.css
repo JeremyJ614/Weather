@@ -116,6 +116,16 @@
   animation-delay: 0.48s;
 }
 
+/* Scroll-built sections (B6): a chart further down the page draws its lines as it scrolls in. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    :global(html:not([data-tier="low"])) .draw {
+      animation: drawIn linear both;
+      animation-timeline: view();
+      animation-range: entry 10% cover 45%;
+    }
+  }
+}
 @keyframes drawIn {
   from {
     transform: scaleX(0);
