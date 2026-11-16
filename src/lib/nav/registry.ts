@@ -93,6 +93,7 @@ export const MAIN_NAV: NavGroup[] = [
     icon: "Radar",
     pages: [
       p("radar-model-runs", "Radar & Model Runs", "Radar", "45"),
+      p("earth-watch", "Earth Watch", "Globe", "B10"),
       p("river-flood-gauges", "River & Flood Gauges", "Droplets", "46"),
       p("3d-soundings", "3D Soundings", "Box", "47"),
       p("traffic-cameras", "Traffic Cameras", "Cctv", "48", true),
@@ -177,6 +178,7 @@ export const href = (page: NavPage) => `/${page.slug}`;
  * each with a sign-up card, so a shared link or a search lands somewhere real.
  */
 export const FRONT_DOOR = [
+  "earth-watch",
   "sswxcon",
   "spc-probability",
   "on-this-day",
@@ -192,9 +194,6 @@ export const GUEST_PAGES = [
   "join",
   "login",
 ];
-/** Paths a guest may request; the proxy sends everything else to the signup gate. */
-export const GUEST_PATHS =
-  /^\/(?:$|disaster-response|donate|join|login|signup|welcome|auth|privacy|news|offline|sswxcon|spc-probability|on-this-day|weather-glossary|free-content-library|contact|faq|closed|widgets|embed|web-stories|press|reports|news-sitemap\.xml|api|feed\.xml|sitemap\.xml|robots\.txt|llms\.txt|opengraph-image|twitter-image)(?:\/|$|\?)/;
 
 /**
  * Groups as a given viewer may see them. Signed-in members see "My Account" instead of

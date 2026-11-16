@@ -14,7 +14,6 @@ import {
   Trophy,
 } from "lucide-react";
 import { UsMap } from "@/features/maps/UsMap";
-import { CardButtons } from "@/features/share/CardButtons";
 import { Polys, useLayer } from "@/features/maps/useLayer";
 import { slideIn } from "@/features/news/HomeTabs";
 import { project } from "@/lib/map/usAlbers";
@@ -38,6 +37,11 @@ import s from "./Chase.module.css";
 export type { Ledger };
 
 const loading = () => <p className={s.small}>Loading…</p>;
+// The share buttons load with the page's other extras, keeping the route inside its budget.
+const CardButtons = dynamic(
+  () => import("@/features/share/CardButtons").then((m) => m.CardButtons),
+  { ssr: false },
+);
 const ParamsPanel = dynamic(
   () => import("./ChasePanels").then((m) => m.ParamsPanel),
   { ssr: false, loading },

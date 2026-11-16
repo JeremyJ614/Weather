@@ -4,4 +4,4 @@
  * engines also count full-screen overlays on arrival against a page.
  */
 export const LANDING =
-  /^\/(?:sswxcon|spc-probability|on-this-day|weather-glossary|free-content-library|news|faq|contact|privacy|disaster-response)(?:\/|$)/;
+  /^\/(?:earth-watch|widgets|press|reports|web-stories|sswxcon|spc-probability|on-this-day|weather-glossary|free-content-library|news|faq|contact|privacy|disaster-response)(?:\/|$)/;
