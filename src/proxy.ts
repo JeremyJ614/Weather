@@ -1,7 +1,7 @@
 import { REMEMBER_COOKIE, sessionOptions } from "@/lib/supabase/remember";
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
-import { GUEST_PATHS } from "@/lib/nav/registry";
+import { GUEST_PATHS } from "@/lib/nav/guest";
 import { EVERY_PAGE } from "@/lib/nav/extras";
 import { cleanBilling, planOpens, type MemberPlan } from "@/lib/billing/plans";
 import { SELLABLE_SLUGS } from "@/lib/billing/sellable";

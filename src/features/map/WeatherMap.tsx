@@ -108,9 +108,14 @@ export function WeatherMap({
         attributionControl: { compact: true },
       });
       map = m;
-      m.once("load", () => ready(m, "maplibre"));
+      let up = false;
+      m.once("load", () => {
+        up = true;
+        ready(m, "maplibre");
+      });
+      // Only a style that never loads is a failed map; a missing tile later is not (bug 152).
       m.on("error", () => {
-        if (!m.loaded()) setFailed(true);
+        if (!up) setFailed(true);
       });
     };
 

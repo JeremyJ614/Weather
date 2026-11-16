@@ -4,6 +4,7 @@
  * wherever the color is drawn. Theme colors are not here (a theme is a token
  * swap); these are the meanings painted on maps and charts.
  */
+import { EARTH_KINDS, EARTH_LEVELS } from "@/lib/earth/colors";
 import { DROUGHT, ERO_COLORS, QPF_SCALE, RAMP } from "@/lib/map/products";
 import { PASTEL } from "@/lib/ingredients/calc";
 import { HAZ, HAZARDS, RISK } from "@/lib/timing/calc";
@@ -341,6 +342,23 @@ export const GROUPS: Group[] = [
       label: b.label,
       def: b.color,
     })),
+  },
+  {
+    id: "earth-watch",
+    label: "Earth Watch",
+    note: "The globe's event types and severity levels.",
+    entries: [
+      ...EARTH_KINDS.map((k) => ({
+        key: `earth:kind:${k.id}`,
+        label: k.label,
+        def: k.color,
+      })),
+      ...EARTH_LEVELS.map((l, i) => ({
+        key: `earth:level:${i + 1}`,
+        label: `Level ${i + 1}: ${l.label}`,
+        def: l.color,
+      })),
+    ],
   },
   {
     id: "engine-coast",
