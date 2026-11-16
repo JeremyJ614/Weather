@@ -55,6 +55,18 @@ export const metadata: Metadata = {
       "application/rss+xml": [{ url: "/feed.xml", title: "SSWX News" }],
     },
   },
+  // Google Discover shows big pictures only for sites that allow them (B7).
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
   // Search Console and Bing Webmaster ownership, when the owner sets the env vars.
   verification: {
     ...(verify.google && { google: verify.google }),

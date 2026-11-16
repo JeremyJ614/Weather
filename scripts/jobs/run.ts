@@ -29,6 +29,25 @@ async function main() {
       return (await import("../../src/lib/engines/verify")).verifyChecks();
     case "surge":
       return (await import("../../src/lib/engines/surge")).logSurges();
+    case "indexnow": {
+      // B7: once a day every page in the sitemap goes to IndexNow (Bing, Yandex, Seznam,
+      // Naver), so new and changed pages are crawled within hours without Webmaster Tools.
+      const site = "https://weather.sswx.space";
+      const xml = await (await fetch(`${site}/sitemap.xml`)).text();
+      const urls = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+      const { INDEXNOW_KEY } = await import("../../src/lib/seo/indexnow");
+      const r = await fetch("https://api.indexnow.org/indexnow", {
+        method: "POST",
+        headers: { "Content-Type": "application/json; charset=utf-8" },
+        body: JSON.stringify({
+          host: "weather.sswx.space",
+          key: INDEXNOW_KEY,
+          keyLocation: `${site}/${INDEXNOW_KEY}.txt`,
+          urlList: urls.slice(0, 10000),
+        }),
+      });
+      return { submitted: urls.length, status: r.status };
+    }
     case "dry": {
       // Computes one engine without storing it: proves the runner works on a new machine.
       const id = process.argv[3] ?? "stp";
