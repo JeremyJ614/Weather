@@ -178,7 +178,6 @@ export const href = (page: NavPage) => `/${page.slug}`;
  * each with a sign-up card, so a shared link or a search lands somewhere real.
  */
 export const FRONT_DOOR = [
-  "earth-watch",
   "sswxcon",
   "spc-probability",
   "on-this-day",
