@@ -18,7 +18,7 @@ export const metadata: Metadata = pageMeta(
  */
 export default function Press() {
   const engines = EXTRAS_ITEMS.filter((i) => i.group === "engines").length;
-  const boiler = `${SITE.name} (${SITE.url.replace("https://", "")}) is a free-to-start severe weather app from ${SITE.publisher} (SSWX), a storm chasing, meteorology and forecasting team. It brings live radar, Storm Prediction Center outlooks, warnings, a Tornado Archive with 3D replays and ${engines} experimental weather engines together in one phone-first app.`;
+  const boiler = `${SITE.name} (${SITE.url.replace("https://", "")}) is a membership severe weather app from ${SITE.publisher} (SSWX), a storm chasing, meteorology and forecasting team. It brings live radar, Storm Prediction Center outlooks, warnings, a Tornado Archive with 3D replays and ${engines} experimental weather engines together in one phone-first app.`;
   return (
     <main className="grid gap-4 pb-10">
       <PageHero
@@ -40,8 +40,8 @@ export default function Press() {
           <span>every U.S. tornado in our climatology and archive</span>
         </div>
         <div>
-          <b>Free</b>
-          <span>to start, on any phone</span>
+          <b>54</b>
+          <span>historic tornado days replayed in 3D</span>
         </div>
       </section>
       <section className={s.card}>
