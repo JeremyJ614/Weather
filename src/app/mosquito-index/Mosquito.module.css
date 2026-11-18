@@ -154,6 +154,30 @@
   font-weight: 800;
   font-size: 18px;
 }
+.seasonTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+}
+.seasonTag svg {
+  width: 14px;
+  height: 14px;
+}
+.seasonTag span {
+  font-weight: 500;
+  color: var(--muted);
+}
+.season {
+  display: grid;
+  gap: 8px;
+}
+.seasonWhy {
+  font-size: 13px;
+  line-height: 1.5;
+}
 .card {
   display: grid;
   gap: 10px;

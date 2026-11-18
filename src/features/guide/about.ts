@@ -13,7 +13,7 @@ export const ABOUT: Record<string, string> = {
   "aqi-pollen":
     "Air quality and pollen for your place, and what's driving them.",
   "mosquito-index":
-    "How bad mosquitoes should be, from temperature, humidity and recent rain.",
+    "How bad mosquitoes should be, from temperature, humidity, rain, wind and your area's own mosquito season.",
   "daylight-tracker":
     "Sunrise, sunset and how much daylight you're gaining or losing.",
   "wx-games":

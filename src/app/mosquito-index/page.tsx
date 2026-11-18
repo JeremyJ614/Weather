@@ -9,7 +9,7 @@ import { MosquitoView } from "./MosquitoView";
 export const metadata: Metadata = pageMeta(
   "/mosquito-index",
   "Mosquito Index",
-  "How active mosquitoes will be, hour by hour, from temperature, humidity, rain and wind, and when to protect yourself.",
+  "How active mosquitoes will be, hour by hour, from temperature, humidity, rain, wind and where your area is in its mosquito season, and when to protect yourself.",
 );
 
 export default async function MosquitoIndex() {
@@ -20,7 +20,7 @@ export default async function MosquitoIndex() {
         icon={<Bug aria-hidden />}
         eyebrow={["NWS hourly forecast", "SSWX activity model"]}
         title="Mosquito Index"
-        subtitle="How active mosquitoes will be, hour by hour, from temperature, humidity, rain and wind, and when to protect yourself."
+        subtitle="How active mosquitoes will be, hour by hour, from temperature, humidity, rain, wind and where your area is in its mosquito season, and when to protect yourself."
       />
       {disabled.includes("mosquito") ? (
         <ModuleOff label="The Mosquito Index" />
