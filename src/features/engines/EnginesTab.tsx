@@ -394,7 +394,7 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
       "Each collision is checked against what is there now: airport winds converging (a least-squares fit of every station within 50 miles), dew points or temperatures splitting across it, the Weather Prediction Center's analyzed fronts, and the HRRR's CAPE, inhibition, low-level spin and shear. The score weighs that evidence; the list says which sources agree.",
       "Each collision then gets a storm chance: how sure the meeting is, times the fuel (CAPE) and how much the cap gives way, a little more with deep shear to organize storms, and more again where the HRRR itself starts a storm within 25 miles in that hour. It is calibrated against how past collisions verified, so 60% means storms formed about six times in ten.",
       "For the two leading collisions (or any you tap), your phone reads the nearest Weather Service radar within 70 miles and looks for fine lines: the thin bands of weak echo that insects and dust draw where air is converging, which is how forecasters actually see outflow boundaries, fronts and drylines. It says how far the nearest one is, how long and which way it runs.",
-      "Strong collisions are checked afterwards against radar (did storms form within 25 miles?) and the hit rate shows below. Station spacing means a boundary can't be placed closer than 15–25 miles.",
+      "Strong collisions are checked afterwards against radar (did storms form within 25 miles?). Station spacing means a boundary can't be placed closer than 15–25 miles.",
     ],
   },
   blind: {
@@ -476,7 +476,7 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
       "The chances are then smoothed over about 40 km, the way SPC's own guidance is, and calibrated against how this engine's flagged chances have verified over the last 60 days.",
       "That share is weighed by the newest run's support: whether the cap (the inhibition, CIN) is weakening over the next three hours, and whether the surface winds are converging, which gives the air its push. Places without the instability to use (most-unstable CAPE under 100 J/kg) are left out, so winter rain bands don't count as storms.",
       "Switch to Timing to see when the first storms start, soonest on top. Each listed spot gives the time, how many runs agree and why.",
-      "Every spot of 35% or more is checked once its 6 hours are over against radar (any storm NOAA's ProbSevere tracked within 25 miles), and the hit rate shows below.",
+      "Every spot of 35% or more is checked once its 6 hours are over against radar (any storm NOAA's ProbSevere tracked within 25 miles).",
     ],
   },
   rwrap: {
@@ -495,7 +495,7 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
       "This counts the hours each place meets that test over the next two days: the newest HRRR run every 2 hours out to 18, then the newest 48-hour run (from 00, 06, 12 or 18Z) every 3 hours. Falling snow counts where the model snows with visibility under half a mile; blowing snow counts where at least 2 inches of snow lie, even with no snow falling.",
       "Snow on the ground starts from NOAA NOHRSC's National Snow Analysis (observed depth from stations, aircraft and satellite) instead of the model's guess, plus whatever the model snows after it. Whether it blows follows Li and Pomeroy's research: dry snow starts drifting at a 10 m wind of about 19 mph at −5 °C and less in deeper cold; snow that fell in the last day blows at that, older snow needs about 4 mph more, and snow that has thawed above freezing since it fell is crusted and doesn't blow at all. Visibility drops to a quarter mile at about one and a half times the wind that starts it moving.",
       "The model's visibility in falling snow is its weakest part, so marginal places can still get false alarms. Interstates are drawn bright so you can see which ones cross the whiteout areas.",
-      "Each place with 3 or more hours is checked while it happens against airport reports (a quarter mile or less with 30 kt winds) and afterwards against Weather Service blizzard reports, and the hit rate shows below.",
+      "Each place with 3 or more hours is checked while it happens against airport reports (a quarter mile or less with 30 kt winds) and afterwards against Weather Service blizzard reports.",
     ],
   },
   sunset: {
