@@ -77,13 +77,10 @@ class Pool {
           const job = this.jobs.get(e.data.id);
           if (!job) return;
           this.jobs.delete(e.data.id);
-          if (e.data.radials) job.resolve(e.data.radials);
-          else
-            job.reject(
-              new Error(
-                e.data.error ?? "The radar record could not be unpacked.",
-              ),
-            );
+          // A record the worker could not unpack gets a second try here before it counts
+          // as lost (Fix It List #36, 10).
+          if (Array.isArray(e.data.radials)) job.resolve(e.data.radials);
+          else inline(job.bytes).then(job.resolve, job.reject);
           this.rest();
         };
         w.onerror = (e) => {
@@ -219,6 +216,15 @@ export async function readLowestScan(
 
     const scan = new LowestScan();
     const queue: Promise<Radial[]>[] = [];
+    // One bad record (a damaged or cut short block in the archive) costs its own radials,
+    // not the whole scan: it is skipped and counted, and only a scan with nothing readable
+    // fails. Each job settles here, so nothing is ever left as an unhandled rejection.
+    let lost = 0;
+    const decode = (rec: Uint8Array) =>
+      pool.run(rec).catch(() => {
+        lost += 1;
+        return [] as Radial[];
+      });
     const arrived = new Signal();
     const consumed = new Signal();
     let finished = false;
@@ -246,7 +252,7 @@ export async function readLowestScan(
               rec;
               rec = nextRecord(pending, at)
             ) {
-              queue.push(pool.run(pending.subarray(rec.start, rec.end)));
+              queue.push(decode(pending.subarray(rec.start, rec.end)));
               at = rec.end;
               arrived.fire();
             }
@@ -292,6 +298,10 @@ export async function readLowestScan(
     }
     if (outer?.aborted) throw new DOMException("Aborted", "AbortError");
     if (failure && !scan.radials) throw failure;
+    if (!scan.radials && lost)
+      throw new NoScan(
+        `${volume.site}'s scan from this moment is damaged in the archive. Try a minute earlier or later, or another radar.`,
+      );
 
     const sweeps = scan.sweeps();
     if (!sweeps.REF && !sweeps.VEL)
