@@ -91,6 +91,9 @@ function Zap({
       <i className={s.edge} data-n="2" aria-hidden />
       <i className={s.edge} data-n="3" aria-hidden />
       <i className={s.glow} aria-hidden />
+      <i className={s.g1} aria-hidden />
+      <i className={s.g2} aria-hidden />
+      <i className={s.halo} aria-hidden />
       <b>{children}</b>
     </span>
   );
