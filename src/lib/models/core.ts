@@ -105,6 +105,7 @@ function converter(raw: string, max: number): ((v: number) => number) | null {
     case "snod":
       return (v) => v * 39.3701;
     case "maxwind10":
+    case "wind10":
       return (v) => v * 2.236936;
     case "lmmot":
       return (v) => v * MS2KT;
@@ -513,6 +514,8 @@ export function paintIndex(
   const lons = new Float64Array(W);
   for (let x = 0; x < W; x++) lons[x] = w + ((x + 0.5) / W) * (e - w);
   const locRow = rowLocator(f.grid, lons);
+  const round =
+    f.grid.kind === "latlon" && Math.abs(gw * f.grid.di - 360) < 1e-3;
   const fiRow = new Float64Array(W);
   const fjRow = new Float64Array(W);
   for (let y = 0; y < H; y++) {
@@ -520,7 +523,9 @@ export function paintIndex(
     locRow(lat, fiRow, fjRow);
     for (let x = 0; x < W; x++) {
       if (keep && !keep(lat, lons[x])) continue;
-      const fi = fiRow[x];
+      // A grid that circles the globe (GFS) has no gap between its last column and the
+      // first: the sliver past the last column takes its edge instead of staying clear.
+      const fi = round && fiRow[x] > gw - 1 ? gw - 1 : fiRow[x];
       const fj = fjRow[x];
       if (fi < 0 || fj < 0 || fi > gw - 1 || fj > gh - 1) continue;
       const i = Math.floor(fi);

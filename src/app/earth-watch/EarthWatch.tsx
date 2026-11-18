@@ -2,15 +2,20 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Cloud,
+  CloudRain,
+  CloudSnow,
   Flame,
   Globe2,
+  Layers,
   Moon,
   Pause,
   Play,
   Radar,
   RotateCw,
+  Satellite,
   Snowflake,
+  Thermometer,
+  Waves,
   Wind,
 } from "lucide-react";
 import {
@@ -21,41 +26,50 @@ import {
 import { pick, type Colors } from "@/lib/colors/pick";
 import { EARTH_KINDS, EARTH_LEVELS } from "@/lib/earth/colors";
 import type { Earth, EarthEvent, Kind } from "@/lib/earth/watch";
+import { WIND, windUrls } from "@/lib/earth/wind";
 import s from "./Earth.module.css";
 
 const GIBS = "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best";
-const SATS = [
-  "GOES-East_ABI_Band13_Clean_Infrared",
-  "GOES-West_ABI_Band13_Clean_Infrared",
-  "Himawari_AHI_Band13_Clean_Infrared",
+/** The animated satellite layers and each one's sharpest GIBS level. */
+const GEO: [string, number][] = [
+  ["GOES-East_ABI_GeoColor", 7],
+  ["GOES-West_ABI_GeoColor", 7],
+  ["Himawari_AHI_Band13_Clean_Infrared", 6],
 ];
+const IR: [string, number][] = [
+  ["GOES-East_ABI_Band13_Clean_Infrared", 6],
+  ["GOES-West_ABI_Band13_Clean_Infrared", 6],
+  ["Himawari_AHI_Band13_Clean_Infrared", 6],
+];
+const LEVEL: Record<string, number> = Object.fromEntries([...GEO, ...IR]);
+const SATS = Object.keys(LEVEL);
 const FRAMES = 4;
 /**
  * Each satellite's frame times (ms, oldest first): the newest four NASA has published (the
- * server asks GIBS), or, if that answer is missing, a guess two hours back.
+ * server asks GIBS). A satellite the server has no answer for shows NASA's newest image
+ * ("default") in every frame, so a guessed time can never leave a hole in the globe.
  */
-function satFrames(d: Earth | null): Record<string, number[]> {
-  const guess = Math.floor(Date.now() / 600_000) * 600_000 - 12 * 600_000;
+function satFrames(d: Earth | null): Record<string, (number | null)[]> {
   return Object.fromEntries(
     SATS.map((l) => {
-      const got = (d?.sat?.[l] ?? []).map((t) => Date.parse(t));
-      const newest = got.at(-1) ?? guess;
+      const got = (d?.sat?.[l] ?? [])
+        .map((t) => Date.parse(t))
+        .filter(Number.isFinite)
+        .slice(-FRAMES);
       return [
         l,
-        got.length >= FRAMES
-          ? got.slice(-FRAMES)
-          : Array.from(
-              { length: FRAMES },
-              (_, i) =>
-                got[i - (FRAMES - got.length)] ??
-                newest - (FRAMES - 1 - i) * 600_000,
-            ),
+        Array.from({ length: FRAMES }, (_, i) =>
+          got.length ? got[Math.max(0, i - (FRAMES - got.length))] : null,
+        ),
       ];
     }),
   );
 }
-const tileOf = (sat: string, t: number) =>
-  `${GIBS}/${sat}/default/${new Date(t).toISOString().slice(0, 19)}Z/GoogleMapsCompatible_Level6/{z}/{y}/{x}.png`;
+const tileOf = (sat: string, t: number | null) =>
+  `${GIBS}/${sat}/default/${t == null ? "default" : `${new Date(t).toISOString().slice(0, 19)}Z`}/GoogleMapsCompatible_Level${LEVEL[sat]}/{z}/{y}/{x}.png`;
+/** A still GIBS layer at NASA's newest date. */
+const still = (layer: string, level: number) =>
+  `${GIBS}/${layer}/default/default/GoogleMapsCompatible_Level${level}/{z}/{y}/{x}.png`;
 /** "12 min ago", "3 h ago", or the date for anything older than two days. */
 const ago = (iso: string) => {
   const m = Math.round((Date.now() - Date.parse(iso)) / 60_000);
@@ -66,15 +80,157 @@ const ago = (iso: string) => {
 };
 const STEP = 10 * 60_000;
 const SPEEDS = [1, 2, 4];
-type Layer = "clouds" | "radar" | "dust" | "ice" | "night";
-const LAYERS: { id: Layer; label: string; icon: React.ReactNode }[] = [
-  { id: "clouds", label: "Clouds", icon: <Cloud aria-hidden /> },
-  { id: "radar", label: "U.S. radar", icon: <Radar aria-hidden /> },
-  { id: "dust", label: "Dust", icon: <Wind aria-hidden /> },
-  { id: "ice", label: "Sea ice", icon: <Snowflake aria-hidden /> },
-  { id: "night", label: "Night lights", icon: <Moon aria-hidden /> },
+type Layer =
+  | "clouds"
+  | "radar"
+  | "wind"
+  | "rain"
+  | "ir"
+  | "airmass"
+  | "snow"
+  | "sst"
+  | "ice"
+  | "night";
+/**
+ * Every overlay, with what it shows and how good the picture is (owner, Fix It List #35, 6).
+ * `quick` ones also sit on the globe's toolbar.
+ */
+const LAYERS: {
+  id: Layer;
+  label: string;
+  icon: React.ReactNode;
+  quick?: boolean;
+  about: string;
+  grade: "Sharp" | "Good" | "Fair";
+  quality: string;
+}[] = [
+  {
+    id: "clouds",
+    label: "Satellite",
+    icon: <Satellite aria-hidden />,
+    quick: true,
+    about:
+      "Real color by day and infrared with city lights by night from GOES East and West; Asia and the Pacific in infrared from Himawari.",
+    grade: "Sharp",
+    quality:
+      "2 km over the Americas and 4 km over Asia, every 10 minutes. Europe, Africa and the Indian Ocean have no live satellite in NASA's feed.",
+  },
+  {
+    id: "radar",
+    label: "U.S. radar",
+    icon: <Radar aria-hidden />,
+    quick: true,
+    about:
+      "Every NOAA radar across the lower 48 states, at every zoom from the whole globe down to a town.",
+    grade: "Sharp",
+    quality: "About 1 km, every 5 minutes. Lower 48 states only.",
+  },
+  {
+    id: "wind",
+    label: "Wind",
+    icon: <Wind aria-hidden />,
+    quick: true,
+    about:
+      "Wind speed near the ground everywhere on Earth for this hour, from NOAA's GFS model, drawn on your own device.",
+    grade: "Good",
+    quality:
+      "25 km model grid, smoothed. A model's best estimate rather than a measurement; a new run every 6 hours.",
+  },
+  {
+    id: "rain",
+    label: "Rain and snow",
+    icon: <CloudRain aria-hidden />,
+    quick: true,
+    about:
+      "Where rain and snow are falling worldwide, from NASA's IMERG blend of microwave and infrared satellites.",
+    grade: "Good",
+    quality: "10 km, every 30 minutes, about 5 hours behind.",
+  },
+  {
+    id: "ir",
+    label: "Infrared",
+    icon: <Thermometer aria-hidden />,
+    about:
+      "Cloud top temperature from all three satellites. The brightest tops are the coldest and tallest storms.",
+    grade: "Good",
+    quality: "4 km, every 10 minutes, day and night alike.",
+  },
+  {
+    id: "airmass",
+    label: "Air mass",
+    icon: <Layers aria-hidden />,
+    about:
+      "A satellite blend that colors the air itself: dry jet stream air red and orange, cold polar air purple, moist tropical air green.",
+    grade: "Good",
+    quality: "4 km, NASA's newest image. The Americas and the western Pacific.",
+  },
+  {
+    id: "snow",
+    label: "Snow on the ground",
+    icon: <CloudSnow aria-hidden />,
+    about:
+      "How much snow covers the land, from NASA's SMAP snow analysis. No gaps under clouds, unlike a single satellite pass.",
+    grade: "Fair",
+    quality: "9 km, daily, about 3 days behind.",
+  },
+  {
+    id: "sst",
+    label: "Ocean temperature",
+    icon: <Waves aria-hidden />,
+    about:
+      "Sea surface temperature from many satellites blended into one map with no gaps. Warm water is the fuel for tropical storms.",
+    grade: "Sharp",
+    quality: "1 km, daily, about 1 day behind.",
+  },
+  {
+    id: "ice",
+    label: "Sea ice",
+    icon: <Snowflake aria-hidden />,
+    about: "How much of the polar oceans is frozen over.",
+    grade: "Good",
+    quality: "1 km, daily, about 1 day behind. Polar seas only.",
+  },
+  {
+    id: "night",
+    label: "Night lights",
+    icon: <Moon aria-hidden />,
+    about: "The planet's city lights from NASA's Black Marble.",
+    grade: "Sharp",
+    quality: "500 m. A still picture, not live.",
+  },
 ];
-const ymd = (t: number) => new Date(t).toISOString().slice(0, 10);
+/** The animated overlays: each frame is its own layer, switched by opacity. */
+const ANIMATED: Partial<Record<Layer, [string, number][]>> = {
+  clouds: GEO,
+  ir: IR,
+};
+/** The still overlays: layer ids and their GIBS sources (bottom to top). */
+const STILL: { id: Layer; parts: [string, number][]; opacity: number }[] = [
+  { id: "night", parts: [["VIIRS_Black_Marble", 8]], opacity: 0.9 },
+  {
+    id: "sst",
+    parts: [["GHRSST_L4_MUR_Sea_Surface_Temperature", 7]],
+    opacity: 0.75,
+  },
+  { id: "snow", parts: [["SMAP_L4_Snow_Mass", 6]], opacity: 0.85 },
+  {
+    id: "ice",
+    parts: [["GHRSST_L4_MUR_Sea_Ice_Concentration", 7]],
+    opacity: 0.8,
+  },
+  {
+    id: "airmass",
+    parts: [
+      ["GOES-East_ABI_Air_Mass", 6],
+      ["GOES-West_ABI_Air_Mass", 6],
+      ["Himawari_AHI_Air_Mass", 6],
+    ],
+    opacity: 0.8,
+  },
+];
+const RAIN: [string, number] = ["IMERG_Precipitation_Rate_30min", 6];
+/** The wind picture's box: the whole globe to 85°, where the map itself stops. */
+const WIND_BOX = [-180, -85, 180, 85];
 const when = (iso: string | null) =>
   iso
     ? new Date(iso).toLocaleString("en-US", {
@@ -229,9 +385,12 @@ function stylize(map: AnyMap) {
 export function EarthWatch({
   initial,
   colors,
+  wind,
 }: {
   initial: Earth | null;
   colors: Colors | undefined;
+  /** GFS's file template and the wind's colors, one per level of WIND. */
+  wind: { tpl: string; ramp: string[] };
 }) {
   const [data, setData] = useState<Earth | null>(initial);
   const [ready, setReady] = useState<ReadyMap | null>(null);
@@ -242,6 +401,13 @@ export function EarthWatch({
   );
   const [frame, setFrame] = useState(FRAMES - 1);
   const [playing, setPlaying] = useState(false);
+  // The other frames load only once someone plays or scrubs the timeline.
+  const [warm, setWarm] = useState(false);
+  const [windAt, setWindAt] = useState<number | null>(null);
+  const [windFailed, setWindFailed] = useState(false);
+  const windBusy = useRef(false);
+  /** Each overlay layer's own opacity, for switching frames by opacity. */
+  const opacity = useRef<Record<string, number>>({});
   const [speed, setSpeed] = useState(1);
   const [spin, setSpin] = useState(true);
   const lowRef = useRef(false);
@@ -356,52 +522,51 @@ export function EarthWatch({
             ],
           });
       } catch {}
+      // Phones with dense screens get tiles one zoom deeper (half size), so overlays are as
+      // sharp as the screen instead of stretched from the level above.
+      const tileSize = !lowRef.current && devicePixelRatio >= 1.5 ? 128 : 256;
       const add = (
         id: string,
         tiles: string,
         maxzoom: number,
-        opacity = 0.75,
-        minzoom = 0,
+        alpha = 0.75,
       ) => {
+        opacity.current[id] = alpha;
         m.addSource(id, {
           type: "raster",
           tiles: [tiles],
-          tileSize: 256,
+          tileSize,
           maxzoom,
         } as never);
         m.addLayer({
           id,
           type: "raster",
           source: id,
-          minzoom,
           layout: { visibility: "none" },
-          paint: { "raster-opacity": opacity, "raster-fade-duration": 0 },
+          paint: {
+            "raster-opacity": alpha,
+            "raster-opacity-transition": { duration: 0, delay: 0 },
+            "raster-fade-duration": 0,
+          },
         } as never);
       };
-      add(
-        "night",
-        `${GIBS}/VIIRS_Black_Marble/default/2016-01-01/GoogleMapsCompatible_Level8/{z}/{y}/{x}.png`,
-        8,
-        0.9,
-      );
-      add(
-        "ice",
-        `${GIBS}/GHRSST_L4_MUR_Sea_Ice_Concentration/default/${ymd(Date.now() - 2 * 86400_000)}/GoogleMapsCompatible_Level7/{z}/{y}/{x}.png`,
-        7,
-        0.7,
-      );
-      add(
-        "dust",
-        `${GIBS}/AIRS_L2_Dust_Score_Day/default/${ymd(Date.now() - 86400_000)}/GoogleMapsCompatible_Level6/{z}/{y}/{x}.png`,
-        6,
-        0.8,
-      );
+      for (const o of STILL)
+        o.parts.forEach(([l, z], k) =>
+          add(`${o.id}-${k}`, still(l, z), z, o.opacity),
+        );
       const frames = lowRef.current
         ? [FRAMES - 1]
         : Array.from({ length: FRAMES }, (_, i) => i);
-      for (const i of frames)
-        for (const l of SATS)
-          add(`ir-${l}-${i}`, tileOf(l, satRef.current[l][i]), 6, 0.55);
+      for (const [g, list] of Object.entries(ANIMATED))
+        for (const i of frames)
+          for (const [l, z] of list)
+            add(
+              `${g}-${l}-${i}`,
+              tileOf(l, satRef.current[l][i]),
+              z,
+              g === "clouds" && l.includes("GeoColor") ? 0.92 : 0.6,
+            );
+      add("rain-0", still(...RAIN), RAIN[1], 0.85);
       for (const i of frames) {
         const back = (FRAMES - 1 - i) * 10;
         add(
@@ -409,7 +574,6 @@ export function EarthWatch({
           `https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913${back ? `-m${String(back).padStart(2, "0")}m` : ""}/{z}/{x}/{y}.png`,
           10,
           0.85,
-          2.5,
         );
       }
       // Events: glow, pulse (serious and up), the marker and a ring around the selected one.
@@ -581,12 +745,13 @@ export function EarthWatch({
   useEffect(() => {
     const m = ready?.map as unknown as LooseMap | undefined;
     if (!m || satRef.current === sat) return;
-    for (const l of SATS)
-      for (let i = 0; i < FRAMES; i++)
-        (
-          m.getSource(`ir-${l}-${i}`) as unknown as
-            { setTiles?: (t: string[]) => void } | undefined
-        )?.setTiles?.([tileOf(l, sat[l][i])]);
+    for (const [g, list] of Object.entries(ANIMATED))
+      for (const [l] of list)
+        for (let i = 0; i < FRAMES; i++)
+          (
+            m.getSource(`${g}-${l}-${i}`) as unknown as
+              { setTiles?: (t: string[]) => void } | undefined
+          )?.setTiles?.([tileOf(l, sat[l][i])]);
     satRef.current = sat;
   }, [ready, sat]);
 
@@ -668,14 +833,81 @@ export function EarthWatch({
     const vis = (id: string, on: boolean) =>
       m.getLayer(id) &&
       m.setLayoutProperty(id, "visibility", on ? "visible" : "none");
-    for (const l of ["night", "ice", "dust"] as const) vis(l, layers.has(l));
+    for (const o of STILL)
+      o.parts.forEach((_, k) => vis(`${o.id}-${k}`, layers.has(o.id)));
+    vis("rain-0", layers.has("rain"));
+    vis("wind", layers.has("wind"));
+    // Frames: the one on show at full strength; once the timeline has been touched, the rest
+    // stay loaded at zero opacity so playing never waits on a download.
     const shown = lowRef.current ? FRAMES - 1 : frame;
-    radarAt.forEach((_, i) => {
-      for (const sat of SATS)
-        vis(`ir-${sat}-${i}`, layers.has("clouds") && i === shown);
-      vis(`radar-${i}`, layers.has("radar") && i === shown);
-    });
-  }, [ready, layers, frame, radarAt]);
+    const frame1 = (id: string, on: boolean, i: number) => {
+      if (!m.getLayer(id)) return;
+      vis(id, on && (i === shown || warm));
+      m.setPaintProperty(
+        id,
+        "raster-opacity",
+        i === shown ? (opacity.current[id] ?? 0.75) : 0,
+      );
+    };
+    for (let i = 0; i < FRAMES; i++) {
+      for (const [g, list] of Object.entries(ANIMATED))
+        for (const [l] of list)
+          frame1(`${g}-${l}-${i}`, layers.has(g as Layer), i);
+      frame1(`radar-${i}`, layers.has("radar"), i);
+    }
+  }, [ready, layers, frame, warm, windAt]);
+
+  // Wind: drawn on this device from NOAA's newest GFS run the first time it is switched on.
+  useEffect(() => {
+    const m = ready?.map as unknown as LooseMap | undefined;
+    if (!m || !layers.has("wind") || windBusy.current) return;
+    windBusy.current = true;
+    (async () => {
+      const { drawFrame } = await import("@/features/models/frames");
+      setWindFailed(false);
+      for (const { url, at } of windUrls(wind.tpl, Date.now())) {
+        try {
+          const out = await drawFrame({
+            url,
+            recipe: WIND,
+            colors: wind.ramp,
+            box: WIND_BOX,
+            width: lowRef.current ? 1024 : 2048,
+            cities: false,
+          });
+          const [w, sth, e, n] = WIND_BOX;
+          m.addSource("wind", {
+            type: "image",
+            url: URL.createObjectURL(out.png),
+            coordinates: [
+              [w, n],
+              [e, n],
+              [e, sth],
+              [w, sth],
+            ],
+          } as never);
+          // Under the radar, so storms stay on top.
+          const radar = Array.from(
+            { length: FRAMES },
+            (_, i) => `radar-${i}`,
+          ).find((id) => m.getLayer(id));
+          m.addLayer(
+            {
+              id: "wind",
+              type: "raster",
+              source: "wind",
+              paint: { "raster-opacity": 0.7, "raster-fade-duration": 0 },
+            } as never,
+            radar,
+          );
+          setWindAt(at);
+          return;
+        } catch {}
+      }
+      setWindFailed(true);
+      windBusy.current = false;
+    })();
+  }, [ready, layers, wind]);
 
   // The timeline: frames advance while playing (all frames are already loaded, so no flicker).
   useEffect(() => {
@@ -756,12 +988,14 @@ export function EarthWatch({
   // The slider's clock: the cloud frame on show (the newest across satellites), or the
   // radar's when clouds are off, so the time always says how fresh the picture is.
   const shownFrame = low ? FRAMES - 1 : frame;
-  const clouds = layers.has("clouds");
-  const t = new Date(
-    clouds
-      ? Math.max(...SATS.map((l) => sat[l][shownFrame]))
-      : radarAt[shownFrame],
-  );
+  const satGroup = (["clouds", "ir"] as const).find((g) => layers.has(g));
+  const satT = satGroup
+    ? Math.max(0, ...ANIMATED[satGroup]!.map(([l]) => sat[l][shownFrame] ?? 0))
+    : 0;
+  const clouds = satT > 0;
+  const t = new Date(clouds ? satT : radarAt[shownFrame]);
+  const animated =
+    layers.has("clouds") || layers.has("ir") || layers.has("radar");
 
   return (
     <main className={s.page}>
@@ -803,7 +1037,7 @@ export function EarthWatch({
           file="sswx-earth-watch"
         />
         <div className={s.tools} role="group" aria-label="Layers">
-          {LAYERS.map((l) => (
+          {LAYERS.filter((l) => l.quick).map((l) => (
             <button
               key={l.id}
               type="button"
@@ -825,7 +1059,38 @@ export function EarthWatch({
             <RotateCw aria-hidden />
           </button>
         </div>
-        {(layers.has("clouds") || layers.has("radar")) && (
+        {layers.has("wind") && (
+          <div className={s.legend} aria-label="Wind speed in miles per hour">
+            {windAt ? (
+              <>
+                <span
+                  className={s.ramp}
+                  style={{
+                    background: `linear-gradient(90deg, ${wind.ramp.join(", ")})`,
+                  }}
+                />
+                <small suppressHydrationWarning>
+                  {WIND.levels
+                    .filter(
+                      (_, i) => i % 3 === 0 || i === WIND.levels.length - 1,
+                    )
+                    .join(" · ")}{" "}
+                  mph · GFS{" "}
+                  {new Date(windAt).toLocaleTimeString("en-US", {
+                    hour: "numeric",
+                  })}
+                </small>
+              </>
+            ) : (
+              <small>
+                {windFailed
+                  ? "NOAA's wind data isn't answering. Switch Wind off and on to try again."
+                  : "Drawing the wind for this hour…"}
+              </small>
+            )}
+          </div>
+        )}
+        {animated && (
           <div className={s.timeline}>
             <input
               type="range"
@@ -834,13 +1099,17 @@ export function EarthWatch({
               value={low ? FRAMES - 1 : frame}
               onChange={(e) => {
                 setPlaying(false);
+                setWarm(true);
                 setFrame(Number(e.target.value));
               }}
               aria-label="Satellite and radar time"
             />
             <button
               type="button"
-              onClick={() => setPlaying((p) => !p)}
+              onClick={() => {
+                setWarm(true);
+                setPlaying((p) => !p);
+              }}
               aria-label={playing ? "Pause" : "Play"}
             >
               {playing ? <Pause aria-hidden /> : <Play aria-hidden />}
@@ -855,7 +1124,7 @@ export function EarthWatch({
               {speed}×
             </button>
             <small suppressHydrationWarning>
-              {clouds ? "Clouds " : "Radar "}
+              {clouds ? "Satellite " : "Radar "}
               {t.toLocaleTimeString("en-US", {
                 hour: "numeric",
                 minute: "2-digit",
@@ -864,6 +1133,33 @@ export function EarthWatch({
           </div>
         )}
       </div>
+
+      <section className={s.overlays} aria-labelledby="ew-ov">
+        <h2 id="ew-ov">Overlays</h2>
+        <ul>
+          {LAYERS.map((l) => (
+            <li key={l.id}>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={layers.has(l.id)}
+                onClick={() => setLayers((x) => toggle(x, l.id))}
+              >
+                <span className={s.ovIcon}>{l.icon}</span>
+                <span className={s.ovText}>
+                  <b>
+                    {l.label}
+                    <em data-grade={l.grade}>{l.grade}</em>
+                  </b>
+                  <span>{l.about}</span>
+                  <small>{l.quality}</small>
+                </span>
+                <i className={s.switch} aria-hidden />
+              </button>
+            </li>
+          ))}
+        </ul>
+      </section>
 
       <div className={s.chips} role="group" aria-label="Show">
         {EARTH_KINDS.filter((k) => (data?.counts[k.id] ?? 0) > 0).map((k) => (
@@ -924,10 +1220,11 @@ export function EarthWatch({
 
       <p className={s.note} suppressHydrationWarning>
         From GDACS (the UN and European Commission&apos;s disaster alert
-        system), NASA EONET, USGS and NSIDC, refreshed every 15 minutes; clouds
-        from NASA GIBS geostationary satellites, U.S. radar from NOAA via Iowa
-        State. Global data is less detailed than our U.S. pages; levels are our
-        own reading of each source&apos;s alert and size.
+        system), NASA EONET, USGS and NSIDC, refreshed every 15 minutes;
+        satellite, rain, snow, ocean and ice layers from NASA GIBS, U.S. radar
+        from NOAA via Iowa State, wind from NOAA&apos;s GFS model. Global data
+        is less detailed than our U.S. pages; levels are our own reading of each
+        source&apos;s alert and size.
         {data ? ` Updated ${when(data.at)}.` : ""}
       </p>
     </main>
