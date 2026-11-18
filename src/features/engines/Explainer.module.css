@@ -59,6 +59,7 @@
 }
 .zap {
   position: relative;
+  isolation: isolate;
   display: inline-flex;
   align-items: center;
   min-height: 30px;
@@ -74,6 +75,33 @@
   text-shadow:
     0 0 6px color-mix(in srgb, var(--z) 75%, transparent),
     0 0 16px color-mix(in srgb, var(--z) 40%, transparent);
+}
+/* The owner's Electric Border layers: a lightly and a strongly blurred copy of the edge,
+   and a soft glow behind the whole tag. */
+.g1,
+.g2,
+.halo {
+  position: absolute;
+  border-radius: inherit;
+  pointer-events: none;
+}
+.g1 {
+  inset: -1px;
+  border: 1.5px solid color-mix(in srgb, var(--z) 60%, transparent);
+  filter: blur(1px);
+}
+.g2 {
+  inset: -1px;
+  border: 1.5px solid color-mix(in srgb, var(--z) 85%, white);
+  filter: blur(4px);
+  opacity: 0.8;
+}
+.halo {
+  z-index: -1;
+  inset: -6px;
+  background: linear-gradient(-30deg, var(--z), transparent, var(--z));
+  filter: blur(12px);
+  opacity: 0.28;
 }
 .zap b {
   position: relative;
