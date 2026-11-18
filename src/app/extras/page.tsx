@@ -14,7 +14,7 @@ export const metadata: Metadata = pageMeta(
 );
 
 export default async function Extras() {
-  const [{ disabled, extras }, colors] = await Promise.all([
+  const [{ disabled, extras, confidence }, colors] = await Promise.all([
     getSiteDefaults(),
     getColors(),
   ]);
@@ -29,7 +29,7 @@ export default async function Extras() {
       {disabled.includes("extras") ? (
         <ModuleOff label="Extras" />
       ) : (
-        <ExtrasView colors={colors} items={extras} />
+        <ExtrasView colors={colors} items={extras} confidence={confidence} />
       )}
     </main>
   );

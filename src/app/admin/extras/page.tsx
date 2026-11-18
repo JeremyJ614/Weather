@@ -5,6 +5,8 @@ import { ExtrasSwitches } from "./ExtrasSwitches";
 import { DeerSeasons } from "./DeerSeasons";
 import type { DeerSeasons as Seasons } from "./actions";
 import { ReportCards } from "./ReportCards";
+import { ConfidenceEditor } from "./ConfidenceEditor";
+import { cleanConfidence } from "@/lib/engines/confidence";
 
 export const metadata: Metadata = {
   title: "Extras · Admin · StormSync Media",
@@ -41,6 +43,11 @@ export default async function ExtrasAdminPage() {
         tab. Changes show within a few seconds.
       </p>
       <ExtrasSwitches initial={cleanItems(data?.value)} />
+      <ConfidenceEditor
+        initial={cleanConfidence(
+          (data?.value as { _confidence?: unknown } | null)?._confidence,
+        )}
+      />
       <ReportCards />
       <DeerSeasons
         initial={{

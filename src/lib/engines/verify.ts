@@ -5,8 +5,12 @@ import { file, fileNames, stamp as psStamp } from "./probsevere";
 /**
  * Hourly (pg_cron "engine-verify"): each engine flag old enough for the storm reports to be
  * in (3 hours) is checked against them: a hit when a qualifying report came inside the flag's
- * window and radius. Rows past 120 days are pruned.
+ * window and radius. A flag with no report yet stays open and is checked every hour for 48
+ * hours, since reports are often entered hours or a day late (owner's pick A1); only then is
+ * it a miss. Rows past 120 days are pruned.
  */
+/** How long a flag waits for late storm reports before it counts as a miss (pick A1). */
+const LATE_MS = 48 * 3600_000;
 type Report = {
   t: number;
   type: string;
@@ -171,8 +175,9 @@ const COUNTS: Record<string, (r: Report) => boolean> = {
 };
 
 /**
- * While a blizzard flag's window is open, an airport within its radius reporting a quarter
- * mile or less with 30 kt winds or gusts (in the last 90 minutes) makes it a hit.
+ * While a blizzard flag's window is open, an airport within its radius reporting half a mile
+ * or less with 30 kt winds or gusts (in the last 90 minutes) makes it a hit: near blizzard at
+ * the airport, since airports rarely sit in the worst of it (owner's pick B4).
  */
 async function liveBlizzard() {
   const db = supabaseAdmin();
@@ -207,7 +212,7 @@ async function liveBlizzard() {
   ).data.filter(
     (o) =>
       o.vsby != null &&
-      o.vsby <= 0.25 &&
+      o.vsby <= 0.5 &&
       Math.max(o.gust ?? 0, o.sknt ?? 0) >= 30 &&
       o.utc_valid &&
       now - Date.parse(o.utc_valid) < 90 * 60_000,
@@ -311,10 +316,82 @@ async function radarFirst() {
   return ready.length;
 }
 
+/**
+ * Lightning Surge flags also count radar confirmed severe weather (owner's pick S4): a storm
+ * ProbSevere tracked within the radius during the window with an estimated hailstone of an
+ * inch or more (MESH) or strong low level rotation (azimuthal shear 0.012 s⁻¹ or more),
+ * sampled every 10 minutes from its ~25 hour file archive. Night and rural storms with no
+ * spotter then still count. A flag radar doesn't confirm waits for reports as usual.
+ */
+async function radarSevere() {
+  const db = supabaseAdmin();
+  const now = Date.now();
+  const { data } = await db
+    .from("engine_checks")
+    .select("id, at, lat, lon, window_min, radius_km")
+    .eq("engine", "surge")
+    .is("hit", null)
+    .gt("at", new Date(now - 22 * 3600_000).toISOString())
+    .order("at", { ascending: true })
+    .limit(300);
+  const ready = (data ?? []).filter(
+    (r) => Date.parse(r.at) + r.window_min * 60_000 < now - 15 * 60_000,
+  );
+  if (!ready.length) return 0;
+  const names = await fileNames();
+  const times = names.map(psStamp);
+  const want = new Map<number, number[]>();
+  for (const r of ready) {
+    const a = Date.parse(r.at);
+    for (let t = a; t <= a + r.window_min * 60_000; t += 10 * 60_000) {
+      let best = -1;
+      for (let i = 0; i < times.length; i++)
+        if (best < 0 || Math.abs(times[i] - t) < Math.abs(times[best] - t))
+          best = i;
+      if (best >= 0 && Math.abs(times[best] - t) < 6 * 60_000)
+        want.set(best, [...(want.get(best) ?? []), r.id]);
+    }
+  }
+  const severe = new Map<number, [number, number][]>();
+  for (const i of [...want.keys()].slice(0, 120)) {
+    const raw = await file(names[i]).catch(() => null);
+    if (raw)
+      severe.set(
+        i,
+        raw.features
+          .filter(
+            (f) =>
+              Number(f.properties.MESH) >= 1 ||
+              Number(f.properties.MAXLLAZ) >= 0.012,
+          )
+          .map((f) => [Number(f.properties.MLAT), Number(f.properties.MLON)]),
+      );
+  }
+  const hit = new Set<number>();
+  for (const [i, ids] of want) {
+    const pts = severe.get(i);
+    if (!pts?.length) continue;
+    for (const id of ids) {
+      const r = ready.find((x) => x.id === id)!;
+      if (pts.some(([la, lo]) => km(r.lat, r.lon, la, lo) <= r.radius_km))
+        hit.add(id);
+    }
+  }
+  const at = new Date().toISOString();
+  const yes = ready.filter((r) => hit.has(r.id)).map((r) => r.id);
+  for (let i = 0; i < yes.length; i += 200)
+    await db
+      .from("engine_checks")
+      .update({ hit: true, checked_at: at })
+      .in("id", yes.slice(i, i + 200));
+  return yes.length;
+}
+
 export async function verifyChecks() {
   const db = supabaseAdmin();
   const live = await liveBlizzard().catch(() => 0);
   const radar = await radarFirst().catch(() => 0);
+  const confirmed = await radarSevere().catch(() => 0);
   // Once a day, refit the outdoor engines' weights from members' reports.
   const tuned =
     new Date().getUTCHours() === 6
@@ -327,8 +404,9 @@ export async function verifyChecks() {
     .is("hit", null)
     .in("engine", Object.keys(COUNTS))
     .lt("at", ready)
+    .gt("at", new Date(Date.now() - LATE_MS - 2 * 86400_000).toISOString())
     .order("at", { ascending: true })
-    .limit(1000);
+    .limit(3000);
   if (error) throw new Error(error.message);
   // Reports lag: a flag is judged once its whole window ended at least 3 hours ago.
   const rows = ((data ?? []) as Check[]).filter(
@@ -342,7 +420,15 @@ export async function verifyChecks() {
     );
     const reports = await reportsBetween(from, to);
     const yes = rows.filter((r) => judge(r, reports)).map((r) => r.id);
-    const no = rows.map((r) => r.id).filter((id) => !yes.includes(id));
+    // A flag without a report is a miss only once its window closed 48 hours ago.
+    const late = Date.now() - LATE_MS;
+    const no = rows
+      .filter(
+        (r) =>
+          !yes.includes(r.id) &&
+          Date.parse(r.at) + r.window_min * 60_000 < late,
+      )
+      .map((r) => r.id);
     hits = yes.length;
     const now = new Date().toISOString();
     for (const [ids, hit] of [
@@ -359,5 +445,5 @@ export async function verifyChecks() {
     .from("engine_checks")
     .delete()
     .lt("at", new Date(Date.now() - 120 * 86400_000).toISOString());
-  return { checked: rows.length, hits, live, radar, tuned };
+  return { checked: rows.length, hits, live, radar, confirmed, tuned };
 }

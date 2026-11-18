@@ -1,4 +1,9 @@
 import { DEFAULT_MENUS, pickMenus } from "@/features/menus/catalog";
+import {
+  cleanConfidence,
+  DEFAULT_CONFIDENCE,
+  type Confidence,
+} from "@/lib/engines/confidence";
 import { DEFAULT_THEME, FONT_SETS, PALETTES } from "@/lib/theme/registry";
 import { ICON_NAMES } from "@/components/NavIcon";
 import { cleanLayout, type MenuLayout } from "@/lib/nav/layout";
@@ -19,6 +24,8 @@ export type SiteDefaults = {
   layout: MenuLayout | null;
   /** Extras items switched off or hidden (admin → Extras); missing means on. */
   extras: ExtrasStates;
+  /** Each Weather Engine's confidence level and the levels' colors (admin → Extras). */
+  confidence: Confidence;
 };
 
 export const FALLBACK: SiteDefaults = {
@@ -28,6 +35,7 @@ export const FALLBACK: SiteDefaults = {
   banner: { text: "", until: null },
   layout: null,
   extras: {},
+  confidence: DEFAULT_CONFIDENCE,
 };
 
 /** Keeps only valid, offered values; anything else falls back to the built-in default. */
@@ -65,8 +73,20 @@ export function cleanDefaults(
     new Set(EVERY_PAGE.map((p) => p.slug)),
     new Set(ICON_NAMES),
   );
-  const extras = cleanItems(raw.find((r) => r.key === "extras_items")?.value);
-  return { menus, theme: { palette, font }, disabled, banner, layout, extras };
+  const ex = raw.find((r) => r.key === "extras_items")?.value;
+  const extras = cleanItems(ex);
+  const confidence = cleanConfidence(
+    (ex as { _confidence?: unknown } | undefined)?._confidence,
+  );
+  return {
+    menus,
+    theme: { palette, font },
+    disabled,
+    banner,
+    layout,
+    extras,
+    confidence,
+  };
 }
 
 /**
