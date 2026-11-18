@@ -383,7 +383,7 @@ export function RadarPanel({
             </p>
           )}
 
-          {state.loadedAt !== null && site && (
+          {state.loadedAt !== null && (
             <label className="rd-follow">
               <input
                 type="checkbox"
@@ -391,9 +391,11 @@ export function RadarPanel({
                 onChange={(e) => onSmooth(e.target.checked)}
               />
               <span>
-                Smooth between bins
+                {site ? "Smooth between bins" : "Smooth between pixels"}
                 <small>
-                  Off draws every bin exactly as the radar measured it.
+                  {site
+                    ? "Off draws every bin exactly as the radar measured it."
+                    : "Off draws every one kilometre square exactly as the mosaic measured it."}
                 </small>
               </span>
             </label>

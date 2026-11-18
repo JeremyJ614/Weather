@@ -18,7 +18,7 @@ import type {
 } from "maplibre-gl";
 import { chaserStops } from "./decode";
 import { loadTile } from "./tiles";
-import { tileUrl } from "./source";
+import { snapToScan, tileUrl } from "./source";
 import { reportError } from "@/features/replay/report";
 
 const VERT = `#version 300 es
@@ -78,25 +78,56 @@ precision highp float;
 in vec2 v_uv;
 uniform sampler2D u_data;                    // one byte per pixel: the palette index
 uniform float u_opacity;
+uniform float u_smooth;                      // 1 to blend between pixels, 0 to draw them as measured
+uniform vec2 u_size;                         // the tile's size in pixels
+uniform float u_cell;                        // tile pixels per mosaic cell, the spacing to blend across
 out vec4 fragColor;
 
 vec4 chaser(float dbz) {
 ${rampGlsl()}
 }
 
-void main() {
-  // The measurement, straight off the texture. Nearest, never linear: these
-  // are palette indices, and the average of index 40 and index 200 is index
-  // 120, which is a reflectivity neither pixel had.
-  float idx = texture(u_data, v_uv).r;
+float idxAt(ivec2 p) {
+  return texelFetch(u_data, clamp(p, ivec2(0), ivec2(u_size) - 1), 0).r * 255.0;
+}
 
-  // Index 0 means nothing was there. Interpolating towards it along the edge
-  // of a storm would draw a rim of light rain that is not in the data, so it
-  // is discarded rather than blended.
-  if (idx < 0.002) discard;
+void main() {
+  float idx;
+  if (u_smooth < 0.5) {
+    // The measurement, straight off the texture. Nearest, never linear: these
+    // are palette indices, and the average of index 40 and index 200 is index
+    // 120, which is a reflectivity neither pixel had.
+    idx = texture(u_data, v_uv).r * 255.0;
+  } else {
+    /*
+     * Smoothed (Fix It List #35, 1): the reflectivity between the four nearest
+     * pixels, weighted by distance, over the pixels that measured something.
+     * dBZ is linear in the index, so blending indices blends dBZ. Pixels with
+     * no return carry no weight, and a spot where most of the weight is empty
+     * stays empty, so a storm's edge is not smeared outwards into light rain.
+     */
+    // Blended across whole mosaic cells, not tile pixels: a cell spans several
+    // pixels, and blending only between pixels left every cell a flat square.
+    vec2 t = v_uv * u_size / u_cell - 0.5;
+    vec2 g = floor(t);
+    vec2 f = fract(t);
+    ivec2 a0 = ivec2((g + 0.5) * u_cell);
+    ivec2 a1 = ivec2((g + vec2(1.5, 0.5)) * u_cell);
+    ivec2 a2 = ivec2((g + vec2(0.5, 1.5)) * u_cell);
+    ivec2 a3 = ivec2((g + 1.5) * u_cell);
+    vec4 v = vec4(idxAt(a0), idxAt(a1), idxAt(a2), idxAt(a3));
+    vec4 w = vec4((1.0 - f.x) * (1.0 - f.y), f.x * (1.0 - f.y), (1.0 - f.x) * f.y, f.x * f.y);
+    vec4 m = step(0.5, v);
+    float ws = dot(w, m);
+    if (ws < 0.5) discard;
+    idx = dot(w * m, v) / ws;
+  }
+
+  // Index 0 means nothing was there.
+  if (idx < 0.5) discard;
 
   // The index carries the measurement: dBZ = -32 + 0.5 x index.
-  float dbz = -32.0 + 0.5 * (idx * 255.0);
+  float dbz = -32.0 + 0.5 * idx;
   vec4 c = chaser(dbz);
   if (c.a < 0.004) discard;
 
@@ -121,15 +152,34 @@ interface Tile {
   bounds: [number, number, number, number];
   texture: WebGLTexture | null;
   state: "loading" | "ready" | "empty" | "failed";
+  /** Pixel size, for the smoothing shader. */
+  w: number;
+  h: number;
 }
 
 export interface RadarSettings {
   opacity: number;
-  /** Which zoom to fetch at. Higher is sharper and costs more tiles. */
+  /**
+   * Which zoom to fetch at, or 0 to follow the map (Fix It List #35, 1). A fixed
+   * zoom 7 meant every pixel of a city-level view was a 1.2 km square, which
+   * read as a broken mosaic of colour; following the map, the tiles are fetched
+   * as sharp as the view (up to the archive's own half-kilometre pixels).
+   */
   zoom: number;
+  /** Blend between pixels rather than drawing each as a square. */
+  smooth: boolean;
 }
 
-export const DEFAULT_RADAR: RadarSettings = { opacity: 0.68, zoom: 7 };
+export const DEFAULT_RADAR: RadarSettings = {
+  opacity: 0.68,
+  zoom: 0,
+  smooth: true,
+};
+/**
+ * The mosaic's own cells are about a kilometre (measured: two tile pixels at zoom 8, four at zoom 9), so zoom 8
+ * carries everything the archive has; deeper zooms only repeat each cell.
+ */
+const MAX_TILE_ZOOM = 8;
 
 export class RadarLayer implements CustomLayerInterface {
   readonly id = "radar";
@@ -144,6 +194,16 @@ export class RadarLayer implements CustomLayerInterface {
   private tiles = new Map<string, Tile>();
   private settings: RadarSettings = { ...DEFAULT_RADAR };
   private generation = 0;
+  /** The moment on the map, so a pan or zoom can fetch the same scan for the new view. */
+  private lastEpoch: number | null = null;
+  private moveTimer = 0;
+  private onMoveEnd = () => {
+    if (this.lastEpoch === null) return;
+    window.clearTimeout(this.moveTimer);
+    this.moveTimer = window.setTimeout(() => {
+      if (this.lastEpoch !== null) void this.load(this.lastEpoch);
+    }, 450);
+  };
 
   /** What the interface shows while a fetch is in flight. */
   onProgress: ((loaded: number, total: number) => void) | null = null;
@@ -170,6 +230,8 @@ export class RadarLayer implements CustomLayerInterface {
   onAdd(map: MapLibreMap, gl: WebGL2RenderingContext) {
     this.map = map;
     this.gl = gl;
+    // Panning or zooming fetches the same scan for the new view (Fix It List #35, 1).
+    map.on("moveend", this.onMoveEnd);
 
     const compile = (type: number, src: string) => {
       const sh = gl.createShader(type)!;
@@ -192,7 +254,15 @@ export class RadarLayer implements CustomLayerInterface {
     }
     this.program = program;
 
-    for (const name of ["u_matrix", "u_bounds", "u_data", "u_opacity"]) {
+    for (const name of [
+      "u_matrix",
+      "u_bounds",
+      "u_data",
+      "u_opacity",
+      "u_smooth",
+      "u_size",
+      "u_cell",
+    ]) {
       this.uniforms[name] = gl.getUniformLocation(program, name);
     }
 
@@ -210,7 +280,9 @@ export class RadarLayer implements CustomLayerInterface {
     gl.bindVertexArray(null);
   }
 
-  onRemove(_map: MapLibreMap, gl: WebGL2RenderingContext) {
+  onRemove(map: MapLibreMap, gl: WebGL2RenderingContext) {
+    map.off("moveend", this.onMoveEnd);
+    window.clearTimeout(this.moveTimer);
     this.clear();
     if (this.program) gl.deleteProgram(this.program);
     if (this.vao) gl.deleteVertexArray(this.vao);
@@ -226,6 +298,7 @@ export class RadarLayer implements CustomLayerInterface {
     this.tiles.clear();
     this.stats.decoded = [];
     this.generation += 1;
+    this.lastEpoch = null;
     this.map?.triggerRepaint();
   }
 
@@ -242,10 +315,17 @@ export class RadarLayer implements CustomLayerInterface {
     const map = this.map;
     if (!map) return { tiles: 0, withData: 0 };
 
-    this.clear();
+    this.generation += 1;
     const mine = this.generation;
+    const sameScan =
+      this.lastEpoch !== null &&
+      snapToScan(this.lastEpoch) === snapToScan(epochSeconds);
+    this.lastEpoch = epochSeconds;
 
-    const z = this.settings.zoom;
+    // As sharp as the view, up to the archive's own pixels (Fix It List #35, 1).
+    const z =
+      this.settings.zoom ||
+      Math.max(3, Math.min(MAX_TILE_ZOOM, Math.floor(map.getZoom())));
     const b = map.getBounds();
     const n = 2 ** z;
     const xOf = (lon: number) => Math.floor(((lon + 180) / 360) * n);
@@ -260,27 +340,72 @@ export class RadarLayer implements CustomLayerInterface {
     const x1 = Math.min(n - 1, xOf(b.getEast()));
     const y0 = Math.max(0, yOf(b.getNorth()));
     const y1 = Math.min(n - 1, yOf(b.getSouth()));
+    const c = map.getCenter();
+    const cx = xOf(c.lng) + 0.5;
+    const cy = yOf(c.lat) + 0.5;
 
     const wanted: { z: number; x: number; y: number }[] = [];
     for (let x = x0; x <= x1; x += 1) {
       for (let y = y0; y <= y1; y += 1) wanted.push({ z, x, y });
     }
-    // A wide view at a high zoom is hundreds of tiles off somebody else's
-    // server. Bounded rather than trusted.
-    const capped = wanted.slice(0, 64);
+    // A wide view is many tiles off somebody else's server: bounded, and the
+    // middle of the view first so what is cut is the edge, never the storm.
+    wanted.sort(
+      (p, q) =>
+        Math.hypot(p.x + 0.5 - cx, p.y + 0.5 - cy) -
+        Math.hypot(q.x + 0.5 - cx, q.y + 0.5 - cy),
+    );
+    const capped = wanted.slice(0, 48);
+
+    /*
+     * The scan on screen stays there until the next one is ready, so following
+     * the replay never blanks the map between scans. Only when nothing is drawn
+     * yet do tiles appear one by one as they arrive.
+     */
+    const staging = new Map<string, Tile>();
+    if (sameScan) {
+      for (const { x, y } of capped) {
+        const had = this.tiles.get(`${z}/${x}/${y}`);
+        if (had && (had.state === "ready" || had.state === "empty"))
+          staging.set(had.key, had);
+      }
+    }
+    const progressive = this.tiles.size === 0;
+    if (progressive) this.tiles = staging;
 
     let done = 0;
-    let withData = 0;
+    let withData = [...staging.values()].filter(
+      (t) => t.state === "ready",
+    ).length;
+    const todo = capped.filter(({ x, y }) => !staging.has(`${z}/${x}/${y}`));
     await Promise.all(
-      capped.map(async ({ x, y }) => {
-        const tile = await this.fetchTile(epochSeconds, z, x, y, mine);
+      todo.map(async ({ x, y }) => {
+        const got = await this.fetchTile(epochSeconds, z, x, y, mine, staging);
         done += 1;
-        if (tile) withData += 1;
-        this.onProgress?.(done, capped.length);
-        this.map?.triggerRepaint();
+        if (got) withData += 1;
+        this.onProgress?.(done, todo.length);
+        if (progressive) this.map?.triggerRepaint();
       }),
     );
 
+    const gl = this.gl;
+    if (mine !== this.generation) {
+      // A newer fetch took over: give back what this one made and nobody drew.
+      if (!progressive && gl)
+        for (const t of staging.values())
+          if (t.texture && this.tiles.get(t.key) !== t)
+            gl.deleteTexture(t.texture);
+      return { tiles: capped.length, withData };
+    }
+    if (!progressive) {
+      if (gl)
+        for (const [k, t] of this.tiles)
+          if (t.texture && staging.get(k) !== t) gl.deleteTexture(t.texture);
+      this.tiles = staging;
+    }
+    if (this.stats.decoded.length > 120)
+      this.stats.decoded = this.stats.decoded.slice(-120);
+    this.map?.triggerRepaint();
     return { tiles: capped.length, withData };
   }
 
@@ -290,6 +415,7 @@ export class RadarLayer implements CustomLayerInterface {
     x: number,
     y: number,
     mine: number,
+    into: Map<string, Tile>,
   ): Promise<boolean> {
     const key = `${z}/${x}/${y}`;
     const n = 2 ** z;
@@ -309,8 +435,10 @@ export class RadarLayer implements CustomLayerInterface {
       bounds: [wx, ny, ex, sy],
       texture: null,
       state: "loading",
+      w: 256,
+      h: 256,
     };
-    this.tiles.set(key, tile);
+    into.set(key, tile);
 
     try {
       // Fetched and read back off the main thread where the browser can (tiles.ts).
@@ -361,6 +489,8 @@ export class RadarLayer implements CustomLayerInterface {
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
       tile.texture = tex;
+      tile.w = tw;
+      tile.h = th;
       tile.state = "ready";
       return true;
     } catch {
@@ -409,6 +539,7 @@ export class RadarLayer implements CustomLayerInterface {
     gl.bindVertexArray(this.vao);
     gl.uniformMatrix4fv(this.uniforms.u_matrix!, false, matrix);
     gl.uniform1f(this.uniforms.u_opacity!, this.settings.opacity);
+    gl.uniform1f(this.uniforms.u_smooth!, this.settings.smooth ? 1 : 0);
 
     /*
      * State is borrowed, and has to be given back.
@@ -452,6 +583,8 @@ export class RadarLayer implements CustomLayerInterface {
       gl.bindTexture(gl.TEXTURE_2D, tile.texture);
       gl.uniform1i(this.uniforms.u_data!, 0);
       gl.uniform4f(this.uniforms.u_bounds!, ...tile.bounds);
+      gl.uniform2f(this.uniforms.u_size!, tile.w, tile.h);
+      gl.uniform1f(this.uniforms.u_cell!, Math.max(1, 2 ** (tile.z - 7)));
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       this.stats.drawn += 1;
     }
