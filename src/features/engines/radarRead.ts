@@ -74,7 +74,9 @@ export function couplet(
   rho?: Sweep,
 ) {
   const step = (360 / vel.rows) * R;
-  const g0 = gateOf(vel, km - half);
+  // Nothing within 8 km of the radar: ground clutter there reads as a strong couplet with debris
+  // even on a clear day (Fix It List #35, 2).
+  const g0 = Math.max(gateOf(vel, km - half), gateOf(vel, 8));
   const g1 = gateOf(vel, km + half);
   const dRow = Math.ceil(half / Math.max(1, km) / step);
   const r0 = rowOf(vel, az);
@@ -105,11 +107,26 @@ export function couplet(
         Math.sign(n) === Math.sign(v) &&
         Math.abs(n) >= Math.abs(v) / 2,
     );
+  // A real couplet sits inside a storm: both halves need 20 dBZ or more on the lowest scan
+  // (Fix It List #35, 2). Clutter, birds and insects on a clear day do not.
+  const inStorm = (i: number, g: number) => {
+    if (!ref) return true;
+    const kmG = (vel.first + g * vel.spacing) / 1000;
+    const azG = (i + 0.5) * (360 / vel.rows);
+    const z = at(ref, rowOf(ref, azG), gateOf(ref, kmG));
+    return z !== null && z >= 20;
+  };
   let best = { dv: 0, row: r0, gate: gateOf(vel, km) };
   for (let i = -dRow; i <= dRow; i++)
     for (let g = g0; g <= g1; g++) {
       const vin = V(r0 + i, g);
-      if (vin === null || vin > -5 || !backed(r0 + i, g, vin)) continue;
+      if (
+        vin === null ||
+        vin > -5 ||
+        !backed(r0 + i, g, vin) ||
+        !inStorm(r0 + i, g)
+      )
+        continue;
       const rangeKm = (vel.first + g * vel.spacing) / 1000;
       const k = Math.min(24, Math.ceil(7 / Math.max(1, rangeKm) / step));
       for (let d = 1; d <= k; d++)
@@ -117,7 +134,11 @@ export function couplet(
           const vout = V(r0 + i + d, g + dg);
           if (vout === null || vout < 5) continue;
           const dv = vout - vin;
-          if (dv > best.dv && backed(r0 + i + d, g + dg, vout))
+          if (
+            dv > best.dv &&
+            backed(r0 + i + d, g + dg, vout) &&
+            inStorm(r0 + i + d, g + dg)
+          )
             best = { dv, row: r0 + i + (d >> 1), gate: g + (dg >> 1) };
         }
     }
