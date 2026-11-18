@@ -5,6 +5,7 @@ import { Radar, ScanEye, Tornado } from "lucide-react";
 import type { EngineStorm, WrapStorm } from "@/lib/engines/probsevere";
 import type { RadarRead } from "@/lib/engines/project";
 import { useTier } from "@/features/motion/useTier";
+import { isStaleChunk, reloadForUpdate } from "@/lib/app/stale";
 
 export type ReadState = RadarRead | "busy" | "none" | "error";
 
@@ -44,7 +45,11 @@ function useReads<T, R>(
         .then((m) => reader.current(m, x))
         .then(
           (r) => setReads((p) => ({ ...p, [key]: r ?? "none" })),
-          () => setReads((p) => ({ ...p, [key]: "error" })),
+          (err) => {
+            // The radar reader is a chunk from before the latest deploy: reload once to get the new one.
+            if (isStaleChunk(err) && reloadForUpdate()) return;
+            setReads((p) => ({ ...p, [key]: "error" }));
+          },
         );
     },
     [keyOf],

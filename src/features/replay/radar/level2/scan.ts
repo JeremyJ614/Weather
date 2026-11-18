@@ -40,6 +40,8 @@ export class NoScan extends Error {}
 interface Job {
   resolve: (r: Radial[]) => void;
   reject: (e: Error) => void;
+  /** The record, kept so it can be decoded here if the worker fails. */
+  bytes: Uint8Array;
 }
 
 /**
@@ -54,9 +56,12 @@ class Pool {
   private readonly jobs = new Map<number, Job>();
   private idle: ReturnType<typeof setTimeout> | null = null;
 
+  /** Set when a worker failed (often a decoder chunk from before the latest deploy): decode here from then on. */
+  private broken = false;
+
   private start(): boolean {
     if (this.workers.length) return true;
-    if (typeof Worker === "undefined") return false;
+    if (this.broken || typeof Worker === "undefined") return false;
     const n = Math.max(
       1,
       Math.min(4, (navigator.hardwareConcurrency || 2) - 1),
@@ -83,9 +88,10 @@ class Pool {
         };
         w.onerror = (e) => {
           e.preventDefault();
+          this.broken = true;
           for (const [id, job] of this.jobs) {
-            job.reject(new Error("The radar decoder stopped."));
             this.jobs.delete(id);
+            inline(job.bytes).then(job.resolve, job.reject);
           }
           this.stop();
         };
@@ -120,7 +126,7 @@ class Pool {
     const w = this.workers[this.turn++ % this.workers.length]!;
     const copy = bytes.slice().buffer;
     return new Promise<Radial[]>((resolve, reject) => {
-      this.jobs.set(id, { resolve, reject });
+      this.jobs.set(id, { resolve, reject, bytes });
       w.postMessage({ id, bytes: copy }, [copy]);
     });
   }
