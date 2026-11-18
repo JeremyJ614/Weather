@@ -1,5 +1,11 @@
 "use client";
 
+import { Explainer } from "./Explainer";
+import {
+  confidenceOf,
+  DEFAULT_CONFIDENCE,
+  type Confidence,
+} from "@/lib/engines/confidence";
 import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import type {
@@ -373,6 +379,7 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
       "Storms in a line (a squall line, where ProbSevere misses many tornadoes) are tested with the Three Ingredients Method forecasters use: 0–3 km shear of 30 knots or more from the HRRR, 30 knots of it running across the line, and a segment surging ahead of the rest. Two or three ingredients raise the chance by half or double it.",
       "For the leading storms (or any storm you tap), your phone reads the nearest Weather Service radar's newest lowest scan straight from NOAA's public archive and measures the rotation itself: the strongest inbound-outbound couplet near the storm, as rotational velocity. The chance moves toward what NWS studies found for that much rotation (about 10% at 20 knots, half at 45, up to 85% past 65). A drop in correlation coefficient right on the rotation is a debris signature and means a tornado is likely on the ground. Rotation more than 10,000 feet up or 90 miles out is too high to read.",
       "Each storm is projected along its own motion for 0–20, 20–40 and 40–60 minutes, and the map draws the chances the way SPC draws an outlook: nested, outlined areas around each path that fade with distance, merging where storms run together. Zoom in to see each storm's own 20-minute cones. The later chances only fade: past half an hour nobody can say much more.",
+      "Every storm at 10% or more is checked afterwards against the Weather Service's tornado reports within 15 miles in the next 45 minutes. Reports often arrive hours or a day late, so a storm without one is only counted a miss after 48 hours.",
       "This is an experimental guide, never a warning. Act on National Weather Service warnings.",
     ],
   },
@@ -383,6 +390,7 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
       'It uses the "2σ" lightning jump from research by Schultz and others: the change in flash rate over each 2 minutes is compared with how much it varied over the 10 minutes before. A rise more than two standard deviations above that, in a storm flashing at least 10 times a minute, is a jump, and the storm stays flagged for 10 minutes. A jump of three or more, or one the radar backs up with tightening low-level rotation or a hail core growing by a quarter inch, is a strong jump. The bars show the jump\'s size, 2σ, 3σ or 4σ and up: the bigger the jump, the more often severe weather follows.',
       "Storms are followed from file to file by where they are, not only by their ID: an older storm belongs to a current one when its center, carried forward on the storm's motion, lands inside its outline. When two storms merge their flash rates are added together, and when one splits its rate is shared by size, so neither looks like a jump.",
       "In research with ground-based lightning networks about 4 in 5 severe storms jumped first, with roughly a third of jumps never followed by severe weather. Ordinary storms jump too, and reports are missed where few people live. The hit rate below is this engine's own, checked every hour against the Weather Service's storm reports.",
+      "A jump counts as a hit when severe weather follows: a Weather Service report (reports entered up to 48 hours late still count), or the radar itself confirming it, with ProbSevere estimating hail of an inch or more or strong low level rotation in the storm within the window. Night and rural storms with nobody to report them still count that way.",
       "This is an experimental guide, never a warning. Act on National Weather Service warnings.",
     ],
   },
@@ -423,8 +431,10 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
     body: [
       "Landspouts and waterspouts don't come from rotating supercells. They form when a growing storm stretches spin that already sits along a wind boundary at the ground.",
       "This is the Storm Prediction Center's Non-Supercell Tornado parameter from the HRRR for the next hour: steep low-level lapse rates, CAPE in the lowest 3 km, little inhibition, weak deep-layer shear and spin in the 10 m wind. 1 and up is favorable.",
-      "On land it is weighted up where the HRRR has a boundary (surface winds running into each other or a sharp dew point edge), and up to 60% more around the meeting points Boundary Collisions expects in the next few hours, since that is where the spin waiting to be stretched lives.",
+      "Two refinements follow how landspouts actually form. The lapse rate through the lowest 3 km (ground to 700 mb) has to be steep too, since that is what stretches the spin upward quickly; and on land the spin counts in full only where it sits on a boundary (surface winds running into each other across a sharp dew point edge), and at 40% elsewhere.",
+      "Places along a boundary are weighted up again, and up to 60% more around the meeting points Boundary Collisions expects in the next few hours, since that is where the spin waiting to be stretched lives.",
       "Over water it follows Szilagyi's Waterspout Index instead: how much warmer the water is than the air at 850 mb, how deep the clouds can grow and how light the wind is. The water temperature is measured wherever it can be (NOAA buoys and shore stations, the Great Lakes satellite analysis and lake gauges, blended out to about 40 miles), and the model's elsewhere. It is counted only within about 40 miles of land. A storm still has to form on the boundary for anything to happen.",
+      "Top spots are checked against what happens only where two of the last three HRRR runs agree on them and the HRRR actually builds 45 dBZ storms nearby during the evening, then against reports of tornadoes, funnel clouds and waterspouts (allowing 48 hours for late reports).",
     ],
   },
   pyro: {
@@ -442,6 +452,7 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
       "The Significant Tornado Parameter is the Storm Prediction Center's go-to ingredient blend for tornadoes rated EF2 and up. This is the effective-layer version SPC prefers, from the HRRR: mixed-layer CAPE, how low the cloud base (LCL) is, effective storm-relative helicity (the HRRR's own), deep-layer shear (0–6 km standing in for the effective layer, which the HRRR doesn't carry) and how much the cap is holding storms back.",
       "Evening peak shows the highest value between 21Z and 03Z (about 4 to 10 p.m. Central) with the hour it peaks. Chance of 1+ is the share of the last three HRRR runs with STP of 1 or more at 00Z, so you can see how sure the model is.",
       "1 and up marks the environments most significant tornadoes form in; values over 4 are rare and come with the big days. A high number with no storms means nothing happens, so pair it with SPC's outlook.",
+      "That is why the spots checked against what happens are only those where at least two of the last three HRRR runs agree and the HRRR actually grows a rotating storm nearby (updraft helicity of 75 m²/s² or more somewhere in the evening). Each is then checked against tornado reports, allowing 48 hours for late reports.",
     ],
   },
   scp: {
@@ -450,6 +461,7 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
       "The Supercell Composite Parameter weighs whether a storm would rotate as a supercell: most-unstable CAPE, effective storm-relative helicity and deep-layer shear (Thompson's effective-layer version), cut down where the cap is strong. Evening peak is the highest value from 21Z to 03Z; Chance of 1+ is the share of the last three HRRR runs at 1 or more at 00Z.",
       "Each top spot carries a storm-mode hint: deep shear crossing the edge of the instability (where storms start) favors discrete supercells; shear running along it tends to line storms up.",
       "1 and up favors supercells, which bring most large hail and strong tornadoes; above 8 is a classic supercell day. Left-moving storms are left off.",
+      "The spots checked against what happens are only those where at least two of the last three HRRR runs agree and the HRRR actually grows a rotating storm nearby (updraft helicity of 75 m²/s² or more in the evening); then tornado and inch hail reports decide, allowing 48 hours for late reports.",
     ],
   },
   dcp: {
@@ -458,6 +470,7 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
       "The Derecho Composite Parameter (Evans and Doswell) looks for long-lived, damaging wind storms: downdraft CAPE (how hard cold air can crash down out of a storm), most-unstable CAPE, 0–6 km shear and a fast 0–6 km mean wind to carry the line along. From the HRRR at this evening's peak (or as far ahead as the latest run reaches).",
       "The HRRR doesn't carry downdraft CAPE, so it is worked out here: a parcel let down from the drier of 700 and 500 mb at its wet-bulb temperature to the ground. 2 and up favors derecho-producing systems once a line of storms gets going.",
       "DCP was built for places a storm complex already exists, so the map counts it in full only within about 125 miles of an organized line in the HRRR (40 dBZ, 60+ miles long, in the three hours before) and at a third elsewhere. The HRRR's own hourly peak gusts weigh it too (half at 30 mph or less, full at 58 mph and up). Each top spot says where a complex would race, from the Corfidi vectors (cloud-layer mean wind and the low-level jet).",
+      "Spots are checked against wind damage reports only where the two HRRR runs before this one agree with it and the HRRR actually builds 45 dBZ storms nearby during the window, allowing 48 hours for late reports.",
     ],
   },
   ltg: {
@@ -476,7 +489,7 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
       "The chances are then smoothed over about 40 km, the way SPC's own guidance is, and calibrated against how this engine's flagged chances have verified over the last 60 days.",
       "That share is weighed by the newest run's support: whether the cap (the inhibition, CIN) is weakening over the next three hours, and whether the surface winds are converging, which gives the air its push. Places without the instability to use (most-unstable CAPE under 100 J/kg) are left out, so winter rain bands don't count as storms.",
       "Switch to Timing to see when the first storms start, soonest on top. Each listed spot gives the time, how many runs agree and why.",
-      "Every spot of 35% or more is checked once its 6 hours are over against radar (any storm NOAA's ProbSevere tracked within 25 miles).",
+      "A spot of 35% or more is checked against radar (any storm NOAA's ProbSevere tracked within 25 miles) only where at least two of the last three HRRR runs start storms there within two hours of each other, and only in their agreed time with 90 minutes either side, which takes out most of the timing misses.",
     ],
   },
   rwrap: {
@@ -492,10 +505,10 @@ const HOW: Record<Engine, { lead: string; body: string[] }> = {
     lead: "Wind good, snowfall fair, visibility fair to poor.",
     body: [
       "The National Weather Service calls it a blizzard when gusts reach 35 mph with snow, falling or blowing, cutting visibility to a quarter mile or less for three hours or more.",
-      "This counts the hours each place meets that test over the next two days: the newest HRRR run every 2 hours out to 18, then the newest 48-hour run (from 00, 06, 12 or 18Z) every 3 hours. Falling snow counts where the model snows with visibility under half a mile; blowing snow counts where at least 2 inches of snow lie, even with no snow falling.",
+      "This counts the hours each place meets all three parts of that test together over the next two days: the newest HRRR run every 2 hours out to 18, then the newest 48-hour run (from 00, 06, 12 or 18Z) every 3 hours. Wind: gusts of 35 mph. Visibility: a quarter mile, from the model's falling snow or from blowing snow. Loose snow: falling now, or fresh (snowed within the last day) and at least 2 inches deep. Older and crusted snow are left out.",
       "Snow on the ground starts from NOAA NOHRSC's National Snow Analysis (observed depth from stations, aircraft and satellite) instead of the model's guess, plus whatever the model snows after it. Whether it blows follows Li and Pomeroy's research: dry snow starts drifting at a 10 m wind of about 19 mph at −5 °C and less in deeper cold; snow that fell in the last day blows at that, older snow needs about 4 mph more, and snow that has thawed above freezing since it fell is crusted and doesn't blow at all. Visibility drops to a quarter mile at about one and a half times the wind that starts it moving.",
       "The model's visibility in falling snow is its weakest part, so marginal places can still get false alarms. Interstates are drawn bright so you can see which ones cross the whiteout areas.",
-      "Each place with 3 or more hours is checked while it happens against airport reports (a quarter mile or less with 30 kt winds) and afterwards against Weather Service blizzard reports.",
+      "Only places where the test holds for three hours in a row are flagged, and only where NOAA's National Blend of Models (bias corrected gusts and visibility) also brings 30 mph gusts with a mile or less at some point in the window. Each is checked while it happens against airport reports (near blizzard: half a mile or less with 30 kt winds) and afterwards against Weather Service blizzard reports, allowing 48 hours for late ones.",
     ],
   },
   sunset: {
@@ -661,12 +674,15 @@ export function EnginesTab({
   colors,
   items = {},
   only,
+  confidence = DEFAULT_CONFIDENCE,
 }: {
   colors: Colors;
   /** The owner's switches (admin → Extras): hidden engines are left out, off ones greyed. */
   items?: ExtrasStates;
   /** One engine on a page of its own, without the picker. */
   only?: string;
+  /** Each engine's confidence level and the levels' colors (admin → Extras). */
+  confidence?: Confidence;
 }) {
   const shown = only
     ? ENGINES.filter((e) => e.id === only)
@@ -2338,15 +2354,12 @@ export function EnginesTab({
         </section>
       )}
 
-      <details className={s.how}>
-        <summary>How this works</summary>
-        <p>
-          <b>{how.lead}</b>
-        </p>
-        {how.body.map((p) => (
-          <p key={p.slice(0, 20)}>{p}</p>
-        ))}
-      </details>
+      <Explainer
+        name={current.name}
+        lead={how.lead}
+        steps={how.body}
+        {...confidenceOf(confidence, engine)}
+      />
     </div>
   );
 }

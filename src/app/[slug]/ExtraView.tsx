@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import type { Colors } from "@/lib/colors/pick";
 import type { ExtrasStates } from "@/lib/extras/items";
+import type { Confidence } from "@/lib/engines/confidence";
 
 const loading = () => <p className="text-sm text-muted">Loading…</p>;
 const EnginesTab = dynamic(
@@ -20,14 +21,21 @@ export function ExtraView({
   group,
   colors,
   items,
+  confidence,
 }: {
   id: string;
   group: "engines" | "randoms";
   colors: Colors;
   items: ExtrasStates;
+  confidence: Confidence;
 }) {
   return group === "engines" ? (
-    <EnginesTab colors={colors} items={items} only={id} />
+    <EnginesTab
+      colors={colors}
+      items={items}
+      only={id}
+      confidence={confidence}
+    />
   ) : (
     <Randoms items={items} only={id} />
   );
