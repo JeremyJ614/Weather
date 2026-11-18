@@ -96,6 +96,12 @@ interface MapCanvasProps {
   onContextLost?: (view: MapView) => void;
   /** A basemap that had failed has come back. */
   onTilesRecovered?: () => void;
+  /**
+   * The closest zoom radar still reads at while it is on the map (Fix It List #36, 10):
+   * at the storm camera's street-level ceiling a 1 km mosaic cell fills a phone screen and
+   * the storm turns into smeared color. Null when no radar is drawn.
+   */
+  radarZoom?: number | null;
 }
 
 export interface MapView {
@@ -151,6 +157,7 @@ export function MapCanvas({
   initialView,
   onContextLost,
   onTilesRecovered,
+  radarZoom = null,
 }: MapCanvasProps) {
   const host = useRef<HTMLDivElement | null>(null);
   const map = useRef<MapLibreMap | null>(null);
@@ -850,11 +857,15 @@ export function MapCanvas({
       left: (pad.left + 24) * horiz,
       right: (pad.right + 24) * horiz,
     };
+    const ceiling = Math.max(
+      STORM_MIN_ZOOM,
+      Math.min(STORM_MAX_ZOOM, radarZoom ?? STORM_MAX_ZOOM),
+    );
     let cam;
     try {
       cam = m.cameraForBounds(b, {
         padding,
-        maxZoom: STORM_MAX_ZOOM,
+        maxZoom: ceiling,
         bearing: m.getBearing(),
       });
     } catch {
@@ -865,11 +876,20 @@ export function MapCanvas({
     stormTarget.current = {
       center: [c.lng, c.lat],
       zoom: Math.min(
-        STORM_MAX_ZOOM,
+        ceiling,
         Math.max(STORM_MIN_ZOOM, cam.zoom ?? m.getZoom()),
       ),
     };
-  }, [camera, at, ready, replay, insets]);
+  }, [camera, at, ready, replay, insets, radarZoom]);
+
+  // Radar switched on while the map is closer than radar reads: pull back once, whatever
+  // the camera, so the storm is drawn as a storm. A reader can still zoom in after.
+  useEffect(() => {
+    const m = map.current;
+    if (!m || !ready || radarZoom == null) return;
+    if (m.getZoom() > radarZoom + 0.3)
+      m.easeTo({ zoom: radarZoom, duration: 900, essential: true });
+  }, [ready, radarZoom]);
 
   /*
    * The glide: every frame, a fraction of the way to the target, by real time.
