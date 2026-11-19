@@ -6,6 +6,7 @@ import { claimFounder, markTrial, savePass } from "@/lib/billing/perks";
 import { DAY_PASS, perkOn } from "@/lib/billing/plans";
 import { getBilling, today } from "@/lib/billing/server";
 import { send } from "@/lib/notify/deliver";
+import { cleanWxCode, redeemWxCode } from "@/lib/billing/academyVip";
 
 type Event = {
   type: string;
@@ -74,6 +75,9 @@ export async function POST(req: Request) {
         .eq("user_id", user);
     if (/^[0-9a-f-]{36}$/.test(user) && meta.trial === "1")
       await markTrial(user).catch(() => null);
+    // Fix It List #36, 4: the Academy VIP code is spent once its two free months have started.
+    const wx = cleanWxCode(meta.wxvip);
+    if (wx) await redeemWxCode(wx);
   } else if (ev.type === "customer.subscription.trial_will_end") {
     // Post-launch A4: a reminder before the trial turns into a charge (no surprises).
     const user = String(meta.user_id ?? "");
