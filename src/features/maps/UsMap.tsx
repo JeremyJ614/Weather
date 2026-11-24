@@ -170,7 +170,13 @@ export function UsMap({
   maxZoom = 10,
   focus,
   towns = false,
+  cityNames = true,
+  onView,
 }: {
+  /** Draw city names when zoomed in (off for maps that label places themselves). */
+  cityNames?: boolean;
+  /** Hears the visible part of the canvas (zoom and pan) and the map's width on screen. */
+  onView?: (v: { x: number; y: number; w: number; cssW: number }) => void;
   /** Deepest zoom (10× by default; tornado tracks go to 60×). */
   maxZoom?: number;
   /** Glides here whenever `key` changes (a picked track, say). */
@@ -225,7 +231,7 @@ export function UsMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus?.key]);
   const [cities, setCities] = useState<City[] | null>(null);
-  const deep = zoomable && z.view.w < W / 1.4;
+  const deep = cityNames && zoomable && z.view.w < W / 1.4;
   useEffect(() => {
     if (!deep || cities) return;
     let off = false;
@@ -247,6 +253,13 @@ export function UsMap({
     return () => ro.disconnect();
   }, [zoomable]);
   const px = z.view.w / cssW;
+  const viewCb = useRef(onView);
+  useEffect(() => {
+    viewCb.current = onView;
+  });
+  useEffect(() => {
+    viewCb.current?.({ x: z.view.x, y: z.view.y, w: z.view.w, cssW });
+  }, [z.view.x, z.view.y, z.view.w, cssW]);
   const shown =
     deep && cities
       ? pickCities(

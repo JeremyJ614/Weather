@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { MapPin, Siren, Waves } from "lucide-react";
+import dynamic from "next/dynamic";
+import { CloudRain, MapPin, Siren, Waves } from "lucide-react";
 import { HomeTabs } from "@/features/news/HomeTabs";
 import { GeoMap } from "@/features/hazards/GeoMap";
 import { UsMap } from "@/features/maps/UsMap";
@@ -12,6 +13,12 @@ import { ERO_COLORS } from "@/lib/map/products";
 import type { EroDay, FloodHere } from "@/lib/flood/data";
 import { ERO_LEVELS as LEVELS } from "@/lib/flood/levels";
 import s from "./Flood.module.css";
+
+// The last 7 days of rain (daily data job), loaded when its tab opens.
+const SevenDayMap = dynamic(
+  () => import("@/features/sevenday/SevenDayMap").then((m) => m.SevenDayMap),
+  { ssr: false },
+);
 
 const dayName = (d: number) =>
   d === 1
@@ -192,6 +199,12 @@ export function FloodView({
             ),
           },
           {
+            id: "fl-week",
+            label: "Last 7 Days",
+            icon: <CloudRain aria-hidden />,
+            panel: <SevenDayMap kind="rain" colors={colors} />,
+          },
+          {
             id: "fl-alerts",
             label: "Flood Alerts",
             icon: <Siren aria-hidden />,
@@ -201,7 +214,8 @@ export function FloodView({
       />
       <p className={s.foot}>
         Source: NOAA Weather Prediction Center Excessive Rainfall Outlook; flood
-        watches, warnings and advisories from the National Weather Service.
+        watches, warnings and advisories from the National Weather Service; the
+        last 7 days of rain from NOAA&apos;s MRMS radar and gauge analysis.
         Percentages are the chance of flash flooding within 25 miles of a point.
       </p>
     </div>

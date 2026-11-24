@@ -175,6 +175,8 @@ const WIDGET_IDS = new Set([
   "replay-radar",
   "replay-velocity",
   "replay-cc",
+  "sevenday-rain",
+  "sevenday-snow",
 ]);
 const WidgetPreview = dynamic(() =>
   import("./Widgets").then((m) => m.WidgetPreview),

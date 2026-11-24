@@ -44,12 +44,15 @@ export function latest(): Promise<Latest | null> {
   return memo;
 }
 
+/** Where a file of a build lives: the CDN first, GitHub itself after. */
+export const dataUrls = (l: Latest, path: string) => [
+  `https://cdn.jsdelivr.net/gh/${REPO}@${l.sha}/${path}`,
+  `https://raw.githubusercontent.com/${REPO}/${l.sha}/${path}`,
+];
+
 /** A file of a build, from the CDN (the same file on GitHub when the CDN fails). */
 export async function dataFetch(l: Latest, path: string) {
-  const urls = [
-    `https://cdn.jsdelivr.net/gh/${REPO}@${l.sha}/${path}`,
-    `https://raw.githubusercontent.com/${REPO}/${l.sha}/${path}`,
-  ];
+  const urls = dataUrls(l, path);
   let err: unknown;
   for (const u of urls) {
     try {

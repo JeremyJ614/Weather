@@ -1,0 +1,312 @@
+/* The 7-day rain and snow maps. Dark surfaces; the accent is text, outline and glow. */
+.wrap {
+  position: relative;
+  display: grid;
+  gap: 12px;
+}
+.head {
+  display: grid;
+  gap: 6px;
+}
+.big {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.big b {
+  font-family: var(--font-display, inherit);
+  font-size: clamp(34px, 10vw, 48px);
+  font-weight: 800;
+  line-height: 1;
+  color: var(--accent);
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  text-shadow:
+    0 0 22px color-mix(in srgb, var(--accent) 45%, transparent),
+    0 0 2px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+.big span {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+.clock {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.clock svg {
+  width: 15px;
+  color: var(--accent);
+}
+.clock b {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.frame {
+  image-rendering: auto;
+  will-change: opacity;
+}
+.overlay {
+  pointer-events: none;
+}
+.rep,
+.fresh {
+  fill: var(--c);
+  stroke: rgb(0 0 0 / 0.55);
+  stroke-width: calc(0.6px * var(--px, 1));
+  filter: drop-shadow(0 0 1.5px var(--c));
+}
+.rep {
+  opacity: 0.55;
+}
+.fresh {
+  opacity: 1;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: pulse 1.6s ease-out infinite;
+}
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.9);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.max circle:first-child {
+  fill: none;
+  stroke: var(--c);
+  stroke-width: 1.6;
+  filter: drop-shadow(0 0 3px var(--c));
+}
+.max circle:last-child {
+  fill: var(--c);
+}
+.label circle {
+  fill: #fff;
+  stroke: rgb(0 0 0 / 0.7);
+  stroke-width: 0.8;
+}
+.label text {
+  text-anchor: middle;
+  paint-order: stroke;
+  stroke: rgb(4 6 11 / 0.85);
+  stroke-linejoin: round;
+}
+.val {
+  font-family: var(--font-display, inherit);
+  font-size: 13.5px;
+  font-weight: 800;
+  fill: #fff;
+  stroke-width: 3px;
+  font-variant-numeric: tabular-nums;
+}
+.name {
+  font-size: 7.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  fill: rgb(255 255 255 / 0.82);
+  stroke-width: 2.4px;
+}
+.pop {
+  display: grid;
+  gap: 3px;
+  position: relative;
+  padding: 12px 40px 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--lit-line);
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  font-size: 13px;
+  box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+.pop small {
+  color: var(--muted);
+}
+.pop span {
+  color: var(--muted);
+  font-size: 12px;
+}
+.pop svg {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 16px;
+  color: var(--muted);
+}
+.legend {
+  display: grid;
+  gap: 4px;
+  padding-bottom: 14px;
+  position: relative;
+}
+.legend span {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.legend i {
+  display: block;
+  height: 8px;
+  border-radius: 4px;
+  box-shadow: 0 0 10px rgb(255 255 255 / 0.06);
+}
+.legend ol {
+  position: relative;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  height: 12px;
+}
+.legend li {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--muted);
+}
+.player {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.play {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--lit-line);
+  background: transparent;
+  color: var(--accent);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+.play:disabled {
+  opacity: 0.4;
+}
+.play svg {
+  width: 18px;
+}
+.scrub {
+  flex: 1;
+  min-width: 140px;
+  accent-color: var(--accent);
+}
+.count {
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.tiles div {
+  display: grid;
+  gap: 2px;
+  align-content: start;
+  padding: 10px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+.tiles small {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.tiles b {
+  font-family: var(--font-display, inherit);
+  font-size: 22px;
+  color: var(--accent);
+  text-shadow: 0 0 14px color-mix(in srgb, var(--accent) 35%, transparent);
+  font-variant-numeric: tabular-nums;
+}
+.tiles span {
+  font-size: 11px;
+  color: var(--muted);
+}
+.list {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+.list h4 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 14px;
+}
+.list h4 svg {
+  width: 15px;
+  color: var(--accent);
+}
+.list ol {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 90px auto;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+.list li span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.list li i {
+  display: block;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--accent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 45%, transparent);
+  justify-self: start;
+}
+.list li b {
+  font-variant-numeric: tabular-nums;
+  min-width: 44px;
+  text-align: right;
+}
+.note,
+.foot {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+.foot {
+  font-size: 11px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .fresh {
+    animation: none;
+  }
+}
