@@ -3,7 +3,8 @@
  * share-card look of Radar and Model Runs. Every frame is drawn from the 3D scene itself at
  * full size (1080 px across the globe), never read off the screen, then laid into the card:
  * the title and link, the globe, a large year or date with its tag, a lit timeline and the
- * sources. Loaded only when someone shares.
+ * sources. Place names ride along when Places is on, and in Storm View the camera follows the
+ * storm with its name, strength and the land glow it leaves. Loaded only when someone shares.
  */
 import { tokens, type Tokens } from "@/features/share/card";
 import {
@@ -100,6 +101,14 @@ function framer(t: Tokens, clip: Clip) {
     g.letterSpacing = "0px";
 
     g.drawImage(globe, 0, TOP, G, G);
+    // Place names (when Places is on) and Storm View's name and strength over the storm, at
+    // the size they read on a phone.
+    g.save();
+    g.beginPath();
+    g.rect(0, TOP, G, G);
+    g.clip();
+    clip.globe.paintOverlay(g, 0, TOP, G, G, G / 420);
+    g.restore();
 
     // The storm's name on the globe, in the page's label style.
     const at = clip.label && clip.globe.project(clip.label.lat, clip.label.lon);

@@ -1,9 +1,12 @@
 /**
  * The hurricane history globe's data (Tropical Outlook → History), built from NOAA NCEI's
  * IBTrACS by scripts/build-tracks.py: every tropical cyclone on record worldwide, its
- * 6-hourly track and its numbers. About 1 MB over the wire, fetched once when the tab opens
- * and kept for the session.
+ * 6-hourly track and its numbers. About 1.5 MB over the wire, fetched once when the tab opens
+ * and kept for the session. The daily data job rebuilds it each morning (new storms included)
+ * and the newest build is read from the CDN; the copy shipped with the site is the fallback.
  */
+import { dataFetch, latest, type Latest } from "@/lib/data/branch";
+
 export const BASINS = ["NA", "EP", "WP", "NI", "SI", "SP", "SA"] as const;
 export const BASIN_NAME: Record<(typeof BASINS)[number], string> = {
   NA: "North Atlantic",
@@ -43,6 +46,8 @@ export type Tracks = {
   /** Which storm each point belongs to. */
   storm: Uint32Array;
   land: Float32Array[];
+  /** The daily build these came from (null: the copy shipped with the site). */
+  from: Latest | null;
 };
 
 /** Undoes build-tracks.py's packing: absolute first point per storm, steps after it. */
@@ -95,12 +100,44 @@ export function decodeLand(buf: ArrayBuffer) {
   return out;
 }
 
-async function gunzip(url: string) {
-  const r = await fetch(url);
-  if (!r.ok || !r.body) throw new Error(`${url} ${r.status}`);
+async function gunzip(r: Response | Promise<Response>) {
+  const res = await r;
+  if (!res.ok || !res.body) throw new Error(`${res.url} ${res.status}`);
   return new Response(
-    r.body.pipeThrough(new DecompressionStream("gzip")),
+    res.body.pipeThrough(new DecompressionStream("gzip")),
   ).arrayBuffer();
+}
+
+type Meta = {
+  built: string;
+  source: string;
+  points: number;
+  s: Omit<Storms, "built" | "source">;
+};
+
+/** Today's build from the data branch, else the copy shipped with the site. */
+async function trackFiles(): Promise<[Meta, ArrayBuffer, Latest | null]> {
+  const l = await latest();
+  if (l?.tracks)
+    try {
+      const [meta, pts] = await Promise.all([
+        dataFetch(l, "tracks/storms.json").then(
+          (r) => r.json() as Promise<Meta>,
+        ),
+        gunzip(dataFetch(l, "tracks/points.bin.gz")),
+      ]);
+      if (meta.points * 7 === pts.byteLength) return [meta, pts, l];
+    } catch {
+      /* fall through to the shipped copy */
+    }
+  const [meta, pts] = await Promise.all([
+    fetch("/extras/tracks/storms.json").then((r) => {
+      if (!r.ok) throw new Error(`storms ${r.status}`);
+      return r.json() as Promise<Meta>;
+    }),
+    gunzip(fetch("/extras/tracks/points.bin.gz")),
+  ]);
+  return [meta, pts, null];
 }
 
 let memo: Promise<Tracks> | null = null;
@@ -108,18 +145,9 @@ let memo: Promise<Tracks> | null = null;
 /** Every track, fetched once a session. */
 export function loadTracks(): Promise<Tracks> {
   memo ??= (async () => {
-    const [meta, pts, land] = await Promise.all([
-      fetch("/extras/tracks/storms.json").then((r) => {
-        if (!r.ok) throw new Error(`storms ${r.status}`);
-        return r.json() as Promise<{
-          built: string;
-          source: string;
-          points: number;
-          s: Omit<Storms, "built" | "source">;
-        }>;
-      }),
-      gunzip("/extras/tracks/points.bin.gz"),
-      gunzip("/extras/tracks/land.bin.gz"),
+    const [[meta, pts, from], land] = await Promise.all([
+      trackFiles(),
+      gunzip(fetch("/extras/tracks/land.bin.gz")),
     ]);
     const storms = { ...meta.s, built: meta.built, source: meta.source };
     return {
@@ -127,12 +155,137 @@ export function loadTracks(): Promise<Tracks> {
       count: storms.y.length,
       ...decodePoints(pts, storms.o, meta.points),
       land: decodeLand(land),
+      from,
     };
   })();
   memo.catch(() => {
     memo = null;
   });
   return memo;
+}
+
+/**
+ * Wind fields at every fix (Storm View's land glow): the 34 kt radius by quadrant (NE, SE,
+ * SW, NW) and the 64 kt radius, in nautical miles, 0 where none was measured. Fetched the
+ * first time Storm View starts, from the same build as the tracks.
+ */
+export type Radii = Uint8Array;
+const radiiMemo = new WeakMap<Tracks, Promise<Radii>>();
+export function loadRadii(t: Tracks): Promise<Radii> {
+  let p = radiiMemo.get(t);
+  if (!p) {
+    p = gunzip(
+      t.from
+        ? dataFetch(t.from, "tracks/radii.bin.gz")
+        : fetch("/extras/tracks/radii.bin.gz"),
+    ).then((b) => {
+      if (b.byteLength !== t.lat.length * 5) throw new Error("radii size");
+      return new Uint8Array(b);
+    });
+    radiiMemo.set(t, p);
+    p.catch(() => radiiMemo.delete(t));
+  }
+  return p;
+}
+
+/** Where a storm was `h` hours after it began: position and winds between its fixes. */
+export function stormAt(t: Tracks, i: number, h: number) {
+  const o = t.storms.o[i];
+  const n = t.storms.n[i];
+  let p = o;
+  while (p < o + n - 1 && t.hour[p + 1] <= h) p++;
+  const q = Math.min(p + 1, o + n - 1);
+  const span = t.hour[q] - t.hour[p] || 1;
+  const f = Math.min(1, Math.max(0, (h - t.hour[p]) / span));
+  const w0 = t.wind[p] === 255 ? 0 : t.wind[p];
+  const w1 = t.wind[q] === 255 ? w0 : t.wind[q];
+  return {
+    p,
+    q,
+    f,
+    lat: t.lat[p] + f * (t.lat[q] - t.lat[p]),
+    lon: t.lon[p] + f * (((t.lon[q] - t.lon[p] + 540) % 360) - 180),
+    kt: Math.round(w0 + f * (w1 - w0)),
+    known: t.wind[p] !== 255,
+  };
+}
+
+/**
+ * The wind field at a fix in km: the four 34 kt quadrant radii and the 64 kt radius. Where no
+ * agency measured it (before about 2004, or a gap), it's estimated from the storm's strength
+ * and latitude (fields grow as storms strengthen and move poleward); a depression gets a small
+ * circle so its landfall still shows.
+ */
+export function windField(
+  t: Tracks,
+  r: Radii | null,
+  p: number,
+  kt: number,
+): { q: [number, number, number, number]; r64: number; measured: boolean } {
+  const n = t.lat.length;
+  const NM = 1.852;
+  if (r) {
+    const q: [number, number, number, number] = [
+      r[p] * 5 * NM,
+      r[n + p] * 5 * NM,
+      r[2 * n + p] * 5 * NM,
+      r[3 * n + p] * 5 * NM,
+    ];
+    if (q[0] || q[1] || q[2] || q[3])
+      return { q, r64: r[4 * n + p] * 5 * NM, measured: true };
+  }
+  const lat = Math.abs(t.lat[p]);
+  const r34 =
+    kt >= 34
+      ? Math.min(230, 55 + 1.05 * (kt - 34) + 1.2 * Math.max(0, lat - 20))
+      : 28;
+  const r64 = kt >= 64 ? 15 + 0.35 * (kt - 64) : 0;
+  const k = r34 * NM;
+  return { q: [k, k, k, k], r64: r64 * NM, measured: false };
+}
+
+/** Country, state and city names and the borders between them (the Places layer). */
+export type Places = {
+  /** [name, lat, lon, rank]: rank 1 shows first, from farthest out. */
+  c: [string, number, number, number][];
+  s: [string, number, number, number][];
+  t: [string, number, number, number][];
+  /** Country borders, then state and province lines, as lon/lat pairs. */
+  countryLines: Float32Array[];
+  stateLines: Float32Array[];
+};
+let placesMemo: Promise<Places> | null = null;
+export function loadPlaces(): Promise<Places> {
+  placesMemo ??= Promise.all([
+    fetch("/extras/tracks/places.json").then((r) => {
+      if (!r.ok) throw new Error(`places ${r.status}`);
+      return r.json() as Promise<Pick<Places, "c" | "s" | "t">>;
+    }),
+    gunzip(fetch("/extras/tracks/borders.bin.gz")),
+  ]).then(([names, buf]) => {
+    const v = new DataView(buf);
+    const nc = v.getUint32(0, true);
+    const ns = v.getUint32(4, true);
+    const lens = new Uint32Array(buf.slice(8, 8 + (nc + ns) * 4));
+    let at = 8 + (nc + ns) * 4;
+    const all: Float32Array[] = [];
+    for (const len of lens) {
+      const line = new Float32Array(len * 2);
+      for (let k = 0; k < len * 2; k++)
+        line[k] = v.getInt16(at + k * 2, true) / 100;
+      at += len * 4;
+      all.push(line);
+    }
+    return {
+      ...names,
+      countryLines: all.slice(0, nc),
+      stateLines: all.slice(nc),
+    };
+  });
+  placesMemo.catch(() => {
+    placesMemo = null;
+  });
+  return placesMemo;
 }
 
 /** Saffir-Simpson tier index (0 depression … 6 Category 5) from wind in knots. */

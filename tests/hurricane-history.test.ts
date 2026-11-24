@@ -49,6 +49,7 @@ function tracks(): Tracks {
     count: 2,
     ...p,
     land: [],
+    from: null,
   };
 }
 
