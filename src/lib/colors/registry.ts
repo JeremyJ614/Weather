@@ -256,7 +256,7 @@ export const GROUPS: Group[] = [
   {
     id: "trop-globe",
     label: "Hurricane history globe",
-    note: "Tropical Outlook → History Globe: tracks by hemisphere, the picked storm, the Earth and its glow. Strength uses the Tropical Outlook colors.",
+    note: "Tropical Outlook → History Globe: tracks by hemisphere, the picked storm, the Earth and its glow, the Places layer and Storm View. Strength uses the Tropical Outlook colors.",
     entries: [
       {
         key: "trop:globe:north",
@@ -274,6 +274,41 @@ export const GROUPS: Group[] = [
       { key: "trop:globe:coast", label: "Coastlines and grid", def: "#4a5370" },
       { key: "trop:globe:glow", label: "Atmosphere glow", def: "#3d6bd6" },
       { key: "trop:globe:equator", label: "Equator", def: "#8fb3ff" },
+      {
+        key: "trop:globe:border",
+        label: "Places · country borders",
+        def: "#9fb1d9",
+      },
+      {
+        key: "trop:globe:state-line",
+        label: "Places · state and province lines",
+        def: "#6f7fa6",
+      },
+      {
+        key: "trop:globe:place-country",
+        label: "Places · country names",
+        def: "#d7e0f5",
+      },
+      {
+        key: "trop:globe:place-state",
+        label: "Places · state and province names",
+        def: "#9eabcb",
+      },
+      {
+        key: "trop:globe:place-town",
+        label: "Places · city names",
+        def: "#f4f6ff",
+      },
+      {
+        key: "trop:globe:wind",
+        label: "Storm View · wind field",
+        def: "#7fd8ff",
+      },
+      {
+        key: "trop:globe:impact",
+        label: "Storm View · land the winds touched",
+        def: "#4fe0ff",
+      },
     ],
   },
   {
