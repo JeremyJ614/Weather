@@ -59,6 +59,13 @@ async function main() {
       if (error) throw new Error(error.message);
       return data;
     }
+    case "usage": {
+      // Fix it List #39, 3: the usage meter's month so far (calls and CPU by route, projected
+      // against Hobby), read without the dashboard for free-tier checks.
+      const { usageReport } = await import("../../src/lib/ops/usage");
+      const r = await usageReport(Number(process.argv[3] ?? 24));
+      return r;
+    }
     case "dry": {
       // Computes one engine without storing it: proves the runner works on a new machine.
       const id = process.argv[3] ?? "stp";
@@ -75,7 +82,7 @@ async function main() {
     }
     default:
       throw new Error(
-        `Unknown job "${job}". Use engines, outdoor, verify, surge or dry.`,
+        `Unknown job "${job}". Use engines, outdoor, verify, surge, indexnow, sizes, usage or dry.`,
       );
   }
 }
