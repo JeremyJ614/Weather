@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
     inputs:
       job:
-        description: "engines, outdoor, verify, surge, indexnow or sizes"
+        description: "engines, outdoor, verify, surge, indexnow, sizes or usage"
         required: true
         default: engines
 
