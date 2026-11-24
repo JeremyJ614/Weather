@@ -1,6 +1,6 @@
 /**
  * The hurricane history globe (Tropical Outlook → History): every tropical cyclone on record
- * as a glowing line on a dark 3D Earth, in WebGL with three.js. All 340,000 track segments
+ * as a glowing line on a dark 3D Earth, in WebGL with three.js. All 700,000 track segments
  * live in one GPU buffer; filters, playback and highlighting are shader uniforms or a
  * one-pass flag rewrite, so nothing is rebuilt while the globe turns. It draws only when
  * something changes (a drag, the playback clock, a filter) and sleeps off screen.
@@ -52,10 +52,40 @@ export function xyz(lat: number, lon: number, r = 1): [number, number, number] {
   ];
 }
 
+/**
+ * A land ring ready for a flat (equirectangular) map. Rings that cross the date line are
+ * unwrapped so their longitudes run on continuously (Chukotka at 190° instead of −170°), and a
+ * ring that circles a pole (Antarctica) is closed along that pole instead of straight across
+ * the map. Drawing a ring as stored would join +180° to −180° with a line spanning the whole
+ * world and flood the oceans between with land.
+ */
+export function flatRings(ring: Float32Array) {
+  const pts: number[] = [ring[0], ring[1]];
+  let lon = ring[0];
+  let min = lon;
+  let max = lon;
+  for (let k = 2; k < ring.length; k += 2) {
+    let d = ring[k] - ring[k - 2];
+    if (d > 180) d -= 360;
+    else if (d < -180) d += 360;
+    lon += d;
+    pts.push(lon, ring[k + 1]);
+    min = Math.min(min, lon);
+    max = Math.max(max, lon);
+  }
+  // Around the world once: close it through the pole on the ring's side.
+  const wrap = Math.round((lon - pts[0]) / 360);
+  if (wrap !== 0) {
+    let sum = 0;
+    for (let k = 1; k < pts.length; k += 2) sum += pts[k];
+    const pole = sum > 0 ? 90 : -90;
+    pts.push(lon, pole, pts[0], pole);
+  }
+  return [{ pts, min, max }];
+}
+
 const TRACK_VS = /* glsl */ `
   attribute vec4 aInfo; // wind kt, storm index, hours since 1840, kept (0/1)
-  uniform float uNow;
-  uniform float uFresh;
   uniform float uSel;
   uniform float uMode;
   uniform vec3 uTier[7];
@@ -63,6 +93,7 @@ const TRACK_VS = /* glsl */ `
   uniform vec3 uSouth;
   varying vec3 vColor;
   varying float vAlpha;
+  varying float vTime;
   vec3 tier(float kt) {
     if (kt >= 137.0) return uTier[6];
     if (kt >= 113.0) return uTier[5];
@@ -73,14 +104,12 @@ const TRACK_VS = /* glsl */ `
     return uTier[0];
   }
   void main() {
-    float kept = aInfo.w * step(aInfo.z, uNow);
-    if (kept < 0.5) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); vAlpha = 0.0; return; }
+    // A filtered-out storm: both ends of each of its segments leave the screen together.
+    if (aInfo.w < 0.5) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); vAlpha = 0.0; vTime = 0.0; return; }
     vec3 hemi = position.y >= 0.0 ? uNorth : uSouth;
     vColor = uMode < 0.5 ? (aInfo.x > 250.0 ? hemi : tier(aInfo.x)) : hemi;
-    // Fresh track (playback) burns bright, then settles to the background glow.
-    float age = uNow - aInfo.z;
-    float fresh = uFresh > 0.0 ? clamp(1.0 - age / uFresh, 0.0, 1.0) : 0.0;
-    vAlpha = 1.0 + 3.0 * fresh * fresh;
+    vTime = aInfo.z;
+    vAlpha = 1.0;
     if (uSel >= 0.0 && abs(aInfo.y - uSel) > 0.5) vAlpha *= 0.28;
     // Toward the edge of the disc tracks crowd together on screen: fade them so the limb
     // keeps its color instead of burning white.
@@ -92,11 +121,17 @@ const TRACK_VS = /* glsl */ `
 `;
 const TRACK_FS = /* glsl */ `
   uniform float uAlpha;
+  uniform float uNow;
+  uniform float uFresh;
   varying vec3 vColor;
   varying float vAlpha;
+  varying float vTime;
   void main() {
-    if (vAlpha <= 0.0) discard;
-    gl_FragColor = vec4(vColor * uAlpha * vAlpha, 1.0);
+    // Playback draws each track up to the clock, to the minute along a segment.
+    if (vAlpha <= 0.0 || vTime > uNow) discard;
+    // Fresh track burns bright, then settles to the background glow.
+    float fresh = uFresh > 0.0 ? clamp(1.0 - (uNow - vTime) / uFresh, 0.0, 1.0) : 0.0;
+    gl_FragColor = vec4(vColor * uAlpha * vAlpha * (1.0 + 3.0 * fresh * fresh), 1.0);
   }
 `;
 const GLOW_VS = /* glsl */ `
@@ -157,7 +192,7 @@ export class TrackGlobe {
   private trackMat: THREE.ShaderMaterial;
   private info: Float32Array;
   private infoAttr: THREE.BufferAttribute;
-  private segStorm: Uint32Array;
+  private pointStorm: Uint32Array;
   private land: THREE.Mesh;
   private landTex: THREE.CanvasTexture;
   private glow: THREE.ShaderMaterial;
@@ -210,7 +245,16 @@ export class TrackGlobe {
       autoRotate: !o.reduced,
       autoRotateSpeed: 0.35,
     });
-    this.controls.addEventListener("change", () => this.need());
+    this.controls.addEventListener("change", () => {
+      // Turn by what's under the finger: zoomed in, a drag moves the globe as far as the
+      // ground it crosses, not a whole hemisphere.
+      const d = this.camera.position.length();
+      this.controls.rotateSpeed = Math.min(
+        0.55,
+        Math.max(0.035, (0.55 * (d - 1)) / 3.2),
+      );
+      this.need();
+    });
     this.controls.addEventListener(
       "start",
       () => (this.controls.autoRotate = false),
@@ -262,31 +306,31 @@ export class TrackGlobe {
     );
     this.scene.add(this.equator);
 
-    // Every segment, two vertices each, sharing the later point's time so a segment shows
-    // or hides whole.
+    // Every recorded fix once (shared by the two segments it joins), and an index of the
+    // segments: half the memory of drawing each segment's ends separately.
+    const np = t.lat.length;
+    const pos = new Float32Array(np * 3);
+    this.info = new Float32Array(np * 4);
+    this.pointStorm = t.storm;
     let segs = 0;
     for (let i = 0; i < t.count; i++) segs += t.storms.n[i] - 1;
-    const pos = new Float32Array(segs * 6);
-    this.info = new Float32Array(segs * 8);
-    this.segStorm = new Uint32Array(segs);
+    const index = new Uint32Array(segs * 2);
     let k = 0;
     for (let s = 0; s < t.count; s++) {
       const o0 = t.storms.o[s];
       const t0 = t.storms.t0[s] - BASE_H;
-      for (let p = o0; p < o0 + t.storms.n[s] - 1; p++) {
-        pos.set(xyz(t.lat[p], t.lon[p], 1.003), k * 6);
-        pos.set(xyz(t.lat[p + 1], t.lon[p + 1], 1.003), k * 6 + 3);
-        const when = t0 + t.hour[p + 1];
+      for (let p = o0; p < o0 + t.storms.n[s]; p++) {
+        pos.set(xyz(t.lat[p], t.lon[p], 1.003), p * 3);
         // Unknown winds stay 255, which the shader draws in the hemisphere color.
-        this.info.set(
-          [t.wind[p], s, when, 1, t.wind[p + 1], s, when, 1],
-          k * 8,
-        );
-        this.segStorm[k] = s;
-        k++;
+        this.info.set([t.wind[p], s, t0 + t.hour[p], 1], p * 4);
+        if (p < o0 + t.storms.n[s] - 1) {
+          index[k++] = p;
+          index[k++] = p + 1;
+        }
       }
     }
     const geo = new THREE.BufferGeometry();
+    geo.setIndex(new THREE.BufferAttribute(index, 1));
     geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
     this.infoAttr = new THREE.BufferAttribute(this.info, 4);
     geo.setAttribute("aInfo", this.infoAttr);
@@ -393,11 +437,16 @@ export class TrackGlobe {
     g.stroke();
     g.globalAlpha = 1;
     const path = new Path2D();
-    for (const r of this.o.tracks.land) {
-      path.moveTo(X(r[0]), Y(r[1]));
-      for (let k = 2; k < r.length; k += 2) path.lineTo(X(r[k]), Y(r[k + 1]));
-      path.closePath();
-    }
+    for (const ring of this.o.tracks.land)
+      for (const r of flatRings(ring))
+        for (const shift of [-360, 0, 360]) {
+          // Each copy is drawn whole; the canvas keeps the part inside ±180°.
+          if (r.max + shift < -180 || r.min + shift > 180) continue;
+          path.moveTo(X(r.pts[0] + shift), Y(r.pts[1]));
+          for (let k = 2; k < r.pts.length; k += 2)
+            path.lineTo(X(r.pts[k] + shift), Y(r.pts[k + 1]));
+          path.closePath();
+        }
     g.fillStyle = p.land;
     g.fill(path, "evenodd");
     g.strokeStyle = p.coast;
@@ -427,16 +476,15 @@ export class TrackGlobe {
   setKept(kept: Uint8Array) {
     this.kept = kept;
     let n = 0;
-    for (let k = 0; k < this.segStorm.length; k++) {
-      const v = kept[this.segStorm[k]];
-      this.info[k * 8 + 3] = v;
-      this.info[k * 8 + 7] = v;
+    for (let k = 0; k < this.pointStorm.length; k++) {
+      const v = kept[this.pointStorm[k]];
+      this.info[k * 4 + 3] = v;
       n += v;
     }
     // Fewer lines can each burn brighter; the whole archive stays a soft glow.
     this.trackMat.uniforms.uAlpha.value = Math.min(
       0.9,
-      Math.max(0.1, 0.1 * Math.sqrt(340_000 / Math.max(1, n))),
+      Math.max(0.1, 0.1 * Math.sqrt(700_000 / Math.max(1, n))),
     );
     this.infoAttr.needsUpdate = true;
     this.need();

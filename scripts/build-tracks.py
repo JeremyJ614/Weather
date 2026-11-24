@@ -12,7 +12,7 @@ won't compress binary files; the browser unpacks them with DecompressionStream):
   storms.json  one entry per storm (columns): name, season, basin, start and end (epoch
                hours), first point and point count, peak wind (kt), lowest pressure (hPa),
                ACE (x10), landfalls, track length (km)
-  points.bin   every 6-hourly point: Int16 lat x100, Int16 lon x100, Uint16 hours since the
+  points.bin   every fix (3-hourly and the landfall records between): Int16 lat x100, Int16 lon x100, Uint16 hours since the
                storm began (each a step from the point before within its storm), Uint8 wind
                kt (255 = unknown); each as its own block
   land.bin     Uint32 ring count, Uint32 ring lengths, then Int16 lon x100 / lat x100 pairs
@@ -57,8 +57,6 @@ def tracks(path):
             if row[ix["TRACK_TYPE"]].startswith("spur"):
                 continue
             t = row[ix["ISO_TIME"]]
-            if int(t[11:13]) % 6 or t[14:16] != "00":
-                continue
             sid = row[ix["SID"]]
             if sid not in storms:
                 storms[sid] = {"pts": [], "row": row}
@@ -71,7 +69,13 @@ def tracks(path):
             p = num(row[ix["USA_PRES"]]) or num(row[ix["WMO_PRES"]])
             when = datetime.strptime(t, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
             land = num(row[ix["DIST2LAND"]])
-            storms[sid]["pts"].append((lat, lon, w, p, int(when.timestamp() // 3600), land))
+            # Every fix IBTrACS has (3-hourly, plus landfall and peak records at odd times), so a
+            # fast storm's line passes through where it really made landfall.
+            hours = when.timestamp() / 3600
+            if storms[sid]["pts"] and hours <= storms[sid]["pts"][-1][4]:
+                continue
+            synoptic = when.hour % 6 == 0 and when.minute == 0
+            storms[sid]["pts"].append((lat, lon, w, p, hours, land, synoptic))
     return [(sid, storms[sid]) for sid in order], ix
 
 
@@ -116,15 +120,16 @@ def main(csv_path, land_path):
         name = "" if name in ("NOT_NAMED", "UNNAMED", "") else name.title()
         winds = [p[2] for p in pts if p[2] is not None]
         pres = [p[3] for p in pts if p[3] is not None and p[3] > 850]
-        ace = sum(p[2] ** 2 for p in pts if p[2] is not None and p[2] >= 35) / 1e4
+        # ACE counts the 6-hourly synoptic fixes only, as its definition says.
+        ace = sum(p[2] ** 2 for p in pts if p[6] and p[2] is not None and p[2] >= 35) / 1e4
         falls = sum(1 for a, b in zip(pts, pts[1:]) if (a[5] or 0) > 0 and b[5] == 0)
         dist = sum(km(a[0], a[1], b[0], b[1]) for a, b in zip(pts, pts[1:]))
         cols["name"].append(name)
         cols["y"].append(int(row[ix["SEASON"]]))
         basin = row[ix["BASIN"]] if row[ix["BASIN"]] in BASINS else ("NA" if row[ix["BASIN"]] == "MM" else "WP")
         cols["b"].append(BASINS.index(basin))
-        cols["t0"].append(pts[0][4])
-        cols["t1"].append(pts[-1][4])
+        cols["t0"].append(math.floor(pts[0][4]))
+        cols["t1"].append(math.ceil(pts[-1][4]))
         cols["o"].append(len(lat))
         cols["n"].append(len(pts))
         cols["w"].append(int(max(winds)) if winds else 0)
@@ -136,7 +141,8 @@ def main(csv_path, land_path):
             lat.append(round(p[0] * 100))
             lon.append(round(p[1] * 100))
             wind.append(255 if p[2] is None else min(254, int(p[2])))
-            hrs.append(min(65535, p[4] - pts[0][4]))
+            # Hours since the storm began, rounded to the hour for the playback clock.
+            hrs.append(min(65535, round(p[4] - pts[0][4])))
     n = len(lat)
     # Positions and hours as steps from the point before within each storm (the first point
     # absolute): small numbers that gzip packs tightly. The browser adds them back up.

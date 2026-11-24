@@ -383,12 +383,6 @@ function Explorer({ t, colors }: { t: Tracks; colors: Colors }) {
             {sum.storms.toLocaleString("en-US")} storms
           </small>
         </div>
-        {mode === "spin" && (
-          <p className={s.fact}>
-            Not one has ever crossed the equator: storms take their spin from
-            Earth&apos;s rotation, and on the equator there&apos;s none to give.
-          </p>
-        )}
         {!ready && <p className={s.loading}>Drawing the globe…</p>}
         <div className={s.tools}>
           <button
