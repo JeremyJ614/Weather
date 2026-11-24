@@ -6,6 +6,7 @@ import {
   ExternalLink,
   Globe2,
   History,
+  Orbit,
   Satellite,
   ScrollText,
   Tornado,
@@ -41,6 +42,13 @@ const GoogleAi = dynamic(
 );
 const WorldView = dynamic(
   () => import("@/features/tropical/WorldView").then((m) => m.WorldView),
+  { ssr: false },
+);
+const HistoryView = dynamic(
+  () =>
+    import("@/features/tropical/history/HistoryView").then(
+      (m) => m.HistoryView,
+    ),
   { ssr: false },
 );
 const SeasonView = dynamic(
@@ -223,6 +231,12 @@ export function TropicalView({
             label: "Season",
             icon: <History aria-hidden />,
             panel: <SeasonView colors={colors} start={busiest} />,
+          },
+          {
+            id: "trop-history",
+            label: "History Globe",
+            icon: <Orbit aria-hidden />,
+            panel: <HistoryView colors={colors} />,
           },
         ]}
       />
