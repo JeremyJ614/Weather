@@ -6,6 +6,7 @@ import {
   ExternalLink,
   Globe2,
   History,
+  Orbit,
   Satellite,
   ScrollText,
   Tornado,
@@ -41,6 +42,13 @@ const GoogleAi = dynamic(
 );
 const WorldView = dynamic(
   () => import("@/features/tropical/WorldView").then((m) => m.WorldView),
+  { ssr: false },
+);
+const HistoryView = dynamic(
+  () =>
+    import("@/features/tropical/history/HistoryView").then(
+      (m) => m.HistoryView,
+    ),
   { ssr: false },
 );
 const SeasonView = dynamic(
@@ -140,7 +148,7 @@ export function TropicalView({
       <HomeTabs
         label="Tropical"
         variant="deck"
-        tabs={worldFirst(data.storms.length, world?.length ?? 0, [
+        tabs={[
           {
             id: "trop-storms",
             label: `Storms${data.storms.length ? ` · ${data.storms.length}` : ""}`,
@@ -224,7 +232,13 @@ export function TropicalView({
             icon: <History aria-hidden />,
             panel: <SeasonView colors={colors} start={busiest} />,
           },
-        ])}
+          {
+            id: "trop-history",
+            label: "History Globe",
+            icon: <Orbit aria-hidden />,
+            panel: <HistoryView colors={colors} />,
+          },
+        ]}
       />
       <p className={s.foot}>
         Source: NOAA National Hurricane Center (map service, advisories,
@@ -240,16 +254,6 @@ export function TropicalView({
  * When nothing is spinning in NHC's basins but storms are active elsewhere, the Worldwide
  * tab opens first, so the storms in the news are the first thing on the page.
  */
-function worldFirst<T extends { id: string }>(
-  nhc: number,
-  world: number,
-  tabs: T[],
-): T[] {
-  if (nhc || !world) return tabs;
-  const w = tabs.find((t) => t.id === "trop-world");
-  return w ? [w, ...tabs.filter((t) => t !== w)] : tabs;
-}
-
 function Summary({
   data,
   world,

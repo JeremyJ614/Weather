@@ -1,3 +1,4 @@
+import { useViewer } from "@/features/account/useViewer";
 import s from "./Engines.module.css";
 
 export type HitStats = {
@@ -11,9 +12,13 @@ export type HitStats = {
  * An engine's report card (post-launch A1 "skill-scores"): how often the weather followed its
  * flags over the last 30 days, from the hourly engine-verify job, and its latest hit. Below
  * ten checks it says how far along the card is instead of a shaky percentage.
+ *
+ * Admins only (Fix It List #35, 3): the cards are for tuning the engines, and a young card's low
+ * percentage told members nothing useful. Every card also lives in admin → Extras → Report cards.
  */
 export function HitCard({ stats, what }: { stats: HitStats; what: string }) {
-  if (!stats) return null;
+  const viewer = useViewer();
+  if (!stats || !viewer.isAdmin) return null;
   const ready = stats.checked >= 10;
   const pct = ready ? Math.round((100 * stats.hits) / stats.checked) : 0;
   const r = 15.9155;
@@ -32,7 +37,7 @@ export function HitCard({ stats, what }: { stats: HitStats; what: string }) {
         )}
       </svg>
       <div className={s.hitText}>
-        <small>Report card · last {stats.days} days</small>
+        <small>Report card · last {stats.days} days · admins only</small>
         {ready ? (
           <b>
             {pct}% hit rate <span>of {stats.checked} checked</span>

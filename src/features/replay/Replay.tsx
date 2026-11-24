@@ -22,7 +22,7 @@ import { useMeasuredHeight } from "@/features/replay/map/useMeasuredHeight";
 import { InfoCards } from "@/features/replay/map/cards/InfoCards";
 import { Legend } from "@/features/replay/map/Legend";
 import { SurveyPanel } from "@/features/replay/map/cards/SurveyPanel";
-import { RadarPanel } from "@/features/replay/radar/RadarPanel";
+import { RadarPanel, readsSite } from "@/features/replay/radar/RadarPanel";
 import { useRadar } from "@/features/replay/radar/useRadar";
 import { readingAt } from "@/features/replay/core/timezone";
 import type { Colors } from "@/lib/colors/pick";
@@ -231,6 +231,13 @@ export function Replay({
         }}
         onSky={setSky}
         onRadar={radar.attach}
+        radarZoom={
+          radar.state.loadedAt === null
+            ? null
+            : readsSite(radar.state)
+              ? 9.8
+              : 9.2
+        }
         onReady={(m) => {
           mapHandle.current = m;
         }}

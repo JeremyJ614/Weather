@@ -62,12 +62,18 @@ export type Earth = {
   sat: Record<string, string[]>;
 };
 
-/** The geostationary infrared layers that make up the cloud globe. */
-export const SAT_LAYERS = [
-  "GOES-East_ABI_Band13_Clean_Infrared",
-  "GOES-West_ABI_Band13_Clean_Infrared",
-  "Himawari_AHI_Band13_Clean_Infrared",
-] as const;
+/**
+ * The geostationary layers the globe animates, with each one's sharpest GIBS level: GeoColor
+ * (true color by day, infrared with city lights by night) for the Americas, and infrared for
+ * all three satellites (Himawari has no GeoColor in GIBS).
+ */
+export const SAT_LAYERS = {
+  "GOES-East_ABI_GeoColor": 7,
+  "GOES-West_ABI_GeoColor": 7,
+  "GOES-East_ABI_Band13_Clean_Infrared": 6,
+  "GOES-West_ABI_Band13_Clean_Infrared": 6,
+  Himawari_AHI_Band13_Clean_Infrared: 6,
+} as const;
 
 /**
  * NASA publishes geostationary imagery on its own schedule (often 1 to 2 hours behind), so
@@ -79,9 +85,9 @@ async function newestFrames(): Promise<Record<string, string[]>> {
   const iso = (ms: number) => new Date(ms).toISOString().slice(0, 19) + "Z";
   const out: Record<string, string[]> = {};
   await Promise.all(
-    SAT_LAYERS.map(async (l) => {
+    Object.entries(SAT_LAYERS).map(async ([l, level]) => {
       const xml = await get<string>(
-        `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/1.0.0/${l}/default/GoogleMapsCompatible_Level6/all/${iso(end - 6 * 3600_000)}--${iso(end)}.xml`,
+        `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/1.0.0/${l}/default/GoogleMapsCompatible_Level${level}/all/${iso(end - 6 * 3600_000)}--${iso(end)}.xml`,
         600,
       );
       // "start/end/PT10M" periods (or single times), comma separated.

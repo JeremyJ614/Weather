@@ -47,7 +47,7 @@ export default async function Page({
   const { slug } = await params;
   const item = extraOf(slug);
   if (item) {
-    const [{ disabled, extras }, colors] = await Promise.all([
+    const [{ disabled, extras, confidence }, colors] = await Promise.all([
       getSiteDefaults(),
       getColors(),
     ]);
@@ -73,6 +73,7 @@ export default async function Page({
             group={item.group}
             colors={colors}
             items={extras}
+            confidence={confidence}
           />
         )}
       </main>

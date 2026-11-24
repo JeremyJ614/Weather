@@ -32,6 +32,14 @@ const verify = {
   bing: process.env.BING_SITE_VERIFICATION,
 };
 
+/*
+ * After a deploy the site answers 404 for the previous build's script chunks, while the installed app may still run
+ * an earlier page, so the first lazy load (the radar decoders, a chart) fails (Fix It List #35, 1 and 2). An inline
+ * script, so it works even when the app's own chunks are the stale ones: the page reloads itself once, at most every
+ * ten minutes, so it can never loop.
+ */
+const staleBootScript = `(function(){var r=/chunk|dynamically imported|module script/i;function f(e){try{var m=String((e&&e.message)||e);if(!r.test(m))return;if(Date.now()-Number(sessionStorage.sswxStale||0)<6e5)return;sessionStorage.sswxStale=Date.now();location.reload()}catch(_){}}addEventListener("error",function(e){f(e.error||e.message)});addEventListener("unhandledrejection",function(e){f(e.reason)})})();`;
+
 export const metadata: Metadata = {
   metadataBase: new URL(SITE.url),
   title: {
@@ -103,6 +111,7 @@ export default async function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: decodeBootScript }} />
         <script dangerouslySetInnerHTML={{ __html: pullBootScript }} />
         <script dangerouslySetInnerHTML={{ __html: tapMorphBootScript }} />
+        <script dangerouslySetInnerHTML={{ __html: staleBootScript }} />
         <script dangerouslySetInnerHTML={{ __html: holoBootScript }} />
       </head>
       <body>

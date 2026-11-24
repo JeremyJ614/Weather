@@ -1,0 +1,263 @@
+.explain {
+  position: relative;
+  display: grid;
+  gap: 16px;
+  padding: 20px 18px 22px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--cc) 38%, var(--line));
+  border-radius: 24px;
+  background:
+    radial-gradient(
+      120% 70% at 0% 0%,
+      color-mix(in srgb, var(--cc) 12%, transparent),
+      transparent 62%
+    ),
+    radial-gradient(
+      90% 60% at 100% 100%,
+      color-mix(in srgb, #ff3d4f 7%, transparent),
+      transparent 65%
+    ),
+    var(--surface);
+  box-shadow:
+    0 0 46px -20px var(--cc),
+    inset 0 1px 0 color-mix(in srgb, var(--cc) 25%, transparent);
+}
+/* A slow light sweep across the card (transform only). */
+.explain::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 40%,
+    color-mix(in srgb, var(--cc) 9%, transparent) 50%,
+    transparent 60%
+  );
+  transform: translateX(-100%);
+  animation: sweep 7s ease-in-out 1s infinite;
+  pointer-events: none;
+}
+@keyframes sweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  45%,
+  100% {
+    transform: translateX(100%);
+  }
+}
+.defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
+.tags {
+  display: grid;
+  justify-items: start;
+  gap: 9px;
+}
+.zap {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 7px 14px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--z) 7%, #05070d);
+  color: var(--z);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.17em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  text-shadow:
+    0 0 6px color-mix(in srgb, var(--z) 75%, transparent),
+    0 0 16px color-mix(in srgb, var(--z) 40%, transparent);
+}
+/* The owner's Electric Border layers: a lightly and a strongly blurred copy of the edge,
+   and a soft glow behind the whole tag. */
+.g1,
+.g2,
+.halo {
+  position: absolute;
+  border-radius: inherit;
+  pointer-events: none;
+}
+.g1 {
+  inset: -1px;
+  border: 1.5px solid color-mix(in srgb, var(--z) 60%, transparent);
+  filter: blur(1px);
+}
+.g2 {
+  inset: -1px;
+  border: 1.5px solid color-mix(in srgb, var(--z) 85%, white);
+  filter: blur(4px);
+  opacity: 0.8;
+}
+.halo {
+  z-index: -1;
+  inset: -6px;
+  background: linear-gradient(-30deg, var(--z), transparent, var(--z));
+  filter: blur(12px);
+  opacity: 0.28;
+}
+.zap b {
+  position: relative;
+  font-weight: 900;
+}
+.zap small {
+  font-size: inherit;
+  opacity: 0.75;
+}
+.edge,
+.glow {
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  pointer-events: none;
+}
+.edge {
+  border: 1.6px solid var(--z);
+  opacity: 0;
+  animation: crackle 0.84s steps(1, end) infinite;
+}
+.edge[data-n="1"] {
+  filter: url(#sswx-zap-1);
+}
+.edge[data-n="2"] {
+  filter: url(#sswx-zap-2);
+  animation-delay: -0.28s;
+}
+.edge[data-n="3"] {
+  filter: url(#sswx-zap-3);
+  animation-delay: -0.56s;
+}
+@keyframes crackle {
+  0% {
+    opacity: 1;
+  }
+  33.3% {
+    opacity: 0;
+  }
+}
+.glow {
+  border: 1px solid color-mix(in srgb, var(--z) 40%, transparent);
+  box-shadow:
+    0 0 12px -2px color-mix(in srgb, var(--z) 70%, transparent),
+    inset 0 0 10px -4px var(--z);
+  animation: hum 2.4s ease-in-out infinite;
+}
+@keyframes hum {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.head {
+  display: grid;
+  gap: 4px;
+}
+.eyebrow {
+  color: var(--cc);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+.head h2 {
+  font-size: 21px;
+  font-weight: 800;
+  line-height: 1.15;
+}
+.head p {
+  color: color-mix(in srgb, var(--text) 88%, var(--muted));
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.steps {
+  position: relative;
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+/* The thread joining the steps. */
+.steps::before {
+  content: "";
+  position: absolute;
+  top: 18px;
+  bottom: 18px;
+  left: 17px;
+  width: 2px;
+  border-radius: 2px;
+  background: linear-gradient(
+    var(--cc),
+    color-mix(in srgb, var(--cc) 10%, transparent)
+  );
+  box-shadow: 0 0 10px var(--cc);
+  opacity: 0.55;
+}
+.steps li {
+  position: relative;
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  align-items: start;
+  gap: 12px;
+  animation: stepIn 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: calc(var(--i) * 80ms);
+}
+@keyframes stepIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+.n {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1.5px solid var(--cc);
+  border-radius: 50%;
+  background: #05070d;
+  color: var(--cc);
+  font-size: 12px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  box-shadow:
+    0 0 14px -3px var(--cc),
+    inset 0 0 8px -4px var(--cc);
+  text-shadow: 0 0 8px var(--cc);
+}
+.steps p {
+  padding-top: 7px;
+  color: color-mix(in srgb, var(--text) 84%, var(--muted));
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+/* Low tier phones and reduced motion: one steady outline, nothing moving. */
+:global(html[data-tier="low"]) .edge,
+:global(html[data-tier="low"]) .glow,
+:global(html[data-tier="low"]) .explain::after {
+  animation: none;
+}
+:global(html[data-tier="low"]) .edge[data-n="1"] {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .edge,
+  .glow,
+  .explain::after,
+  .steps li {
+    animation: none;
+  }
+  .edge[data-n="1"] {
+    opacity: 1;
+  }
+}

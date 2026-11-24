@@ -323,6 +323,7 @@ export function useRadar({
   const setSmooth = useCallback((on: boolean) => {
     setState((r) => ({ ...r, smooth: on }));
     site.current?.setSmooth(on);
+    mosaic.current?.setSettings({ smooth: on });
   }, []);
 
   const setFollow = useCallback(
@@ -370,7 +371,7 @@ export function useRadar({
     mosaic.current = m;
     site.current = s;
     const st = stateRef.current;
-    m.setSettings({ opacity: st.opacity });
+    m.setSettings({ opacity: st.opacity, smooth: st.smooth });
     s.setOpacity(Math.min(1, st.opacity * 1.15));
     s.setSmooth(st.smooth);
     s.setMotion(motionRef.current?.east ?? 0, motionRef.current?.north ?? 0);

@@ -166,13 +166,17 @@ async function framer(r: Reel) {
   };
 }
 
-type Sink = {
+export type Sink = {
   add: (frame: HTMLCanvasElement, ms: number) => Promise<void>;
   done: () => Promise<Blob>;
 };
 
 /** A GIF `w`×`h`, each frame with its own 256-color palette (`fine`: a finer color search). */
-async function gifSink(w: number, h: number, fine = false): Promise<Sink> {
+export async function gifSink(
+  w: number,
+  h: number,
+  fine = false,
+): Promise<Sink> {
   const { GIFEncoder, quantize, applyPalette } = await import("gifenc");
   const gif = GIFEncoder();
   const small = document.createElement("canvas");
@@ -199,7 +203,11 @@ async function gifSink(w: number, h: number, fine = false): Promise<Sink> {
 }
 
 /** MP4 from the browser's H.264 encoder, `fps` frames a second, the loop's frames held. */
-async function mp4Sink(FW: number, FH: number, fps = 10): Promise<Sink | null> {
+export async function mp4Sink(
+  FW: number,
+  FH: number,
+  fps = 10,
+): Promise<Sink | null> {
   const step = 1_000_000 / fps;
   if (typeof VideoEncoder === "undefined") return null;
   let config: VideoEncoderConfig | null = null;
@@ -260,7 +268,7 @@ async function mp4Sink(FW: number, FH: number, fps = 10): Promise<Sink | null> {
 }
 
 /** Where WebCodecs is missing: record the frames in real time, paused while each is made. */
-function recordSink(FW: number, FH: number): Sink | null {
+export function recordSink(FW: number, FH: number): Sink | null {
   if (typeof MediaRecorder === "undefined") return null;
   const type = [
     "video/mp4;codecs=avc1",

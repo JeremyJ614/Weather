@@ -1,0 +1,128 @@
+/* Fix It List #36, 4: the Academy VIP's two free months. Dark surface, the primary color only as text, outline and glow. */
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: color-mix(in oklab, var(--bg) 78%, transparent);
+  backdrop-filter: blur(8px);
+  animation: fade 0.25s ease-out both;
+}
+.card {
+  position: relative;
+  width: min(460px, 100%);
+  display: grid;
+  gap: 14px;
+  padding: 26px 22px 22px;
+  border-radius: 24px;
+  background: var(--lit);
+  border: 1px solid color-mix(in oklab, var(--accent) 55%, transparent);
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, var(--accent) 20%, transparent),
+    0 0 60px -14px color-mix(in oklab, var(--accent) 70%, transparent);
+  animation: rise 0.45s cubic-bezier(0.2, 0.9, 0.25, 1) both;
+}
+.crown {
+  justify-self: start;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  color: var(--accent);
+  border: 1px solid color-mix(in oklab, var(--accent) 50%, transparent);
+  box-shadow: 0 0 22px -6px var(--accent);
+}
+.kicker {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.card h1,
+.card h2 {
+  margin: 0;
+  font-size: 23px;
+  line-height: 1.2;
+}
+.card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+.list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13.5px;
+}
+.list li {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+}
+.list svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--accent);
+}
+.go {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 20px;
+  border-radius: 14px;
+  font-weight: 800;
+  font-size: 14px;
+  color: var(--accent);
+  background: transparent;
+  border: 1.5px solid var(--accent);
+  box-shadow: 0 0 26px -8px var(--accent);
+  transition: transform 0.25s ease;
+}
+.go:active {
+  transform: scale(0.97);
+}
+.go:disabled {
+  opacity: 0.5;
+}
+.ghost {
+  justify-self: center;
+  font-size: 13px;
+  color: var(--muted);
+  text-decoration: underline;
+}
+.err {
+  color: var(--text);
+  font-weight: 700;
+  font-size: 13px;
+}
+.fine {
+  font-size: 12px !important;
+}
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.97);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .scrim,
+  .card {
+    animation: none;
+  }
+}

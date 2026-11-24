@@ -40,6 +40,8 @@ export class NoScan extends Error {}
 interface Job {
   resolve: (r: Radial[]) => void;
   reject: (e: Error) => void;
+  /** The record, kept so it can be decoded here if the worker fails. */
+  bytes: Uint8Array;
 }
 
 /**
@@ -54,9 +56,12 @@ class Pool {
   private readonly jobs = new Map<number, Job>();
   private idle: ReturnType<typeof setTimeout> | null = null;
 
+  /** Set when a worker failed (often a decoder chunk from before the latest deploy): decode here from then on. */
+  private broken = false;
+
   private start(): boolean {
     if (this.workers.length) return true;
-    if (typeof Worker === "undefined") return false;
+    if (this.broken || typeof Worker === "undefined") return false;
     const n = Math.max(
       1,
       Math.min(4, (navigator.hardwareConcurrency || 2) - 1),
@@ -72,20 +77,18 @@ class Pool {
           const job = this.jobs.get(e.data.id);
           if (!job) return;
           this.jobs.delete(e.data.id);
-          if (e.data.radials) job.resolve(e.data.radials);
-          else
-            job.reject(
-              new Error(
-                e.data.error ?? "The radar record could not be unpacked.",
-              ),
-            );
+          // A record the worker could not unpack gets a second try here before it counts
+          // as lost (Fix It List #36, 10).
+          if (Array.isArray(e.data.radials)) job.resolve(e.data.radials);
+          else inline(job.bytes).then(job.resolve, job.reject);
           this.rest();
         };
         w.onerror = (e) => {
           e.preventDefault();
+          this.broken = true;
           for (const [id, job] of this.jobs) {
-            job.reject(new Error("The radar decoder stopped."));
             this.jobs.delete(id);
+            inline(job.bytes).then(job.resolve, job.reject);
           }
           this.stop();
         };
@@ -120,7 +123,7 @@ class Pool {
     const w = this.workers[this.turn++ % this.workers.length]!;
     const copy = bytes.slice().buffer;
     return new Promise<Radial[]>((resolve, reject) => {
-      this.jobs.set(id, { resolve, reject });
+      this.jobs.set(id, { resolve, reject, bytes });
       w.postMessage({ id, bytes: copy }, [copy]);
     });
   }
@@ -213,6 +216,15 @@ export async function readLowestScan(
 
     const scan = new LowestScan();
     const queue: Promise<Radial[]>[] = [];
+    // One bad record (a damaged or cut short block in the archive) costs its own radials,
+    // not the whole scan: it is skipped and counted, and only a scan with nothing readable
+    // fails. Each job settles here, so nothing is ever left as an unhandled rejection.
+    let lost = 0;
+    const decode = (rec: Uint8Array) =>
+      pool.run(rec).catch(() => {
+        lost += 1;
+        return [] as Radial[];
+      });
     const arrived = new Signal();
     const consumed = new Signal();
     let finished = false;
@@ -240,7 +252,7 @@ export async function readLowestScan(
               rec;
               rec = nextRecord(pending, at)
             ) {
-              queue.push(pool.run(pending.subarray(rec.start, rec.end)));
+              queue.push(decode(pending.subarray(rec.start, rec.end)));
               at = rec.end;
               arrived.fire();
             }
@@ -286,6 +298,10 @@ export async function readLowestScan(
     }
     if (outer?.aborted) throw new DOMException("Aborted", "AbortError");
     if (failure && !scan.radials) throw failure;
+    if (!scan.radials && lost)
+      throw new NoScan(
+        `${volume.site}'s scan from this moment is damaged in the archive. Try a minute earlier or later, or another radar.`,
+      );
 
     const sweeps = scan.sweeps();
     if (!sweeps.REF && !sweeps.VEL)

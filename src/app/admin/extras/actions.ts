@@ -10,6 +10,7 @@ import {
   type ItemState,
 } from "@/lib/extras/items";
 import { SITE_DEFAULTS_TAG } from "@/lib/settings";
+import { cleanConfidence, type Confidence } from "@/lib/engines/confidence";
 import { cleanBilling } from "@/lib/billing/plans";
 import { BILLING_TAG, SELLABLE_SLUGS } from "@/lib/billing/server";
 
@@ -54,7 +55,10 @@ export async function setExtrasItem(
     .select("value")
     .eq("key", "extras_items")
     .maybeSingle();
-  const next: Record<string, ItemState> = { ...cleanItems(data?.value) };
+  const next: Record<string, unknown> = { ...cleanItems(data?.value) };
+  // The engines' confidence settings live in the same row; keep them.
+  const conf = (data?.value as { _confidence?: unknown } | null)?._confidence;
+  if (conf) next._confidence = conf;
   const was = next[id] ?? defaultState(id);
   if (state === defaultState(id)) delete next[id];
   else next[id] = state;
@@ -132,5 +136,38 @@ export async function saveDeerSeasons(
     p_target: state,
     p_detail: { seasons: seasons.length },
   });
+  return {};
+}
+
+/**
+ * Each Weather Engine's confidence level and the five levels' colors (Fix It List #36, 1),
+ * kept with the Extras switches.
+ */
+export async function saveConfidence(
+  c: Confidence,
+): Promise<{ error?: string }> {
+  const { supabase } = await requireAdmin("extras");
+  const clean = cleanConfidence(c);
+  const { data } = await supabase
+    .from("app_config")
+    .select("value")
+    .eq("key", "extras_items")
+    .maybeSingle();
+  const value = {
+    ...((data?.value as Record<string, unknown> | null) ?? {}),
+    _confidence: clean,
+  };
+  const { error } = await supabase
+    .from("app_config")
+    .update({ value, updated_at: new Date().toISOString() })
+    .eq("key", "extras_items");
+  if (error) return { error: "Couldn't save. Try again." };
+  await supabase.rpc("log_admin", {
+    p_action: "engine_confidence",
+    p_target: "engines",
+    p_detail: clean,
+  });
+  updateTag(SITE_DEFAULTS_TAG);
+  revalidatePath("/extras");
   return {};
 }

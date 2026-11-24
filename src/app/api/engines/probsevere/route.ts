@@ -13,12 +13,13 @@ export async function GET() {
       probSevere(),
       engineStats("tor").catch(() => null),
     ]);
-    // Storms ProbTor gives 40%+ in the next 20 minutes are checked against tornado reports
-    // (post-launch A1 "skill-scores"): one flag per storm per hour.
+    // Storms ProbTor gives 10%+ in the next 20 minutes are checked against tornado reports
+    // (post-launch A1 "skill-scores"; 10% rather than 40% is the owner's pick T1, so the card
+    // fills in through quiet months): one flag per storm per hour.
     await logFlags(
       "tor",
       d.storms
-        .filter((x) => x.p20 >= 40)
+        .filter((x) => x.p20 >= 10)
         .map((x) => ({
           key: `${x.id}:${d.at.slice(0, 13)}`,
           at: Date.parse(d.at),

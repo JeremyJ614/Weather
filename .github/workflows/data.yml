@@ -1,0 +1,59 @@
+name: Daily data
+
+# The data the site serves without a deploy (owner's Fix it List #39): the History Globe's
+# storm archive (IBTrACS, plus NHC's newest best tracks), and the Flooding Outlook's and Winter
+# Center's 7-day rain and snow maps. Built here every morning (free and unlimited for a public
+# repository), pushed to the `data` branch as one fresh commit, read by browsers from jsDelivr.
+# The `data` branch never deploys on Vercel (vercel.json). Set the repository variable
+# JOBS_OFF to 1 to pause it with the other scheduled jobs.
+on:
+  schedule:
+    # 13:10 UTC: after NOHRSC's 12Z snowfall analysis and the 12Z MRMS 24-hour rain.
+    - cron: "10 13 * * *"
+    # 02:40 UTC: a second pass so a storm NOAA logs in the afternoon shows up overnight.
+    - cron: "40 2 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: daily-data
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ vars.JOBS_OFF != '1' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      # Schedules start from the repository's default branch (not main); the builders always
+      # come from main, so a default branch that lags behind never runs old code.
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install --quiet pillow numpy pygrib
+      - name: Yesterday's data branch (kept for any product that fails today)
+        run: |
+          git fetch --depth 1 origin data:prev-data 2>/dev/null && git worktree add prev prev-data || mkdir -p prev
+      - name: Storm archive (History Globe)
+        continue-on-error: true
+        run: |
+          curl -sSfL --retry 3 -o /tmp/ib.csv https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/v04r01/access/csv/ibtracs.ALL.list.v04r01.csv
+          curl -sSfL --retry 3 -o /tmp/land.json https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/land-50m.json
+          python3 scripts/build-tracks.py /tmp/ib.csv /tmp/land.json --out site/tracks --btk
+          rm -f site/tracks/land.bin.gz
+      - name: Rain, last 7 days (Flooding Outlook)
+        continue-on-error: true
+        run: python3 scripts/build-sevenday.py rain --out site/rain
+      - name: Snow, last 7 days (Winter Center)
+        continue-on-error: true
+        run: python3 scripts/build-sevenday.py snow --out site/snow
+      - name: Publish to the data branch
+        run: |
+          python3 scripts/publish-data.py site prev
+          git -C site push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" data
+          curl -s "https://purge.jsdelivr.net/gh/${{ github.repository }}@data/latest.json" > /dev/null || true

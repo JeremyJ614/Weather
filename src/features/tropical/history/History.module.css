@@ -1,0 +1,438 @@
+/* Tropical Outlook → History. Dark surfaces; gold is text, outline and glow, never a fill. */
+.wrap {
+  display: grid;
+  gap: 12px;
+}
+.stage {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  max-height: min(640px, 82vh);
+  width: 100%;
+  margin-inline: auto;
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background:
+    radial-gradient(circle at 50% 45%, rgb(40 60 110 / 0.18), transparent 62%),
+    #04060b;
+  contain: strict;
+}
+.canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  cursor: grab;
+}
+.canvas:active {
+  cursor: grabbing;
+}
+.overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.labels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.labels :global(.tg-label) {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: grid;
+  justify-items: center;
+  white-space: nowrap;
+  transition: opacity 0.4s var(--ease, ease);
+  will-change: transform, opacity;
+  text-shadow:
+    0 1px 3px rgb(0 0 0 / 0.9),
+    0 0 10px rgb(0 0 0 / 0.7);
+}
+.labels :global(.tg-label) b {
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+.labels :global(.tg-label) small {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+}
+.counter {
+  position: absolute;
+  top: 14px;
+  left: 0;
+  right: 0;
+  display: grid;
+  justify-items: center;
+  pointer-events: none;
+}
+.counter b {
+  font-family: var(--font-mono);
+  font-size: clamp(24px, 6.5vw, 36px);
+  font-weight: 700;
+  line-height: 1;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 18px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+.counter small {
+  margin-top: 6px;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.loading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+.tools {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: grid;
+  gap: 6px;
+}
+.tools button {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  color: var(--muted);
+  backdrop-filter: blur(6px);
+}
+.tools button[aria-pressed="true"] {
+  border-color: var(--lit-line);
+  color: var(--accent);
+}
+.tools svg {
+  width: 16px;
+}
+.player {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.play {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--lit-line);
+  background: transparent;
+  color: var(--accent);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+.play:disabled,
+.skip:disabled {
+  opacity: 0.4;
+}
+.skip {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text);
+}
+.skip svg {
+  width: 15px;
+}
+.modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.mode {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background:
+    radial-gradient(
+      120% 160% at 50% 0%,
+      color-mix(in srgb, var(--accent) 7%, transparent),
+      transparent 60%
+    ),
+    var(--surface);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  transition:
+    border-color 0.2s var(--ease, ease),
+    box-shadow 0.2s var(--ease, ease);
+}
+.mode svg {
+  width: 17px;
+  color: var(--accent);
+}
+.mode[aria-pressed="true"] {
+  border-color: var(--lit-line);
+  color: var(--accent);
+  box-shadow:
+    0 0 16px color-mix(in srgb, var(--accent) 22%, transparent),
+    inset 0 0 12px color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.mode:disabled {
+  opacity: 0.45;
+}
+.play svg {
+  width: 18px;
+}
+.scrub {
+  flex: 1;
+  min-width: 120px;
+  accent-color: var(--accent);
+}
+.speeds {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+.speeds button,
+.chips button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 32px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+}
+.speeds button[aria-pressed="true"],
+.chips button[aria-pressed="true"] {
+  border-color: var(--lit-line);
+  color: var(--accent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.chips svg {
+  width: 14px;
+}
+.card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+.card header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.card h3 {
+  margin: 0;
+  font-size: 16px;
+}
+.card h3 small {
+  color: var(--muted);
+  font-weight: 500;
+}
+.card header > button:not(.link) {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+}
+.card header svg {
+  width: 16px;
+}
+.sub {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: -4px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+.sub i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid;
+}
+.facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+.facts div {
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+}
+.facts dt {
+  font-size: 11px;
+  color: var(--muted);
+}
+.facts dd {
+  display: grid;
+  margin: 2px 0 0;
+  font-size: 17px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.facts dd small {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.row label {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.row select,
+.search input {
+  min-height: 38px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text);
+  font-size: 16px;
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.search {
+  position: relative;
+  display: block;
+}
+.search svg {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  width: 16px;
+  transform: translateY(-50%);
+  color: var(--muted);
+}
+.search input {
+  width: 100%;
+  padding-left: 34px;
+}
+.results {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.results button {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: left;
+}
+.results b {
+  color: var(--text);
+}
+.link {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--accent);
+  font-size: 13px;
+  text-align: left;
+}
+.subhead {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+.records {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.records button {
+  display: grid;
+  gap: 2px;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: transparent;
+  text-align: left;
+}
+.records small {
+  font-size: 11px;
+  color: var(--muted);
+}
+.records b {
+  color: var(--text);
+  font-size: 14px;
+}
+.records button:hover,
+.records button:focus-visible {
+  border-color: var(--lit-line);
+}
+.note {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+.foot {
+  margin: 0;
+  font-size: 11px;
+  color: var(--muted);
+}
+@media (prefers-reduced-motion: reduce) {
+  .labels :global(.tg-label) {
+    transition: none;
+  }
+}

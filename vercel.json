@@ -3,7 +3,8 @@
   "git": {
     "deploymentEnabled": {
       "ccr-*": false,
-      "claude/*": false
+      "claude/*": false,
+      "data": false
     }
   },
   "crons": [

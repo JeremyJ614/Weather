@@ -125,6 +125,8 @@ export type Computed = {
   rough?: boolean;
   /** Places to check against the weather later (from the top spots). */
   flags?: (spots: Spot[]) => Flag[];
+  /** A slower check of the flags against a second source; flags it drops aren't logged. */
+  confirm?: (flags: Flag[]) => Promise<Flag[]>;
   /** A line under each listed spot (why), and its time (shown in the viewer's zone). */
   detail?: (lat: number, lon: number) => string | undefined;
   when?: (lat: number, lon: number) => number | undefined;
@@ -359,13 +361,15 @@ async function nst(cycle: string): Promise<Computed> {
   // Post-launch A6: water temperature (the model's surface temperature over water), the
   // convective cloud depth and the 850 mb wind for Szilagyi's Waterspout Index, and the 2 m
   // dew point to find the boundaries landspouts form on.
-  const [tsf, el, lcl, u85, v85, d2] = await grab(cycle, fh, [
+  const [tsf, el, lcl, u85, v85, d2, t7, z7] = await grab(cycle, fh, [
     ":TMP:surface:",
     ":HGT:equilibrium level:",
     ":HGT:level of adiabatic condensation from sfc:",
     ":UGRD:850 mb:",
     ":VGRD:850 mb:",
     ":DPT:2 m above ground:",
+    ":TMP:700 mb:",
+    ":HGT:700 mb:",
   ]);
   const g = t2.grid;
   const [w, h] = gridSize(g);
@@ -504,21 +508,28 @@ async function nst(cycle: string): Promise<Computed> {
     const dz = (z8.values[k] - zs.values[k]) / 1000;
     if (!(dz > 0.3 && dz < 2)) continue;
     const lapse = (t2.values[k] - t8.values[k]) / dz;
+    // Owner's pick P4: steep lapse rates through the lowest 3 km as well (from the ground
+    // to 700 mb), which is what stretches spin on a boundary into a landspout: full at
+    // 8.5 °C per km and up, half at 6.
+    const dz7 = (z7.values[k] - zs.values[k]) / 1000;
+    const lapse3 = dz7 > 1 ? (t2.values[k] - t7.values[k]) / dz7 : lapse;
     const shear = Math.hypot(us.values[k], vs.values[k]);
-    const a = clamp(lapse / 9, 0, 1.5);
+    const a =
+      clamp(lapse / 9, 0, 1.5) * (0.5 + 0.5 * clamp((lapse3 - 6) / 2.5));
     const b = clamp(cape.values[k] / 100, 0, 3);
     const c = clamp((225 + cin.values[k]) / 200, 0, 1.2);
     const d = clamp((18 - shear) / 5, 0, 2);
-    const e = clamp(vort[k] / 8e-5, 0, 3);
-    const nst = a * b * c * d * e;
-    // On land, boundaries raise the landspout value by up to 40%; away from them it drops 40%.
-    // A Boundary Collisions meeting point nearby in the next few hours adds up to 60% more.
+    // On land, boundaries (converging winds across a dew point edge) raise the landspout
+    // value by up to 40%; away from them it drops 40%. Pick P4: the spin counts in full only
+    // where it sits on such a boundary, and at 40% elsewhere. A Boundary Collisions meeting
+    // point nearby in the next few hours adds up to 60% more.
     const bnd = clamp(convS[k] / 4e-5) * clamp(edgeS[k] / 4e-5);
+    const onLand = land.values[k] >= 0.5;
+    const e = clamp(vort[k] / 8e-5, 0, 3) * (onLand ? 0.4 + 0.6 * bnd : 1);
+    const nst = a * b * c * d * e;
     out[k] = Math.max(
       out[k],
-      land.values[k] < 0.5
-        ? nst
-        : nst * (0.6 + 0.8 * bnd) * (1 + 0.6 * meetBoost[k]),
+      onLand ? nst * (0.6 + 0.8 * bnd) * (1 + 0.6 * meetBoost[k]) : nst,
     );
   }
   return {
@@ -1795,6 +1806,9 @@ async function blizz(cycle: string): Promise<Computed> {
   const hours = new Float32Array(n);
   const first = new Float32Array(n).fill(NaN);
   const last = new Float32Array(n);
+  // The longest unbroken stretch, for the Weather Service's three hour test (pick B1).
+  const run = new Float32Array(n);
+  const best = new Float32Array(n);
   const model0 = snodNear.values;
   // Snow on the ground starts from NOHRSC's observed depth where it has one; the model adds
   // what it snows after that.
@@ -1858,20 +1872,25 @@ async function blizz(cycle: string): Promise<Computed> {
         if (cs.values[i] >= 0.5) state[i] = 1;
         else if (t2.values[i] > 273.65) state[i] = 2;
         const mph = g.values[i] * 2.237;
-        if (mph < 35) continue;
-        const falling = cs.values[i] >= 0.5 && v.values[i] <= 800;
-        // Blowing snow cuts visibility to a quarter mile at about 1.5 times the wind that
-        // starts it moving; aged snow needs 2 m/s more, crusted snow doesn't blow.
+        // All three together (owner's pick B1): 35 mph gusts, a quarter mile or less, and
+        // loose snow, either falling or fresh (snowed within the last day). Blowing snow cuts
+        // visibility to a quarter mile at about 1.5 times the wind that starts it moving;
+        // aged and crusted snow are left out.
+        const falling = cs.values[i] >= 0.5 && v.values[i] <= 402;
         const depth = ground[i] + Math.max(0, snod[i] - model0[i]);
         const wind = Math.hypot(u10.values[i], v10.values[i]);
-        const ut =
-          blowThreshold(t2.values[i] - 273.15) + (state[i] === 0 ? 2 : 0);
+        const ut = blowThreshold(t2.values[i] - 273.15);
         const blowing =
           depth >= 0.05 &&
-          state[i] !== 2 &&
+          state[i] === 1 &&
           t2.values[i] <= 273.15 &&
           wind >= 1.5 * ut;
-        if (!falling && !blowing) continue;
+        if (mph < 35 || (!falling && !blowing)) {
+          run[i] = 0;
+          continue;
+        }
+        run[i] += st.dur;
+        if (run[i] > best[i]) best[i] = run[i];
         hours[i] += st.dur;
         if (!(first[i] <= st.at)) first[i] = st.at - st.dur / 2;
         last[i] = st.at + st.dur / 2;
@@ -1905,7 +1924,7 @@ async function blizz(cycle: string): Promise<Computed> {
         .filter((x) => x.value >= 3)
         .flatMap((x) => {
           const i = cell(x.lat, x.lon);
-          if (!Number.isFinite(first[i])) return [];
+          if (!Number.isFinite(first[i]) || best[i] < 3) return [];
           const at = t0 + first[i] * 3600_000;
           return [
             {
@@ -1922,7 +1941,84 @@ async function blizz(cycle: string): Promise<Computed> {
             },
           ];
         }),
+    confirm: nbmAgrees,
   };
+}
+
+/**
+ * The National Blend of Models' bias corrected gusts and visibility for a blizzard flag's
+ * window (owner's pick B2): a flag is kept only where the Blend also brings 30 mph gusts
+ * with a mile or less at some hour of it. If the Blend can't be read the flags stand.
+ */
+async function nbmAgrees(flags: Flag[]): Promise<Flag[]> {
+  const H = 3600_000;
+  const pad = (x: number) => String(x).padStart(2, "0");
+  let run = Math.floor(Date.now() / H) * H - 2 * H;
+  const url = (r: number, fh: number) => {
+    const d = new Date(r);
+    const ymd = `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}`;
+    const hh = pad(d.getUTCHours());
+    return `https://noaa-nbm-grib2-pds.s3.amazonaws.com/blend.${ymd}/${hh}/core/blend.t${hh}z.core.f${String(fh).padStart(3, "0")}.co.grib2`;
+  };
+  const hoursOf = (f: Flag, r: number) => {
+    const out = new Set<number>();
+    for (let t = f.at; t <= f.at + f.window_min * 60_000; t += 3 * H) {
+      const fh = Math.round((t - r) / H);
+      if (fh >= 1 && fh <= 36) out.add(fh);
+    }
+    return [...out];
+  };
+  const fields = new Map<number, [Field, Field]>();
+  const read = async (r: number, fh: number) => {
+    const [g, v] = await Promise.all([
+      record(url(r, fh), ":GUST:10 m above ground:"),
+      record(url(r, fh), ":VIS:surface:"),
+    ]);
+    fields.set(fh, [g, v]);
+  };
+  // The newest run with its files out (they appear about an hour after the run starts).
+  const want = [...new Set(flags.flatMap((f) => hoursOf(f, run)))];
+  if (!want.length) return flags;
+  try {
+    await read(run, want[0]);
+  } catch {
+    run -= H;
+    try {
+      await read(run, want[0]);
+    } catch {
+      return flags;
+    }
+  }
+  fields.clear();
+  await Promise.all(
+    [...new Set(flags.flatMap((f) => hoursOf(f, run)))].map((fh) =>
+      read(run, fh).catch(() => {}),
+    ),
+  );
+  if (!fields.size) return flags;
+  return flags.filter((f) =>
+    hoursOf(f, run).some((fh) => {
+      const got = fields.get(fh);
+      if (!got) return false;
+      const [g, v] = got;
+      const cell = cellOf(g.grid);
+      const ok = (lat: number, lon: number) => {
+        const i = cell(lat, lon);
+        return i >= 0 && g.values[i] * 2.237 >= 30 && v.values[i] <= 1609;
+      };
+      // The flag's point and a ring around it at half its radius.
+      const r = f.radius_km / 2 / 111;
+      return [
+        [0, 0],
+        [r, 0],
+        [-r, 0],
+        [0, r],
+        [0, -r],
+      ].some(([a, b]) =>
+        ok(f.lat + a, f.lon + b / Math.cos((f.lat * Math.PI) / 180)),
+      );
+    }),
+  );
 }
 
 export const LW = Math.round((CONUS[2] - CONUS[0]) / 0.1) + 1;
@@ -2206,6 +2302,8 @@ async function first(cycle: string): Promise<Computed> {
   const votes = new Float32Array(n);
   const whenSum = new Float32Array(n);
   const whenN = new Float32Array(n);
+  // Each of the newest three runs' start hours, for the agreement test on flags (pick F1).
+  const recent: Float32Array[] = [];
   let runs = 0;
   for (let k = 0; k < 4; k++) {
     const c = ymdh(t0 - k * 3600_000);
@@ -2231,6 +2329,7 @@ async function first(cycle: string): Promise<Computed> {
       near = spread(f, R);
     }
     const soon = spread(when, R, true);
+    if (k < 3) recent.push(soon);
     for (let i = 0; i < n; i++)
       if (soon[i] < Infinity) {
         votes[i]++;
@@ -2388,18 +2487,42 @@ async function first(cycle: string): Promise<Computed> {
         ? undefined
         : base + Math.round(whenSum[q] / whenN[q]) * 3600_000;
     },
+    // Owner's pick F1: a flag only where at least two of the last three HRRR runs start
+    // storms there within two hours of each other, and its window is their agreed time
+    // with 90 minutes either side instead of the whole six hours.
     flags: (spots) =>
       spots
         .filter((x) => x.value >= 35)
-        .map((x) => ({
-          key: `${cycle}:${x.lat.toFixed(1)},${x.lon.toFixed(1)}`,
-          at: base,
-          lat: x.lat,
-          lon: x.lon,
-          label: `${x.place} (${Math.round(x.value)}%)`,
-          window_min: 360,
-          radius_km: 40,
-        })),
+        .flatMap((x) => {
+          const q = at(x.lat, x.lon);
+          if (q < 0) return [];
+          const hrs = recent.map((r) => r[q]).filter((h) => h < Infinity);
+          if (hrs.length < 2) return [];
+          hrs.sort((a, b) => a - b);
+          // The closest pair (or trio) of runs that agree.
+          let pair: number[] | null = null;
+          for (let i = 0; i + 1 < hrs.length; i++)
+            if (hrs[i + 1] - hrs[i] <= 2) {
+              pair =
+                i + 2 < hrs.length && hrs[i + 2] - hrs[i] <= 2
+                  ? hrs.slice(i, i + 3)
+                  : hrs.slice(i, i + 2);
+              break;
+            }
+          if (!pair) return [];
+          const mid = pair.reduce((a, b) => a + b, 0) / pair.length;
+          return [
+            {
+              key: `${cycle}:${x.lat.toFixed(1)},${x.lon.toFixed(1)}`,
+              at: base + Math.max(0, mid - 1.5) * 3600_000,
+              lat: x.lat,
+              lon: x.lon,
+              label: `${x.place} (${Math.round(x.value)}%, ${pair.length} of 3 runs)`,
+              window_min: 180,
+              radius_km: 40,
+            },
+          ];
+        }),
   };
 }
 
@@ -2806,6 +2929,110 @@ export function eveningFlags(
     }));
 }
 
+/** Whether any cell of `f` within `km` of a point passes `ok`. */
+function anyNear(
+  f: Field,
+  lat: number,
+  lon: number,
+  km: number,
+  ok: (v: number) => boolean,
+) {
+  const [w, h] = gridSize(f.grid);
+  const [fi, fj] = locator(f.grid)(lat, lon);
+  const step = f.grid.kind === "lambert" ? f.grid.dx / 1000 : f.grid.dj * 111;
+  const r = Math.max(1, Math.ceil(km / step));
+  const i0 = Math.round(fi);
+  const j0 = Math.round(fj);
+  for (let b = -r; b <= r; b++)
+    for (let a = -r; a <= r; a++) {
+      if (a * a + b * b > r * r) continue;
+      const x = i0 + a;
+      const y = j0 + b;
+      if (x < 0 || y < 0 || x >= w || y >= h) continue;
+      if (ok(f.values[y * w + x])) return true;
+    }
+  return false;
+}
+
+/**
+ * Owner's pick P1: the evening parameter engines flag only where the HRRR actually makes
+ * storms nearby during the flag's window: updraft helicity of 75 m²/s² or more (a rotating
+ * updraft, for STP and SCP) or 45 dBZ storms (NST and DCP), every two hours of the window
+ * the run reaches.
+ */
+const STORMS_IN: Partial<Record<FieldId, { match: string; min: number }>> = {
+  stp: { match: ":MXUPHL:5000-2000 m above ground:", min: 75 },
+  scp: { match: ":MXUPHL:5000-2000 m above ground:", min: 75 },
+  nst: { match: ":REFC:entire atmosphere:", min: 45 },
+  dcp: { match: ":REFC:entire atmosphere:", min: 45 },
+};
+
+async function confirmFlags(
+  id: FieldId,
+  cycle: string,
+  c: Computed,
+  flags: Flag[],
+  min: number,
+): Promise<Flag[]> {
+  let out = flags;
+  if (c.confirm) out = await c.confirm(out).catch(() => out);
+  const test = STORMS_IN[id];
+  if (!test || !out.length) return out;
+  // Owner's pick P3: two of the last three HRRR runs must agree on the spot. STP and SCP
+  // carry that already (the chance from the last three runs); DCP and NST are run again
+  // from the two runs before this one.
+  if (c.alt && (id === "stp" || id === "scp")) {
+    const alt = c.alt.field;
+    out = out.filter((f) => anyNear(alt, f.lat, f.lon, 25, (v) => v >= 60));
+  } else {
+    const t0 = cycleTime(cycle);
+    const older = (
+      await Promise.all(
+        [1, 2].map((k) =>
+          COMPUTE[id](ymdh(t0 - k * 3600_000)).catch(() => null),
+        ),
+      )
+    ).filter((x): x is Computed => x !== null);
+    if (older.length)
+      out = out.filter(
+        (f) =>
+          1 +
+            older.filter((o) =>
+              anyNear(o.field, f.lat, f.lon, 25, (v) => v >= min),
+            ).length >=
+          2,
+      );
+  }
+  if (!out.length) return out;
+  const t0 = cycleTime(cycle);
+  const hoursOf = (f: Flag) => {
+    const hrs: number[] = [];
+    for (let t = f.at; t <= f.at + f.window_min * 60_000; t += 2 * 3600_000) {
+      const fh = Math.round((t - t0) / 3600_000);
+      if (fh >= 1 && fh <= 18) hrs.push(fh);
+    }
+    return hrs;
+  };
+  const fields = new Map<number, Field>();
+  await Promise.all(
+    [...new Set(out.flatMap(hoursOf))].map((fh) =>
+      grab(cycle, fh, [test.match])
+        .then(([f]) => void fields.set(fh, f))
+        .catch(() => {}),
+    ),
+  );
+  // Model files missing: nothing to judge by, so the flags stand.
+  if (!fields.size) return out;
+  return out.filter((f) =>
+    hoursOf(f).some((fh) => {
+      const fld = fields.get(fh);
+      return (
+        !!fld && anyNear(fld, f.lat, f.lon, f.radius_km, (v) => v >= test.min)
+      );
+    }),
+  );
+}
+
 /** One engine's map (nested band areas over CONUS) and what to list beside it. */
 export async function fieldEngine(id: FieldId) {
   const cycle = await latestCycle("hrrr");
@@ -2813,7 +3040,7 @@ export async function fieldEngine(id: FieldId) {
   const c = await COMPUTE[id](cycle);
   const bands = FIELD_BANDS[id];
   const top = id === "pyro" || id === "bound" ? [] : spots(c, bands.levels[0]);
-  const flags = c.flags
+  const flags: Flag[] = c.flags
     ? c.flags(top)
     : eveningFlags(
         id,
@@ -2821,7 +3048,17 @@ export async function fieldEngine(id: FieldId) {
         top,
         bands.levels[1] ?? bands.levels[0],
       );
-  if (flags.length) await logFlags(id, flags).catch(() => {});
+  // On Vercel (60 seconds a request) the checks get 20 of them; a run that can't finish them
+  // logs nothing this hour and the next run tries again, so a map never fails for them.
+  const checked = flags.length
+    ? await Promise.race([
+        confirmFlags(id, cycle, c, flags, bands.levels[1] ?? bands.levels[0]),
+        new Promise<Flag[]>((ok) =>
+          setTimeout(() => ok([]), process.env.VERCEL ? 20_000 : 600_000),
+        ),
+      ]).catch(() => [] as Flag[])
+    : flags;
+  if (checked.length) await logFlags(id, checked).catch(() => {});
   return {
     id,
     cycle,

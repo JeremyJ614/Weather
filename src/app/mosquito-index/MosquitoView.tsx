@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ChevronDown,
   CloudRain,
@@ -10,6 +10,7 @@ import {
   Flame,
   House,
   Info,
+  Leaf,
   MapPin,
   Shirt,
   SprayCan,
@@ -25,6 +26,8 @@ import {
   MOSQUITO_BANDS,
   mosquitoBand,
   mosquitoHours,
+  mosquitoSeason,
+  type MosquitoDay,
   type MosquitoHour,
 } from "@/lib/air/mosquito";
 import s from "./Mosquito.module.css";
@@ -148,10 +151,53 @@ function Dial({ hours }: { hours: MosquitoHour[] }) {
   );
 }
 
+/**
+ * The place's last 30 days of highs and lows, from the Regional Climate Centers' ACIS
+ * (gridded for the lower 48, free and open to browsers, so it costs the server nothing).
+ */
+async function lastMonth(lat: number, lon: number): Promise<MosquitoDay[]> {
+  // The grid covers the lower 48 only; anywhere else it answers with its nearest edge.
+  if (lat < 24 || lat > 50 || lon < -125.5 || lon > -66) return [];
+  const day = (ago: number) =>
+    new Date(Date.now() - ago * 86400_000).toISOString().slice(0, 10);
+  const r = await fetch("https://data.rcc-acis.org/GridData", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      loc: `${lon.toFixed(3)},${lat.toFixed(3)}`,
+      sdate: day(30),
+      edate: day(1),
+      grid: "1",
+      elems: "maxt,mint",
+    }),
+    signal: AbortSignal.timeout(12000),
+  });
+  if (!r.ok) return [];
+  const j = (await r.json()) as { data?: [string, number, number][] };
+  return (j.data ?? [])
+    .filter(([, max, min]) => max > -900 && min > -900)
+    .map(([date, max, min]) => ({ date, max, min }));
+}
+
 export function MosquitoView() {
   const { active } = usePlaces();
   const [sheet, setSheet] = useState(false);
-  const { data: w, error, loading } = useWeather(active);
+  const { data: w, error, loading: wLoading } = useWeather(active);
+  const placeKey = active ? `${active.lat},${active.lon}` : "";
+  const [hist, setHist] = useState<{ key: string; days: MosquitoDay[] }>();
+  useEffect(() => {
+    if (!active) return;
+    const key = `${active.lat},${active.lon}`;
+    let live = true;
+    lastMonth(active.lat, active.lon)
+      .catch(() => [])
+      .then((days) => live && setHist({ key, days }));
+    return () => {
+      live = false;
+    };
+  }, [active]);
+  const histReady = hist?.key === placeKey;
+  const loading = wLoading || (!!w && !histReady);
   const sheetEl = (
     <LocationSheet open={sheet} onClose={() => setSheet(false)} />
   );
@@ -168,7 +214,19 @@ export function MosquitoView() {
       </Card>
     );
   }
-  const hours = w ? mosquitoHours(w.hourly.slice(0, 48), w.place.timeZone) : [];
+  const season =
+    w && histReady && w.hourly[0]
+      ? mosquitoSeason(
+          hist!.days,
+          active.lat,
+          new Date(w.hourly[0].start),
+          w.hourly,
+        )
+      : null;
+  const hours =
+    w && season
+      ? mosquitoHours(w.hourly.slice(0, 48), w.place.timeZone, season.factor)
+      : [];
   const now = hours[0];
   const band = now ? mosquitoBand(now.score) : null;
   const drivers = now
@@ -234,6 +292,14 @@ export function MosquitoView() {
             <Ring score={now.score} />
             <p className={s.band}>{band.label}</p>
             <p className={s.advice}>{band.advice}</p>
+            {season && (
+              <p className={s.seasonTag}>
+                <Leaf aria-hidden /> {season.label}
+                {season.factor < 1 && now.raw > now.score && (
+                  <span> · {now.raw} from the weather alone</span>
+                )}
+              </p>
+            )}
             <dl className={s.stats}>
               <div>
                 <dt>Index</dt>
@@ -262,6 +328,27 @@ export function MosquitoView() {
               placed where it falls on the clock.
             </p>
           </section>
+
+          {season && (
+            <section className={s.card}>
+              <h3 className={s.h3}>Local season</h3>
+              <div className={s.season}>
+                <span className={s.track}>
+                  <i style={{ transform: `scaleX(${season.factor})` }} />
+                </span>
+                <p className={s.dTop}>
+                  <b>{season.label}</b>
+                  <span>{Math.round(season.factor * 100)}% of full season</span>
+                </p>
+                <p className={s.seasonWhy}>{season.why}</p>
+                <p className={s.caption}>
+                  {season.from === "local"
+                    ? "From this spot's highs and lows over the last 30 days (NOAA Regional Climate Centers)."
+                    : "Rougher than usual: this spot has no daily temperature record in our source."}
+                </p>
+              </div>
+            </section>
+          )}
 
           <section className={s.card}>
             <h3 className={s.h3}>What is driving it right now</h3>

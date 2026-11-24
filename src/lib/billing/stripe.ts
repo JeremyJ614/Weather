@@ -84,6 +84,8 @@ export async function checkoutUrl(o: {
   trialDays?: number;
   /** Percent off for as long as the plan runs (approved spotters and first responders). */
   forever?: number;
+  /** Extra notes Stripe hands back with the finished checkout (the Academy VIP code). */
+  meta?: Record<string, string>;
 }) {
   const firstPrice = o.first[0] ?? o.regular;
   const off = o.regular - firstPrice;
@@ -143,7 +145,11 @@ async function checkoutWith(
       },
     ],
     ...(coupon ? { discounts: [{ coupon: coupon.id }] } : {}),
-    metadata: { user_id: o.user, ...(o.trialDays ? { trial: "1" } : {}) },
+    metadata: {
+      user_id: o.user,
+      ...(o.trialDays ? { trial: "1" } : {}),
+      ...(o.meta ?? {}),
+    },
     subscription_data: {
       metadata: { user_id: o.user },
       ...(o.trialDays ? { trial_period_days: o.trialDays } : {}),

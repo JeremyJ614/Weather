@@ -23,14 +23,15 @@ let worker: Worker | null = null;
 let unsupported = false;
 let seq = 0;
 let idle: ReturnType<typeof setTimeout> | null = null;
-const jobs = new Map<number, (r: TileResult) => void>();
+const jobs = new Map<number, { url: string; done: (r: TileResult) => void }>();
 
 function stop() {
   worker?.terminate();
   worker = null;
-  for (const [id, done] of jobs) {
+  // Anything still waiting is decoded here instead (a worker that failed to load, for one, after a deploy).
+  for (const [id, job] of jobs) {
     jobs.delete(id);
-    done({ error: "The tile decoder stopped." });
+    void inline(job.url).then(job.done);
   }
 }
 
@@ -50,10 +51,10 @@ function start(): Worker | null {
   }
   worker.onmessage = (e: MessageEvent<TileResult & { id: number }>) => {
     const { id, ...r } = e.data;
-    const done = jobs.get(id);
-    if (!done) return;
+    const job = jobs.get(id);
+    if (!job) return;
     jobs.delete(id);
-    done(r as TileResult);
+    job.done(r as TileResult);
     if (idle) clearTimeout(idle);
     idle = setTimeout(() => {
       if (jobs.size === 0) stop();
@@ -72,7 +73,7 @@ export function loadTile(url: string): Promise<TileResult> {
   if (!w) return inline(url);
   const id = (seq += 1);
   return new Promise((resolve) => {
-    jobs.set(id, resolve);
+    jobs.set(id, { url, done: resolve });
     w.postMessage({ id, url });
   });
 }

@@ -13,6 +13,7 @@ import {
   stateOf,
   type ExtrasStates,
 } from "@/lib/extras/items";
+import type { Confidence } from "@/lib/engines/confidence";
 
 const loading = () => <p className="text-sm text-muted">Loading…</p>;
 const EnginesTab = dynamic(
@@ -34,9 +35,11 @@ const anyShown = (items: ExtrasStates, group: string) =>
 export function ExtrasView({
   colors,
   items: all,
+  confidence,
 }: {
   colors: Colors;
   items: ExtrasStates;
+  confidence: Confidence;
 }) {
   // Items moved onto pages of their own leave the tabs; a row of links points to them.
   const items = forTabs(all);
@@ -64,7 +67,9 @@ export function ExtrasView({
       id: "engines",
       label: "Weather Engines",
       icon: <Cpu className="size-4" aria-hidden />,
-      panel: <EnginesTab colors={colors} items={items} />,
+      panel: (
+        <EnginesTab colors={colors} items={items} confidence={confidence} />
+      ),
     },
     anyShown(items, "randoms") && {
       id: "randoms",
