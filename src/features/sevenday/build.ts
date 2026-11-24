@@ -34,25 +34,31 @@ const toPng = (c: Canvas) =>
         ),
       );
 
-async function read(urls: string[], ctx: Ctx, w: number, h: number) {
+/** A frame's file (the CDN first, GitHub after), fetched with up to four tries. */
+async function download(urls: string[]) {
   let err: unknown;
   for (let i = 0; i < 4; i++)
     try {
       const url = urls[i % urls.length];
       const r = await fetch(url, { signal: AbortSignal.timeout(30000) });
       if (!r.ok) throw new Error(`${url} ${r.status}`);
-      const bmp = await createImageBitmap(await r.blob(), {
-        colorSpaceConversion: "none",
-        premultiplyAlpha: "none",
-      });
-      ctx.clearRect(0, 0, w, h);
-      ctx.drawImage(bmp, 0, 0);
-      bmp.close();
-      return ctx.getImageData(0, 0, w, h).data;
+      return await r.blob();
     } catch (e) {
       err = e;
     }
   throw err;
+}
+
+/** A frame's gray codes, read exactly (no color management, no premultiplying). */
+async function read(file: Blob, ctx: Ctx, w: number, h: number) {
+  const bmp = await createImageBitmap(file, {
+    colorSpaceConversion: "none",
+    premultiplyAlpha: "none",
+  });
+  ctx.clearRect(0, 0, w, h);
+  ctx.drawImage(bmp, 0, 0);
+  bmp.close();
+  return ctx.getImageData(0, 0, w, h).data;
 }
 
 /** Every frame in order; the last one also carries its codes (taps read totals from them). */
@@ -68,8 +74,12 @@ export async function* buildFrames(job: BuildJob): AsyncGenerator<Built> {
   const codes = new Uint8Array(w * h);
   const img = new ImageData(w, h);
   const px = new Uint32Array(img.data.buffer);
+  // Every file is asked for at once (they're small); each is added up as soon as it and the
+  // ones before it are in.
+  const files = job.urls.map((u) => download(u));
+  files.forEach((f) => f.catch(() => {}));
   for (let k = 0; k < job.urls.length; k++) {
-    const d = await read(job.urls[k], sg, w, h);
+    const d = await read(await files[k], sg, w, h);
     for (let i = 0, j = 0; i < codes.length; i++, j += 4) {
       const v = d[j];
       if (v) {
