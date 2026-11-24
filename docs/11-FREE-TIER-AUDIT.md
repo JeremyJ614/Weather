@@ -65,7 +65,8 @@ Nothing on Vercel or Supabase. The History Globe's storm archive (~1.7 MB a visi
 served by Vercel) and the 7-day rain and snow maps are built on GitHub Actions, kept on the
 `data` branch and read by browsers from jsDelivr (pinned to the commit), with only
 `latest.json` (under 1 KB) from GitHub's raw host. The 7-day frames are colored on the
-viewer's device. The `data` branch never deploys on Vercel.
+viewer's device. The `data` branch never deploys on Vercel: each of its commits carries its own
+`vercel.json` with deployments off (bug 165; Vercel reads that file from the commit itself).
 
 ## Risks, worst first
 
