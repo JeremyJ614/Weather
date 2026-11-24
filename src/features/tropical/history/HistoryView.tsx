@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import {
-  Camera,
   Compass,
   MapPin,
   Pause,
@@ -23,10 +23,17 @@ import {
   stormFacts,
   stormsNear,
   summary,
+  tierIndex,
   type Tracks,
 } from "./data";
 import type { Label, Mode, Palette, TrackGlobe } from "./globe";
+import type { Clip } from "./share";
 import s from "./History.module.css";
+
+// The share sheet Radar and Model Runs use, loaded when the tab is.
+const MotionShare = dynamic(() => import("@/features/share/MotionShare"), {
+  ssr: false,
+});
 
 const OCEANS = [
   { id: "all", label: "All oceans", b: [] as number[] },
@@ -336,16 +343,76 @@ function Explorer({ t, colors }: { t: Tracks; colors: Colors }) {
     setSel(i);
   };
 
-  const save = () => {
-    const url = globe.current?.snapshot();
-    if (!url) return;
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `stormsync-hurricanes-${from}-${to}.png`;
-    a.click();
-  };
-
   const facts = sel !== null ? stormFacts(t, sel) : null;
+
+  /** What the share files show: the picked storm along its track, or this view's years. */
+  const clip = (g: TrackGlobe): Clip => {
+    const foot =
+      "Tracks: NOAA NCEI IBTrACS · Land: Natural Earth and NASA Blue Marble";
+    const oceanName = OCEANS.find((o) => o.id === ocean)!.label;
+    if (sel !== null) {
+      const f = stormFacts(t, sel);
+      const o = S.o[sel];
+      const n = S.n[sel];
+      const day = (h: number) =>
+        new Date(h * 3600_000).toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+          timeZone: "UTC",
+        });
+      return {
+        globe: g,
+        title: `${f.name} ${f.season}`,
+        sub: `${INTENSITY[f.tier].label} · ${BASIN_NAME[f.basin]} · ${f.kt ? `${mph(f.kt)} mph peak` : "winds not recorded"}${f.hpa ? ` · ${f.hpa} mb` : ""}`,
+        from: S.t0[sel],
+        to: S.t1[sel],
+        fresh: 36,
+        turn: 0,
+        counter: (h) => {
+          // The storm's strength at that moment along its track.
+          let p = o;
+          while (p < o + n - 1 && S.t0[sel] + t.hour[p + 1] <= h) p++;
+          const kt = t.wind[p] === 255 ? 0 : t.wind[p];
+          return [
+            day(h),
+            kt ? `${INTENSITY[tierIndex(kt)].short} · ${mph(kt)} MPH` : "TRACK",
+          ];
+        },
+        label: {
+          lat: f.peak.lat,
+          lon: f.peak.lon,
+          text: f.name,
+          sub: String(f.season),
+        },
+        foot,
+      };
+    }
+    const range = from === to ? `The ${from} season` : `${from} to ${to}`;
+    return {
+      globe: g,
+      title: from === to ? range : "Every tropical cyclone on record",
+      sub: `${from === to ? "" : `${range} · `}${oceanName}${minTier ? ` · ${STRENGTH.find((x) => x.tier === minTier)!.label}` : ""}${near ? ` · within ${NEAR_MI} mi of ${near.label}` : ""}`,
+      from: span!.lo,
+      to: span!.hi,
+      fresh: Math.max(24 * 20, (span!.hi - span!.lo) / 30),
+      turn: 28,
+      counter: (h) => {
+        let n = 0;
+        let hi = starts.length;
+        while (n < hi) {
+          const mid = (n + hi) >> 1;
+          if (starts[mid] <= h) n = mid + 1;
+          else hi = mid;
+        }
+        return [
+          String(new Date(h * 3600_000).getUTCFullYear()),
+          `${n.toLocaleString("en-US")} STORMS`,
+        ];
+      },
+      foot,
+    };
+  };
   const years = useMemo(
     () => Array.from({ length: last - 1842 + 1 }, (_, k) => 1842 + k),
     [last],
@@ -393,9 +460,6 @@ function Explorer({ t, colors }: { t: Tracks; colors: Colors }) {
           >
             <RotateCcw aria-hidden />
           </button>
-          <button type="button" onClick={save} title="Save as an image">
-            <Camera aria-hidden />
-          </button>
         </div>
       </div>
 
@@ -436,6 +500,34 @@ function Explorer({ t, colors }: { t: Tracks; colors: Colors }) {
           ))}
         </div>
       </div>
+
+      {ready && span && (
+        <MotionShare
+          file={
+            sel !== null
+              ? `sswx-${(S.name[sel] || "storm").toLowerCase()}-${S.y[sel]}`
+              : `sswx-hurricanes-${from}-${to}`
+          }
+          frames={48}
+          heading={
+            sel !== null
+              ? `Share ${S.name[sel] || "this storm"} as`
+              : "Share this globe as"
+          }
+          hints={{
+            image: "This view",
+            gif: "48 frames · 1080p",
+            video: "MP4 · 8 s · 1080p",
+          }}
+          build={async (f, progress) => {
+            const g = globe.current;
+            if (!g) throw new Error("no globe");
+            setPlaying(false);
+            const { makeGlobe } = await import("./share");
+            return makeGlobe(clip(g), f, progress);
+          }}
+        />
+      )}
 
       {facts && sel !== null && (
         <section className={s.card} aria-live="polite">

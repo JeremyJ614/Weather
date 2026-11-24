@@ -27,10 +27,21 @@ export default function MotionShare({
   reel,
   file,
   frames,
+  build,
+  hints,
+  heading = "Share this loop as",
 }: {
-  reel: () => Promise<Reel>;
+  reel?: () => Promise<Reel>;
   file: string;
   frames: number;
+  /** Makes the file itself (pages with their own frames, like the History Globe). */
+  build?: (
+    f: Format,
+    progress: (done: number, total: number) => void,
+  ) => Promise<Blob>;
+  /** The line under each kind of file. */
+  hints?: Record<Format, string>;
+  heading?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [job, setJob] = useState<{ f: Format; done: number; total: number }>();
@@ -43,10 +54,13 @@ export default function MotionShare({
     setOut(undefined);
     setJob({ f, done: 0, total: 0 });
     try {
-      const [{ make }, r] = await Promise.all([import("./motion"), reel()]);
-      const blob = await make(r, f, (done, total) =>
-        setJob({ f, done, total }),
-      );
+      const progress = (done: number, total: number) =>
+        setJob({ f, done, total });
+      const blob = build
+        ? await build(f, progress)
+        : await Promise.all([import("./motion"), reel!()]).then(
+            ([{ make }, r]) => make(r, f, progress),
+          );
       setOut({ blob, url: URL.createObjectURL(blob), f });
     } catch {
       setErr(
@@ -91,7 +105,7 @@ export default function MotionShare({
       {open && (
         <div className="grid w-full gap-3 rounded-2xl border border-line p-3">
           <div className="flex items-center justify-between">
-            <b className="text-sm">Share this loop as</b>
+            <b className="text-sm">{heading}</b>
             <button
               type="button"
               aria-label="Close"
@@ -113,11 +127,12 @@ export default function MotionShare({
                 <Icon className="size-5 text-accent" aria-hidden />
                 <b className="text-sm">{name}</b>
                 <small className="text-xs text-muted">
-                  {f === "image"
-                    ? "This frame"
-                    : f === "gif"
-                      ? `${Math.min(frames, 30)} frames`
-                      : `MP4 · ${many} frames`}
+                  {hints?.[f] ??
+                    (f === "image"
+                      ? "This frame"
+                      : f === "gif"
+                        ? `${Math.min(frames, 30)} frames`
+                        : `MP4 · ${many} frames`)}
                 </small>
               </button>
             ))}
