@@ -33,6 +33,17 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      {
+        // The hurricane history archive (scripts/build-tracks.py): rebuilt a few times a year,
+        // so a week in the browser and the CDN, then checked again.
+        source: "/extras/tracks/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=604800, stale-while-revalidate=86400",
+          },
+        ],
+      },
     ];
   },
 };

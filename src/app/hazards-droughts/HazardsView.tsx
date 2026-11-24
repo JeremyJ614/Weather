@@ -14,12 +14,18 @@ import { GeoMap } from "@/features/hazards/GeoMap";
 import { UsMap } from "@/features/maps/UsMap";
 import { Polys } from "@/features/maps/useLayer";
 import { project } from "@/lib/map/usAlbers";
-import { Outlook } from "@/features/outlooks/CpcPanel";
+import dynamic from "next/dynamic";
 import { usePlaces } from "@/features/location/usePlaces";
 import { pick, type Colors } from "@/lib/colors/pick";
 import type { Hazard, Here } from "@/lib/hazards/data";
 import { HAZ_KINDS, USDM } from "@/lib/hazards/style";
 import s from "./Hazards.module.css";
+
+// The CPC drought outlook sits on its own tab: loaded when that tab opens (speed budget).
+const Outlook = dynamic(
+  () => import("@/features/outlooks/CpcPanel").then((m) => m.Outlook),
+  { ssr: false },
+);
 
 type Trend = {
   week: string;

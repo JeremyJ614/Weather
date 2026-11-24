@@ -254,6 +254,29 @@ export const GROUPS: Group[] = [
     ],
   },
   {
+    id: "trop-globe",
+    label: "Hurricane history globe",
+    note: "Tropical Outlook → History Globe: tracks by hemisphere, the picked storm, the Earth and its glow. Strength uses the Tropical Outlook colors.",
+    entries: [
+      {
+        key: "trop:globe:north",
+        label: "Tracks · Northern Hemisphere",
+        def: "#ff9a5a",
+      },
+      {
+        key: "trop:globe:south",
+        label: "Tracks · Southern Hemisphere",
+        def: "#6cb6ff",
+      },
+      { key: "trop:globe:pick", label: "Picked storm glow", def: "#ffe08a" },
+      { key: "trop:globe:land", label: "Land", def: "#1d2230" },
+      { key: "trop:globe:ocean", label: "Ocean", def: "#090c14" },
+      { key: "trop:globe:coast", label: "Coastlines and grid", def: "#4a5370" },
+      { key: "trop:globe:glow", label: "Atmosphere glow", def: "#3d6bd6" },
+      { key: "trop:globe:equator", label: "Equator", def: "#8fb3ff" },
+    ],
+  },
+  {
     id: "models",
     label: "Tropical models",
     note: "Each model's track on Tropical Outlook's Model Tracks.",

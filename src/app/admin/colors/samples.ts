@@ -438,6 +438,60 @@ async function tropical(): Promise<Sample> {
 }
 
 /** The example map for a group, or null when it has none. */
+/**
+ * The history globe's colors on the US map: the 2005 Atlantic season's real tracks (from the
+ * globe's own IBTrACS files), Katrina as the picked storm, land, coastline and the equator's
+ * color as the Tropic of Cancer guide.
+ */
+async function tropGlobe(): Promise<Sample> {
+  const { loadTracks } = await import("@/features/tropical/history/data");
+  const t = await loadTracks();
+  const S = t.storms;
+  const line = (i: number) =>
+    linePath({
+      type: "LineString",
+      coordinates: Array.from({ length: S.n[i] }, (_, k) => {
+        const p = S.o[i] + k;
+        return [t.lon[p], t.lat[p]];
+      }),
+    } as Geometry);
+  const season = [...Array(t.count).keys()].filter(
+    (i) => S.y[i] === 2005 && S.b[i] === 0,
+  );
+  const katrina = season.find((i) => S.name[i] === "Katrina");
+  const under: Shape[] = [
+    { k: "trop:globe:land", d: "M0 0H1200V800H0Z", o: 1 },
+  ];
+  const over: Shape[] = [
+    {
+      k: "trop:globe:equator",
+      d: linePath({
+        type: "LineString",
+        coordinates: [
+          [-130, 23.4],
+          [-60, 23.4],
+        ],
+      } as Geometry),
+      w: 1,
+    },
+    ...season
+      .filter((i) => i !== katrina)
+      .map((i) => ({ k: "trop:globe:north", d: line(i), w: 1.2 })),
+    ...(katrina === undefined
+      ? []
+      : [
+          { k: "trop:globe:pick", d: line(katrina), w: 7 },
+          { k: "trop:TD", d: line(katrina), w: 2 },
+        ]),
+  ];
+  return {
+    title: "The 2005 Atlantic season, Katrina picked",
+    under,
+    over,
+    dots: [],
+  };
+}
+
 export function sampleFor(id: string): (() => Promise<Sample>) | null {
   const field = id.slice(7) as FieldId;
   if (id.startsWith("engine-") && field in FIELD_BANDS)
@@ -476,6 +530,8 @@ export function sampleFor(id: string): (() => Promise<Sample>) | null {
       return () => engineAreas(id.slice(7), 3);
     case "engine-prob":
       return () => engineAreas("prob", 5);
+    case "trop-globe":
+      return tropGlobe;
     case "engine-boundpt":
       return () => engineAreas(id.slice(7), 4);
     default:
