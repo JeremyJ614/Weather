@@ -2,7 +2,8 @@
 Publishes the daily data build (.github/workflows/data.yml) to this repository's `data` branch:
 one fresh commit holding every product, then `latest.json` naming that commit, so browsers
 fetch files pinned to it from jsDelivr (a cached file can never mix with a newer one). The
-branch is replaced each day, so it never grows. A product that failed to build today keeps
+branch is replaced each day, so it never grows, and carries a vercel.json that keeps Vercel
+from building it. A product that failed to build today keeps
 yesterday's copy (taken from the branch as it stood), and nothing is pushed if every product
 failed.
 
@@ -54,6 +55,11 @@ def main(site, prev):
         if os.path.exists(p):
             summary[name] = sum_up(json.load(open(p)))
 
+    # Vercel reads vercel.json from the commit it would deploy, not from main: without this
+    # file every push here started a build of the data branch (and spent the account's
+    # 100 deployments a day).
+    with open(os.path.join(site, "vercel.json"), "w") as f:
+        json.dump({"git": {"deploymentEnabled": False}}, f)
     shutil.rmtree(os.path.join(site, ".git"), ignore_errors=True)
     run("git", "init", "-q", "-b", "data", cwd=site)
     run("git", "config", "user.name", "github-actions[bot]", cwd=site)
