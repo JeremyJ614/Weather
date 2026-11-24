@@ -41,7 +41,7 @@ for it, 2026-11-02, before the model maps moved onto the viewer's device).
 | --- | --- | --- |
 | Database, 500 MB | 26.2 MB (growing ~0.3 MB a day) | 5% |
 | File storage, 1 GB | 10.4 MB | 1% |
-| Egress, 5 GB a month | not readable without the dashboard | low: see below |
+| Egress, 5 GB a month | not readable without the dashboard | low: the database is 26 MB, visitors' data calls are a handful a day, and the only files served from Supabase are the owner's own news-post images |
 
 ## GitHub (Free, public repository)
 
