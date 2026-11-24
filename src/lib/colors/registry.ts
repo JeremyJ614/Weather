@@ -254,6 +254,57 @@ export const GROUPS: Group[] = [
     ],
   },
   {
+    id: "sevenday-rain",
+    label: "7-day rain",
+    note: "Flooding Outlook → Last 7 Days: the week's rain totals from light to extreme, the flood reports and the biggest total's ring.",
+    entries: [
+      ...["0.01″", "0.5″", "1″", "2″", "4″", "8″", "12″", "16″", "24″"].map(
+        (l, i) => ({
+          key: `seven:rain:${i}`,
+          label: `Rain ${l}`,
+          def: [
+            "#0b3d5c",
+            "#0f7ea3",
+            "#19b3b0",
+            "#3ccf74",
+            "#e9dc4c",
+            "#f7953a",
+            "#ef4a4f",
+            "#de46b8",
+            "#f6c2ff",
+          ][i],
+        }),
+      ),
+      { key: "seven:report:flood", label: "Flood reports", def: "#58e1ff" },
+      { key: "seven:max", label: "Biggest total ring", def: "#ffe08a" },
+    ],
+  },
+  {
+    id: "sevenday-snow",
+    label: "7-day snow",
+    note: "Winter Center → Last 7 Days: the week's snowfall from a dusting to deep mountain totals, and the snow reports.",
+    entries: [
+      ...["0.1″", "1″", "3″", "6″", "12″", "18″", "24″", "36″", "48″"].map(
+        (l, i) => ({
+          key: `seven:snow:${i}`,
+          label: `Snow ${l}`,
+          def: [
+            "#22416f",
+            "#2f78cf",
+            "#57abf7",
+            "#8b85f2",
+            "#b65ce6",
+            "#e04fb5",
+            "#ff7fa9",
+            "#ffd3ec",
+            "#ffffff",
+          ][i],
+        }),
+      ),
+      { key: "seven:report:snow", label: "Snow reports", def: "#f4f8ff" },
+    ],
+  },
+  {
     id: "trop-globe",
     label: "Hurricane history globe",
     note: "Tropical Outlook → History Globe: tracks by hemisphere, the picked storm, the Earth and its glow, the Places layer and Storm View. Strength uses the Tropical Outlook colors.",

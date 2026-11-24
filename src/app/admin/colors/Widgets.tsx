@@ -13,6 +13,7 @@ import { Compare } from "@/app/radar-model-runs/RadarView";
 import { HodoPanel, SkewPanel } from "@/app/3d-soundings/SoundingsView";
 import { KpPanel, OvalMap, type Now } from "@/app/aurora-center/AuroraView";
 import { BadgePlate } from "@/components/BadgeIcon";
+import { SevenDayMap } from "@/features/sevenday/SevenDayMap";
 import { usePlaces } from "@/features/location/usePlaces";
 import { PASTEL, type Pastel } from "@/lib/ingredients/calc";
 import { HAZ, HAZARDS, RISK, type Haz } from "@/lib/timing/calc";
@@ -353,6 +354,13 @@ function radar(kind: "REF" | "VEL" | "RHO"): W {
 
 /** The page previews, by color group. */
 export const WIDGETS: Record<string, W> = {
+  // The real 7-day maps (today's build), drawn in the colors being edited.
+  "sevenday-rain": ({ colors }) => (
+    <SevenDayMap kind="rain" colors={colors} preview />
+  ),
+  "sevenday-snow": ({ colors }) => (
+    <SevenDayMap kind="snow" colors={colors} preview />
+  ),
   ingredients: Ingredients,
   timing: Timing,
   sswxcon: SswxCon,

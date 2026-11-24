@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import {
   BellRing,
   Building2,
@@ -9,6 +10,7 @@ import {
   MapPin,
   Percent,
   Siren,
+  Snowflake,
 } from "lucide-react";
 import { HomeTabs } from "@/features/news/HomeTabs";
 import { GeoMap } from "@/features/hazards/GeoMap";
@@ -18,6 +20,12 @@ import { pick, type Colors } from "@/lib/colors/pick";
 import type { WinterAlert, WinterHere } from "@/lib/winter/data";
 import { PROB, PROB_KINDS, type ProbKind } from "@/lib/winter/style";
 import s from "./Winter.module.css";
+
+// The last 7 days of snow (daily data job), loaded when its tab opens.
+const SevenDayMap = dynamic(
+  () => import("@/features/sevenday/SevenDayMap").then((m) => m.SevenDayMap),
+  { ssr: false },
+);
 import { InfoScrub } from "@/components/charts/InfoScrub";
 
 type Overlay = {
@@ -65,6 +73,12 @@ export function WinterView({
             panel: <StormMap groups={groups} overlays={overlays} />,
           },
           {
+            id: "w-week",
+            label: "Last 7 Days",
+            icon: <Snowflake aria-hidden />,
+            panel: <SevenDayMap kind="snow" colors={colors} />,
+          },
+          {
             id: "w-odds",
             label: "Snow & Ice Odds",
             icon: <Percent aria-hidden />,
@@ -92,8 +106,9 @@ export function WinterView({
       />
       <p className={s.foot}>
         Sources: NWS Winter Storm Severity Index and probabilistic winter
-        forecasts (Weather Prediction Center), NOHRSC National Snow Analysis,
-        NWS alerts, and Open-Meteo hourly and city forecasts.
+        forecasts (Weather Prediction Center), NOHRSC National Snow Analysis and
+        National Snowfall Analysis (the last 7 days), NWS alerts, and Open-Meteo
+        hourly and city forecasts.
       </p>
     </div>
   );
