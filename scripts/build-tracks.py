@@ -5,7 +5,8 @@ Earth's 1:50m land (world-atlas topojson). Run it whenever a season ends:
 
     curl -o /tmp/ib.csv https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/v04r01/access/csv/ibtracs.ALL.list.v04r01.csv
     curl -o /tmp/land.json https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/land-50m.json
-    python3 scripts/build-tracks.py /tmp/ib.csv /tmp/land.json
+    curl -o /tmp/relief.jpg "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&VERSION=1.3.0&LAYERS=BlueMarble_ShadedRelief&STYLES=&CRS=EPSG:4326&BBOX=-90,-180,90,180&WIDTH=4096&HEIGHT=2048&FORMAT=image/jpeg"
+    python3 scripts/build-tracks.py /tmp/ib.csv /tmp/land.json /tmp/relief.jpg
 
 Writes public/extras/tracks/{storms.json,points.bin.gz,land.bin.gz} (gzipped here, since a CDN
 won't compress binary files; the browser unpacks them with DecompressionStream):
@@ -16,6 +17,8 @@ won't compress binary files; the browser unpacks them with DecompressionStream):
                storm began (each a step from the point before within its storm), Uint8 wind
                kt (255 = unknown); each as its own block
   land.bin     Uint32 ring count, Uint32 ring lengths, then Int16 lon x100 / lat x100 pairs
+  relief.webp  NASA Blue Marble shaded relief (public domain) as grayscale, contrast-stretched
+               over land, which shades the land in the globe's own colors (needs Pillow)
 Spur tracks (splits and merges IBTrACS keeps beside the main track) are left out.
 """
 
@@ -106,7 +109,21 @@ def land_rings(path):
     return rings
 
 
-def main(csv_path, land_path):
+def relief(path):
+    """NASA's Blue Marble shaded relief as one grayscale layer, land stretched to full contrast."""
+    from PIL import Image, ImageOps
+
+    im = Image.open(path).convert("L")
+    if im.size != (4096, 2048):
+        im = im.resize((4096, 2048), Image.LANCZOS)
+    # Land shading spans the middle of the range; the near-black ocean is masked at runtime.
+    im = ImageOps.autocontrast(im, cutoff=(2, 1))
+    # Ice sheets would glare white over Greenland and Antarctica: cap the brightest.
+    im = im.point(lambda v: min(v, 185))
+    im.save(os.path.join(OUT, "relief.webp"), "WEBP", quality=72, method=6)
+
+
+def main(csv_path, land_path, relief_path=None):
     os.makedirs(OUT, exist_ok=True)
     rows, ix = tracks(csv_path)
     cols = {k: [] for k in ["name", "y", "b", "t0", "t1", "o", "n", "w", "p", "a", "lf", "km"]}
@@ -174,8 +191,10 @@ def main(csv_path, land_path):
         body += struct.pack(f"<{2 * len(r)}h", *[v for p in r for v in (round(p[0] * 100), round(p[1] * 100))])
     with open(os.path.join(OUT, "land.bin.gz"), "wb") as f:
         f.write(gzip.compress(body, 9, mtime=0))
+    if relief_path:
+        relief(relief_path)
     print(f"{len(cols['y'])} storms, {n} points, seasons {min(cols['y'])}-{max(cols['y'])}, {len(rings)} land rings")
 
 
 if __name__ == "__main__":
-    main(sys.argv[1], sys.argv[2])
+    main(*sys.argv[1:4])
