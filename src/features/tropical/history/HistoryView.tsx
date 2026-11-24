@@ -710,11 +710,12 @@ function Explorer({ t, colors }: { t: Tracks; colors: Colors }) {
       </section>
 
       <p className={s.foot}>
-        Tracks: NOAA NCEI&apos;s IBTrACS (every agency&apos;s best tracks,
-        6-hourly), updated {t.storms.built}. Records before the satellite era
-        (1966) miss storms that never met a ship or a coast, and early winds are
-        estimates. Tap a track for its numbers; drag to turn the globe, pinch or
-        scroll to zoom.
+        Tracks: NOAA NCEI&apos;s IBTrACS (every agency&apos;s best tracks, every
+        recorded fix), updated {t.storms.built}. Land: Natural Earth coastlines
+        shaded with NASA&apos;s Blue Marble relief. Records before the satellite
+        era (1966) miss storms that never met a ship or a coast, and early winds
+        are estimates. Tap a track for its numbers; drag to turn the globe,
+        pinch or scroll to zoom.
       </p>
     </div>
   );

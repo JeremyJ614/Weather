@@ -195,6 +195,7 @@ export class TrackGlobe {
   private pointStorm: Uint32Array;
   private land: THREE.Mesh;
   private landTex: THREE.CanvasTexture;
+  private relief: HTMLImageElement | null = null;
   private glow: THREE.ShaderMaterial;
   private equator: THREE.LineLoop;
   private pick: LineSegments2 | null = null;
@@ -271,6 +272,15 @@ export class TrackGlobe {
       this.renderer.capabilities.getMaxAnisotropy(),
     );
     this.paintLand(o.palette);
+    // The relief arrives after the globe is up (it only adds shading to the land).
+    const img = new Image();
+    img.decoding = "async";
+    img.onload = () => {
+      this.relief = img;
+      this.paintLand(this.o.palette);
+      this.need();
+    };
+    img.src = "/extras/tracks/relief.webp";
     this.land = new THREE.Mesh(
       new THREE.SphereGeometry(1, low ? 96 : 160, low ? 48 : 80),
       new THREE.MeshBasicMaterial({ map: this.landTex }),
@@ -449,9 +459,19 @@ export class TrackGlobe {
         }
     g.fillStyle = p.land;
     g.fill(path, "evenodd");
+    // NASA's Blue Marble relief shades the land in its own color: mountains, deserts,
+    // forests and ice, inside the exact coastline (the ocean stays the plain ocean color).
+    if (this.relief) {
+      g.save();
+      g.clip(path, "evenodd");
+      g.globalCompositeOperation = "screen";
+      g.globalAlpha = 0.5;
+      g.drawImage(this.relief, 0, 0, W, H);
+      g.restore();
+    }
     g.strokeStyle = p.coast;
-    g.globalAlpha = 0.7;
-    g.lineWidth = (W / 4096) * 1.4;
+    g.globalAlpha = 0.55;
+    g.lineWidth = (W / 4096) * 1.1;
     g.stroke(path);
     g.globalAlpha = 1;
     this.landTex.needsUpdate = true;
