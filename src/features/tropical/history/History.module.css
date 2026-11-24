@@ -48,14 +48,18 @@
     0 0 10px rgb(0 0 0 / 0.7);
 }
 .labels :global(.tg-label) b {
-  font-family: var(--font-display, serif);
-  font-size: 13px;
-  color: #f4ead7;
-  letter-spacing: 0.01em;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text);
 }
 .labels :global(.tg-label) small {
+  font-family: var(--font-mono);
   font-size: 10px;
-  color: var(--muted);
+  letter-spacing: 0.06em;
+  color: var(--accent);
 }
 .counter {
   position: absolute;
@@ -67,30 +71,23 @@
   pointer-events: none;
 }
 .counter b {
-  font-family: var(--font-display, serif);
-  font-size: clamp(26px, 7vw, 40px);
+  font-family: var(--font-mono);
+  font-size: clamp(24px, 6.5vw, 36px);
+  font-weight: 700;
   line-height: 1;
   color: var(--accent);
   font-variant-numeric: tabular-nums;
   text-shadow: 0 0 18px color-mix(in srgb, var(--accent) 45%, transparent);
 }
 .counter small {
-  margin-top: 4px;
-  font-size: 12px;
+  margin-top: 6px;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
-}
-.fact {
-  position: absolute;
-  left: 16px;
-  right: 16px;
-  bottom: 14px;
-  margin: 0;
-  text-align: center;
-  font-size: 12px;
-  color: #dfe7ff;
-  pointer-events: none;
-  text-shadow: 0 1px 4px rgb(0 0 0 / 0.9);
 }
 .loading {
   position: absolute;
