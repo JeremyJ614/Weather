@@ -196,6 +196,7 @@ export class TrackGlobe {
   private land: THREE.Mesh;
   private landTex: THREE.CanvasTexture;
   private relief: HTMLImageElement | null = null;
+  private pickStorm: number | null = null;
   private glow: THREE.ShaderMaterial;
   private equator: THREE.LineLoop;
   private pick: LineSegments2 | null = null;
@@ -575,6 +576,7 @@ export class TrackGlobe {
       (l.material as LineMaterial).dispose();
     }
     this.pick = this.pickHalo = null;
+    this.pickStorm = i;
     this.trackMat.uniforms.uSel.value = i ?? -1;
     if (i !== null) {
       const o = t.storms.o[i];
@@ -776,6 +778,7 @@ export class TrackGlobe {
   }
 
   private resize() {
+    if (this.capturing) return;
     const c = this.renderer.domElement;
     const w = c.clientWidth;
     const h = c.clientHeight;
@@ -797,7 +800,7 @@ export class TrackGlobe {
 
   private loop = () => {
     this.raf = requestAnimationFrame(this.loop);
-    if (!this.visible || document.hidden) return;
+    if (!this.visible || document.hidden || this.capturing) return;
     const moving = this.controls.update();
     if (!this.dirty && !moving && !this.controls.autoRotate) return;
     this.dirty = false;
@@ -806,9 +809,140 @@ export class TrackGlobe {
   };
 
   /** A PNG of what's on screen (the share button). */
-  snapshot() {
+  private capturing: {
+    ratio: number;
+    w: number;
+    h: number;
+    cam: THREE.Vector3;
+    now: number;
+    fresh: number;
+    spin: boolean;
+    size: number;
+  } | null = null;
+
+  /**
+   * Starts drawing share frames: the page's own canvas renders at `size`×`size` real pixels
+   * (no screen scaling), the picked track and the spinning storms sized for that, and the
+   * on-screen loop pauses until `captureEnd`.
+   */
+  captureStart(size: number) {
+    const c = this.renderer.domElement;
+    this.capturing = {
+      ratio: this.renderer.getPixelRatio(),
+      w: c.clientWidth,
+      h: c.clientHeight,
+      cam: this.camera.position.clone(),
+      now: this.now,
+      fresh: this.fresh,
+      spin: this.controls.autoRotate,
+      size,
+    };
+    this.controls.autoRotate = false;
+    this.renderer.setPixelRatio(1);
+    this.renderer.setSize(size, size, false);
+    this.camera.aspect = 1;
+    this.camera.updateProjectionMatrix();
+    this.sizeLines(size, size / 400);
+  }
+
+  /** One share frame: the clock at `epochHours`, the globe turned `turn` degrees east. */
+  captureFrame(epochHours: number, freshHours: number, turn = 0) {
+    const k = this.capturing;
+    if (!k) throw new Error("captureStart first");
+    this.camera.position
+      .copy(k.cam)
+      .applyAxisAngle(new THREE.Vector3(0, 1, 0), turn * R);
+    this.camera.lookAt(0, 0, 0);
+    this.setClock(epochHours, freshHours);
+    this.growPick(epochHours);
     this.renderer.render(this.scene, this.camera);
-    return this.renderer.domElement.toDataURL("image/png");
+    const out = document.createElement("canvas");
+    out.width = out.height = k.size;
+    out.getContext("2d")!.drawImage(this.renderer.domElement, 0, 0);
+    return out;
+  }
+
+  /**
+   * The picked track drawn only as far as `epochHours` (share clips of one storm), the last
+   * segment cut where the storm was at that moment; Infinity draws it whole.
+   */
+  private growPick(epochHours: number) {
+    const i = this.pickStorm;
+    if (i === null || !this.pick || !this.pickHalo) return;
+    const t = this.o.tracks;
+    const o = t.storms.o[i];
+    const n = t.storms.n[i];
+    const h = epochHours - t.storms.t0[i];
+    const tiers = this.o.palette.tiers.map((c) => new THREE.Color(c));
+    const pos: number[] = [];
+    const col: number[] = [];
+    for (let p = o; p < o + n - 1 && t.hour[p] < h; p++) {
+      const span = t.hour[p + 1] - t.hour[p] || 1;
+      const f = Math.min(1, (h - t.hour[p]) / span);
+      const lat = t.lat[p] + f * (t.lat[p + 1] - t.lat[p]);
+      const lon =
+        t.lon[p] + f * (((t.lon[p + 1] - t.lon[p] + 540) % 360) - 180);
+      pos.push(...xyz(t.lat[p], t.lon[p], 1.005), ...xyz(lat, lon, 1.005));
+      for (const w of [t.wind[p], t.wind[p + 1]]) {
+        const c = tiers[tierIndex(w === 255 ? 0 : w)];
+        col.push(c.r, c.g, c.b);
+      }
+    }
+    // A segment of no length keeps the geometry valid before the storm begins.
+    if (!pos.length) {
+      const a = xyz(t.lat[o], t.lon[o], 1.005);
+      pos.push(...a, ...a);
+      col.push(0, 0, 0, 0, 0, 0);
+    }
+    (this.pick.geometry as LineSegmentsGeometry)
+      .setPositions(pos)
+      .setColors(col);
+    (this.pickHalo.geometry as LineSegmentsGeometry).setPositions(pos);
+  }
+
+  /** Where a place falls in the last share frame (0–1 across and down), if it faces the camera. */
+  project(lat: number, lon: number) {
+    const p = new THREE.Vector3(...xyz(lat, lon, 1.01));
+    const facing = p
+      .clone()
+      .normalize()
+      .dot(this.camera.position.clone().normalize());
+    if (facing < 0.2) return null;
+    p.project(this.camera);
+    return { x: (p.x + 1) / 2, y: (1 - p.y) / 2 };
+  }
+
+  /** Puts the page's globe back as the viewer left it. */
+  captureEnd() {
+    const k = this.capturing;
+    if (!k) return;
+    this.capturing = null;
+    this.camera.position.copy(k.cam);
+    this.camera.lookAt(0, 0, 0);
+    this.renderer.setPixelRatio(k.ratio);
+    this.controls.autoRotate = k.spin;
+    this.setClock(k.now, k.fresh);
+    this.growPick(Infinity);
+    this.resize();
+    this.sizeLines(0, this.renderer.getPixelRatio());
+    this.need();
+  }
+
+  /** The picked track's widths and the storm dots' scale for an output of `scale` px per CSS px. */
+  private sizeLines(size: number, scale: number) {
+    const c = this.renderer.domElement;
+    const res = new THREE.Vector2(size || c.width, size || c.height);
+    for (const [l, w] of [
+      [this.pickHalo, 9],
+      [this.pick, 2.6],
+    ] as const) {
+      const m = l?.material as LineMaterial | undefined;
+      if (!m) continue;
+      m.linewidth = w * scale;
+      m.resolution.copy(res);
+    }
+    (this.heads.material as THREE.ShaderMaterial).uniforms.uScale.value =
+      size || c.height;
   }
 
   dispose() {
