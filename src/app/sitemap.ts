@@ -4,7 +4,6 @@ import { getPublishedPosts } from "@/lib/news/posts";
 import { archiveIndex } from "@/lib/stories/build";
 import { FRONT_DOOR } from "@/lib/nav/registry";
 import { SITE } from "@/lib/seo/site";
-import { counties } from "@/lib/tornado/db";
 
 /** Rebuilt hourly so new SSWX News stories are listed soon after they go out. */
 export const revalidate = 3600;
@@ -17,10 +16,9 @@ const abs = (path: string) => `${SITE.url}${path}`;
  * pages are left out: crawlers would only be sent to the sign-up gate.
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [posts, events, tor] = await Promise.all([
+  const [posts, events] = await Promise.all([
     getPublishedPosts(500),
     archiveIndex().catch(() => []),
-    counties().catch(() => null),
   ]);
   const now = new Date();
   const page = (
@@ -49,10 +47,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     page("/reports", "monthly", 0.7),
     page("/reports/tornado-season-2026", "weekly", 0.8),
     ...events.map((e) => page(`/web-stories/${e.id}`, "yearly", 0.6)),
-    // Every county page of the Tornado Database (owner's Weather list #42).
-    ...(tor?.list ?? []).map((c) =>
-      page(`/tornado-database/${c.slug}`, "yearly", c.n ? 0.6 : 0.4),
-    ),
     page("/disaster-response", "weekly", 0.6),
     page("/donate", "monthly", 0.4),
     page("/contact", "yearly", 0.3),

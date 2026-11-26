@@ -7,6 +7,7 @@ import { usePlaces } from "@/features/location/usePlaces";
 import type { Colors } from "@/lib/colors/pick";
 import { pick } from "@/lib/colors/pick";
 import { EF_COLORS } from "@/lib/colors/ef";
+import { TDB } from "@/lib/tornado/view";
 import s from "./Tornado.module.css";
 
 type Hit = { slug: string; label: string; sub: string; n: number; top: number };
@@ -88,7 +89,7 @@ export function Search({
     };
   }, [q]);
 
-  const go = (slug: string) => router.push(`/tornado-database/${slug}`);
+  const go = (slug: string) => router.push(`${TDB}/${slug}`);
   const locate = () => {
     if (mine) return go(mine.slug);
     if (!navigator.geolocation)

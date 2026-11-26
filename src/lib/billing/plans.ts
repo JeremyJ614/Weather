@@ -52,7 +52,6 @@ const FREE = [
   "free-content-library",
   "disaster-response",
   "on-this-day",
-  "tornado-database",
 ];
 const BASIC = [
   ...FREE,

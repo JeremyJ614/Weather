@@ -190,3 +190,29 @@
     inset 0 0 0 1px var(--lit-line),
     0 0 12px -6px var(--accent);
 }
+.pickGraph {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+.pickGraph button {
+  display: grid;
+  gap: 1px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 800;
+  text-align: left;
+}
+.pickGraph button small {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.pickGraph button[aria-checked="true"] {
+  border-color: var(--lit-line);
+  background: var(--lit);
+  color: var(--accent);
+  box-shadow: 0 0 16px -8px var(--accent);
+}

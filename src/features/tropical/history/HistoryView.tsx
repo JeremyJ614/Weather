@@ -38,6 +38,13 @@ import type { Clip } from "./share";
 import s from "./History.module.css";
 
 // The share sheet Radar and Model Runs use, loaded when the tab is.
+/** Share speeds: how many times longer than the quickest clip the tracks take. */
+const SHARE_SPEEDS: [number, string][] = [
+  [1, "Fast"],
+  [1.5, "Normal"],
+  [2, "Slow"],
+  [3, "Slowest"],
+];
 const MotionShare = dynamic(() => import("@/features/share/MotionShare"), {
   ssr: false,
 });
@@ -150,6 +157,8 @@ function Explorer({ t, colors }: { t: Tracks; colors: Colors }) {
   const countEl = useRef<HTMLElement>(null);
   const scrub = useRef<HTMLInputElement>(null);
   const [ready, setReady] = useState(false);
+  // Share length (owner's list #42): the GIF and video can play the tracks slower.
+  const [slow, setSlow] = useState(2);
   const [from, setFrom] = useState(first);
   const [to, setTo] = useState(last);
   const [ocean, setOcean] = useState("all");
@@ -831,16 +840,39 @@ function Explorer({ t, colors }: { t: Tracks; colors: Colors }) {
           }
           hints={{
             image: "This view",
-            gif: "Smooth · 20 fps · 1080p",
-            video: "MP4 · 8 s · 30 fps · 1080p",
+            gif: `Smooth · ${6 * slow} s · 20 fps · 1080p`,
+            video: `MP4 · ${8 * slow} s · 30 fps · 1080p`,
           }}
+          controls={
+            <div
+              className={s.speed}
+              role="radiogroup"
+              aria-label="Speed of the tracks in the GIF and video"
+            >
+              <span>Track speed</span>
+              {SHARE_SPEEDS.map(([k, name]) => (
+                <button
+                  key={k}
+                  type="button"
+                  role="radio"
+                  aria-checked={slow === k}
+                  onClick={() => setSlow(k)}
+                >
+                  {name}
+                  <small>
+                    GIF {6 * k} s · video {8 * k} s
+                  </small>
+                </button>
+              ))}
+            </div>
+          }
           build={async (f, progress) => {
             const g = globe.current;
             if (!g) throw new Error("no globe");
             setPlaying(false);
             setSvPlaying(false);
             const { makeGlobe } = await import("./share");
-            return makeGlobe(clip(g), f, progress);
+            return makeGlobe(clip(g), f, progress, slow);
           }}
         />
       )}

@@ -42,6 +42,10 @@ export type Tor = {
   b: [number, number];
   /** Miles inside each county it crossed (-1 when the line misses but the record names it). */
   inc: Record<string, number>;
+  /** The NWS damage survey's path (flat lon,lat parts), when one was matched (lib/tornado/dat). */
+  path?: number[][];
+  /** From an NWS survey after NOAA's yearly record ends: preliminary. */
+  prelim?: boolean;
 };
 type StateFile = {
   st: string;
@@ -131,7 +135,7 @@ function stateFile(st: string) {
   return f;
 }
 
-function inside(rings: number[][], x: number, y: number) {
+export function inside(rings: number[][], x: number, y: number) {
   let hit = false;
   for (const r of rings)
     for (let i = 0, j = r.length - 2; i < r.length; j = i, i += 2) {
@@ -248,6 +252,8 @@ export type CountyData = {
   neighbours: County[];
   towns: { name: string; lat: number; lon: number; pop: number }[];
   through: string;
+  /** Whether the NWS damage surveys answered for this page (read daily). */
+  surveys?: { live: boolean };
 };
 
 /** Everything a county page shows. */

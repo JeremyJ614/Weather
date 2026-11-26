@@ -319,3 +319,7 @@
   animation: none;
   transform: rotate(200deg);
 }
+.controls {
+  display: grid;
+  gap: 6px;
+}

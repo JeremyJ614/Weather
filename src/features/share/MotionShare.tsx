@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useState, type CSSProperties } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import {
   Clapperboard,
   Download,
@@ -32,7 +38,13 @@ export default function MotionShare({
   heading = "Share this loop as",
   formats = ["image", "gif", "video"],
   label = "Share",
+  controls,
+  remake,
 }: {
+  /** Changes when a choice in `controls` changes the file: a picture is made again. */
+  remake?: string;
+  /** Extra choices shown in the sheet above the formats (a speed picker, say). */
+  controls?: ReactNode;
   reel?: () => Promise<Reel>;
   file: string;
   frames: number;
@@ -53,8 +65,18 @@ export default function MotionShare({
   const [err, setErr] = useState("");
   useEffect(() => () => out && URL.revokeObjectURL(out.url), [out]);
   const kinds = KINDS.filter(([f]) => formats.includes(f));
+  // The latest props and whether a file is being made: a choice changed mid-make waits for
+  // that make to end, then the file is made again with the new choice.
+  const latest = useRef({ build, reel });
+  useEffect(() => {
+    latest.current = { build, reel };
+  });
+  const busy = useRef(false);
+  const again = useRef(false);
   const go = async (f: Format) => {
-    if (job) return;
+    if (busy.current) return;
+    busy.current = true;
+    const { build, reel } = latest.current;
     setErr("");
     setOut(undefined);
     setJob({ f, done: 0, total: 0 });
@@ -74,7 +96,12 @@ export default function MotionShare({
           : "That didn't work this time. Try again in a moment.",
       );
     } finally {
+      busy.current = false;
       setJob(undefined);
+      if (again.current) {
+        again.current = false;
+        void go(f);
+      }
     }
   };
   const ext = out?.blob.type.split("/")[1] ?? "";
@@ -97,6 +124,15 @@ export default function MotionShare({
   };
   const many = Math.min(frames, 48);
   const only = kinds.length === 1 ? kinds[0][0] : null;
+  // A choice changed (a graph picked, say): the file made before no longer matches it.
+  const made = useRef(remake);
+  useEffect(() => {
+    if (made.current === remake) return;
+    made.current = remake;
+    if (!only || !open) return;
+    if (busy.current) again.current = true;
+    else void Promise.resolve().then(() => go(only));
+  });
   return (
     <div className={s.wrap}>
       <button
@@ -130,6 +166,7 @@ export default function MotionShare({
               <X aria-hidden />
             </button>
           </div>
+          {controls && <div className={s.controls}>{controls}</div>}
           {!only && (
             <div
               className={s.kinds}

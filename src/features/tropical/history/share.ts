@@ -186,6 +186,8 @@ export async function makeGlobe(
   clip: Clip,
   f: Format,
   progress: (done: number, total: number) => void,
+  /** How much longer than the quickest clip to play (owner's list #42: tracks came too fast). */
+  slow = 1,
 ): Promise<Blob> {
   const draw = framer(await tokens(), clip);
   const g = clip.globe;
@@ -197,7 +199,9 @@ export async function makeGlobe(
       progress(0, 1);
       return await png(draw(g.captureFrame(clip.to, 0, 0), clip.to, 1));
     }
-    const n = f === "gif" ? GIF_FRAMES : FPS * SECS;
+    const n = Math.round(
+      (f === "gif" ? GIF_FRAMES : FPS * SECS) * Math.min(3, Math.max(1, slow)),
+    );
     const at = (i: number) => {
       const k = i / (n - 1);
       // Ease in and out, so the clip settles on its last frame.

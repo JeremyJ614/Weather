@@ -91,6 +91,9 @@ function useJson<T>(url: string | null) {
   return url && res?.url === url ? res.d : null;
 }
 
+/** The share's side view: looking north at the sounding, a little above the floor. */
+const SIDE = { yaw: 0, tilt: 0.2 };
+
 /** 3D Soundings: pick a balloon site or any point for a model, then read it four ways. */
 export function SoundingsView({ colors }: { colors: Colors }) {
   const c = (k: string) =>
@@ -150,6 +153,7 @@ export function SoundingsView({ colors }: { colors: Colors }) {
   const [pk, setPk] = useState<"ml" | "sb" | "mu">("ml");
   const parcel = a ? a[pk] : null;
   const view3d = useRef<{ yaw: number; tilt: number } | null>(null);
+  const [angle, setAngle] = useState<"side" | "mine">("side");
 
   // Play through the run.
   const [playing, setPlaying] = useState(false);
@@ -381,9 +385,35 @@ export function SoundingsView({ colors }: { colors: Colors }) {
                   }
                   hints={{
                     image: model ? "This hour" : "This launch",
-                    gif: "The run, morphing",
-                    video: "MP4 · 1080p",
+                    gif: "Camera still; the winds change hour by hour",
+                    video: "MP4 · 1080p · camera still",
                   }}
+                  controls={
+                    <div
+                      className={s.angle}
+                      role="radiogroup"
+                      aria-label="Camera angle for the share"
+                    >
+                      <span>Camera</span>
+                      {(
+                        [
+                          ["side", "Side view", "Level with the sounding"],
+                          ["mine", "My angle", "Exactly as you have it now"],
+                        ] as const
+                      ).map(([k, l, d]) => (
+                        <button
+                          key={k}
+                          type="button"
+                          role="radio"
+                          aria-checked={angle === k}
+                          onClick={() => setAngle(k)}
+                        >
+                          {l}
+                          <small>{d}</small>
+                        </button>
+                      ))}
+                    </div>
+                  }
                   build={async (f, progress) => {
                     setPlaying(false);
                     const { makeSounding, placeName } = await import("./share");
@@ -415,14 +445,18 @@ export function SoundingsView({ colors }: { colors: Colors }) {
                         frames,
                         at: model ? hi : 0,
                         parcel: pk,
-                        // A copy of the angle right now: the page's 3D keeps turning
-                        // while the file is made, and a share never turns.
-                        view: view3d.current
-                          ? {
-                              yaw: view3d.current.yaw,
-                              tilt: view3d.current.tilt,
-                            }
-                          : { yaw: -0.6, tilt: 0.42 },
+                        // The side view, or a copy of the angle right now: the page's 3D
+                        // keeps turning while the file is made, and a share never turns
+                        // (owner's list #42: no camera movement at all).
+                        view:
+                          angle === "side"
+                            ? SIDE
+                            : view3d.current
+                              ? {
+                                  yaw: view3d.current.yaw,
+                                  tilt: view3d.current.tilt,
+                                }
+                              : { yaw: -0.6, tilt: 0.42 },
                         c,
                       },
                       look,

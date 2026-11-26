@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import dynamic from "next/dynamic";
 import {
   CalendarClock,
@@ -283,6 +283,8 @@ function HydroChart({
   c: (l: string) => string;
 }) {
   const [three, setThree] = useState(false);
+  const [shareThree, setShareThree] = useState(false);
+  const fig = useRef<HTMLElement>(null);
   const W = 720;
   const H = 280;
   const P = { l: 44, r: 12, t: 16, b: 30 };
@@ -344,7 +346,7 @@ function HydroChart({
     .filter((_, j) => j % every === 0 || j === d.observed.length - 1);
   const catOf = (v: number) => [...marks].reverse().find((m) => v >= m[1]);
   return (
-    <figure className={s.hydro}>
+    <figure className={s.hydro} ref={fig}>
       <div className={s.view} role="group" aria-label="Graph style">
         <button
           type="button"
@@ -623,15 +625,60 @@ function HydroChart({
         </a>
       </figcaption>
       <MotionShare
-        file={`sswx-river-${g.id.toLowerCase()}`}
+        file={`sswx-river-${g.id.toLowerCase()}${shareThree ? "-3d" : ""}`}
         frames={1}
         formats={["image"]}
         label="Share this graph"
+        remake={shareThree ? "3d" : "graph"}
         heading="Your river gauge picture"
+        controls={
+          <div
+            className={s.pickGraph}
+            role="radiogroup"
+            aria-label="Which graph to share"
+          >
+            {(
+              [
+                [false, "Graph", "The hydrograph with flood bands"],
+                [true, "3D", "The 3D board, as you have it turned"],
+              ] as const
+            ).map(([k, l, dsc]) => (
+              <button
+                key={l}
+                type="button"
+                role="radio"
+                aria-checked={shareThree === k}
+                onClick={() => {
+                  setShareThree(k);
+                  // The 3D picture is taken from the board on the page, so open it.
+                  if (k) setThree(true);
+                }}
+              >
+                {l}
+                <small>{dsc}</small>
+              </button>
+            ))}
+          </div>
+        }
         build={async (_f, progress) => {
           progress(0, 1);
           const { makeGauge } = await import("./share");
-          return makeGauge(g, d, c);
+          let cv: HTMLCanvasElement | null = null;
+          if (shareThree) {
+            if (!three) setThree(true);
+            const board = () => fig.current?.querySelector("canvas") ?? null;
+            cv = board();
+            // The 3D board loads on its own: wait for it (up to 4 s), then let it rise and settle
+            // before it is copied.
+            if (!cv) {
+              for (let i = 0; i < 40 && !cv; i++) {
+                await new Promise((ok) => setTimeout(ok, 100));
+                cv = board();
+              }
+              await new Promise((ok) => setTimeout(ok, 1200));
+            } else await new Promise((ok) => setTimeout(ok, 250));
+          }
+          return makeGauge(g, d, c, cv);
         }}
       />
     </figure>

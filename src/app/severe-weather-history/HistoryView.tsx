@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useId, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import {
   CalendarRange,
   Crosshair,
+  Database,
   MapPinned,
   Siren,
   Tornado,
@@ -20,7 +22,13 @@ import {
   type WarnTag,
 } from "@/lib/warnings/style";
 import type { Track, WarnPoly } from "@/lib/history/data";
+import type { TornadoHomeData } from "@/lib/tornado/home";
 import { RasterPaths } from "./RasterPaths";
+// Loaded when its tab opens, so the page's first load stays light.
+const TornadoHome = dynamic(
+  () => import("./tornado-database/Home").then((m) => m.TornadoHome),
+  { ssr: false },
+);
 import s from "./History.module.css";
 
 const EF_ORDER = ["EFU", "EF0", "EF1", "EF2", "EF3", "EF4", "EF5"];
@@ -265,16 +273,42 @@ function Filters({
   );
 }
 
-/** Severe Weather History: tornado tracks and the warning archive. */
+/** Severe Weather History: tornado tracks, the warning archive and the Tornado Database. */
 export function HistoryView({
   colors,
   year,
+  db,
 }: {
   colors: Colors;
   year: number;
+  /** The Tornado Database tab's data; null when the owner has it switched off. */
+  db: TornadoHomeData | null;
 }) {
+  // An address ending #tornado-database (or #h-warn) opens that tab: a link, a refresh or the old
+  // Tornado Database address redirecting here. Choosing a tab keeps the address in step.
+  useEffect(() => {
+    const open = () =>
+      document
+        .getElementById(`tab-${decodeURIComponent(location.hash.slice(1))}`)
+        ?.click();
+    open();
+    addEventListener("hashchange", open);
+    return () => removeEventListener("hashchange", open);
+  }, []);
   return (
-    <div className="grid gap-4">
+    <div
+      className="grid gap-4"
+      onClickCapture={(e) => {
+        const tab = (e.target as Element).closest?.("[role=tab]");
+        if (!tab?.id.startsWith("tab-")) return;
+        const id = tab.id.slice(4);
+        history.replaceState(
+          history.state,
+          "",
+          id === "h-tor" ? location.pathname : `#${id}`,
+        );
+      }}
+    >
       <HomeTabs
         label="History"
         tabs={[
@@ -290,13 +324,31 @@ export function HistoryView({
             icon: <Siren aria-hidden />,
             panel: <Warnings colors={colors} />,
           },
+          ...(db
+            ? [
+                {
+                  id: "tornado-database",
+                  label: "Tornado Database",
+                  icon: <Database aria-hidden />,
+                  panel: (
+                    <TornadoHome
+                      colors={colors}
+                      views={db.views}
+                      famous={db.famous}
+                      year={year}
+                    />
+                  ),
+                },
+              ]
+            : []),
         ]}
       />
       <p className={s.foot}>
         Sources: NWS Damage Assessment Toolkit (surveyed tracks; recent surveys
-        may still be in progress) and the Iowa Environmental Mesonet storm-based
-        warning archive. Finished years and months are cached, so they open
-        instantly.
+        may still be in progress), the Iowa Environmental Mesonet storm-based
+        warning archive and NOAA Storm Prediction Center&apos;s tornado record
+        since 1950 (Tornado Database). Finished years and months are cached, so
+        they open instantly.
       </p>
     </div>
   );
