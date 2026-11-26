@@ -7,8 +7,6 @@ import { Activity, Box, Compass, Gauge, Pause, Play } from "lucide-react";
 import { WeatherMap, type ReadyMap } from "@/features/map/WeatherMap";
 import { HomeTabs } from "@/features/news/HomeTabs";
 import { usePlaces } from "@/features/location/usePlaces";
-import { SkewT } from "@/features/soundings/SkewT";
-import { Hodograph } from "@/features/soundings/Hodograph";
 import { Sounding3D } from "@/features/soundings/Sounding3D";
 import { pick, type Colors } from "@/lib/colors/pick";
 import {
@@ -25,6 +23,16 @@ import s from "./Soundings.module.css";
 const MotionShare = dynamic(() => import("@/features/share/MotionShare"), {
   ssr: false,
 });
+// The Skew-T (with its tap-for-details readout) and the hodograph load when their tab opens.
+const chart = () => <div className="h-[420px] animate-pulse rounded-2xl" />;
+const SkewT = dynamic(
+  () => import("@/features/soundings/SkewT").then((m) => m.SkewT),
+  { loading: chart },
+);
+const Hodograph = dynamic(
+  () => import("@/features/soundings/Hodograph").then((m) => m.Hodograph),
+  { loading: chart },
+);
 
 type Station = { id: string; name: string; lat: number; lon: number };
 type Balloons = { ts: string; valid: string; stations: Station[] };
@@ -407,7 +415,14 @@ export function SoundingsView({ colors }: { colors: Colors }) {
                         frames,
                         at: model ? hi : 0,
                         parcel: pk,
-                        view: view3d.current ?? { yaw: -0.6, tilt: 0.42 },
+                        // A copy of the angle right now: the page's 3D keeps turning
+                        // while the file is made, and a share never turns.
+                        view: view3d.current
+                          ? {
+                              yaw: view3d.current.yaw,
+                              tilt: view3d.current.tilt,
+                            }
+                          : { yaw: -0.6, tilt: 0.42 },
                         c,
                       },
                       look,

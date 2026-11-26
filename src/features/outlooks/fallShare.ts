@@ -91,10 +91,13 @@ function leafAt(k: number, u: number) {
 
 export async function makeFall(
   report: FallReport,
-  asOf: number,
+  picked: number,
   f: Format,
   progress: (done: number, total: number) => void,
 ): Promise<Blob> {
+  // The picture is the date on the scrubber; the GIF and video always play the whole season
+  // to its latest day, wherever the scrubber (or the map's own playback) happens to be.
+  const asOf = f === "image" ? picked : Date.parse(`${report.end}T00:00:00Z`);
   const t = await tokens();
   const b = await loadBase();
   const nation = new Path2D(b.nation);
@@ -367,10 +370,10 @@ export async function makeFall(
     f,
     async (i, total) => {
       if (f === "image") return draw(asOf, 0, false);
-      // Ease through the season; the last fifth holds on the date.
+      // Moving from the first frame, easing into the latest day; the last part holds on it.
       const u = i / Math.max(1, total - 1);
-      const p = Math.min(1, u / 0.82);
-      const now = t0 + (asOf - t0) * ease(p);
+      const p = Math.min(1, u / 0.85);
+      const now = t0 + (asOf - t0) * (1 - (1 - p) ** 1.6);
       return draw(now, u, true);
     },
     progress,
