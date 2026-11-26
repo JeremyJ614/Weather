@@ -256,3 +256,8 @@
 .play svg {
   width: 18px;
 }
+
+/* The lit cap on each hour's bar (Hour by Hour). */
+.cap {
+  filter: drop-shadow(0 0 2px currentColor);
+}

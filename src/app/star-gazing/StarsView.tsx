@@ -15,6 +15,16 @@ import { usePlaces } from "@/features/location/usePlaces";
 import { rasterize } from "@/features/sky/raster";
 import { unproject } from "@/lib/map/usAlbers";
 import { pick, type Colors } from "@/lib/colors/pick";
+import { lit } from "@/lib/colors/lit";
+import {
+  buildGrid,
+  fresh,
+  gridPoints,
+  hourAt,
+  hourlies,
+  skyUrl,
+  type SkyGrid,
+} from "@/lib/sky/gridCore";
 import {
   moonIllumination,
   moonTimes,
@@ -36,14 +46,7 @@ const Targets = dynamic(() => import("./Targets").then((m) => m.Targets), {
   loading: () => <p className={s.muted}>Loading…</p>,
 });
 
-type Grid = {
-  lats: number[];
-  lons: number[];
-  t0: string;
-  scores: number[][];
-  tonight: (number | null)[];
-  tomorrow: (number | null)[];
-};
+type Grid = SkyGrid;
 type Hourly = Record<string, (number | null)[]> & { time: string[] };
 const now = () => Date.now();
 const hr = (d: Date) => d.toLocaleTimeString("en-US", { hour: "numeric" });
@@ -67,6 +70,69 @@ function useJson<T>(url: string | null) {
     };
   }, [url]);
   return url && res?.url === url ? res.d : null;
+}
+
+/**
+ * The forecast from our server, or straight from Open-Meteo in this browser when the server
+ * can't get a current one (Open-Meteo rate-limits Vercel's shared addresses; bug 171). The
+ * browser asks from the viewer's own address, so it still works for everyone.
+ */
+function useSkyHere(place: { lat: number; lon: number } | null) {
+  const url = place
+    ? `/api/sky/here?lat=${place.lat.toFixed(2)}&lon=${place.lon.toFixed(2)}`
+    : null;
+  const server = useJson<{ hourly: Hourly }>(url);
+  const ok =
+    server && server !== "error" && fresh(server.hourly as never, now());
+  const direct = useJson<unknown>(
+    place && server && !ok
+      ? skyUrl([+place.lat.toFixed(2)], [+place.lon.toFixed(2)])
+      : null,
+  );
+  if (ok) return server;
+  if (!server) return null;
+  if (!direct) return null;
+  if (direct === "error") return "error" as const;
+  const h = hourlies(direct)[0];
+  return h ? { hourly: h as unknown as Hourly } : ("error" as const);
+}
+
+const GRID_KEY = "sswx-sky-grid";
+
+function useSkyGrid(): Grid | "error" | null {
+  const server = useJson<Grid>("/api/sky/grid");
+  const ok = server && server !== "error" && !!server.t0;
+  // A grid this browser built in the last hour (so repeat visits spend no more calls).
+  const [kept] = useState<Grid | null>(() => {
+    try {
+      const k = JSON.parse(localStorage.getItem(GRID_KEY) ?? "null") as {
+        at: number;
+        g: Grid;
+      } | null;
+      return k && now() - k.at < 3600_000 && k.g.t0 ? k.g : null;
+    } catch {
+      return null;
+    }
+  });
+  const pts = useMemo(() => gridPoints(), []);
+  const direct = useJson<unknown>(
+    server && !ok && !kept ? skyUrl(pts.lats, pts.lons) : null,
+  );
+  const built = useMemo<Grid | "error" | null>(() => {
+    if (!direct) return null;
+    if (direct === "error") return "error";
+    const g = buildGrid(hourlies(direct), now());
+    if (!g.t0) return "error";
+    try {
+      localStorage.setItem(GRID_KEY, JSON.stringify({ at: now(), g }));
+    } catch {
+      /* storage full or blocked: it just isn't kept */
+    }
+    return g;
+  }, [direct]);
+  if (ok) return server;
+  if (!server) return null;
+  return kept ?? built;
 }
 
 type ScoredHour = SkyHour & { f: ReturnType<typeof skyScore> };
@@ -142,11 +208,7 @@ export function StarsView({ colors }: { colors: Colors }) {
     : active
       ? { lat: active.lat, lon: active.lon, label: active.label }
       : null;
-  const here = useJson<{ hourly: Hourly }>(
-    place
-      ? `/api/sky/here?lat=${place.lat.toFixed(2)}&lon=${place.lon.toFixed(2)}`
-      : null,
-  );
+  const here = useSkyHere(place);
   const hours = useMemo<
     (SkyHour & { f: ReturnType<typeof skyScore> })[]
   >(() => {
@@ -155,7 +217,7 @@ export function StarsView({ colors }: { colors: Colors }) {
     const from = Math.floor(now() / 3600_000) * 3600_000;
     return h.time
       .map((t, i) => {
-        const at = new Date(`${t}:00Z`);
+        const at = hourAt(t);
         const f = skyScore({
           at,
           lat: place.lat,
@@ -275,7 +337,7 @@ function Tonight({
           ) : peak && band ? (
             <h2>
               Best {peak.score}{" "}
-              <span style={{ color: c(band.key) }}>{band.label}</span>
+              <span style={{ color: lit(c(band.key)) }}>{band.label}</span>
             </h2>
           ) : (
             <h2>No dark hours tonight</h2>
@@ -345,7 +407,7 @@ function SkyMap({
   onPick: (p: { lat: number; lon: number }) => void;
   night: () => ReturnType<typeof nightCard>;
 }) {
-  const g = useJson<Grid>("/api/sky/grid");
+  const g = useSkyGrid();
   const [view, setView] = useState<"tonight" | "tomorrow" | "hour">("tonight");
   const [hi, setHi] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -526,14 +588,37 @@ function Hours({
                 opacity={0.5 * h.f.factors[0].value}
               />
             )}
-            <rect
-              x={i * bw + 1}
-              y={H - (h.score / 100) * H}
-              width={Math.max(1, bw - 2)}
-              height={(h.score / 100) * H}
-              rx={1.5}
-              fill={c(bandOf(h.score).key)}
-            />
+            {(() => {
+              // The owner's band color fills the bar; a lighter twin outlines and caps it,
+              // so the darkest bands still show on the night background.
+              const col = c(bandOf(h.score).key);
+              const edge = lit(col);
+              const bh = Math.max(2.5, (h.score / 100) * H);
+              return (
+                <>
+                  <rect
+                    x={i * bw + 1}
+                    y={H - bh}
+                    width={Math.max(1, bw - 2)}
+                    height={bh}
+                    rx={1.5}
+                    fill={col}
+                    stroke={edge}
+                    strokeOpacity={0.75}
+                    strokeWidth={0.6}
+                  />
+                  <rect
+                    x={i * bw + 1}
+                    y={H - bh}
+                    width={Math.max(1, bw - 2)}
+                    height={1.6}
+                    rx={0.8}
+                    fill={edge}
+                    className={s.cap}
+                  />
+                </>
+              );
+            })()}
             {i % 3 === 0 && (
               <text
                 x={i * bw + bw / 2}
@@ -589,7 +674,12 @@ function Hours({
                   : hr(h.at)}
               </b>
               <span>
-                <i style={{ background: c(bandOf(h.score).key) }} />
+                <i
+                  style={{
+                    background: c(bandOf(h.score).key),
+                    boxShadow: `0 0 0 1px ${lit(c(bandOf(h.score).key))}`,
+                  }}
+                />
                 {h.score}
               </span>
               <small>
