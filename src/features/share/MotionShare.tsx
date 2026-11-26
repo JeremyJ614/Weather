@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import {
   Clapperboard,
   Download,
@@ -10,18 +10,18 @@ import {
   X,
 } from "lucide-react";
 import type { Format, Reel } from "./motion";
+import s from "./MotionShare.module.css";
 
 const KINDS: [Format, string, typeof Film][] = [
   ["image", "Picture", Picture],
   ["gif", "GIF", Film],
   ["video", "Video", Clapperboard],
 ];
-const btn =
-  "inline-flex min-h-10 items-center gap-2 rounded-xl border border-line px-3 text-sm font-bold text-text disabled:opacity-60";
 
 /**
- * Share for a looping map (Radar, Model Runs): pick a picture of this frame, a GIF or a video
- * of the loop, watch it get made, then share or save it. Loaded on its own, after the page.
+ * Share for a looping map or a drawn card: pick a picture, a GIF or a video, watch it get made,
+ * then share or save it. Loaded on its own, after the page. `formats` limits the choices
+ * (picture-only shares); `label` names the button.
  */
 export default function MotionShare({
   reel,
@@ -30,6 +30,8 @@ export default function MotionShare({
   build,
   hints,
   heading = "Share this loop as",
+  formats = ["image", "gif", "video"],
+  label = "Share",
 }: {
   reel?: () => Promise<Reel>;
   file: string;
@@ -40,14 +42,17 @@ export default function MotionShare({
     progress: (done: number, total: number) => void,
   ) => Promise<Blob>;
   /** The line under each kind of file. */
-  hints?: Record<Format, string>;
+  hints?: Partial<Record<Format, string>>;
   heading?: string;
+  formats?: Format[];
+  label?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [job, setJob] = useState<{ f: Format; done: number; total: number }>();
   const [out, setOut] = useState<{ blob: Blob; url: string; f: Format }>();
   const [err, setErr] = useState("");
   useEffect(() => () => out && URL.revokeObjectURL(out.url), [out]);
+  const kinds = KINDS.filter(([f]) => formats.includes(f));
   const go = async (f: Format) => {
     if (job) return;
     setErr("");
@@ -91,62 +96,80 @@ export default function MotionShare({
     a.click();
   };
   const many = Math.min(frames, 48);
+  const only = kinds.length === 1 ? kinds[0][0] : null;
   return (
-    <div className="grid justify-items-start gap-2">
+    <div className={s.wrap}>
       <button
         type="button"
-        className={btn}
+        className={s.trigger}
         aria-expanded={open}
-        onClick={() => setOpen(!open)}
+        onClick={() => {
+          // A picture-only share makes its file on the first tap.
+          if (!open && only && !out && !job) void go(only);
+          setOpen(!open);
+        }}
       >
-        <Share2 className="size-4 text-accent" aria-hidden />
-        Share
+        <span className={s.orb}>
+          <Share2 aria-hidden />
+        </span>
+        <span className={s.words}>
+          <b>{label}</b>
+          <small>{kinds.map(([, n]) => n).join(" · ")}</small>
+        </span>
       </button>
       {open && (
-        <div className="grid w-full gap-3 rounded-2xl border border-line p-3">
-          <div className="flex items-center justify-between">
-            <b className="text-sm">{heading}</b>
+        <div className={s.sheet}>
+          <div className={s.top}>
+            <b>{heading}</b>
             <button
               type="button"
+              className={s.close}
               aria-label="Close"
               onClick={() => setOpen(false)}
             >
-              <X className="size-4" aria-hidden />
+              <X aria-hidden />
             </button>
           </div>
-          <div className="grid grid-cols-3 gap-2">
-            {KINDS.map(([f, name, Icon]) => (
-              <button
-                key={f}
-                type="button"
-                disabled={!!job}
-                aria-pressed={out?.f === f}
-                onClick={() => go(f)}
-                className="grid justify-items-center gap-1 rounded-xl border border-line px-2 py-3 text-center disabled:opacity-60 aria-pressed:border-accent"
-              >
-                <Icon className="size-5 text-accent" aria-hidden />
-                <b className="text-sm">{name}</b>
-                <small className="text-xs text-muted">
-                  {hints?.[f] ??
-                    (f === "image"
-                      ? "This frame"
-                      : f === "gif"
-                        ? `${Math.min(frames, 30)} frames`
-                        : `MP4 · ${many} frames`)}
-                </small>
-              </button>
-            ))}
-          </div>
+          {!only && (
+            <div
+              className={s.kinds}
+              style={{ "--n": kinds.length } as CSSProperties}
+            >
+              {kinds.map(([f, name, Icon], i) => (
+                <button
+                  key={f}
+                  type="button"
+                  disabled={!!job}
+                  aria-pressed={out?.f === f}
+                  onClick={() => go(f)}
+                  className={s.kind}
+                  style={{ "--i": i } as CSSProperties}
+                >
+                  <span className={s.orb}>
+                    <Icon aria-hidden />
+                  </span>
+                  <b>{name}</b>
+                  <small>
+                    {hints?.[f] ??
+                      (f === "image"
+                        ? "This frame"
+                        : f === "gif"
+                          ? `${Math.min(frames, 30)} frames`
+                          : `MP4 · ${many} frames`)}
+                  </small>
+                </button>
+              ))}
+            </div>
+          )}
           {job && (
-            <div className="grid gap-1" role="status">
-              <small className="text-xs text-muted">
+            <div className={s.status} role="status">
+              <span>
                 {job.f === "image"
-                  ? "Making the picture…"
+                  ? "Drawing the picture…"
                   : `Making the ${job.f === "gif" ? "GIF" : "video"}… frame ${Math.min(job.done + 1, job.total || 1)} of ${job.total || "…"}`}
-              </small>
-              <i className="block h-1.5 overflow-hidden rounded-full bg-line">
+              </span>
+              <i className={s.bar}>
                 <b
-                  className="block h-full origin-left bg-accent transition-transform"
                   style={{
                     transform: `scaleX(${job.total ? job.done / job.total : 0.05})`,
                   }}
@@ -154,41 +177,54 @@ export default function MotionShare({
               </i>
             </div>
           )}
-          {err && <p className="text-xs text-muted">{err}</p>}
-          {out && (
-            <div className="grid justify-items-start gap-2">
-              {out.f === "video" ? (
-                <video
-                  src={out.url}
-                  className="max-h-80 w-auto rounded-xl"
-                  autoPlay
-                  muted
-                  loop
-                  playsInline
-                />
-              ) : (
-                // eslint-disable-next-line @next/next/no-img-element -- a local preview of the file just made
-                <img
-                  src={out.url}
-                  alt="The picture to share"
-                  className="max-h-80 w-auto rounded-xl"
-                />
-              )}
-              <div className="flex flex-wrap gap-2">
+          {err && (
+            <p className="text-xs text-muted">
+              {err}{" "}
+              {only && (
                 <button
                   type="button"
-                  className={btn}
+                  className="font-bold text-accent underline"
+                  onClick={() => go(only)}
+                >
+                  Try again
+                </button>
+              )}
+            </p>
+          )}
+          {out && (
+            <div className={s.out}>
+              <div className={s.frame}>
+                {out.f === "video" ? (
+                  <video src={out.url} autoPlay muted loop playsInline />
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element -- a local preview of the file just made
+                  <img src={out.url} alt="The file to share" />
+                )}
+              </div>
+              <div className={s.acts}>
+                <button
+                  type="button"
+                  className={s.act}
                   onClick={() => deliver(true)}
                 >
-                  <Share2 className="size-4 text-accent" aria-hidden /> Share
+                  <Share2 aria-hidden /> Share
                 </button>
                 <button
                   type="button"
-                  className={btn}
+                  className={s.act}
                   onClick={() => deliver(false)}
                 >
-                  <Download className="size-4 text-accent" aria-hidden /> Save
+                  <Download aria-hidden /> Save
                 </button>
+                {only && (
+                  <button
+                    type="button"
+                    className={s.act}
+                    onClick={() => go(only)}
+                  >
+                    <Picture aria-hidden /> Redraw
+                  </button>
+                )}
               </div>
             </div>
           )}

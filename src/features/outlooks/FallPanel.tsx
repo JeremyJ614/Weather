@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { Leaf, Pause, Play } from "lucide-react";
 import { Beam } from "@/components/ui/Beam";
 import { UsMap } from "@/features/maps/UsMap";
@@ -8,7 +9,12 @@ import { HomeTabs } from "@/features/news/HomeTabs";
 import { Section } from "@/features/maps/Section";
 import { project } from "@/lib/map/usAlbers";
 import { leafColor, timeline, type FallReport } from "@/lib/weather/foliage";
+import { FallSeason } from "./FallSeason";
 import s from "./FallPanel.module.css";
+
+const MotionShare = dynamic(() => import("@/features/share/MotionShare"), {
+  ssr: false,
+});
 
 const DAY = 86_400_000;
 const fmt = (t: number) =>
@@ -94,11 +100,6 @@ export function FallPanel({ report }: { report: FallReport | null }) {
     );
   }
   const shown = pts.filter((p) => p.t <= asOf);
-  const recent = shown.filter((p) => asOf - p.t <= 14 * DAY).length;
-  const counts = new Map<number, number>();
-  shown.forEach((p) => counts.set(p.sp, (counts.get(p.sp) ?? 0) + 1));
-  const top = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
-  const topMax = top[0]?.[1] ?? 1;
   const frac = stops.length > 1 ? i / (stops.length - 1) : 1;
   const months = stops.filter(
     (t, k) => k === 0 || new Date(t).getUTCDate() <= 3,
@@ -204,46 +205,24 @@ export function FallPanel({ report }: { report: FallReport | null }) {
           </div>
         </div>
       </div>
+      <MotionShare
+        file={`sswx-fall-color-${report.season}`}
+        frames={stops.length}
+        heading="Share the fall color as"
+        hints={{
+          image: `The map on ${fmt(asOf)}`,
+          gif: "The color sweeping south",
+          video: "MP4 · 9 s · 1080p",
+        }}
+        build={async (f, progress) => {
+          setPlaying(false);
+          const { makeFall } = await import("./fallShare");
+          return makeFall(report, asOf, f, progress);
+        }}
+      />
     </div>
   );
-  const season = (
-    <div className="grid gap-5">
-      <div className={s.stats}>
-        <div>
-          <p className="label">Reports by {fmt(asOf)}</p>
-          <p className={s.num}>{shown.length.toLocaleString()}</p>
-        </div>
-        <div>
-          <p className="label">Turned in 2 weeks</p>
-          <p className={s.num} style={{ color: leafColor(2) }}>
-            {recent.toLocaleString()}
-          </p>
-        </div>
-      </div>
-
-      {top.length > 0 && (
-        <div className={s.species}>
-          <p className="label">Most reported</p>
-          <ol>
-            {top.map(([sp, n], k) => (
-              <li key={sp} style={{ ["--d" as string]: k }}>
-                <span className={s.spName}>{report.species[sp]}</span>
-                <span className={s.spBar}>
-                  <i
-                    style={{
-                      transform: `scaleX(${n / topMax})`,
-                      background: leafColor(k * 9),
-                    }}
-                  />
-                </span>
-                <span className={s.spN}>{n}</span>
-              </li>
-            ))}
-          </ol>
-        </div>
-      )}
-    </div>
-  );
+  const season = <FallSeason report={report} asOf={asOf} />;
   return (
     <HomeTabs
       label="Fall color"
