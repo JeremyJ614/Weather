@@ -91,6 +91,40 @@ const LOOK: Record<WidgetId, { icon: LucideIcon; tint: string }> = {
 };
 const WIDE: WidgetId[] = ["now", "hourly", "week"];
 
+/**
+ * Tap a widget: its outline lights up in a turning ring of every color and an inner bloom,
+ * then fades (owner's list #41, from the "sharp glowing card" pen, tap only, no idle
+ * animation). Web Animations on transform and opacity; Reduce Motion keeps a still flash.
+ */
+function flash(e: React.PointerEvent<HTMLUListElement>) {
+  const tile = (e.target as HTMLElement).closest("li");
+  if (!tile || !e.currentTarget.contains(tile)) return;
+  const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const low = document.documentElement.dataset.tier === "low";
+  for (const [sel, peak] of [
+    [":scope > [data-tapflash] > i", 1],
+    [":scope [data-tapbloom] > i", low ? 0 : 0.9],
+  ] as const) {
+    const el = tile.querySelector<HTMLElement>(sel);
+    if (!el || !peak) continue;
+    el.getAnimations().forEach((a) => a.cancel());
+    el.animate(
+      still
+        ? [{ opacity: 0 }, { opacity: peak, offset: 0.2 }, { opacity: 0 }]
+        : [
+            { opacity: 0, transform: "rotate(0deg) scale(1)" },
+            { opacity: peak, offset: 0.12 },
+            { opacity: peak * 0.85, offset: 0.6 },
+            { opacity: 0, transform: "rotate(320deg) scale(1.04)" },
+          ],
+      {
+        duration: still ? 500 : 1100,
+        easing: "cubic-bezier(0.2, 0.8, 0.2, 1)",
+      },
+    );
+  }
+}
+
 export function Dashboard() {
   const { active } = usePlaces();
   const layout = useSyncExternalStore(
@@ -389,7 +423,7 @@ export function Dashboard() {
           <Button onClick={() => setRetry((n) => n + 1)}>Try again</Button>
         </Card>
       )}
-      <ul className={s.wall}>
+      <ul className={s.wall} onPointerDown={flash}>
         {visible.map((id, i) => {
           const { icon: Icon, tint } = LOOK[id];
           return (
@@ -429,6 +463,14 @@ export function Dashboard() {
                 )}
               </div>
               {body[id] ?? <div className={s.skeleton} aria-label="Loading" />}
+              <span className={s.flash} data-tapflash aria-hidden>
+                <i />
+              </span>
+              <span className={s.bloom} aria-hidden>
+                <span data-tapbloom>
+                  <i />
+                </span>
+              </span>
             </li>
           );
         })}
