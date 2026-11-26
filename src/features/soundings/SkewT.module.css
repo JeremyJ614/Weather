@@ -1,0 +1,114 @@
+.wrap {
+  display: grid;
+  gap: 10px;
+}
+.svg {
+  width: 100%;
+  cursor: crosshair;
+  /* Vertical swipes still scroll the page; taps and sideways drags pick a height. */
+  touch-action: pan-y;
+  outline: none;
+  border-radius: 12px;
+}
+.svg:focus-visible {
+  box-shadow: 0 0 0 2px var(--lit-line);
+}
+.cross line {
+  stroke: #fff;
+  stroke-opacity: 0.55;
+  stroke-width: 0.8;
+  stroke-dasharray: 3 3;
+}
+.cross circle {
+  stroke: #0b0c14;
+  stroke-width: 1.4;
+  filter: drop-shadow(0 0 4px currentColor);
+}
+.tag {
+  paint-order: stroke;
+  stroke: #0b0c14;
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+.hint {
+  font-size: 12px;
+  color: var(--muted);
+}
+.read {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--bg) 70%, transparent);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--line) 90%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--accent) 25%, transparent);
+  animation: in 220ms var(--ease) both;
+}
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.top b {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 800;
+}
+.btns {
+  display: flex;
+  gap: 6px;
+}
+.btns button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.btns svg {
+  width: 16px;
+  height: 16px;
+}
+.zone {
+  padding-left: 10px;
+  border-left: 3px solid var(--z);
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--text);
+}
+.read dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px 10px;
+}
+.read dt {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.read dd {
+  font-size: 13px;
+  font-weight: 700;
+}
+@media (max-width: 420px) {
+  .read dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@keyframes in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .read {
+    animation: none;
+  }
+}

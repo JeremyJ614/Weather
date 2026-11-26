@@ -453,13 +453,18 @@ function View3D({
     <div className={s.card}>
       <Sounding3D a={a} parcel={parcel} c={c} />
       <Legend
-        items={SND_BANDS.map((b) => ({ label: b.label, color: c(b.key) }))}
+        items={[
+          ...SND_BANDS.map((b) => ({ label: b.label, color: c(b.key) })),
+          { label: "CAPE layer", color: c("cape") },
+          { label: "Cap (CIN)", color: c("cin") },
+        ]}
       />
       <p className={s.muted}>
         Each arrow is the wind at that height; the colored line through their
         tips is the hodograph, its shadow on the floor. Drag to turn and tilt;
         pinch, scroll, double-tap or use + and − to zoom in. A curved, long
-        trace means the shear that spins storms.
+        trace means the shear that spins storms. On the height axis, red is the
+        CAPE layer and blue the cap a storm has to break through.
       </p>
     </div>
   );
@@ -483,6 +488,7 @@ export function SkewPanel({
           { label: "Dew point", color: c("dew") },
           { label: "Parcel", color: c("parcel"), dash: true },
           { label: "CAPE", color: c("cape") },
+          { label: "CIN (cap)", color: c("cin") },
         ]}
       />
     </div>
