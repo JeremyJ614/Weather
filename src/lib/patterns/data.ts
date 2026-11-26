@@ -1,4 +1,5 @@
 import "server-only";
+import { gemini } from "@/lib/ai/gemini";
 import { inside, spcFeatures } from "@/lib/colors/spc-server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { efRank, surveysBetween, type Survey } from "./surveys";
@@ -344,7 +345,6 @@ export async function buildPeriod(id: Period["id"]): Promise<Period> {
 }
 
 const memo = new Map<string, { at: number; v: Promise<Period> }>();
-const MODELS = ["gemini-flash-latest", "gemini-flash-lite-latest"];
 
 /** A period as the page shows it: the stored recap when fresh, else built now. */
 export function period(id: Period["id"]): Promise<Period> {
@@ -433,46 +433,18 @@ Answer with JSON only: {"headline": one short sentence that sums up the period, 
 
 ${facts}`;
   const db = supabaseAdmin();
-  for (const model of MODELS) {
-    let ok = false;
-    try {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-        {
-          method: "POST",
-          headers: {
-            "x-goog-api-key": key,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: {
-              temperature: 0.5,
-              maxOutputTokens: 700,
-              responseMimeType: "application/json",
-            },
-          }),
-          signal: AbortSignal.timeout(20000),
-        },
-      );
-      const out = res.ok ? await res.json() : null;
-      const text: string =
-        out?.candidates?.[0]?.content?.parts
-          ?.map((p: { text?: string }) => p.text ?? "")
-          .join("")
-          .trim() ?? "";
-      const r = cleanRecap(text);
-      if (r) {
-        ok = true;
-        return r;
-      }
-    } catch {
-      // overloaded or timed out: try the next model
-    } finally {
-      await db.rpc("count_ai_call", { p_feature: "patterns", p_ok: ok });
-    }
-  }
-  return null;
+  return gemini({
+    key,
+    prompt,
+    temperature: 0.5,
+    maxOutputTokens: 1200,
+    json: true,
+    accept: cleanRecap,
+    // Four periods and the season run in one minute-long call each.
+    budget: 45,
+    counted: (ok) =>
+      db.rpc("count_ai_call", { p_feature: "patterns", p_ok: ok }),
+  });
 }
 
 /** The model's JSON, checked and trimmed; anything else is no recap. */

@@ -1,4 +1,5 @@
 import "server-only";
+import { gemini } from "@/lib/ai/gemini";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { parseAfd, type AfdSection } from "./parse";
 
@@ -44,8 +45,6 @@ export async function getLatestAfd(office: string): Promise<Afd | null> {
   };
 }
 
-// The "latest" alias: pinned model names get retired for new keys.
-const MODEL = "gemini-flash-lite-latest";
 const PROMPT = `You rewrite National Weather Service forecast discussions for everyday people.
 Rules: use only facts in the discussion; never add or guess; keep times, temperatures and hazards exact;
 no jargon (explain terms like "shortwave" or "CAPE" in plain words or leave them out); friendly, calm, clear.
@@ -78,35 +77,20 @@ export async function getSimplified(
     .map((s) => `${s.title.toUpperCase()}\n${s.paragraphs.join("\n")}`)
     .join("\n\n")
     .slice(0, 12000);
-  let ok = false;
-  try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`,
-      {
-        method: "POST",
-        headers: { "x-goog-api-key": key, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: PROMPT + body }] }],
-          generationConfig: { temperature: 0.3, maxOutputTokens: 900 },
-        }),
-        signal: AbortSignal.timeout(25000),
-      },
-    );
-    const out = res.ok ? await res.json() : null;
-    const text: string | undefined = out?.candidates?.[0]?.content?.parts
-      ?.map((p: { text?: string }) => p.text ?? "")
-      .join("");
-    if (!text?.trim()) throw new Error(`Gemini ${res.status}`);
-    ok = true;
-    const simplified = text.trim().slice(0, 8000);
-    await db
-      .from("afd_simplified")
-      .upsert({ product_id: afd.id, office, issued: afd.issued, simplified });
-    return { id: afd.id, simplified };
-  } finally {
-    await db.rpc("count_ai_call", {
-      p_feature: "forecast-discussion",
-      p_ok: ok,
-    });
-  }
+  const text = await gemini({
+    key,
+    prompt: PROMPT + body,
+    temperature: 0.3,
+    maxOutputTokens: 1200,
+    accept: (t) => (t.trim() ? t.trim() : null),
+    budget: 45,
+    counted: (ok) =>
+      db.rpc("count_ai_call", { p_feature: "forecast-discussion", p_ok: ok }),
+  });
+  if (!text) throw new Error("Gemini didn't answer");
+  const simplified = text.slice(0, 8000);
+  await db
+    .from("afd_simplified")
+    .upsert({ product_id: afd.id, office, issued: afd.issued, simplified });
+  return { id: afd.id, simplified };
 }

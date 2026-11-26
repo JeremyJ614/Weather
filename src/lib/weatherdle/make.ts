@@ -1,4 +1,5 @@
 import "server-only";
+import { gemini, parseJson } from "@/lib/ai/gemini";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { checkWord, WORDS, type WordPick } from "./words";
 
@@ -7,7 +8,6 @@ import { checkWord, WORDS, type WordPick } from "./words";
  * a hint) that hasn't been used in the past year; if it can't, the next unused word from
  * our own list. An admin's word for the day always stands.
  */
-const MODELS = ["gemini-flash-latest", "gemini-flash-lite-latest"];
 
 async function fromGemini(used: Set<string>): Promise<WordPick | null> {
   const key = process.env.GEMINI_WEATHERDLE_KEY ?? process.env.GEMINI_API_KEY;
@@ -16,53 +16,29 @@ async function fromGemini(used: Set<string>): Promise<WordPick | null> {
   const prompt = `Pick today's word for Weatherdle, a daily word-guessing game for weather fans (like Wordle, but the word can be any length). Choose ONE real word about weather, severe weather, storms, clouds, forecasting, the atmosphere or climate, between 4 and 12 letters, written as one word with no spaces or hyphens (for example TORNADO, MESOCYCLONE, HABOOB, GRAUPEL). Vary it: sometimes easy, sometimes a word a storm chaser would know. Do not use any of these recent words: ${recent || "none"}.
 Also write a one-sentence hint, under 120 characters, that helps without naming the word or any form of it.
 Answer with JSON only: {"word": string, "hint": string}`;
-  for (const model of MODELS) {
-    let ok = false;
-    try {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-        {
-          method: "POST",
-          headers: {
-            "x-goog-api-key": key,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: {
-              temperature: 1,
-              maxOutputTokens: 200,
-              responseMimeType: "application/json",
-            },
-          }),
-          signal: AbortSignal.timeout(20000),
-        },
-      );
-      const out = res.ok ? await res.json() : null;
-      const text: string =
-        out?.candidates?.[0]?.content?.parts
-          ?.map((p: { text?: string }) => p.text ?? "")
-          .join("") ?? "";
-      const j = JSON.parse(text.replace(/^```(?:json)?|```$/g, "").trim());
-      const pick = checkWord(j.word, j.hint);
-      if (
-        pick &&
+  return gemini({
+    key,
+    prompt,
+    temperature: 1,
+    maxOutputTokens: 300,
+    json: true,
+    accept: (text) => {
+      const j = parseJson<{ word?: unknown; hint?: unknown }>(text);
+      const pick = j && checkWord(j.word, j.hint);
+      return pick &&
         pick.word.length >= 4 &&
         pick.word.length <= 12 &&
         !used.has(pick.word)
-      ) {
-        ok = true;
-        return pick;
-      }
-    } catch {
-      // overloaded, timed out or not JSON: try the next model, then our list
-    } finally {
-      await supabaseAdmin()
-        .rpc("count_ai_call", { p_feature: "weatherdle", p_ok: ok })
-        .then(() => undefined);
-    }
-  }
-  return null;
+        ? pick
+        : null;
+    },
+    budget: 40,
+    counted: (ok) =>
+      supabaseAdmin().rpc("count_ai_call", {
+        p_feature: "weatherdle",
+        p_ok: ok,
+      }),
+  });
 }
 
 /** The first word of our list not used in the past year, rotating by date. */
