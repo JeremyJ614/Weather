@@ -29,8 +29,8 @@ describe("menu choice", () => {
     expect(r.stacked).toBe(false);
   });
   it("has every offered style built", () => {
-    expect(OFFERED.main).toHaveLength(17);
-    expect(OFFERED.second).toHaveLength(14);
+    expect(OFFERED.main).toHaveLength(18);
+    expect(OFFERED.second).toHaveLength(15);
     for (const id of [...OFFERED.main, ...OFFERED.second])
       expect(MENU_STYLES[id], id).toBeDefined();
   });
