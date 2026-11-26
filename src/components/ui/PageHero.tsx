@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Morph } from "./Morph";
+import { HeroTitle } from "@/features/nav/PageNames";
 import s from "./PageHero.module.css";
 
 const RINGS = [96, 148, 200, 252, 304, 356];
@@ -100,7 +101,7 @@ export function PageHero({
           <div className={s.titleRow}>
             {icon && <span className={s.icon}>{icon}</span>}
             <h1 className={s.title} data-decode="">
-              {title}
+              <HeroTitle title={title} />
             </h1>
             {action && <div className={s.action}>{action}</div>}
           </div>

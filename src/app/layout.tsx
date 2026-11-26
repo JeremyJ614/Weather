@@ -18,6 +18,7 @@ import { themeBootScript, themeCss } from "@/lib/theme/css";
 import { fontClassNames } from "@/lib/theme/fonts";
 import { getSiteDefaults } from "@/lib/settings";
 import { applyLayout } from "@/lib/nav/layout";
+import { PageNames } from "@/features/nav/PageNames";
 import { MAIN_NAV, SECOND_NAV } from "@/lib/nav/registry";
 import { extrasGroup } from "@/lib/nav/extras";
 import { ErrorReporter } from "@/components/ops/ErrorReporter";
@@ -125,7 +126,15 @@ export default async function RootLayout({
             text={defaults.banner.text}
             until={defaults.banner.until}
           />
-          {children}
+          <PageNames
+            names={Object.fromEntries(
+              Object.entries(defaults.layout?.pages ?? {}).flatMap(
+                ([slug, e]) => (e.label ? [[slug, e.label]] : []),
+              ),
+            )}
+          >
+            {children}
+          </PageNames>
         </div>
         <ViewAsBar />
         <Suspense>
