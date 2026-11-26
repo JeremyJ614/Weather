@@ -279,7 +279,7 @@ export function readAt(a: Analysis, parcel: Parcel, p: number) {
 }
 
 /** Hodograph geometry (knots) in a size×size box: rings, bands, the SRH wedge and movers. */
-export function hodoGeom(a: Analysis, size = 300) {
+export function hodoGeom(a: Analysis, size = 300, fixed?: number) {
   const C = size / 2;
   const w = a.wind.filter((p) => p.z <= 12000);
   const max = Math.max(
@@ -287,7 +287,7 @@ export function hodoGeom(a: Analysis, size = 300) {
     ...w.map((p) => Math.hypot(p.u, p.v)),
     ...(a.rm ? [Math.hypot(a.rm.u, a.rm.v)] : []),
   );
-  const ring = Math.ceil(max / 10) * 10;
+  const ring = fixed ?? Math.ceil(max / 10) * 10;
   const k = (C - 14) / ring;
   const X = (u: number) => C + u * k;
   const Y = (v: number) => C - v * k;

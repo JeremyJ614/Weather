@@ -22,7 +22,14 @@ export function draw3d(
   h: number,
   scene: Scene3D,
   view: { yaw: number; tilt: number },
-  o: { fs?: number; lw?: number; glow?: boolean } = {},
+  o: {
+    fs?: number;
+    lw?: number;
+    glow?: boolean;
+    zoom?: number;
+    /** A fixed ring size (kt), so a played run keeps one scale. */
+    ring?: number;
+  } = {},
 ) {
   const fs = o.fs ?? 1;
   const lw = o.lw ?? 1;
@@ -30,12 +37,15 @@ export function draw3d(
 
   const { a, parcel, c } = scene;
   const wind = a.wind.filter((p) => p.z <= TOP);
-  const ring = Math.max(
-    40,
-    Math.ceil(Math.max(0, ...wind.map((p) => Math.hypot(p.u, p.v))) / 20) * 20,
-  );
+  const ring =
+    o.ring ??
+    Math.max(
+      40,
+      Math.ceil(Math.max(0, ...wind.map((p) => Math.hypot(p.u, p.v))) / 20) *
+        20,
+    );
   const { yaw, tilt } = view;
-  const s = Math.min(w * 0.4, h * 0.3);
+  const s = Math.min(w * 0.4, h * 0.3) * (o.zoom ?? 1);
   const cx = w / 2;
   const colH = 1.8 * s * Math.cos(tilt);
   const cy = h * 0.5 + (colH - s * Math.sin(tilt)) / 2;

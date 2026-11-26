@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import type { GeoJSONSource, Map as MaplibreMap } from "maplibre-gl";
 import { Activity, Box, Compass, Gauge, Pause, Play } from "lucide-react";
 import { WeatherMap, type ReadyMap } from "@/features/map/WeatherMap";
@@ -20,6 +21,10 @@ import { explain } from "@/lib/soundings/explain";
 import { MODELS, type ModelId } from "@/lib/soundings/models";
 import { SND_BANDS, SND_LINES } from "@/lib/soundings/style";
 import s from "./Soundings.module.css";
+
+const MotionShare = dynamic(() => import("@/features/share/MotionShare"), {
+  ssr: false,
+});
 
 type Station = { id: string; name: string; lat: number; lon: number };
 type Balloons = { ts: string; valid: string; stations: Station[] };
@@ -136,6 +141,7 @@ export function SoundingsView({ colors }: { colors: Colors }) {
   const a = useMemo(() => (levels ? analyze(levels) : null), [levels]);
   const [pk, setPk] = useState<"ml" | "sb" | "mu">("ml");
   const parcel = a ? a[pk] : null;
+  const view3d = useRef<{ yaw: number; tilt: number } | null>(null);
 
   // Play through the run.
   const [playing, setPlaying] = useState(false);
@@ -352,6 +358,66 @@ export function SoundingsView({ colors }: { colors: Colors }) {
               </div>
             </div>
             <p className={s.read}>{explain(a)}</p>
+            <div className={s.shares}>
+              {(["card", "social"] as const).map((look) => (
+                <MotionShare
+                  key={look}
+                  file={`sswx-sounding-${look === "social" ? "social-" : ""}${src.toLowerCase()}`}
+                  frames={model ? model.hours.length : 1}
+                  formats={model ? ["image", "gif", "video"] : ["image"]}
+                  label={look === "social" ? "Social share" : "Share"}
+                  heading={
+                    look === "social"
+                      ? "3D, Skew-T and hodograph together, as"
+                      : "Share the 3D sounding as"
+                  }
+                  hints={{
+                    image: model ? "This hour" : "This launch",
+                    gif: "The run, morphing",
+                    video: "MP4 · 1080p",
+                  }}
+                  build={async (f, progress) => {
+                    setPlaying(false);
+                    const { makeSounding, placeName } = await import("./share");
+                    const at = src === "RAOB" ? site : model;
+                    const near = at ? await placeName(at.lat, at.lon) : null;
+                    const label = MODELS.find((m) => m.id === src)?.label;
+                    const frames = model
+                      ? model.hours.map((h) => ({
+                          levels: h.levels,
+                          when: when(h.valid),
+                          tag: `RUN ${z(model.run)} · F${String(h.fh ?? 0).padStart(3, "0")}`,
+                        }))
+                      : [
+                          {
+                            levels: bal!.levels,
+                            when: when(bal!.valid),
+                            tag: `${z(bal!.valid)} LAUNCH`,
+                          },
+                        ];
+                    return makeSounding(
+                      {
+                        kind: model ? "model" : "balloon",
+                        place:
+                          near ??
+                          (src === "RAOB" ? (site?.name ?? title) : title),
+                        source: model
+                          ? `${label} model sounding · ${model.station}`
+                          : `Weather balloon · ${site?.id.replace(/^_/, "") ?? ""}`,
+                        frames,
+                        at: model ? hi : 0,
+                        parcel: pk,
+                        view: view3d.current ?? { yaw: -0.6, tilt: 0.42 },
+                        c,
+                      },
+                      look,
+                      f,
+                      progress,
+                    );
+                  }}
+                />
+              ))}
+            </div>
           </>
         )}
       </section>
@@ -382,7 +448,7 @@ export function SoundingsView({ colors }: { colors: Colors }) {
                 id: "s-3d",
                 label: "3D",
                 icon: <Box aria-hidden />,
-                panel: <View3D a={a} parcel={parcel} c={c} />,
+                panel: <View3D a={a} parcel={parcel} c={c} viewRef={view3d} />,
               },
               {
                 id: "s-skewt",
@@ -444,14 +510,16 @@ function View3D({
   a,
   parcel,
   c,
+  viewRef,
 }: {
   a: Analysis;
   parcel: Analysis["ml"];
   c: (k: string) => string;
+  viewRef: React.RefObject<{ yaw: number; tilt: number } | null>;
 }) {
   return (
     <div className={s.card}>
-      <Sounding3D a={a} parcel={parcel} c={c} />
+      <Sounding3D a={a} parcel={parcel} c={c} viewRef={viewRef} />
       <Legend
         items={[
           ...SND_BANDS.map((b) => ({ label: b.label, color: c(b.key) })),

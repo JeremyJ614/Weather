@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 import { Minus, Plus, Scan } from "lucide-react";
 import type { Analysis, Parcel } from "@/lib/soundings/thermo";
 import { draw3d } from "./draw3d";
@@ -15,13 +15,19 @@ export function Sounding3D({
   a,
   parcel,
   c,
+  viewRef,
 }: {
   a: Analysis;
   parcel: Parcel;
   c: (k: string) => string;
+  /** Receives the live view (turn and tilt), so a share can hold the same angle. */
+  viewRef?: RefObject<{ yaw: number; tilt: number } | null>;
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const view = useRef({ yaw: -0.6, tilt: 0.42, zoom: 1, tx: 0, ty: 0 });
+  useEffect(() => {
+    if (viewRef) viewRef.current = view.current;
+  }, [viewRef]);
   const scene = useRef({ a, parcel, c });
   const redraw = useRef<() => void>(() => {});
   /** Zoom by `f` about a canvas point (CSS px); the centre when none is given. */
