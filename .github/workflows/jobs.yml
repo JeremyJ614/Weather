@@ -14,9 +14,13 @@ on:
   workflow_dispatch:
     inputs:
       job:
-        description: "engines, outdoor, verify, surge, indexnow, sizes or usage"
+        description: "engines, outdoor, verify, surge, indexnow, sizes, usage or cron"
         required: true
         default: engines
+      arg:
+        description: "For cron: the route, e.g. patterns?part=month"
+        required: false
+        default: ""
 
 concurrency:
   group: jobs-${{ github.event.schedule || inputs.job }}
@@ -55,4 +59,7 @@ jobs:
             "23 9 * * *") echo "job=indexnow" >> "$GITHUB_OUTPUT" ;;
             *) echo "job=${{ inputs.job }}" >> "$GITHUB_OUTPUT" ;;
           esac
-      - run: npx tsx --conditions=react-server scripts/jobs/run.ts ${{ steps.pick.outputs.job }}
+      - run: npx tsx --conditions=react-server scripts/jobs/run.ts "$JOB" "$ARG"
+        env:
+          JOB: ${{ steps.pick.outputs.job }}
+          ARG: ${{ inputs.arg }}

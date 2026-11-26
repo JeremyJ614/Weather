@@ -1,4 +1,5 @@
 import "server-only";
+import { gemini } from "@/lib/ai/gemini";
 import type { OtdFeature } from "./onthisday";
 import type { Article, Photo } from "./wiki";
 
@@ -20,7 +21,6 @@ export type OtdStory = {
   retry?: boolean;
 };
 
-const MODELS = ["gemini-flash-latest", "gemini-flash-lite-latest"];
 const MONTHS =
   "January February March April May June July August September October November December".split(
     " ",
@@ -90,38 +90,15 @@ ${f.facts.join("\n")}
 ${article ? `\nFrom the Wikipedia article "${article.title}":\n${article.text}\n` : ""}
 Answer with JSON only:
 {"title": "the event's name as people know it, or a plain one (under 60 characters)", "headline": "one sentence that draws the reader in (under 200 characters)", "story": ["3 to 5 paragraphs, each 2 to 4 sentences"]}`;
-  for (const model of MODELS)
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const res = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-          {
-            method: "POST",
-            headers: {
-              "x-goog-api-key": key,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: prompt }] }],
-              generationConfig: {
-                temperature: 0.8,
-                maxOutputTokens: 2500,
-                responseMimeType: "application/json",
-              },
-            }),
-            signal: AbortSignal.timeout(30000),
-          },
-        );
-        const out = res.ok ? await res.json() : null;
-        const text: string =
-          out?.candidates?.[0]?.content?.parts
-            ?.map((p: { text?: string }) => p.text ?? "")
-            .join("") ?? "";
-        const s = cleanFeature(text);
-        if (s) return s;
-      } catch {
-        // overloaded or timed out: try again, then the next model
-      }
-    }
-  return null;
+  // Two passes: a draft with a machine tell is sent back for another try.
+  return gemini({
+    key,
+    prompt,
+    temperature: 0.8,
+    maxOutputTokens: 2500,
+    json: true,
+    accept: cleanFeature,
+    passes: 2,
+    budget: 50,
+  });
 }

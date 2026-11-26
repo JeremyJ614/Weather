@@ -1,4 +1,5 @@
 import "server-only";
+import { gemini } from "@/lib/ai/gemini";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { createHash } from "node:crypto";
 import {
@@ -11,8 +12,6 @@ import {
   type Past,
 } from "./shape";
 
-// "latest" aliases (pinned names retire); the lite model answers when flash is overloaded.
-const MODELS = ["gemini-flash-latest", "gemini-flash-lite-latest"];
 const SHAPE = `Return ONLY JSON: {"question":string,"choices":[string,string,string,string],"answer_index":number,"explanation":string}. answer_index is the 0-based index of the correct choice.`;
 
 // The VIP app's prompts, kept word for word: they were tuned there.
@@ -70,62 +69,32 @@ export async function draftQuestion(
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new Error("GEMINI_API_KEY is not set");
   const db = supabaseAdmin();
-  // Each model gets two tries: a duplicate or a malformed reply asks again.
-  for (const model of [...MODELS, ...MODELS]) {
-    let ok = false;
-    try {
-      const seed = `${Date.now()}-${Math.floor(Math.random() * 1e5)}`;
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-        {
-          method: "POST",
-          headers: {
-            "x-goog-api-key": key,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [
-                  {
-                    text:
-                      PROMPTS[category](seed) +
-                      (past.length
-                        ? `\nDo NOT repeat or rephrase any of these recent questions:\n${past
-                            .slice(-40)
-                            .map((p) => `- ${p.question}`)
-                            .join("\n")}`
-                        : ""),
-                  },
-                ],
-              },
-            ],
-            generationConfig: {
-              temperature: 1,
-              responseMimeType: "application/json",
-              maxOutputTokens: 1500,
-            },
-          }),
-          signal: AbortSignal.timeout(25000),
-        },
-      );
-      const out = res.ok ? await res.json() : null;
-      const text: string =
-        out?.candidates?.[0]?.content?.parts
-          ?.map((p: { text?: string }) => p.text ?? "")
-          .join("") ?? "";
-      const draft = cleanDraft(parseReply(text));
-      if (draft && !isDuplicate(draft, past)) {
-        ok = true;
-        return draft;
-      }
-    } catch {
-      // overloaded or timed out: try the next model
-    } finally {
-      await db.rpc("count_ai_call", { p_feature: "trivia", p_ok: ok });
-    }
-  }
-  throw new Error("Gemini didn't return a usable question");
+  const avoid = past.length
+    ? `\nDo NOT repeat or rephrase any of these recent questions:\n${past
+        .slice(-40)
+        .map((p) => `- ${p.question}`)
+        .join("\n")}`
+    : "";
+  // Two passes: a duplicate or a malformed reply asks again, with a fresh seed each time.
+  const draft = await gemini({
+    key,
+    prompt: "",
+    vary: () =>
+      PROMPTS[category](`${Date.now()}-${Math.floor(Math.random() * 1e5)}`) +
+      avoid,
+    temperature: 1,
+    maxOutputTokens: 1500,
+    json: true,
+    accept: (text) => {
+      const d = cleanDraft(parseReply(text));
+      return d && !isDuplicate(d, past) ? d : null;
+    },
+    passes: 2,
+    budget: 50,
+    counted: (ok) => db.rpc("count_ai_call", { p_feature: "trivia", p_ok: ok }),
+  });
+  if (!draft) throw new Error("Gemini didn't return a usable question");
+  return draft;
 }
 
 /**

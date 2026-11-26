@@ -8,6 +8,8 @@
  *   npx tsx --conditions=react-server scripts/jobs/run.ts dry <field engine id>
  */
 const job = process.argv[2];
+// An empty argument (scheduled runs pass none) counts as none.
+const arg = process.argv[3] || undefined;
 
 async function main() {
   switch (job) {
@@ -59,16 +61,30 @@ async function main() {
       if (error) throw new Error(error.message);
       return data;
     }
+    case "cron": {
+      // Fix it List #40: re-runs one of the site's scheduled routes now, e.g.
+      // `cron patterns?part=month`, signed with this workflow's OIDC token.
+      if (!arg || !/^[a-z][a-z/-]*(\?[a-z0-9=&-]*)?$/.test(arg))
+        throw new Error("cron needs a route like patterns?part=month");
+      const { actionsToken } = await import("../../src/lib/jobs/oidc");
+      const r = await fetch(`https://weather.sswx.space/api/cron/${arg}`, {
+        headers: { authorization: `Bearer ${await actionsToken()}` },
+        signal: AbortSignal.timeout(120_000),
+      });
+      const body = await r.text();
+      if (!r.ok) throw new Error(`${r.status} ${body.slice(0, 300)}`);
+      return { status: r.status, body: body.slice(0, 2000) };
+    }
     case "usage": {
       // Fix it List #39, 3: the usage meter's month so far (calls and CPU by route, projected
       // against Hobby), read without the dashboard for free-tier checks.
       const { usageReport } = await import("../../src/lib/ops/usage");
-      const r = await usageReport(Number(process.argv[3] ?? 24));
+      const r = await usageReport(Number(arg ?? 24));
       return r;
     }
     case "dry": {
       // Computes one engine without storing it: proves the runner works on a new machine.
-      const id = process.argv[3] ?? "stp";
+      const id = arg ?? "stp";
       const { fieldEngine } = await import("../../src/lib/engines/fields");
       const t = Date.now();
       const m = await fieldEngine(id as never);
@@ -82,7 +98,7 @@ async function main() {
     }
     default:
       throw new Error(
-        `Unknown job "${job}". Use engines, outdoor, verify, surge, indexnow, sizes, usage or dry.`,
+        `Unknown job "${job}". Use engines, outdoor, verify, surge, indexnow, sizes, usage, cron or dry.`,
       );
   }
 }

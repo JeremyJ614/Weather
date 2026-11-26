@@ -1,4 +1,5 @@
 import "server-only";
+import { gemini, parseJson } from "@/lib/ai/gemini";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { CAT_NAMES, lclFt, type DeskNote } from "./score";
 import type { ChaseDay } from "./engine";
@@ -16,7 +17,6 @@ export type Desk = {
   tips?: string[];
   safety?: string;
 };
-const MODELS = ["gemini-flash-latest", "gemini-flash-lite-latest"];
 
 const PROMPT = (
   facts: string,
@@ -52,37 +52,18 @@ Mode: ${t.mode.mode} (${t.mode.flavor}), hail estimate ${t.mode.hailIn} in. Bust
     })
     .join("\n\n");
   const db = supabaseAdmin();
-  for (const model of MODELS) {
-    let ok = false;
-    try {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-        {
-          method: "POST",
-          headers: {
-            "x-goog-api-key": key,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: PROMPT(facts) }] }],
-            generationConfig: {
-              temperature: 0.4,
-              responseMimeType: "application/json",
-              maxOutputTokens: 2200,
-            },
-          }),
-          signal: AbortSignal.timeout(25000),
-        },
-      );
-      const out = res.ok ? await res.json() : null;
-      const text: string =
-        out?.candidates?.[0]?.content?.parts
-          ?.map((p: { text?: string }) => p.text ?? "")
-          .join("") ?? "";
-      const j = JSON.parse(text) as Desk;
+  const desk = await gemini<Desk>({
+    key,
+    prompt: PROMPT(facts),
+    temperature: 0.4,
+    maxOutputTokens: 2200,
+    json: true,
+    accept: (text) => {
+      const j = parseJson<Desk>(text);
+      if (!j) return null;
       const clean = (x: unknown, n: number) =>
         typeof x === "string" ? x.trim().slice(0, n) : "";
-      const desk: Desk = {
+      const out: Desk = {
         summary: clean(j.summary, 220),
         targets: d.targets.map((_, i) => ({
           desk: clean(j.targets?.[i]?.desk, 700),
@@ -97,15 +78,10 @@ Mode: ${t.mode.mode} (${t.mode.flavor}), hail estimate ${t.mode.hailIn} in. Bust
           .slice(0, 4),
         safety: clean(j.safety, 260) || undefined,
       };
-      if (desk.summary && desk.targets.every((t) => t.desk)) {
-        ok = true;
-        return desk;
-      }
-    } catch {
-      // overloaded, timed out or malformed: try the next model
-    } finally {
-      await db.rpc("count_ai_call", { p_feature: "chase", p_ok: ok });
-    }
-  }
-  return undefined;
+      return out.summary && out.targets.every((t) => t.desk) ? out : null;
+    },
+    budget: 50,
+    counted: (ok) => db.rpc("count_ai_call", { p_feature: "chase", p_ok: ok }),
+  });
+  return desk ?? undefined;
 }
