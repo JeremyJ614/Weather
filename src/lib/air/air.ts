@@ -2,6 +2,7 @@ import "server-only";
 import { getWeather } from "@/lib/weather/nws";
 import { snap } from "@/lib/weather/geo";
 import { dispersalBand, dispersalScore, windMph } from "./scales";
+import { meteoFetch } from "@/lib/meteo/fetch";
 
 export type Pollutant = {
   id: string;
@@ -60,7 +61,7 @@ export type AirReport = {
 
 const get = async <T>(url: string, revalidate: number): Promise<T | null> => {
   try {
-    const r = await fetch(url, {
+    const r = await meteoFetch(url, {
       next: { revalidate },
       signal: AbortSignal.timeout(8000),
     });

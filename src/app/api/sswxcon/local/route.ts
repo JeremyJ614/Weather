@@ -1,5 +1,6 @@
 import { localPoints, shear06, srh } from "@/lib/sswxcon/kinematics";
 import { LIMITS, limited } from "@/lib/ratelimit";
+import { meteoFetch } from "@/lib/meteo/fetch";
 
 const LEVELS = ["10m", "925hPa", "850hPa", "700hPa", "500hPa"] as const;
 
@@ -22,7 +23,7 @@ export async function GET(request: Request) {
   ];
   const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(2)}&longitude=${lon.toFixed(2)}&hourly=${vars.join(",")}&wind_speed_unit=ms&forecast_hours=3&timezone=UTC`;
   try {
-    const r = await fetch(url, {
+    const r = await meteoFetch(url, {
       next: { revalidate: 900 },
       signal: AbortSignal.timeout(12000),
     });

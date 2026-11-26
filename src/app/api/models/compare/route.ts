@@ -1,5 +1,6 @@
 import { COMPARE } from "@/lib/radar/products";
 import { LIMITS, limited } from "@/lib/ratelimit";
+import { meteoFetch } from "@/lib/meteo/fetch";
 
 /** GET /api/models/compare?lat=&lon= → each model's next 48 hours of temperature and rain. */
 export async function GET(req: Request) {
@@ -11,7 +12,7 @@ export async function GET(req: Request) {
   if (!(lat > 15 && lat < 72 && lon > -180 && lon < -60))
     return Response.json({ error: "Pick a US place." }, { status: 400 });
   try {
-    const r = await fetch(
+    const r = await meteoFetch(
       `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(2)}&longitude=${lon.toFixed(2)}&hourly=temperature_2m,precipitation&models=${COMPARE.map((m) => m.id).join(",")}&forecast_hours=48&temperature_unit=fahrenheit&precipitation_unit=inch&timezone=auto`,
       { next: { revalidate: 1800 }, signal: AbortSignal.timeout(15000) },
     );
