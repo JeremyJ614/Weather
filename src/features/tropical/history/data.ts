@@ -142,6 +142,10 @@ async function trackFiles(): Promise<[Meta, ArrayBuffer, Latest | null]> {
 
 let memo: Promise<Tracks> | null = null;
 
+/** The year each storm formed, from its first fix (epoch hours). */
+export const calendarYears = (t0: number[]) =>
+  t0.map((h) => new Date(h * 3600_000).getUTCFullYear());
+
 /** Every track, fetched once a session. */
 export function loadTracks(): Promise<Tracks> {
   memo ??= (async () => {
@@ -150,6 +154,9 @@ export function loadTracks(): Promise<Tracks> {
       gunzip(fetch("/extras/tracks/land.bin.gz")),
     ]);
     const storms = { ...meta.s, built: meta.built, source: meta.source };
+    // Years are the year each storm formed (owner, Fix it List #40): IBTrACS numbers a
+    // Southern Hemisphere season by the year it ends, so "2026" started in August 2025.
+    storms.y = calendarYears(storms.t0);
     return {
       storms,
       count: storms.y.length,
@@ -455,7 +462,7 @@ export const FAMOUS: {
   { label: "New England hurricane", y: 1938, at: [41.2, -72.6] },
   { label: "Camille", y: 1969, name: "Camille" },
   { label: "Bhola cyclone", y: 1970, at: [21.8, 90.5] },
-  { label: "Tracy", y: 1975, name: "Tracy" },
+  { label: "Tracy", y: 1974, name: "Tracy" },
   { label: "Tip", y: 1979, name: "Tip" },
   { label: "Gilbert", y: 1988, name: "Gilbert" },
   { label: "Andrew", y: 1992, name: "Andrew" },

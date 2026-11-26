@@ -140,8 +140,7 @@ function Explorer({ t, colors }: { t: Tracks; colors: Colors }) {
   const S = t.storms;
   const first = 1851;
   const last = useMemo(() => Math.max(...S.y), [S.y]);
-  // The Northern Hemisphere's season; the Southern's runs July to June and carries next
-  // year's number.
+  // Years are the year each storm formed (calendar years), in every hemisphere.
   const thisYear = Math.min(last, new Date().getUTCFullYear());
   const canvas = useRef<HTMLCanvasElement>(null);
   const overlay = useRef<HTMLCanvasElement>(null);
@@ -625,7 +624,8 @@ function Explorer({ t, colors }: { t: Tracks; colors: Colors }) {
       from: span!.lo,
       to: span!.hi,
       fresh: Math.max(24 * 20, (span!.hi - span!.lo) / 30),
-      turn: 28,
+      // The globe stays exactly where the viewer left it (owner, Fix it List #40).
+      turn: 0,
       counter: (h) => {
         let n = 0;
         let hi = starts.length;
@@ -636,7 +636,7 @@ function Explorer({ t, colors }: { t: Tracks; colors: Colors }) {
         }
         return [
           String(new Date(h * 3600_000).getUTCFullYear()),
-          `${n.toLocaleString("en-US")} STORMS`,
+          `${n.toLocaleString("en-US")} STORM${n === 1 ? "" : "S"}`,
         ];
       },
       foot,
@@ -831,8 +831,8 @@ function Explorer({ t, colors }: { t: Tracks; colors: Colors }) {
           }
           hints={{
             image: "This view",
-            gif: "48 frames · 1080p",
-            video: "MP4 · 8 s · 1080p",
+            gif: "Smooth · 20 fps · 1080p",
+            video: "MP4 · 8 s · 30 fps · 1080p",
           }}
           build={async (f, progress) => {
             const g = globe.current;

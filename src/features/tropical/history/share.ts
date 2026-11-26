@@ -37,9 +37,12 @@ const W = 1080;
 const H = 1350;
 const TOP = 118;
 const G = 1080;
-/** GIF: frames and their timing; video: frames a second and seconds of motion. */
-const GIF_FRAMES = 48;
-const GIF_MS = 90;
+/**
+ * GIF: frames and their timing (20 frames a second, owner: smooth, not choppy); video: frames
+ * a second and seconds of motion.
+ */
+const GIF_FRAMES = 120;
+const GIF_MS = 50;
 const FPS = 30;
 const SECS = 8;
 const HOLD_MS = 1800;
@@ -186,27 +189,35 @@ export async function makeGlobe(
 ): Promise<Blob> {
   const draw = framer(await tokens(), clip);
   const g = clip.globe;
-  g.captureStart(G);
+  // A GIF holds the camera still (Storm View frames the whole path), so each frame stores
+  // only what changed; the video follows the storm.
+  g.captureStart(G, f === "gif");
   try {
     if (f === "image") {
       progress(0, 1);
       return await png(draw(g.captureFrame(clip.to, 0, 0), clip.to, 1));
     }
     const n = f === "gif" ? GIF_FRAMES : FPS * SECS;
-    const sink: Sink | null =
-      f === "gif"
-        ? await gifSink(W, H, true)
-        : ((await mp4Sink(W, H, FPS)) ?? recordSink(W, H));
-    if (!sink) throw new Error("no encoder");
-    for (let i = 0; i < n; i++) {
-      progress(i, n);
+    const at = (i: number) => {
       const k = i / (n - 1);
       // Ease in and out, so the clip settles on its last frame.
       const e = k < 0.5 ? 2 * k * k : 1 - (-2 * k + 2) ** 2 / 2;
       const h = clip.from + (clip.to - clip.from) * e;
-      const frame = draw(g.captureFrame(h, clip.fresh, clip.turn * e), h, e);
+      return draw(g.captureFrame(h, clip.fresh, clip.turn * e), h, e);
+    };
+    let sink: Sink | null;
+    if (f === "gif") {
+      // One palette for the whole GIF, from its first, middle and last frames.
+      const sample = [n - 1, Math.floor(n / 2), 0].map((i) =>
+        at(i).getContext("2d")!.getImageData(0, 0, W, H),
+      );
+      sink = await gifSink(W, H, true, sample);
+    } else sink = (await mp4Sink(W, H, FPS)) ?? recordSink(W, H);
+    if (!sink) throw new Error("no encoder");
+    for (let i = 0; i < n; i++) {
+      progress(i, n);
       const last = i === n - 1;
-      await sink.add(frame, last ? HOLD_MS : f === "gif" ? GIF_MS : 1000 / FPS);
+      await sink.add(at(i), last ? HOLD_MS : f === "gif" ? GIF_MS : 1000 / FPS);
       // Let the page breathe between frames (the progress bar, the share sheet).
       await new Promise((ok) => setTimeout(ok, 0));
     }

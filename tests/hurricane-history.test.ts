@@ -9,6 +9,7 @@ import {
   summary,
   tierIndex,
   type Tracks,
+  calendarYears,
 } from "@/features/tropical/history/data";
 import { xyz } from "@/features/tropical/history/globe";
 
@@ -52,6 +53,15 @@ function tracks(): Tracks {
     from: null,
   };
 }
+
+describe("calendar years", () => {
+  it("counts a storm in the year it formed, not its season's number", () => {
+    // A Southern Hemisphere storm of IBTrACS's 2026 season that formed on 2025-08-04.
+    const aug2025 = Date.UTC(2025, 7, 4, 18) / 3600_000;
+    const jan2026 = Date.UTC(2026, 0, 3) / 3600_000;
+    expect(calendarYears([aug2025, jan2026])).toEqual([2025, 2026]);
+  });
+});
 
 describe("hurricane history data", () => {
   it("adds the steps back up, across the date line too", () => {
