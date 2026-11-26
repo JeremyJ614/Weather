@@ -18,7 +18,7 @@ import {
   type CodeTable,
   type Kind,
 } from "./codes";
-import type { Built } from "./build";
+import type { Built, BuildJob } from "./build";
 import type { WorkerOut } from "./build.worker";
 import s from "./SevenDay.module.css";
 
@@ -49,11 +49,15 @@ export type Meta = {
   cities: [string, string, number, number, number, number[]][];
   reports: Report[];
   source: string;
+  /** The week's total in one file (builds from 2026-11-26 on). */
+  total?: string;
 };
 
 const W = 975;
 const H = 610;
 
+const day = (iso: string) =>
+  new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 const when = (iso: string, withDay = true) =>
   new Date(iso).toLocaleString("en-US", {
     weekday: withDay ? "short" : undefined,
@@ -63,13 +67,9 @@ const when = (iso: string, withDay = true) =>
     timeZoneName: "short",
   });
 
-/** Frames in a worker (build.worker.ts), or on the page where workers can't. */
-async function* frames(job: {
-  urls: string[][];
-  lut: Uint32Array;
-  w: number;
-  h: number;
-}): AsyncGenerator<Built> {
+/** Pictures from a worker (build.worker.ts), or on the page where workers can't. */
+async function* run(job: BuildJob): AsyncGenerator<Built> {
+  const expect = job.kind === "total" ? 1 : job.urls.length;
   if (typeof Worker === "function" && typeof OffscreenCanvas !== "undefined") {
     const w = new Worker(new URL("./build.worker.ts", import.meta.url), {
       type: "module",
@@ -86,7 +86,7 @@ async function* frames(job: {
     };
     w.postMessage(job);
     try {
-      for (let got = 0; got < job.urls.length;) {
+      for (let got = 0; got < expect;) {
         if (!queue.length) await new Promise<void>((ok) => (wake = ok));
         wake = null;
         const m = queue.shift()!;
@@ -101,8 +101,9 @@ async function* frames(job: {
       w.terminate();
     }
   }
-  const { buildFrames } = await import("./build");
-  yield* buildFrames(job);
+  const b = await import("./build");
+  if (job.kind === "total") yield await b.buildTotal(job);
+  else yield* b.buildFrames(job);
 }
 
 /**
@@ -127,6 +128,7 @@ export function SevenDayMap({
     "loading",
   );
   const [built, setBuilt] = useState(0);
+  const [shownTotal, setShownTotal] = useState(false);
   const [step, setStep] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [view, setView] = useState({ x: 0, y: 0, w: W, cssW: 360 });
@@ -136,6 +138,9 @@ export function SevenDayMap({
     | null
   >(null);
   const urls = useRef<string[]>([]);
+  /** Full-size steps, made the first time a zoomed-in share needs them. */
+  const sharp = useRef<Promise<string[]> | null>(null);
+  const sharpMake = useRef<(() => Promise<string[]>) | null>(null);
   const codes = useRef<Uint8Array | null>(null);
   const bottom = useRef<SVGImageElement>(null);
   const top = useRef<SVGImageElement>(null);
@@ -163,8 +168,8 @@ export function SevenDayMap({
     };
   }, [kind]);
 
-  // The pictures, built on this device in the owner's colors; each shows as it arrives, so the
-  // first load already plays the week piling up.
+  // The pictures, made on this device in the owner's colors: the week's total first (one file,
+  // full size, so the map shows right away), then the steps for playback behind it.
   const lutKey = ramp.map((r) => r.color).join();
   useEffect(() => {
     if (!meta) return;
@@ -173,34 +178,76 @@ export function SevenDayMap({
     (async () => {
       const l = await latest();
       if (!l) throw new Error("no build");
-      const job = {
-        urls: meta.steps.map((_, k) =>
-          dataUrls(l, `${kind}/d${String(k).padStart(2, "0")}.webp`),
-        ),
-        lut: lut(meta.codes, ramp),
-        w: W * meta.scale,
-        h: H * meta.scale,
+      const table = lut(meta.codes, ramp);
+      const w = W * meta.scale;
+      const h = H * meta.scale;
+      const last = meta.steps.length - 1;
+      const keep = (png: Blob) => {
+        const u = URL.createObjectURL(png);
+        made.push(u);
+        return u;
       };
-      for await (const f of frames(job)) {
-        if (!on) return;
-        const u = URL.createObjectURL(f.png);
-        made[f.k] = u;
-        urls.current[f.k] = u;
-        if (f.codes) codes.current = f.codes;
-        setBuilt(f.k + 1);
-        // Follow the build until the viewer takes over the timeline.
-        if (shown.current === f.k - 1 || shown.current < 0) {
-          showStep(f.k, f.k > 0);
-          setStep(f.k);
+      if (meta.total) {
+        for await (const f of run({
+          kind: "total",
+          urls: dataUrls(l, `${kind}/${meta.total}`),
+          lut: table,
+          w,
+          h,
+        })) {
+          if (!on) return;
+          urls.current[last] = keep(f.png);
+          codes.current = f.codes ?? null;
+          setShownTotal(true);
+          showStep(last, false);
+          setStep(last);
         }
       }
+      // Playback steps at half size (the total keeps its full-size picture). Builds from
+      // before the total file existed draw the steps at full size and show as they come.
+      const steps = (scale: number) =>
+        run({
+          kind: "steps",
+          urls: meta.steps.map((_, k) =>
+            dataUrls(l, `${kind}/d${String(k).padStart(2, "0")}.webp`),
+          ),
+          lut: table,
+          w,
+          h,
+          scale,
+          // Without a total file, the last step brings the codes taps read.
+          codes: !meta.total,
+        });
+      for await (const f of steps(meta.total ? 0.5 : 1)) {
+        if (!on) return;
+        if (f.codes) codes.current = f.codes;
+        if (!(meta.total && f.k === last)) urls.current[f.k] = keep(f.png);
+        setBuilt(f.k + 1);
+        if (!meta.total && shown.current === f.k - 1) {
+          showStep(f.k, f.k > 0);
+          setStep(f.k);
+          if (f.k === last) setShownTotal(true);
+        }
+      }
+      // A zoomed-in share wants full-size steps: made then, and kept.
+      const full = async () => {
+        if (!meta.total) return urls.current.slice();
+        const out: string[] = [];
+        for await (const f of steps(1))
+          out[f.k] = f.k === last ? urls.current[last] : keep(f.png);
+        return out;
+      };
+      sharpMake.current = () => (sharp.current ??= full());
     })().catch(() => on && setStatus("error"));
     return () => {
       on = false;
       for (const u of made) URL.revokeObjectURL(u);
       urls.current = [];
       shown.current = -1;
+      sharp.current = null;
+      sharpMake.current = null;
       setBuilt(0);
+      setShownTotal(false);
     };
     // The ramp is keyed by its colors.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -363,11 +410,10 @@ export function SevenDayMap({
       {!preview && meta && (
         <header className={s.head}>
           <div className={s.big}>
-            <b>{meta.max.in > 0 ? inches(meta.max.in) : "0″"}</b>
+            <b>Last 7 days</b>
             <span>
-              {meta.max.in > 0
-                ? `of ${noun} at the most, ${/ of /.test(meta.max.near) ? "" : "near "}${meta.max.near}`
-                : `No ${noun} in the lower 48 this week`}
+              of {noun} across the lower 48 · {day(meta.start)} to{" "}
+              {day(meta.end)}
             </span>
           </div>
           <p className={s.clock} aria-live="off">
@@ -380,7 +426,7 @@ export function SevenDayMap({
       <UsMap
         title={`${kind === "rain" ? "Rain" : "Snow"}, last 7 days`}
         legend={[]}
-        status={!meta ? "loading" : built ? "ready" : "loading"}
+        status={!meta ? "loading" : shownTotal || built ? "ready" : "loading"}
         file={`sswx-7-day-${noun}`}
         actions={false}
         towns
@@ -421,6 +467,12 @@ export function SevenDayMap({
                   key={name + x}
                   className={s.label}
                   transform={`translate(${x} ${y}) scale(${px})`}
+                  // A place shows once some has fallen there (no ".00″" labels).
+                  opacity={
+                    (series[step] ?? 0) >= (kind === "rain" ? 0.05 : 0.1)
+                      ? 1
+                      : 0
+                  }
                 >
                   <circle r={2.6} />
                   <text y={-7} className={s.val}>
@@ -535,7 +587,7 @@ export function SevenDayMap({
             <small className={s.count}>
               {ready
                 ? `${kind === "rain" ? "6-hour step" : "Day"} ${step + 1} of ${n}`
-                : `Adding up the week… ${built} of ${n}`}
+                : `Getting playback ready… ${built} of ${n}`}
             </small>
           </div>
 
@@ -615,9 +667,11 @@ export function SevenDayMap({
                   {
                     meta,
                     urls: urls.current,
+                    sharp: () =>
+                      sharpMake.current?.() ?? Promise.resolve(urls.current),
                     ramp,
                     marks,
-                    view: W / view.w > 1.4 ? view : null,
+                    view: { x: view.x, y: view.y, w: view.w },
                   },
                   f,
                   progress,

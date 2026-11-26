@@ -20,6 +20,7 @@ Writes into --out:
                      below (0 = none, outside the lower 48 left empty), and each file holds the
                      rise in that code since the step before (lossless WebP), so adding them
                      up gives every step's total exactly and most of each file is empty
+  total.webp         the whole week's total codes in one file (what the map shows first)
   meta.json          the steps' times, the code table, the totals at every city that got any,
                      the biggest total and where, and the reports
 """
@@ -336,6 +337,8 @@ def main(kind, out):
         Image.fromarray(codes - prev).save(os.path.join(out, f"d{k:02d}.webp"), "WEBP", lossless=True, quality=100, method=6)
         prev = codes
         print(f"{kind} {t:%Y-%m-%d %H}Z  max {total.max():.2f} in")
+    # The week's total in one file, so the map shows it at once (the steps load behind it).
+    Image.fromarray(prev).save(os.path.join(out, "total.webp"), "WEBP", lossless=True, quality=100, method=6)
     series = np.array(city_series)  # steps x cities
     cx, cy = forward(plon, plat)
     inside = (cx >= 0) & (cx <= 975) & (cy >= 0) & (cy <= 610)
@@ -362,6 +365,7 @@ def main(kind, out):
         "end": end.strftime("%Y-%m-%dT%H:%MZ"),
         "steps": [t.strftime("%Y-%m-%dT%H:%MZ") for t in steps],
         "scale": SCALE,
+        "total": "total.webp",
         "codes": CODES[kind],
         "max": {
             "in": round(float(total.max()), 2),
