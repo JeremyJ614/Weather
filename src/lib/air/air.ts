@@ -42,6 +42,8 @@ export type AirReport = {
     days: { date: string; aqi: number }[];
     pollutants: Pollutant[];
     hours: { at: string; aqi: number }[];
+    /** Each pollutant's AQI for the same hours (Open-Meteo; the 3D chart's rows). */
+    parts?: { id: string; label: string; aqi: (number | null)[] }[];
   } | null;
   pollen:
     | {
@@ -119,9 +121,12 @@ async function aqi(lat: number, lon: number): Promise<AirReport["aqi"]> {
   const om = await get<{
     utc_offset_seconds: number;
     current: Record<string, number | null>;
-    hourly: { time: string[]; us_aqi: (number | null)[] };
+    hourly: { time: string[]; us_aqi: (number | null)[] } & Record<
+      string,
+      (number | null)[]
+    >;
   }>(
-    `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=us_aqi,pm2_5,pm10,ozone,nitrogen_dioxide,sulphur_dioxide,carbon_monoxide,us_aqi_pm2_5,us_aqi_pm10,us_aqi_ozone,us_aqi_nitrogen_dioxide,us_aqi_sulphur_dioxide,us_aqi_carbon_monoxide&hourly=us_aqi&timezone=auto&forecast_days=4`,
+    `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=us_aqi,pm2_5,pm10,ozone,nitrogen_dioxide,sulphur_dioxide,carbon_monoxide,us_aqi_pm2_5,us_aqi_pm10,us_aqi_ozone,us_aqi_nitrogen_dioxide,us_aqi_sulphur_dioxide,us_aqi_carbon_monoxide&hourly=us_aqi,us_aqi_pm2_5,us_aqi_pm10,us_aqi_ozone,us_aqi_nitrogen_dioxide&timezone=auto&forecast_days=4`,
     1800,
   );
   if (!om) return null;
@@ -164,17 +169,34 @@ async function aqi(lat: number, lon: number): Promise<AirReport["aqi"]> {
     0,
     om.hourly.time.findIndex((t) => t.slice(0, 13) >= nowKey),
   );
+  const hours = om.hourly.time
+    .map((t, i) => ({ at: t, aqi: om.hourly.us_aqi[i], i }))
+    .slice(start, start + 48)
+    .filter((h): h is { at: string; aqi: number; i: number } => h.aqi != null);
   return {
     source: "Open-Meteo",
     now: c.us_aqi == null ? null : Math.round(Number(c.us_aqi)),
     pollutant: lead?.id ?? null,
     days: [...days].map(([date, a]) => ({ date, aqi: Math.round(a) })),
     pollutants,
-    hours: om.hourly.time
-      .map((t, i) => ({ at: t, aqi: om.hourly.us_aqi[i] }))
-      .slice(start, start + 48)
-      .filter((h): h is { at: string; aqi: number } => h.aqi != null)
-      .map((h) => ({ at: h.at, aqi: Math.round(h.aqi) })),
+    hours: hours.map((h) => ({ at: h.at, aqi: Math.round(h.aqi) })),
+    parts: (
+      [
+        ["PM2.5", "Fine particles", "us_aqi_pm2_5"],
+        ["O3", "Ozone", "us_aqi_ozone"],
+        ["PM10", "Coarse particles", "us_aqi_pm10"],
+        ["NO2", "Nitrogen dioxide", "us_aqi_nitrogen_dioxide"],
+      ] as const
+    )
+      .map(([id, label, k]) => ({
+        id,
+        label,
+        aqi: hours.map((h) => {
+          const v = om.hourly[k]?.[h.i];
+          return v == null ? null : Math.round(v);
+        }),
+      }))
+      .filter((p) => p.aqi.some((v) => v != null)),
   };
 }
 
