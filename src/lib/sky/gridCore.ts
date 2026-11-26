@@ -1,5 +1,8 @@
 import { sunPosition } from "./astro";
 import { bestPair, skyScore, type SkyHour } from "./score";
+import { hourAt } from "./hours";
+
+export { fresh, hourAt } from "./hours";
 
 /**
  * The national stargazing grid, pure: a 2.5° × 3° lattice over the Lower 48 (and the waters
@@ -34,21 +37,6 @@ export type SkyGrid = {
 /** Open-Meteo's hourly sky inputs for one or many points (UTC hours), 3 days. */
 export const skyUrl = (lats: number[], lons: number[]) =>
   `https://api.open-meteo.com/v1/forecast?latitude=${lats.join(",")}&longitude=${lons.join(",")}&hourly=${VARS.join(",")}&forecast_days=3&timezone=GMT`;
-
-/** An Open-Meteo hour ("2026-11-26T08:00", UTC) as a Date; tolerant of seconds or a zone. */
-export const hourAt = (t: string) =>
-  new Date(
-    /[zZ]|[+-]\d\d:?\d\d$/.test(t) ? t : `${t.length === 16 ? `${t}:00` : t}Z`,
-  );
-
-/**
- * Whether a forecast still reaches well into the future. A cached copy that has run out
- * (every hour already past) is what left the page blank and the hours "Invalid Date".
- */
-export function fresh(h: Hourly | undefined, now = Date.now()) {
-  const last = h?.time?.at(-1);
-  return !!last && hourAt(last).getTime() >= now + 18 * 3600_000;
-}
 
 /** Parse Open-Meteo's answer (one point or many) into one Hourly per point. */
 export function hourlies(raw: unknown): Hourly[] {

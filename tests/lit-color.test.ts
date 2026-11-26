@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { lit } from "@/lib/colors/lit";
-import { hourAt, fresh } from "@/lib/sky/gridCore";
+import { hourAt, fresh } from "@/lib/sky/hours";
 
 describe("lit", () => {
   it("lifts dark colors and keeps light ones", () => {
