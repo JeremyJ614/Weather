@@ -42,19 +42,33 @@ export function radiusAt(q: readonly number[], bearing: number) {
 const FAN_VS = /* glsl */ `
   attribute float aEdge;
   varying float vEdge;
+  varying vec3 vDir;
   void main() {
     vEdge = aEdge;
+    vDir = position;
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
   }
 `;
 const FAN_FS = /* glsl */ `
   uniform vec3 uColor;
+  uniform vec3 uImpact;
+  uniform vec3 uOcean;
+  uniform sampler2D uLand;
   uniform float uAlpha;
   varying float vEdge;
+  varying vec3 vDir;
   void main() {
     // Faint in the middle, brightest just inside the edge, a soft rim.
     float a = 0.06 + 0.5 * pow(vEdge, 4.0) - 0.4 * smoothstep(0.96, 1.0, vEdge);
-    gl_FragColor = vec4(uColor * a * uAlpha, 1.0);
+    // Is there land under this point? The globe's own land picture, sampled where it lies.
+    vec3 d = normalize(vDir);
+    float lon = atan(-d.z, d.x);
+    float lat = asin(clamp(d.y, -1.0, 1.0));
+    vec3 g = texture2D(uLand, vec2((lon + 3.14159265) / 6.28318531, (lat + 1.57079633) / 3.14159265)).rgb;
+    float land = smoothstep(0.012, 0.045, distance(g, uOcean));
+    // Over land the whole disc lights up in the glow color: the land being hit, right now.
+    vec3 col = mix(uColor * a, uImpact * (0.32 + 0.9 * a), land);
+    gl_FragColor = vec4(col * uAlpha, 1.0);
   }
 `;
 const SIDES = 72;
@@ -64,12 +78,19 @@ export class WindFan {
   mesh: THREE.Mesh;
   private pos = new Float32Array((SIDES + 2) * 3);
   private mat: THREE.ShaderMaterial;
-  constructor(color: string) {
+  constructor(
+    color: string,
+    impact: string,
+    ocean: string,
+    land: THREE.Texture,
+  ) {
     const edge = new Float32Array(SIDES + 2);
     edge.fill(1);
     edge[0] = 0;
     const index: number[] = [];
-    for (let k = 1; k <= SIDES; k++) index.push(0, k, k + 1);
+    // Counterclockwise seen from outside the globe (bearings run clockwise), so the disc
+    // faces the camera; culling its back faces hides it on the globe's far side.
+    for (let k = 1; k <= SIDES; k++) index.push(0, k + 1, k);
     const g = new THREE.BufferGeometry();
     g.setIndex(index);
     g.setAttribute("position", new THREE.BufferAttribute(this.pos, 3));
@@ -79,19 +100,27 @@ export class WindFan {
       fragmentShader: FAN_FS,
       uniforms: {
         uColor: { value: new THREE.Color(color) },
+        uImpact: { value: new THREE.Color(impact) },
+        uOcean: { value: new THREE.Color(ocean) },
+        uLand: { value: land },
         uAlpha: { value: 1 },
       },
       blending: THREE.AdditiveBlending,
       transparent: true,
       depthWrite: false,
+      // It lies a hair above the ground: a phone's coarser depth buffer can't tell the two
+      // apart, so the globe would hide it. Back-face culling alone is exact on a sphere.
+      depthTest: false,
     });
     this.mesh = new THREE.Mesh(g, this.mat);
     this.mesh.frustumCulled = false;
     this.mesh.visible = false;
     this.mesh.renderOrder = 2;
   }
-  setColor(c: string) {
+  setColor(c: string, impact: string, ocean: string) {
     this.mat.uniforms.uColor.value = new THREE.Color(c);
+    this.mat.uniforms.uImpact.value = new THREE.Color(impact);
+    this.mat.uniforms.uOcean.value = new THREE.Color(ocean);
   }
   /** Puts the disc at a place with quadrant radii in km. */
   place(lat: number, lon: number, q: readonly number[], alpha = 1) {
@@ -139,9 +168,11 @@ export class ImpactGlow {
       map: this.tex,
       color: new THREE.Color(color),
       transparent: true,
-      opacity: 0.9,
+      opacity: 1,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
+      // As the wind disc: culling, not the depth test, keeps it to the visible side.
+      depthTest: false,
     });
   }
 
@@ -150,7 +181,7 @@ export class ImpactGlow {
   }
 
   set opacity(v: number) {
-    this.mat.opacity = 0.9 * v;
+    this.mat.opacity = v;
     if (this.mesh) this.mesh.visible = v > 0.01;
   }
 
@@ -278,11 +309,11 @@ export class ImpactGlow {
     const g = this.g;
     // Tropical-storm-force winds: three soft layers, so the swath fades at its edge.
     for (const [scale, a] of [
-      [1, 0.18],
-      [0.78, 0.22],
-      [0.55, 0.26],
+      [1, 0.2],
+      [0.78, 0.24],
+      [0.55, 0.28],
     ] as const) {
-      g.fillStyle = `rgba(150,150,150,${a})`;
+      g.fillStyle = `rgba(175,175,175,${a})`;
       g.beginPath();
       for (let k = 0; k < 4; k++) {
         const r = f.q[k] * scale;
@@ -301,7 +332,7 @@ export class ImpactGlow {
     }
     // Hurricane-force winds burn brighter.
     if (f.r64 > 0) {
-      g.fillStyle = "rgba(255,255,255,0.35)";
+      g.fillStyle = "rgba(255,255,255,0.45)";
       g.beginPath();
       g.ellipse(cx, cy, f.r64 * kx, f.r64 * ky, 0, 0, Math.PI * 2);
       g.fill();

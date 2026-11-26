@@ -368,7 +368,12 @@ export class TrackGlobe {
     this.kept = new Uint8Array(t.count).fill(1);
 
     // Storm View's moving wind field and the land glow it leaves.
-    this.fan = new WindFan(o.palette.wind);
+    this.fan = new WindFan(
+      o.palette.wind,
+      o.palette.impact,
+      o.palette.ocean,
+      this.landTex,
+    );
     this.scene.add(this.fan.mesh);
     this.impact = new ImpactGlow(
       this.scene,
@@ -497,7 +502,7 @@ export class TrackGlobe {
     u.uNorth.value = new THREE.Color(p.north);
     u.uSouth.value = new THREE.Color(p.south);
     this.glow.uniforms.uColor.value = new THREE.Color(p.glow);
-    this.fan.setColor(p.wind);
+    this.fan.setColor(p.wind, p.impact, p.ocean);
     this.impact.setColor(p.impact);
     const [cl, sl] = this.borders;
     (cl?.material as THREE.LineBasicMaterial | undefined)?.color.set(p.border);
@@ -1016,6 +1021,33 @@ export class TrackGlobe {
     this.need();
   }
 
+  /**
+   * A camera that frames a storm's whole path (and its winds) on a square share frame: looking
+   * at the middle of the track from just far enough out to fit its farthest point.
+   */
+  private framing(i: number) {
+    const t = this.o.tracks;
+    const o = t.storms.o[i];
+    const n = t.storms.n[i];
+    const mid = new THREE.Vector3();
+    const pts: THREE.Vector3[] = [];
+    for (let p = o; p < o + n; p++) {
+      const v = new THREE.Vector3(...xyz(t.lat[p], t.lon[p]));
+      pts.push(v);
+      mid.add(v);
+    }
+    mid.normalize();
+    // The farthest point from the middle, plus room for the wind field (about 6 degrees).
+    let far = 0;
+    for (const v of pts)
+      far = Math.max(far, Math.acos(Math.min(1, v.dot(mid))));
+    const th = Math.min(Math.PI / 2.2, far + 6 * R);
+    // Seen from distance d, a point th from the middle sits atan(sin th / (d - cos th)) off
+    // center; keep it inside 14 degrees of the 18 degree half-view.
+    const d = Math.cos(th) + Math.sin(th) / Math.tan(14 * R);
+    return mid.multiplyScalar(Math.min(4.6, Math.max(1.7, d)));
+  }
+
   /** Where the camera should look while following a storm: its path smoothed over a day. */
   private aim(i: number, h: number) {
     const t = this.o.tracks;
@@ -1106,6 +1138,8 @@ export class TrackGlobe {
     size: number;
     /** Storm View's hour when the clip began (put back afterward). */
     storm?: number;
+    /** A still Storm View clip: where the camera sits for every frame. */
+    frame?: THREE.Vector3;
   } | null = null;
 
   /**
@@ -1113,7 +1147,7 @@ export class TrackGlobe {
    * (no screen scaling), the picked track and the spinning storms sized for that, and the
    * on-screen loop pauses until `captureEnd`.
    */
-  captureStart(size: number) {
+  captureStart(size: number, still = false) {
     const c = this.renderer.domElement;
     this.capturing = {
       ratio: this.renderer.getPixelRatio(),
@@ -1126,10 +1160,12 @@ export class TrackGlobe {
       size,
     };
     this.controls.autoRotate = false;
-    // Storm View clips start the storm's glow over from nothing.
+    // Storm View clips start the storm's glow over from nothing; a still clip (the GIF) frames
+    // the storm's whole path once, so only the storm and its glow change between frames.
     if (this.sv) {
       this.impact.begin(this.sv.i);
       this.capturing.storm = this.sv.h;
+      if (still) this.capturing.frame = this.framing(this.sv.i);
     }
     this.renderer.setPixelRatio(1);
     this.renderer.setSize(size, size, false);
@@ -1148,7 +1184,7 @@ export class TrackGlobe {
       const t = this.o.tracks;
       const h = epochHours - t.storms.t0[sv.i];
       this.camera.position.copy(
-        this.aim(sv.i, h).multiplyScalar(k.cam.length()),
+        k.frame ?? this.aim(sv.i, h).multiplyScalar(k.cam.length()),
       );
       this.camera.lookAt(0, 0, 0);
       this.stormStep(h, 0, false);

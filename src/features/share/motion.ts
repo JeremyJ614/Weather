@@ -171,11 +171,18 @@ export type Sink = {
   done: () => Promise<Blob>;
 };
 
-/** A GIF `w`×`h`, each frame with its own 256-color palette (`fine`: a finer color search). */
+/**
+ * A GIF `w`×`h` (`fine`: a finer color search). Given `sample` frames (the first, middle and
+ * last, say), the whole GIF shares one palette made from them, and each frame after the first
+ * stores only the pixels that changed (the rest are transparent and show the frame before), so
+ * colors hold steady instead of flickering and a smooth 20 fps GIF stays a sensible size.
+ * Without a sample, each frame gets its own palette (older shares).
+ */
 export async function gifSink(
   w: number,
   h: number,
   fine = false,
+  sample?: ImageData[],
 ): Promise<Sink> {
   const { GIFEncoder, quantize, applyPalette } = await import("gifenc");
   const gif = GIFEncoder();
@@ -185,15 +192,51 @@ export async function gifSink(
   const sg = small.getContext("2d", { willReadFrequently: true })!;
   sg.imageSmoothingQuality = "high";
   const format = fine ? "rgb565" : "rgb444";
+  // One palette for every frame: 255 colors from the sample, the 256th kept for "unchanged".
+  let shared: number[][] | null = null;
+  if (sample?.length) {
+    const all = new Uint8ClampedArray(
+      sample.reduce((n, d) => n + d.data.length, 0),
+    );
+    let at = 0;
+    for (const d of sample) {
+      all.set(d.data, at);
+      at += d.data.length;
+    }
+    shared = quantize(all, 255, { format });
+    while (shared.length < 255) shared.push([0, 0, 0]);
+    shared.push([0, 0, 0]);
+  }
+  const CLEAR = 255;
+  let prev: Uint8Array | null = null;
   return {
     add: async (f, ms) => {
       sg.drawImage(f, 0, 0, w, h);
       const { data } = sg.getImageData(0, 0, w, h);
-      const palette = quantize(data, 256, { format });
-      gif.writeFrame(applyPalette(data, palette, format), w, h, {
-        palette,
+      if (!shared) {
+        const palette = quantize(data, 256, { format });
+        gif.writeFrame(applyPalette(data, palette, format), w, h, {
+          palette,
+          delay: ms,
+        });
+        return;
+      }
+      const index = applyPalette(data, shared.slice(0, 255), format);
+      if (!prev) {
+        gif.writeFrame(index, w, h, { palette: shared, delay: ms, dispose: 1 });
+        prev = index;
+        return;
+      }
+      const out = new Uint8Array(index.length);
+      for (let i = 0; i < index.length; i++)
+        out[i] = index[i] === prev[i] ? CLEAR : index[i];
+      gif.writeFrame(out, w, h, {
         delay: ms,
+        transparent: true,
+        transparentIndex: CLEAR,
+        dispose: 1,
       });
+      prev = index;
     },
     done: async () => {
       gif.finish();
