@@ -41,7 +41,9 @@ async function relay(
   const path = (await params).path.join("/");
   // The project move (2026-11-26) also reads the member list, and nothing else of Auth.
   const members = req.method === "GET" && path === "auth/v1/admin/users";
-  if (!/^(rest|storage)\/v1\//.test(path) && !members)
+  // The REST API's own description (its root, which arrives here without the trailing slash).
+  const schema = req.method === "GET" && path === "rest/v1";
+  if (!/^(rest|storage)\/v1\//.test(path) && !members && !schema)
     return new Response("Not found", { status: 404 });
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!key) return new Response("Not configured", { status: 503 });
@@ -50,7 +52,7 @@ async function relay(
     const v = req.headers.get(h);
     if (v) headers.set(h, v);
   }
-  const url = `${publicEnv().supabaseUrl}/${path}${new URL(req.url).search}`;
+  const url = `${publicEnv().supabaseUrl}/${schema ? "rest/v1/" : path}${new URL(req.url).search}`;
   const body = ["GET", "HEAD"].includes(req.method)
     ? undefined
     : await req.arrayBuffer();
