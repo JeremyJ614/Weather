@@ -6,9 +6,15 @@
 create index if not exists audit_log_actor on public.audit_log (actor);
 create index if not exists contact_messages_user on public.contact_messages (user_id);
 create index if not exists disaster_orgs_message on public.disaster_orgs (message_id);
-create index if not exists disaster_volunteers_message on public.disaster_volunteers (message_id);
-create index if not exists disaster_volunteers_org on public.disaster_volunteers (org_id);
-create index if not exists disaster_volunteers_user on public.disaster_volunteers (user_id);
+-- Only where the volunteers table still stands (20261020060000 drops it; a fresh replay of the
+-- migrations, as in the 2026-11-26 project move, reaches here without it).
+do $$ begin
+  if to_regclass('public.disaster_volunteers') is not null then
+    create index if not exists disaster_volunteers_message on public.disaster_volunteers (message_id);
+    create index if not exists disaster_volunteers_org on public.disaster_volunteers (org_id);
+    create index if not exists disaster_volunteers_user on public.disaster_volunteers (user_id);
+  end if;
+end $$;
 create index if not exists donations_user on public.donations (user_id);
 create index if not exists game_points_user on public.game_points (user_id);
 create index if not exists game_titles_entered_by on public.game_titles (entered_by);
