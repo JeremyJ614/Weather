@@ -47,6 +47,18 @@ const S = (
 ): MenuStyle => ({ id, name, placements, Component });
 
 export const MENU_STYLES: Record<string, MenuStyle> = {
+  orbs: S(
+    "orbs",
+    "Orb Constellation",
+    FLOAT_CENTER,
+    lazy(() => import("./OrbConstellation").then((m) => m.OrbConstellation)),
+  ),
+  orbstack: S(
+    "orbstack",
+    "Orb Stack",
+    FLOAT_RIGHT,
+    lazy(() => import("./OrbStack").then((m) => m.OrbStack)),
+  ),
   liquid: S(
     "liquid",
     "Liquid Metal",

@@ -1,5 +1,22 @@
 import type { ReactNode } from "react";
 import { Morph } from "./Morph";
+import { getSiteDefaults } from "@/lib/settings";
+import { EVERY_PAGE } from "@/lib/nav/extras";
+
+/**
+ * The page's name as the owner saved it in admin → Menu editor (owner's list #41: renaming
+ * "Atmospheric Ingredients" to "Atmospheric Parameters" only changed the menus). The header's
+ * built-in title is matched to its page, then the saved name is used. Read on the server
+ * from the same cached settings the menus use, so it costs the page no JavaScript.
+ */
+async function savedName(title: string) {
+  const { layout } = await getSiteDefaults();
+  const pages = layout?.pages;
+  if (!pages) return title;
+  const t = title.trim().toLowerCase();
+  const page = EVERY_PAGE.find((p) => p.label.trim().toLowerCase() === t);
+  return (page && pages[page.slug]?.label) || title;
+}
 import s from "./PageHero.module.css";
 
 const RINGS = [96, 148, 200, 252, 304, 356];
@@ -11,7 +28,7 @@ const CY = -40;
  * ladder and one warm trace) behind a sourced eyebrow, the title and a drawn rule.
  * Everything animates once, with transform and opacity only.
  */
-export function PageHero({
+export async function PageHero({
   icon,
   eyebrow,
   title,
@@ -25,6 +42,7 @@ export function PageHero({
   subtitle?: ReactNode;
   action?: ReactNode;
 }) {
+  const name = await savedName(title);
   return (
     <Morph name="page-hero">
       <header className={s.hero}>
@@ -100,7 +118,7 @@ export function PageHero({
           <div className={s.titleRow}>
             {icon && <span className={s.icon}>{icon}</span>}
             <h1 className={s.title} data-decode="">
-              {title}
+              {name}
             </h1>
             {action && <div className={s.action}>{action}</div>}
           </div>

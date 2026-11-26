@@ -223,3 +223,60 @@
     opacity: 0.45;
   }
 }
+
+/*
+ * Tap glow (owner's list #41): a ring of every color around the widget's edge and a soft
+ * bloom inside it, run by Web Animations in Dashboard.tsx (opacity and transform only).
+ * At rest both are invisible and cost nothing.
+ */
+.flash,
+.bloom,
+.bloom > span {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  overflow: hidden;
+  pointer-events: none;
+}
+.flash,
+.bloom > span {
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+}
+.flash i,
+.bloom i {
+  position: absolute;
+  inset: -60%;
+  opacity: 0;
+  will-change: transform, opacity;
+  background: conic-gradient(
+    from 0deg,
+    #ff3d6e,
+    #ff9a3d,
+    #ffe14d,
+    #4dffa6,
+    #3dd8ff,
+    #6b7bff,
+    #c46bff,
+    #ff3d6e
+  );
+}
+.flash {
+  z-index: 2;
+  padding: 2px;
+}
+/* The glow: a 7 px ring blurred as a whole, so its light falls off softly inside the edge. */
+.bloom {
+  z-index: 1;
+  overflow: visible;
+  filter: blur(9px);
+  mix-blend-mode: screen;
+}
+.bloom > span {
+  padding: 7px;
+}

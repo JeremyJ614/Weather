@@ -2,6 +2,7 @@ import { shear06, srh } from "@/lib/sswxcon/kinematics";
 import { stp, swti } from "@/lib/ingredients/calc";
 import { hazardProbs, threat } from "@/lib/timing/calc";
 import { LIMITS, limited } from "@/lib/ratelimit";
+import { meteoFetch } from "@/lib/meteo/fetch";
 
 const LEVELS = ["10m", "925hPa", "850hPa", "700hPa", "500hPa"] as const;
 const MODELS = [
@@ -20,7 +21,7 @@ async function getJson(
 ): Promise<Record<string, unknown>> {
   for (let i = 0; ; i++) {
     try {
-      const r = await fetch(url, {
+      const r = await meteoFetch(url, {
         next: { revalidate: 1800 },
         signal: AbortSignal.timeout(15000),
       });

@@ -762,16 +762,25 @@ export function nightWindow(
   lon: number,
   at: Date = new Date(),
 ): NightWindow {
-  const sunUp = sunPosition(at, lat, lon).altitude > SUN_ANGLES.sunrise;
-  const start = sunUp ? (nextSunEvent("sunset", lat, lon, at) ?? at) : at;
+  const alt = sunPosition(at, lat, lon).altitude;
+  const darkNow = alt <= SUN_ANGLES.astronomical;
+  // Dawn twilight (the sky brightening before sunrise) belongs to the night that's ending:
+  // "tonight" is then the coming evening's night (bug 171: the page showed dashes).
+  let from = at;
+  if (alt <= SUN_ANGLES.sunrise && !darkNow) {
+    const rise = nextSunEvent("sunrise", lat, lon, at);
+    const dusk = nextSunEvent("astronomicalDusk", lat, lon, at);
+    if (rise && (!dusk || rise < dusk)) from = rise;
+  }
+  const sunUp = from !== at || alt > SUN_ANGLES.sunrise;
+  const start = sunUp ? (nextSunEvent("sunset", lat, lon, from) ?? from) : at;
   const end =
     nextSunEvent("sunrise", lat, lon, start) ??
     new Date(start.getTime() + 12 * 3600_000);
 
-  const darkNow = sunPosition(at, lat, lon).altitude <= SUN_ANGLES.astronomical;
   const darkStart = darkNow
     ? at
-    : nextSunEvent("astronomicalDusk", lat, lon, at);
+    : nextSunEvent("astronomicalDusk", lat, lon, from);
   const darkEnd = darkStart
     ? nextSunEvent("astronomicalDawn", lat, lon, darkStart)
     : null;

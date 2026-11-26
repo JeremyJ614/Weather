@@ -21,6 +21,7 @@ import { riverFlow, waterIndex, waterObs } from "./water";
 import { pressureFactor, rutFor } from "./rut";
 import { stateAt } from "@/lib/history/states";
 import { project } from "@/lib/map/usAlbers";
+import { meteoFetch } from "@/lib/meteo/fetch";
 
 /** The state a place is in, and its own rut (the owner's state from admin). */
 function rutAt(lat: number, lon: number, cfg: DeerConfig) {
@@ -48,7 +49,7 @@ type Hourly = Record<(typeof VARS)[number], (number | null)[]> & {
 };
 
 async function hourly(lats: number[], lons: number[], revalidate: number) {
-  const r = await fetch(
+  const r = await meteoFetch(
     `https://api.open-meteo.com/v1/forecast?latitude=${lats.map((x) => x.toFixed(2)).join(",")}&longitude=${lons.map((x) => x.toFixed(2)).join(",")}&hourly=${VARS.join(",")}&past_days=7&forecast_days=3&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=GMT`,
     { headers: UA, next: { revalidate }, signal: AbortSignal.timeout(30000) },
   );

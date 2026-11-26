@@ -31,6 +31,8 @@ export const MENU_NAMES: Record<string, string> = {
   jelly: "Jelly Drawer",
   switcher: "Switcher",
   keycaps: "Keycaps",
+  orbs: "Orb Constellation",
+  orbstack: "Orb Stack",
 };
 
 export const OFFERED = {
@@ -52,6 +54,7 @@ export const OFFERED = {
     "liquid",
     "kinetic",
     "jelly",
+    "orbs",
   ].filter((id) => MENU_NAMES[id]),
   second: [
     "island",
@@ -68,6 +71,7 @@ export const OFFERED = {
     "vortex",
     "switcher",
     "keycaps",
+    "orbstack",
   ].filter((id) => MENU_NAMES[id]),
 };
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { MapPin } from "lucide-react";
 import { CountUp } from "@/features/dashboard/widgets/CountUp";
 import { usePlaces } from "@/features/location/usePlaces";
@@ -17,6 +18,11 @@ import {
 } from "@/lib/ingredients/calc";
 import s from "./Ing.module.css";
 import { InfoScrub } from "@/components/charts/InfoScrub";
+
+const Terrain3D = dynamic(
+  () => import("@/components/charts/Terrain3D").then((m) => m.Terrain3D),
+  { ssr: false, loading: () => <div className="h-[280px]" /> },
+);
 
 export type Hour = {
   time: string;
@@ -397,6 +403,96 @@ export function IngredientsView({ tones }: { tones: Record<Pastel, string> }) {
             </b>
           </div>
         ))}
+      </section>
+
+      <section className={s.terrain}>
+        <div className={s.stripHead}>
+          <p className="eyebrow">The next 72 hours in 3D</p>
+        </div>
+        {(() => {
+          // Every other hour (36 columns), each ingredient on its own scale.
+          const idx = hours.map((_, j) => j).filter((j) => j % 2 === 0);
+          const rowsDef: {
+            key: keyof Hour;
+            label: string;
+            color: string;
+            v: (h: Hour) => number;
+            text: (h: Hour) => string;
+          }[] = [
+            {
+              key: "cape",
+              label: "CAPE",
+              color: tones.peach,
+              v: (h) => h.cape,
+              text: (h) => `${Math.round(h.cape).toLocaleString()} J/kg`,
+            },
+            {
+              key: "shear",
+              label: "Shear",
+              color: tones.sky,
+              v: (h) => h.shear,
+              text: (h) => `${Math.round(h.shear)} kt`,
+            },
+            {
+              key: "srh",
+              label: "SRH",
+              color: tones.rose,
+              v: (h) => h.srh,
+              text: (h) => `${Math.round(h.srh)} m²/s²`,
+            },
+            {
+              key: "stp",
+              label: "STP",
+              color: tones.lavender,
+              v: (h) => h.stp,
+              text: (h) => h.stp.toFixed(1),
+            },
+            {
+              key: "li",
+              label: "Lift",
+              color: tones.mint,
+              v: (h) => Math.max(0, -h.li),
+              text: (h) => `LI ${h.li.toFixed(1)}`,
+            },
+            {
+              key: "dew",
+              label: "Dew",
+              color: tones.yellow,
+              v: (h) => Math.max(0, h.dew + 10),
+              text: (h) => `${Math.round(h.dew)}°C`,
+            },
+          ];
+          return (
+            <Terrain3D
+              label="Storm ingredients by hour, next 72 hours"
+              scale="row"
+              height={290}
+              rows={rowsDef.map((r) => ({ label: r.label, color: r.color }))}
+              cols={idx.map((j, c) => ({
+                label: when(hours[j].time),
+                tick:
+                  c % 6 === 0
+                    ? when(hours[j].time).replace(/^\w+ /, "")
+                    : undefined,
+              }))}
+              values={rowsDef.map((r) => idx.map((j) => r.v(hours[j])))}
+              start={Math.floor(i / 2)}
+              onSelect={(c) => setSel(idx[c])}
+              readout={(c) =>
+                rowsDef.map((r) => ({
+                  label: r.label,
+                  text: r.text(hours[idx[c]]),
+                  color: r.color,
+                }))
+              }
+            />
+          );
+        })()}
+        <p className={s.terrainNote}>
+          Each ingredient is scaled to its own peak, so the tallest columns show
+          when each one is strongest. Lift is how unstable the air is (a lower
+          lifted index is taller); Dew is how humid it is.
+        </p>
       </section>
 
       <Chart

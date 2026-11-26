@@ -2,6 +2,7 @@ import "server-only";
 import type { FeatureCollection, Geometry } from "geojson";
 import { pick, type Colors } from "@/lib/colors/pick";
 import { PROB, PROB_KINDS, WINTER_EVENTS, type ProbKind } from "./style";
+import { meteoFetch } from "@/lib/meteo/fetch";
 
 /**
  * Winter Center data: WSSI impact images and the national snow analysis (as map overlays,
@@ -169,7 +170,7 @@ export const OVERLAYS: Record<
 
 async function get<T>(url: string, revalidate: number): Promise<T | null> {
   try {
-    const r = await fetch(url, {
+    const r = await meteoFetch(url, {
       headers: UA,
       next: { revalidate },
       signal: AbortSignal.timeout(20000),

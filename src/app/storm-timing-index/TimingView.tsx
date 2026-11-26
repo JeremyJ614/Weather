@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { CloudHail, MapPin, Moon, Sunset, Tornado, Wind } from "lucide-react";
 import { usePlaces } from "@/features/location/usePlaces";
 import {
@@ -16,6 +17,11 @@ import {
 } from "@/lib/timing/calc";
 import s from "./Timing.module.css";
 import { InfoScrub } from "@/components/charts/InfoScrub";
+
+const Terrain3D = dynamic(
+  () => import("@/components/charts/Terrain3D").then((m) => m.Terrain3D),
+  { ssr: false, loading: () => <div className="h-[260px]" /> },
+);
 
 type Hour = {
   time: string;
@@ -82,6 +88,7 @@ export function TimingView({ colors }: { colors: TimingColors }) {
     null,
   );
   const [sel, setSel] = useState<number | null>(null);
+  const [lines, setLines] = useState(false);
   useEffect(() => {
     if (!active) return;
     let live = true;
@@ -303,8 +310,53 @@ export function TimingView({ colors }: { colors: TimingColors }) {
       <section className={s.card}>
         <div className={s.head}>
           <h3>Chances by hour</h3>
+          <span className={s.views} role="group" aria-label="Chart style">
+            <button
+              type="button"
+              aria-pressed={!lines}
+              onClick={() => setLines(false)}
+            >
+              3D
+            </button>
+            <button
+              type="button"
+              aria-pressed={lines}
+              onClick={() => setLines(true)}
+            >
+              Lines
+            </button>
+          </span>
         </div>
+        {!lines && (
+          <Terrain3D
+            label="Storm chances by hazard and hour"
+            height={270}
+            rows={HAZARDS.map((k) => ({
+              label: HAZ[k].label,
+              color: colors.haz[k],
+            }))}
+            cols={hours.slice(0, 48).map((x, j) => ({
+              label: full(x.time),
+              tick: j % 6 === 0 ? hr(x.time) : undefined,
+              dim: night[j],
+            }))}
+            values={HAZARDS.map((k) =>
+              hours.slice(0, 48).map((x) => x.prob[k]),
+            )}
+            max={pmax}
+            start={Math.min(i, 47)}
+            onSelect={setSel}
+            readout={(j) =>
+              HAZARDS.map((k) => ({
+                label: HAZ[k].label,
+                text: `${Math.round(hours[j].prob[k])}%`,
+                color: colors.haz[k],
+              }))
+            }
+          />
+        )}
         <svg
+          style={lines ? undefined : { display: "none" }}
           viewBox={`0 0 ${W} ${H}`}
           className={s.chart}
           role="group"

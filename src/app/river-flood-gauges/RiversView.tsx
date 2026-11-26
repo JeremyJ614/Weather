@@ -22,6 +22,10 @@ import { InfoScrub } from "@/components/charts/InfoScrub";
 const MotionShare = dynamic(() => import("@/features/share/MotionShare"), {
   ssr: false,
 });
+const Terrain3D = dynamic(
+  () => import("@/components/charts/Terrain3D").then((m) => m.Terrain3D),
+  { ssr: false, loading: () => <div className="h-[260px]" /> },
+);
 
 const now = () => Date.now();
 type Ahead = Gauge & { when: string | null };
@@ -278,6 +282,7 @@ function HydroChart({
   d: { observed: Hydro; forecast: Hydro; units: string };
   c: (l: string) => string;
 }) {
+  const [three, setThree] = useState(false);
   const W = 720;
   const H = 280;
   const P = { l: 44, r: 12, t: 16, b: 30 };
@@ -332,9 +337,86 @@ function HydroChart({
   const nowX = X(Math.min(Math.max(now(), t0), t1));
   const accent = c(g.level === "normal" ? "normal" : g.level);
   const seq = [...d.observed, ...d.forecast];
+  // The 3D view: at most 44 columns across the record, forecast over a darker plate.
+  const every = Math.max(1, Math.ceil(seq.length / 44));
+  const pick3 = seq
+    .map((p, j) => ({ ...p, fc: j >= d.observed.length }))
+    .filter((_, j) => j % every === 0 || j === d.observed.length - 1);
+  const catOf = (v: number) => [...marks].reverse().find((m) => v >= m[1]);
   return (
     <figure className={s.hydro}>
+      <div className={s.view} role="group" aria-label="Graph style">
+        <button
+          type="button"
+          aria-pressed={!three}
+          onClick={() => setThree(false)}
+        >
+          Graph
+        </button>
+        <button
+          type="button"
+          aria-pressed={three}
+          onClick={() => setThree(true)}
+        >
+          3D
+        </button>
+      </div>
+      {three && (
+        <Terrain3D
+          label={`${g.name} river stage in 3D`}
+          height={260}
+          rows={[{ label: "Stage", color: accent }]}
+          cols={pick3.map((p, j) => ({
+            label: `${new Date(p.t).toLocaleString("en-US", { weekday: "short", hour: "numeric" })} · ${p.fc ? "forecast" : "observed"}`,
+            tick:
+              j % Math.max(1, Math.round(pick3.length / 5)) === 0
+                ? new Date(p.t).toLocaleDateString("en-US", {
+                    month: "numeric",
+                    day: "numeric",
+                  })
+                : undefined,
+            dim: p.fc,
+          }))}
+          values={[pick3.map((p) => Math.max(0, p.v - yLo))]}
+          max={yHi - yLo}
+          cellColor={(_r, j) => {
+            const k = catOf(pick3[j].v);
+            return k ? c(k[0]) : c("normal");
+          }}
+          planes={bands.map(([k, v]) => ({
+            at: v - yLo,
+            color: c(k),
+            label: `${k === "minor" ? "FLOOD" : k.toUpperCase()} ${v}`,
+          }))}
+          start={Math.max(
+            0,
+            pick3.findIndex((p) => p.fc) - 1 >= 0
+              ? pick3.findIndex((p) => p.fc) - 1
+              : pick3.length - 1,
+          )}
+          readout={(j) => {
+            const k = catOf(pick3[j].v);
+            return [
+              {
+                label: pick3[j].fc ? "Forecast" : "Observed",
+                text: `${pick3[j].v} ${d.units}`,
+                color: accent,
+              },
+              {
+                label: "Level",
+                text: k
+                  ? k[0] === "minor"
+                    ? "Minor flooding"
+                    : k[0][0].toUpperCase() + k[0].slice(1)
+                  : "Below action",
+                color: k ? c(k[0]) : c("normal"),
+              },
+            ];
+          }}
+        />
+      )}
       <svg
+        style={three ? { display: "none" } : undefined}
         viewBox={`0 0 ${W} ${H}`}
         className="w-full"
         role="img"

@@ -15,6 +15,9 @@ import { usePlaces } from "@/features/location/usePlaces";
 import { rasterize } from "@/features/sky/raster";
 import { unproject } from "@/lib/map/usAlbers";
 import { pick, type Colors } from "@/lib/colors/pick";
+import { lit } from "@/lib/colors/lit";
+import { fresh, hourAt } from "@/lib/sky/hours";
+import type { SkyGrid } from "@/lib/sky/gridCore";
 import {
   moonIllumination,
   moonTimes,
@@ -30,20 +33,17 @@ import {
   type SkyHour,
 } from "@/lib/sky/score";
 import s from "./Stars.module.css";
-import { InfoScrub } from "@/components/charts/InfoScrub";
+
+// Hour by Hour (its chart and scrubber) loads when its tab opens.
+const Hours = dynamic(() => import("./Hours").then((m) => m.Hours), {
+  loading: () => <p className={s.muted}>Loading…</p>,
+});
 
 const Targets = dynamic(() => import("./Targets").then((m) => m.Targets), {
   loading: () => <p className={s.muted}>Loading…</p>,
 });
 
-type Grid = {
-  lats: number[];
-  lons: number[];
-  t0: string;
-  scores: number[][];
-  tonight: (number | null)[];
-  tomorrow: (number | null)[];
-};
+type Grid = SkyGrid;
 type Hourly = Record<string, (number | null)[]> & { time: string[] };
 const now = () => Date.now();
 const hr = (d: Date) => d.toLocaleTimeString("en-US", { hour: "numeric" });
@@ -67,6 +67,75 @@ function useJson<T>(url: string | null) {
     };
   }, [url]);
   return url && res?.url === url ? res.d : null;
+}
+
+/**
+ * The forecast from our server, or straight from Open-Meteo in this browser when the server
+ * can't get a current one (Open-Meteo rate-limits Vercel's shared addresses; bug 171). The
+ * browser asks from the viewer's own address, so it still works for everyone.
+ */
+function useSkyHere(place: { lat: number; lon: number } | null) {
+  const url = place
+    ? `/api/sky/here?lat=${place.lat.toFixed(2)}&lon=${place.lon.toFixed(2)}`
+    : null;
+  const server = useJson<{ hourly: Hourly }>(url);
+  const ok =
+    server && server !== "error" && fresh(server.hourly as never, now());
+  const direct = useJson<unknown>(
+    place && server && !ok
+      ? `https://api.open-meteo.com/v1/forecast?latitude=${place.lat.toFixed(2)}&longitude=${place.lon.toFixed(2)}&hourly=cloud_cover,cloud_cover_low,cloud_cover_mid,cloud_cover_high,relative_humidity_2m,precipitation,visibility&forecast_days=3&timezone=GMT`
+      : null,
+  );
+  if (ok) return server;
+  if (!server || !direct) return null;
+  const h = direct !== "error" && (direct as { hourly?: Hourly }).hourly;
+  return h ? { hourly: h } : ("error" as const);
+}
+
+const GRID_KEY = "sswx-sky-grid";
+
+/** The national grid; built in this browser (code loaded only then) when the server can't. */
+function useSkyGrid(): Grid | "error" | null {
+  const server = useJson<Grid>("/api/sky/grid");
+  const ok = server && server !== "error" && !!server.t0;
+  // A grid this browser built in the last hour (so repeat visits spend no more calls).
+  const [kept] = useState<Grid | null>(() => {
+    try {
+      const k = JSON.parse(localStorage.getItem(GRID_KEY) ?? "null") as {
+        at: number;
+        g: Grid;
+      } | null;
+      return k && now() - k.at < 3600_000 && k.g.t0 ? k.g : null;
+    } catch {
+      return null;
+    }
+  });
+  const [built, setBuilt] = useState<Grid | "error" | null>(null);
+  useEffect(() => {
+    if (!server || ok || kept) return;
+    let live = true;
+    import("@/lib/sky/gridCore")
+      .then(async (m) => {
+        const p = m.gridPoints();
+        const r = await fetch(m.skyUrl(p.lats, p.lons));
+        if (!r.ok) throw new Error(String(r.status));
+        const g = m.buildGrid(m.hourlies(await r.json()), now());
+        if (!g.t0) throw new Error("empty");
+        try {
+          localStorage.setItem(GRID_KEY, JSON.stringify({ at: now(), g }));
+        } catch {
+          /* storage full or blocked: it just isn't kept */
+        }
+        if (live) setBuilt(g);
+      })
+      .catch(() => live && setBuilt("error"));
+    return () => {
+      live = false;
+    };
+  }, [server, ok, kept]);
+  if (ok) return server;
+  if (!server) return null;
+  return kept ?? built;
 }
 
 type ScoredHour = SkyHour & { f: ReturnType<typeof skyScore> };
@@ -142,11 +211,7 @@ export function StarsView({ colors }: { colors: Colors }) {
     : active
       ? { lat: active.lat, lon: active.lon, label: active.label }
       : null;
-  const here = useJson<{ hourly: Hourly }>(
-    place
-      ? `/api/sky/here?lat=${place.lat.toFixed(2)}&lon=${place.lon.toFixed(2)}`
-      : null,
-  );
+  const here = useSkyHere(place);
   const hours = useMemo<
     (SkyHour & { f: ReturnType<typeof skyScore> })[]
   >(() => {
@@ -155,7 +220,7 @@ export function StarsView({ colors }: { colors: Colors }) {
     const from = Math.floor(now() / 3600_000) * 3600_000;
     return h.time
       .map((t, i) => {
-        const at = new Date(`${t}:00Z`);
+        const at = hourAt(t);
         const f = skyScore({
           at,
           lat: place.lat,
@@ -275,7 +340,7 @@ function Tonight({
           ) : peak && band ? (
             <h2>
               Best {peak.score}{" "}
-              <span style={{ color: c(band.key) }}>{band.label}</span>
+              <span style={{ color: lit(c(band.key)) }}>{band.label}</span>
             </h2>
           ) : (
             <h2>No dark hours tonight</h2>
@@ -345,7 +410,7 @@ function SkyMap({
   onPick: (p: { lat: number; lon: number }) => void;
   night: () => ReturnType<typeof nightCard>;
 }) {
-  const g = useJson<Grid>("/api/sky/grid");
+  const g = useSkyGrid();
   const [view, setView] = useState<"tonight" | "tomorrow" | "hour">("tonight");
   const [hi, setHi] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -479,127 +544,6 @@ function SkyMap({
           soon.
         </p>
       )}
-    </div>
-  );
-}
-
-function Hours({
-  hours,
-  c,
-}: {
-  hours: (SkyHour & { f: ReturnType<typeof skyScore> })[];
-  c: (k: string) => string;
-}) {
-  if (!hours.length)
-    return <p className={s.muted}>Pick a place to see its next 36 hours.</p>;
-  const W = 360;
-  const H = 150;
-  const bw = W / hours.length;
-  return (
-    <div className={s.card}>
-      <svg
-        viewBox={`0 0 ${W} ${H + 18}`}
-        className="w-full"
-        role="group"
-        aria-label="Stargazing score by hour"
-      >
-        {[20, 40, 60, 80].map((v) => (
-          <line
-            key={v}
-            x1={0}
-            x2={W}
-            y1={H - (v / 100) * H}
-            y2={H - (v / 100) * H}
-            stroke="var(--line)"
-            strokeWidth={0.6}
-          />
-        ))}
-        {hours.map((h, i) => (
-          <g key={h.at.toISOString()}>
-            {h.f.factors[0].value > 0 && (
-              <rect
-                x={i * bw}
-                y={0}
-                width={bw}
-                height={H}
-                fill="#0b1030"
-                opacity={0.5 * h.f.factors[0].value}
-              />
-            )}
-            <rect
-              x={i * bw + 1}
-              y={H - (h.score / 100) * H}
-              width={Math.max(1, bw - 2)}
-              height={(h.score / 100) * H}
-              rx={1.5}
-              fill={c(bandOf(h.score).key)}
-            />
-            {i % 3 === 0 && (
-              <text
-                x={i * bw + bw / 2}
-                y={H + 13}
-                fontSize={8.5}
-                textAnchor="middle"
-                fill="var(--muted)"
-              >
-                {hr(h.at).replace(" ", "")}
-              </text>
-            )}
-          </g>
-        ))}
-        <InfoScrub
-          label="Stargazing score by hour"
-          xs={hours.map((_, i) => i * bw + bw / 2)}
-          top={0}
-          bottom={H}
-          width={W}
-          height={H + 18}
-          lit={false}
-          title={(i) => `${day(hours[i].at)} ${hr(hours[i].at)}`}
-          series={[
-            {
-              key: "sky",
-              label: "Score",
-              color: "var(--accent)",
-              y: hours.map((h) => H - (h.score / 100) * H),
-              text: hours.map((h) => `${h.score}/100`),
-            },
-          ]}
-          rows={(i) => [
-            {
-              label: bandOf(hours[i].score).label,
-              text: hours[i].f.limiting?.label ?? "Clear and dark",
-              color: c(bandOf(hours[i].score).key),
-            },
-          ]}
-        />
-      </svg>
-      <p className={s.muted}>
-        Shaded columns are dark hours. Each bar is that hour&apos;s score out of
-        100.
-      </p>
-      <ul className={s.list}>
-        {hours
-          .filter((h) => h.f.factors[0].value > 0)
-          .map((h, i, list) => (
-            <li key={h.at.toISOString()}>
-              <b>
-                {!i || h.at.getTime() - list[i - 1].at.getTime() > 3600_000
-                  ? `${day(h.at)} ${hr(h.at)}`
-                  : hr(h.at)}
-              </b>
-              <span>
-                <i style={{ background: c(bandOf(h.score).key) }} />
-                {h.score}
-              </span>
-              <small>
-                {h.f.limiting
-                  ? `${h.f.limiting.label}: ${h.f.limiting.detail}`
-                  : "clear and dark"}
-              </small>
-            </li>
-          ))}
-      </ul>
     </div>
   );
 }

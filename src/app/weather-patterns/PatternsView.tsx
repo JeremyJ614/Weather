@@ -211,7 +211,14 @@ export function PatternsView({
                   <TrendingUp aria-hidden />
                   {p.summary.headline}
                 </p>
-                <p className={s.story}>{p.summary.story}</p>
+                {p.summary.story
+                  .split(/\n\s*\n/)
+                  .filter((x) => x.trim())
+                  .map((para, k) => (
+                    <p key={k} className={s.story}>
+                      {para.trim()}
+                    </p>
+                  ))}
                 {p.summary.highlights.length > 0 && (
                   <div className={s.highlights}>
                     <small>

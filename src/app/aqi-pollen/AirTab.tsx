@@ -1,3 +1,4 @@
+import dynamic from "next/dynamic";
 import { HeartPulse, Info, Wind } from "lucide-react";
 import type { AirReport } from "@/lib/air/air";
 import { AQI_BANDS, aqiBand } from "@/lib/air/scales";
@@ -13,6 +14,15 @@ const day = (d: string) =>
 const hour = (iso: string) => {
   const h = Number(iso.slice(11, 13));
   return `${h % 12 || 12}${h < 12 ? "a" : "p"}`;
+};
+/** "Thu 3 PM" from a local "YYYY-MM-DDTHH:MM" hour. */
+const hourLong = (iso: string) => {
+  const d = new Date(`${iso.slice(0, 10)}T12:00:00Z`).toLocaleDateString(
+    "en-US",
+    { weekday: "short", timeZone: "UTC" },
+  );
+  const h = Number(iso.slice(11, 13));
+  return `${d} ${h % 12 || 12} ${h < 12 ? "AM" : "PM"}`;
 };
 
 const ABOUT: Record<string, string> = {
@@ -86,6 +96,11 @@ function Orbit({ value }: { value: number }) {
     </div>
   );
 }
+
+const Terrain3D = dynamic(
+  () => import("@/components/charts/Terrain3D").then((m) => m.Terrain3D),
+  { ssr: false, loading: () => <div className="h-[260px]" /> },
+);
 
 export function AirTab({ aqi }: { aqi: NonNullable<AirReport["aqi"]> }) {
   const now = aqi.now ?? 0;
@@ -173,23 +188,38 @@ export function AirTab({ aqi }: { aqi: NonNullable<AirReport["aqi"]> }) {
           <h3 className={s.h3}>
             <Wind aria-hidden /> Next 48 hours
           </h3>
-          <div className={s.bars} aria-hidden>
-            {aqi.hours.map((h, i) => (
-              <i
-                key={h.at}
-                style={{
-                  background: aqiBand(h.aqi).color,
-                  transform: `scaleY(${Math.max(0.05, h.aqi / hiHour)})`,
-                  animationDelay: `${i * 15}ms`,
-                }}
-              />
-            ))}
-          </div>
-          <div className={s.axis}>
-            <span>Now</span>
-            <span>{hour(aqi.hours[Math.floor(aqi.hours.length / 2)].at)}</span>
-            <span>{hour(aqi.hours[aqi.hours.length - 1].at)}</span>
-          </div>
+          <Terrain3D
+            label="Air quality index by hour, next 48 hours"
+            height={250}
+            rows={
+              aqi.parts?.length
+                ? aqi.parts.map((p) => ({ label: p.id, color: "#9aa8c8" }))
+                : [{ label: "AQI", color: "#9aa8c8" }]
+            }
+            cols={aqi.hours.map((h, i) => ({
+              label: hourLong(h.at),
+              tick: i % 6 === 0 ? (i === 0 ? "Now" : hour(h.at)) : undefined,
+            }))}
+            values={
+              aqi.parts?.length
+                ? aqi.parts.map((p) => p.aqi)
+                : [aqi.hours.map((h) => h.aqi)]
+            }
+            max={Math.max(50, hiHour)}
+            cellColor={(_r, _c, v) => aqiBand(v).color}
+            readout={(c) => [
+              {
+                label: "AQI",
+                text: `${aqi.hours[c].aqi} · ${aqiBand(aqi.hours[c].aqi).label}`,
+                color: aqiBand(aqi.hours[c].aqi).color,
+              },
+              ...(aqi.parts ?? []).map((p) => ({
+                label: p.id,
+                text: p.aqi[c] == null ? "–" : String(p.aqi[c]),
+                color: aqiBand(p.aqi[c] ?? 0).color,
+              })),
+            ]}
+          />
         </section>
       )}
 

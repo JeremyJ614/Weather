@@ -1,4 +1,5 @@
 import "server-only";
+import { nationalYear, reportFacts, stormReports, tempFacts } from "./context";
 import { gemini } from "@/lib/ai/gemini";
 import { inside, spcFeatures } from "@/lib/colors/spc-server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -406,6 +407,41 @@ const fmtDay = (d: string) =>
     timeZone: "UTC",
   });
 
+/**
+ * Winter, flood and wind reports, big-city temperatures and (for the year) NOAA's national
+ * monthly climate, as fact lines for the recap (owner's list #41). Each source is optional.
+ */
+async function extraFacts(a: Omit<Period, "summary">): Promise<string[]> {
+  if (!a.from || !a.to) return [];
+  const next = (d: string) =>
+    new Date(Date.parse(`${d}T12:00:00Z`) + 864e5).toISOString().slice(0, 10);
+  // Storm reports: the period itself, or the last 31 days for the year (a year's file is huge).
+  const from =
+    a.id === "year"
+      ? new Date(Date.parse(`${a.to}T12:00:00Z`) - 30 * 864e5)
+          .toISOString()
+          .slice(0, 10)
+      : a.from;
+  const [lsr, temps, nation] = await Promise.all([
+    stormReports(`${from}T12:00Z`, `${next(a.to)}T12:00Z`),
+    tempFacts(a.from, a.to).catch(() => []),
+    a.id === "year"
+      ? nationalYear(Number(a.to.slice(0, 4))).catch(() => [])
+      : Promise.resolve([]),
+  ]);
+  const out: string[] = [];
+  if (lsr) {
+    const lines = reportFacts(lsr);
+    out.push(
+      ...(a.id === "year"
+        ? lines.map((l) => `Last 31 days only: ${l}`)
+        : lines),
+    );
+  }
+  out.push(...temps, ...nation);
+  return out;
+}
+
 async function summarize(a: Omit<Period, "summary">): Promise<Recap | null> {
   const key = process.env.GEMINI_API_KEY;
   if (!key || !a.days) return null;
@@ -427,21 +463,54 @@ Strongest measured gust: ${a.bigGust ? `${a.bigGust.mph} mph near ${a.bigGust.wh
 Most reports by state: ${a.topStates.map(([s, n]) => `${s} ${n}`).join(", ") || "none"}.
 Breakdown:
 ${chunks.join("\n")}`;
-  const prompt = `You are the SSWX Forecast Desk at StormSync Media, writing for weather fans who follow us. Recap severe weather across the U.S. for this period like a friendly meteorologist talking to their audience: warm, plain, a little personal ("we saw", "it was a busy stretch for..."), never dry or technical, no jargon or abbreviations except state names. Use ONLY the facts given: no invented numbers, places or forecasts. Say when it was busiest and where storms concentrated; if it was quiet, say so kindly. These are preliminary reports (one storm can make several), so prefer words like "reports" over exact storm counts.
+  const more = await extraFacts(a);
+  const when =
+    a.id === "yesterday"
+      ? "yesterday (one day)"
+      : a.id === "week"
+        ? "the past week"
+        : a.id === "month"
+          ? "the past month"
+          : "this year so far";
+  const prompt = `You are the SSWX Forecast Desk at StormSync Media, catching our weather fans up on ${when} across the U.S. Write like a friendly meteorologist talking to people who follow us: warm, plain and human ("we saw", "it was a busy stretch for...", "if you were in..."), with real detail. No jargon or abbreviations except state names, and no lists of raw numbers strung together.
 
-Answer with JSON only: {"headline": one short sentence that sums up the period, "story": 3 to 4 sentences, "highlights": 2 to 4 short bullet sentences of the standout moments with dates}.
+Cover, in this order and in your own words:
+1. Whether it was a busy or a quiet ${a.id === "yesterday" ? "day" : "stretch"}, and why.
+2. The couple of states that took the most severe weather and, if there was any, the most wintry weather (snow, ice, blizzards). Say so plainly if there was none.
+3. The bigger events: what happened, where and when (use the dates given).
+4. Temperatures across the country: who ran warm or cold against normal and the extremes.
+5. Anything unusual worth noticing (an anomaly, a contrast, a record-looking total), only if the facts show it.
+${a.id === "yesterday" ? "Keep it to the one day: conversational, like a quick morning catch-up." : ""}
 
-${facts}`;
+Write numbers as digits (44 inches, 90 mph, 31 reports) and temperatures like "about 10 degrees warmer than normal". When temperature facts are given, always give temperatures their own paragraph.
+
+Use ONLY the facts below: never invent numbers, places, dates, records or forecasts. Storm reports are preliminary (one storm can make several), so say "reports" rather than counting storms. If a fact is missing, leave that part out instead of guessing.
+
+Answer with JSON only: {"headline": one sentence of at most 16 words, "story": ${a.id === "yesterday" ? "4 to 6 sentences in 2 short paragraphs" : "8 to 11 sentences in 3 or 4 short paragraphs"}, paragraphs separated by a blank line (\\n\\n), "highlights": 3 to 5 short sentences of the standout moments, each with its date}.
+
+${facts}
+${more.length ? `\n${more.join("\n")}` : ""}`;
   const db = supabaseAdmin();
   return gemini({
     key,
     prompt,
-    temperature: 0.5,
-    maxOutputTokens: 1200,
+    temperature: 0.55,
+    maxOutputTokens: 2200,
     json: true,
+    schema: {
+      type: "OBJECT",
+      properties: {
+        headline: { type: "STRING" },
+        story: { type: "STRING" },
+        highlights: { type: "ARRAY", items: { type: "STRING" } },
+      },
+      required: ["headline", "story", "highlights"],
+      propertyOrdering: ["headline", "story", "highlights"],
+    },
     accept: cleanRecap,
-    // Four periods and the season run in one minute-long call each.
-    budget: 45,
+    // Four periods and the season run in one minute-long call each (the facts take up to
+    // 14 s of it first).
+    budget: 38,
     counted: (ok) =>
       db.rpc("count_ai_call", { p_feature: "patterns", p_ok: ok }),
   });
@@ -458,13 +527,13 @@ export function cleanRecap(text: string): Recap | null {
     const str = (v: unknown, n: number) =>
       typeof v === "string" ? v.trim().slice(0, n) : "";
     const headline = str(j.headline, 200);
-    const story = str(j.story, 900);
+    const story = str(j.story, 2600);
     if (!headline || !story) return null;
     const highlights = Array.isArray(j.highlights)
       ? j.highlights
-          .map((h) => str(h, 220))
+          .map((h) => str(h, 240))
           .filter(Boolean)
-          .slice(0, 4)
+          .slice(0, 5)
       : [];
     return { headline, story, highlights };
   } catch {
