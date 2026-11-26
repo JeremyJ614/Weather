@@ -208,7 +208,19 @@ export async function gifSink(
     shared.push([0, 0, 0]);
   }
   const CLEAR = 255;
-  let prev: Uint8Array | null = null;
+  // Colors this close count as unchanged (invisible, and smooth fades stop rewriting every
+  // pixel every frame); measured from what is on screen, so the error never builds up.
+  const near = new Uint8Array(256 * 256);
+  if (shared)
+    for (let a = 0; a < 255; a++)
+      for (let b = 0; b < 255; b++) {
+        const [r1, g1, b1] = shared[a];
+        const [r2, g2, b2] = shared[b];
+        near[a * 256 + b] =
+          (r1 - r2) ** 2 + (g1 - g2) ** 2 + (b1 - b2) ** 2 <= 100 ? 1 : 0;
+      }
+  /** The palette index each pixel shows right now. */
+  let shown: Uint8Array | null = null;
   return {
     add: async (f, ms) => {
       sg.drawImage(f, 0, 0, w, h);
@@ -222,21 +234,26 @@ export async function gifSink(
         return;
       }
       const index = applyPalette(data, shared.slice(0, 255), format);
-      if (!prev) {
+      if (!shown) {
         gif.writeFrame(index, w, h, { palette: shared, delay: ms, dispose: 1 });
-        prev = index;
+        shown = index;
         return;
       }
       const out = new Uint8Array(index.length);
-      for (let i = 0; i < index.length; i++)
-        out[i] = index[i] === prev[i] ? CLEAR : index[i];
+      for (let i = 0; i < index.length; i++) {
+        const v = index[i];
+        if (near[shown[i] * 256 + v]) out[i] = CLEAR;
+        else {
+          out[i] = v;
+          shown[i] = v;
+        }
+      }
       gif.writeFrame(out, w, h, {
         delay: ms,
         transparent: true,
         transparentIndex: CLEAR,
         dispose: 1,
       });
-      prev = index;
     },
     done: async () => {
       gif.finish();

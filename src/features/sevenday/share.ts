@@ -1,10 +1,10 @@
 /**
  * Share files for the 7-day rain and snow maps (owner's Fix it List #39): a 1080×1350 card in
- * the app's look, headlined like a newsroom graphic ("20 INCHES OF RAIN · IN 7 DAYS NEAR
- * COCOA, FL"), the map framed on where the most fell (or on the viewer's own zoom), totals
- * counting up at the places that got the most, the reports as they came in, the time, the
- * color scale and the sources. The picture is the week's total; the GIF and video play the
- * week piling up. Every frame is drawn here from the map's own data, never read off the screen.
+ * the app's look, headlined "LAST 7 DAYS OF RAIN" and the dates, the map framed on whatever
+ * the viewer has pulled up, totals counting up at the places that got the most, the reports
+ * as they came in, the time, the color scale and the sources. The picture is the week's
+ * total; the GIF and video play the week piling up. Every frame is drawn here from the map's
+ * own data, never read off the screen.
  */
 import { tokens } from "@/features/share/card";
 import {
@@ -23,8 +23,9 @@ const MAP_Y = 262;
 const MAP_H = 900;
 const CW = 975;
 const CH = 610;
-const GIF_FRAMES = 48;
-const GIF_MS = 110;
+// 20 frames a second (owner, Fix it List #40: smooth, not choppy).
+const GIF_FRAMES = 120;
+const GIF_MS = 50;
 const FPS = 30;
 const SECS = 8;
 const HOLD_MS = 2200;
@@ -35,10 +36,12 @@ type Box = { x: number; y: number; w: number; h: number };
 export type SevenDayClip = {
   meta: Meta;
   urls: string[];
+  /** Full-size step pictures (a zoomed-in share needs them; made on first use). */
+  sharp: () => Promise<string[]>;
   ramp: { at: number; color: string }[];
   marks: { flood: string; snow: string; max: string };
-  /** The viewer's zoomed view, if they zoomed in. */
-  view: { x: number; y: number; w: number } | null;
+  /** What's on the map now, in map units (the whole map until the viewer zooms). */
+  view: { x: number; y: number; w: number };
 };
 
 let base: Promise<{ nation: string; states: { d: string }[] }> | null = null;
@@ -48,39 +51,14 @@ const loadBase = () =>
     return r.json();
   }));
 
-/** Where the most fell, padded and shaped to the card's map area. */
+/**
+ * What the viewer has on the map (all of the lower 48 until they zoom), shaped to the card's
+ * map area (owner, Fix it List #40: "focus on whatever I have pulled up on the map").
+ */
 function frame(c: SevenDayClip): Box {
   const aspect = W / MAP_H;
-  let b: Box;
-  if (c.view) {
-    b = { x: c.view.x, y: c.view.y, w: c.view.w, h: (c.view.w * CH) / CW };
-  } else {
-    const m = c.meta;
-    const top = m.cities[0]?.[5].at(-1) ?? 0;
-    const light = m.kind === "rain" ? 1 : 3;
-    const pts: [number, number][] = [];
-    if (m.max.in >= light) pts.push([m.max.x, m.max.y]);
-    for (const city of m.cities) {
-      const v = city[5].at(-1) ?? 0;
-      if (v < Math.max(light, top * 0.45)) break;
-      pts.push([city[2], city[3]]);
-    }
-    if (pts.length < 1) b = { x: 0, y: 0, w: CW, h: CH };
-    else {
-      const xs = pts.map((p) => p[0]);
-      const ys = pts.map((p) => p[1]);
-      const pad = 70;
-      const x0 = Math.min(...xs) - pad;
-      const x1 = Math.max(...xs) + pad;
-      const y0 = Math.min(...ys) - pad;
-      const y1 = Math.max(...ys) + pad;
-      const w = Math.max(280, x1 - x0);
-      const h = Math.max(240, y1 - y0);
-      b = { x: (x0 + x1) / 2 - w / 2, y: (y0 + y1) / 2 - h / 2, w, h };
-      // Most of the country: show all of it.
-      if (b.w > CW * 0.7) b = { x: 0, y: 0, w: CW, h: CH };
-    }
-  }
+  const v = c.view;
+  let b: Box = { x: v.x, y: v.y, w: v.w, h: (v.w * CH) / CW };
   // Grow the short side so the box matches the card.
   if (b.w / b.h > aspect) {
     const h = b.w / aspect;
@@ -103,22 +81,14 @@ const fmtWhen = (iso: string) =>
     })
     .toUpperCase();
 
-/** The headline: "20 INCHES OF RAIN" (or "2 FEET"), then where. */
+/** The headline: "LAST 7 DAYS / OF RAIN", then the dates (owner: no single place's total). */
 function headline(m: Meta): [string, string, string] {
-  const v = m.max.in;
   const noun = m.kind === "rain" ? "RAIN" : "SNOW";
-  if (v <= 0) return ["NO", `${noun} IN 7 DAYS`, "ACROSS THE LOWER 48"];
-  const feet = v >= 24;
-  const n = feet
-    ? (v / 12).toFixed(1).replace(/\.0$/, "")
-    : v >= 10
-      ? v.toFixed(0)
-      : v.toFixed(1);
-  return [
-    `${n} ${feet ? "FEET" : v === 1 ? "INCH" : "INCHES"}`,
-    `OF ${noun}`,
-    `IN 7 DAYS · ${/ of /.test(m.max.near) ? "" : "NEAR "}${m.max.near.toUpperCase()}`,
-  ];
+  const d = (iso: string) =>
+    new Date(iso)
+      .toLocaleDateString("en-US", { month: "short", day: "numeric" })
+      .toUpperCase();
+  return ["LAST 7 DAYS", `OF ${noun}`, `${d(m.start)} TO ${d(m.end)}`];
 }
 
 async function bitmap(url: string) {
@@ -150,9 +120,17 @@ export async function makeSevenDay(
   out.height = H;
   const g = out.getContext("2d")! as Ctx;
 
-  // Places to label in the frame (the biggest weekly totals), in card pixels.
+  // Places to label in the frame (the biggest weekly totals), in card pixels. A label near
+  // the card's edge is nudged inside it (its dot stays put), so no name is cut off.
   const fs = 30;
-  const picks: Meta["cities"] = [];
+  const valueFont = `800 ${fs}px ${t.disp}`;
+  const nameFont = `700 14px ${t.sans}`;
+  const picks: {
+    city: Meta["cities"][number];
+    x: number;
+    y: number;
+    cx: number;
+  }[] = [];
   {
     const boxes: [number, number, number, number][] = [];
     const least = m.kind === "rain" ? 0.5 : 2;
@@ -162,13 +140,20 @@ export async function makeSevenDay(
       if (v < least) break;
       const x = (city[2] - box.x) * k;
       const y = MAP_Y + (city[3] - box.y) * k;
-      if (x < 40 || x > W - 40 || y < MAP_Y + 40 || y > MAP_Y + MAP_H - 30)
+      if (x < 12 || x > W - 12 || y < MAP_Y + 40 || y > MAP_Y + MAP_H - 30)
         continue;
-      const w = Math.max(5, city[0].length * 0.5) * fs * 0.6 + 40;
+      g.font = valueFont;
+      const vw = g.measureText(inches(v)).width;
+      g.font = nameFont;
+      g.letterSpacing = "2.5px";
+      const nw = g.measureText(city[0].toUpperCase()).width;
+      g.letterSpacing = "0px";
+      const w = Math.max(vw, nw) + 24;
+      const cx = Math.min(W - 14 - w / 2, Math.max(14 + w / 2, x));
       const r: [number, number, number, number] = [
-        x - w / 2,
+        cx - w / 2,
         y - fs * 1.6,
-        x + w / 2,
+        cx + w / 2,
         y + fs * 1.0,
       ];
       if (
@@ -178,7 +163,7 @@ export async function makeSevenDay(
       )
         continue;
       boxes.push(r);
-      picks.push(city);
+      picks.push({ city, x, y, cx });
     }
   }
 
@@ -275,13 +260,13 @@ export async function makeSevenDay(
     }
     // Totals counting up at the places that got the most.
     g.textAlign = "center";
-    for (const city of picks) {
+    for (const { city, x, y, cx } of picks) {
       const ser = city[5];
       const v =
         (ser[step] ?? 0) +
         ((ser[Math.min(n - 1, step + 1)] ?? 0) - (ser[step] ?? 0)) * frac;
-      const x = (city[2] - box.x) * k;
-      const y = MAP_Y + (city[3] - box.y) * k;
+      // A place shows once some has fallen there (no ".00″" labels).
+      if (v < (m.kind === "rain" ? 0.05 : 0.1)) continue;
       g.fillStyle = "#fff";
       g.strokeStyle = "rgba(0,0,0,0.75)";
       g.lineWidth = 2;
@@ -290,21 +275,21 @@ export async function makeSevenDay(
       g.fill();
       g.stroke();
       g.lineJoin = "round";
-      g.font = `800 ${fs}px ${t.disp}`;
+      g.font = valueFont;
       g.lineWidth = 7;
       g.strokeStyle = "rgba(4,6,11,0.85)";
-      g.strokeText(inches(v), x, y - 14);
+      g.strokeText(inches(v), cx, y - 14);
       g.shadowColor = "rgba(255,255,255,0.35)";
       g.shadowBlur = 10;
       g.fillStyle = "#fff";
-      g.fillText(inches(v), x, y - 14);
+      g.fillText(inches(v), cx, y - 14);
       g.shadowBlur = 0;
-      g.font = `700 14px ${t.sans}`;
+      g.font = nameFont;
       g.letterSpacing = "2.5px";
       g.lineWidth = 5;
-      g.strokeText(city[0].toUpperCase(), x, y + 26);
+      g.strokeText(city[0].toUpperCase(), cx, y + 26);
       g.fillStyle = "rgba(255,255,255,0.85)";
-      g.fillText(city[0].toUpperCase(), x, y + 26);
+      g.fillText(city[0].toUpperCase(), cx, y + 26);
       g.letterSpacing = "0px";
     }
     g.restore();
@@ -399,25 +384,21 @@ export async function makeSevenDay(
       cv.toBlob((x) => (x ? ok(x) : no(new Error("empty"))), "image/png"),
     );
 
+  // Zoomed in, the half-size playback steps would look soft: use full-size ones.
+  const urls = k > 1.4 && f !== "image" ? await c.sharp() : c.urls;
   if (f === "image") {
     progress(0, 1);
-    const last = await bitmap(c.urls[n - 1]);
+    const last = await bitmap(urls[n - 1]);
     const blob = await png(draw(last, null, 0, n - 1));
     last.close();
     return blob;
   }
   const total = f === "gif" ? GIF_FRAMES : FPS * SECS;
-  const sink: Sink | null =
-    // The GIF at 80% (a 1080 GIF of a whole week runs past what most apps take).
-    f === "gif"
-      ? await gifSink(864, 1080, true)
-      : ((await mp4Sink(W, H, FPS)) ?? recordSink(W, H));
-  if (!sink) throw new Error("no encoder");
   const cache = new Map<number, ImageBitmap>();
   const get = async (i: number) => {
     let bmp = cache.get(i);
     if (!bmp) {
-      bmp = await bitmap(c.urls[i]);
+      bmp = await bitmap(urls[i]);
       cache.set(i, bmp);
       // Keep two: the step and the one after it.
       for (const [j, old] of cache)
@@ -428,14 +409,26 @@ export async function makeSevenDay(
     }
     return bmp;
   };
+  const at = async (i: number) => {
+    const s = (i / (total - 1)) * (n - 1);
+    const step = Math.min(n - 1, Math.floor(s));
+    const a = await get(step);
+    const next = step + 1 < n ? await get(step + 1) : null;
+    return draw(a, next, s - step, s);
+  };
   try {
+    let sink: Sink | null;
+    if (f === "gif") {
+      // Full 1080p, one palette from the first, middle and last frames, only changed pixels.
+      const sample: ImageData[] = [];
+      for (const i of [total - 1, Math.floor(total / 2), 0])
+        sample.push((await at(i)).getContext("2d")!.getImageData(0, 0, W, H));
+      sink = await gifSink(W, H, true, sample);
+    } else sink = (await mp4Sink(W, H, FPS)) ?? recordSink(W, H);
+    if (!sink) throw new Error("no encoder");
     for (let i = 0; i < total; i++) {
       progress(i, total);
-      const s = (i / (total - 1)) * (n - 1);
-      const step = Math.min(n - 1, Math.floor(s));
-      const a = await get(step);
-      const next = step + 1 < n ? await get(step + 1) : null;
-      const fr = draw(a, next, s - step, s);
+      const fr = await at(i);
       await sink.add(
         fr,
         i === total - 1 ? HOLD_MS : f === "gif" ? GIF_MS : 1000 / FPS,
