@@ -3,7 +3,8 @@ export const SND_LINES = [
   { key: "temp", label: "Temperature", color: "#f43f5e" },
   { key: "dew", label: "Dew point", color: "#22c55e" },
   { key: "parcel", label: "Lifted parcel", color: "#e5e7eb" },
-  { key: "cape", label: "CAPE shading", color: "#f59e0b" },
+  { key: "cape", label: "CAPE shading", color: "#ef4444" },
+  { key: "cin", label: "CIN (cap) shading", color: "#3b82f6" },
   { key: "storm", label: "Storm motion", color: "#ffffff" },
 ];
 /** Hodograph and 3D wind colors by height band (km AGL). */

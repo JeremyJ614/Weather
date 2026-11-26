@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import {
   CalendarClock,
   ExternalLink,
@@ -17,6 +18,10 @@ import type { Gauge, Hydro } from "@/lib/rivers/data";
 import { GAUGE_LEVELS } from "@/lib/rivers/style";
 import s from "./Rivers.module.css";
 import { InfoScrub } from "@/components/charts/InfoScrub";
+
+const MotionShare = dynamic(() => import("@/features/share/MotionShare"), {
+  ssr: false,
+});
 
 const now = () => Date.now();
 type Ahead = Gauge & { when: string | null };
@@ -535,6 +540,18 @@ function HydroChart({
           NWPS page <ExternalLink className="inline size-3" aria-hidden />
         </a>
       </figcaption>
+      <MotionShare
+        file={`sswx-river-${g.id.toLowerCase()}`}
+        frames={1}
+        formats={["image"]}
+        label="Share this graph"
+        heading="Your river gauge picture"
+        build={async (_f, progress) => {
+          progress(0, 1);
+          const { makeGauge } = await import("./share");
+          return makeGauge(g, d, c);
+        }}
+      />
     </figure>
   );
 }

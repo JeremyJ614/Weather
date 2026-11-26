@@ -66,3 +66,36 @@ describe("fall color", () => {
     expect(leafColor(0)).not.toBe(leafColor(42));
   });
 });
+
+describe("season stats", () => {
+  it("counts, groups and tracks the front", async () => {
+    const { seasonStats } = await import("@/lib/weather/foliage");
+    const day = (d: number) => Date.UTC(2026, 7, d);
+    const site = (lat: number, d: number, sp: number, st: number) =>
+      [-80, lat, day(d), sp, 0, st, day(d + 20), 200] as const;
+    const r = {
+      season: "2026",
+      current: true,
+      start: "2026-08-01",
+      end: "2026-08-31",
+      species: ["red maple", "white oak"],
+      states: ["ME", "GA"],
+      sites: [
+        site(45, 2, 0, 0),
+        site(45, 3, 0, 0),
+        site(44, 4, 1, 0),
+        site(33, 16, 1, 1),
+        site(32, 17, 1, 1),
+        site(31, 18, 0, 1),
+      ].map((x) => [...x]) as never,
+    };
+    const s = seasonStats(r, day(31));
+    expect(s.total).toBe(6);
+    expect(s.first?.state).toBe("ME");
+    expect(s.states.map((g) => g.name).sort()).toEqual(["GA", "ME"]);
+    expect(s.lasts).toBe(20);
+    const front = s.weeks.filter((w) => w.n >= 3);
+    expect(front[0].lat).toBeGreaterThan(front.at(-1)!.lat);
+    expect(s.bands.find((b) => b.name === "South")?.n).toBe(3);
+  });
+});

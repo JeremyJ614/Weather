@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -28,6 +29,10 @@ import {
 } from "@/lib/weather/daylight";
 import s from "./Daylight.module.css";
 import { InfoScrub } from "@/components/charts/InfoScrub";
+
+const MotionShare = dynamic(() => import("@/features/share/MotionShare"), {
+  ssr: false,
+});
 
 const fmtT = (t: Date | null, tz: string) =>
   t
@@ -401,6 +406,26 @@ export function DaylightView() {
               : "."}
         </span>
       </section>
+
+      <MotionShare
+        file={`sswx-daylight-${today}`}
+        frames={1}
+        formats={["image"]}
+        label="Share today's daylight"
+        heading="Your daylight picture"
+        build={async (_f, progress) => {
+          progress(0, 1);
+          const { makeDaylight } = await import("./share");
+          return makeDaylight({
+            lat: active.lat,
+            lon: active.lon,
+            label: active.label,
+            tz,
+            today,
+            now: Date.now(),
+          });
+        }}
+      />
 
       <section className={s.grid}>
         {times.map(({ Icon, label, sub, t }, i) => (
