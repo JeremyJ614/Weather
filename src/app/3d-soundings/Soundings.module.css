@@ -157,3 +157,37 @@
     grid-template-columns: 1fr;
   }
 }
+.angle {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+.angle > span {
+  grid-column: 1 / -1;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.angle button {
+  display: grid;
+  gap: 1px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 800;
+  text-align: left;
+}
+.angle button small {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.angle button[aria-checked="true"] {
+  border-color: var(--lit-line);
+  background: var(--lit);
+  color: var(--accent);
+  box-shadow: 0 0 16px -8px var(--accent);
+}

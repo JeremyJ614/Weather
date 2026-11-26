@@ -37,6 +37,8 @@ export async function makeGauge(
   g: Gauge,
   d: { observed: Hydro; forecast: Hydro; units: string },
   c: (lvl: string) => string,
+  /** The page's 3D view as drawn now (owner's list #42: pick which graph to share). */
+  three?: HTMLCanvasElement | null,
 ): Promise<Blob> {
   const accent = c(g.level === "normal" ? "normal" : g.level);
   const t = await tokens();
@@ -93,13 +95,6 @@ export async function makeGauge(
   const PW = SW - 60;
   const PH = 640;
   panel(x, t, PX, PY, PW, PH, 30, 0.35);
-  const P = { l: PX + 86, r: PX + PW - 28, t: PY + 40, b: PY + PH - 76 };
-  const all = [...d.observed, ...d.forecast];
-  const ts = all.map((p) => Date.parse(p.t));
-  const t0 = Math.min(...ts);
-  const t1 = Math.max(...ts);
-  const span = Math.max(1, t1 - t0);
-  const stages = all.map((p) => p.v);
   const marks = (
     [
       ["action", g.action],
@@ -108,198 +103,233 @@ export async function makeGauge(
       ["major", g.major],
     ] as [string, number | null][]
   ).filter((m): m is [string, number] => m[1] != null);
-  const peak = Math.max(...stages);
-  const low = Math.min(...stages);
-  const near = marks
-    .filter((m) => m[1] <= peak + (peak - low || 1) * 1.4)
-    .map((m) => m[1]);
-  const lo = Math.min(low, ...near);
-  const hi = Math.max(peak, ...near);
-  const pad = (hi - lo || 1) * 0.16;
-  const yLo = lo - pad;
-  const yHi = hi + pad;
-  const X = (tt: string | number) =>
-    P.l +
-    (((typeof tt === "string" ? Date.parse(tt) : tt) - t0) / span) *
-      (P.r - P.l);
-  const Y = (v: number) =>
-    P.t + (1 - (v - yLo) / (yHi - yLo || 1)) * (P.b - P.t);
-  // Flood bands.
-  for (const [k, v] of [...marks].reverse()) {
-    if (v < yLo || v > yHi) continue;
-    x.fillStyle = c(k);
-    x.globalAlpha = 0.07;
-    x.fillRect(P.l, P.t, P.r - P.l, Math.max(0, Y(v) - P.t));
-    x.globalAlpha = 0.85;
-    x.strokeStyle = c(k);
-    x.lineWidth = 1.6;
-    x.setLineDash([10, 8]);
-    x.beginPath();
-    x.moveTo(P.l, Y(v));
-    x.lineTo(P.r, Y(v));
-    x.stroke();
-    x.setLineDash([]);
-    x.globalAlpha = 1;
-    x.font = `700 15px ${mf}`;
-    x.fillStyle = c(k);
-    x.textAlign = "right";
-    x.fillText(
-      `${k === "minor" ? "FLOOD" : k.toUpperCase()} ${v}`,
-      P.r - 4,
-      Y(v) - 8,
-    );
-    x.textAlign = "left";
-  }
-  // Grid and axes.
-  x.font = `600 15px ${mf}`;
-  for (const f of [0, 0.25, 0.5, 0.75, 1]) {
-    const v = yLo + (yHi - yLo) * f;
-    x.strokeStyle = "rgba(255,255,255,0.07)";
-    x.lineWidth = 1;
-    x.beginPath();
-    x.moveTo(P.l, Y(v));
-    x.lineTo(P.r, Y(v));
-    x.stroke();
-    x.fillStyle = t.muted;
-    x.textAlign = "right";
-    x.fillText(v.toFixed(1), P.l - 12, Y(v) + 5);
-  }
-  x.textAlign = "left";
-  x.save();
-  x.translate(PX + 22, (P.t + P.b) / 2);
-  x.rotate(-Math.PI / 2);
-  x.textAlign = "center";
-  x.font = `700 13px ${t.sans}`;
-  x.letterSpacing = "3px";
-  x.fillStyle = t.muted;
-  x.fillText(`STAGE (${u.toUpperCase()})`, 0, 0);
-  x.letterSpacing = "0px";
-  x.restore();
-  const hours = span / 3600_000;
-  const step = hours > 120 ? 24 : hours > 48 ? 12 : 6;
-  const start = new Date(t0);
-  start.setMinutes(0, 0, 0);
-  x.font = `600 14px ${mf}`;
-  x.fillStyle = t.muted;
-  x.textAlign = "center";
-  for (let tt = start.getTime(); tt <= t1; tt += step * 3600_000) {
-    if (tt < t0) continue;
-    const lab =
-      step >= 24
-        ? new Date(tt).toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-          })
-        : new Date(tt).toLocaleString("en-US", {
-            weekday: "short",
-            hour: "numeric",
-          });
-    x.fillText(lab.toUpperCase(), X(tt), P.b + 30);
-  }
-  x.textAlign = "left";
-  // Now.
-  const nowX = X(Math.min(Math.max(Date.now(), t0), t1));
-  x.strokeStyle = t.accent;
-  x.globalAlpha = 0.7;
-  x.setLineDash([3, 5]);
-  x.lineWidth = 2;
-  x.beginPath();
-  x.moveTo(nowX, P.t);
-  x.lineTo(nowX, P.b);
-  x.stroke();
-  x.setLineDash([]);
-  x.globalAlpha = 1;
-  x.font = `800 13px ${t.sans}`;
-  x.letterSpacing = "3px";
-  x.fillStyle = t.accent;
-  x.textAlign = "center";
-  x.fillText("NOW", nowX, P.t - 12);
-  x.textAlign = "left";
-  x.letterSpacing = "0px";
-  // Observed: gradient fill, then a glowing trace.
-  const trace = (h: Hydro) => {
-    const p = new Path2D();
-    h.forEach((q, i) =>
-      i ? p.lineTo(X(q.t), Y(q.v)) : p.moveTo(X(q.t), Y(q.v)),
-    );
-    return p;
-  };
-  if (d.observed.length > 1) {
-    const fill = trace(d.observed);
-    fill.lineTo(X(d.observed.at(-1)!.t), P.b);
-    fill.lineTo(X(d.observed[0].t), P.b);
-    fill.closePath();
-    const gr = x.createLinearGradient(0, P.t, 0, P.b);
-    gr.addColorStop(0, accent);
-    gr.addColorStop(1, "rgba(0,0,0,0)");
-    x.fillStyle = gr;
-    x.globalAlpha = 0.34;
-    x.fill(fill);
-    x.globalAlpha = 1;
-  }
-  x.lineJoin = "round";
-  x.lineCap = "round";
-  x.strokeStyle = accent;
-  x.lineWidth = 5;
-  x.shadowColor = accent;
-  x.shadowBlur = 18;
-  x.stroke(trace(d.observed));
-  x.shadowBlur = 0;
-  if (d.forecast.length) {
-    const fc = d.observed.length
-      ? [d.observed.at(-1)!, ...d.forecast]
-      : d.forecast;
-    x.strokeStyle = t.accent;
-    x.lineWidth = 4;
-    x.setLineDash([14, 10]);
-    x.shadowColor = t.accent;
-    x.shadowBlur = 12;
-    x.stroke(trace(fc));
-    x.setLineDash([]);
-    x.shadowBlur = 0;
-  }
-  if (last) {
-    x.fillStyle = accent;
-    x.shadowColor = accent;
-    x.shadowBlur = 20;
-    x.beginPath();
-    x.arc(X(last.t), Y(last.v), 10, 0, Math.PI * 2);
-    x.fill();
-    x.shadowBlur = 0;
-    x.strokeStyle = "#0b0c14";
-    x.lineWidth = 3;
-    x.stroke();
-  }
   const crest = d.forecast.length
     ? d.forecast.reduce((m, p) => (p.v > m.v ? p : m))
     : null;
-  if (crest) {
-    const cx = X(crest.t);
-    const cy = Y(crest.v);
+  if (three && three.width && three.height) {
+    // The 3D board, trimmed to what is drawn and fitted into the panel, with its own caption.
+    const [sx, sy, sw, sh] = drawn(three);
+    const k = Math.min((PW - 40) / sw, (PH - 90) / sh);
+    const w = sw * k,
+      h = sh * k;
+    x.imageSmoothingQuality = "high";
+    x.drawImage(
+      three,
+      sx,
+      sy,
+      sw,
+      sh,
+      PX + (PW - w) / 2,
+      PY + 24 + (PH - 90 - h) / 2,
+      w,
+      h,
+    );
+    x.font = `600 14px ${t.sans}`;
+    x.fillStyle = t.muted;
+    x.fillText(
+      "3D: EACH COLUMN IS THE STAGE AT THAT HOUR · FAR SIDE: NWS FORECAST",
+      PX + 30,
+      PY + PH - 18,
+      PW - 60,
+    );
+  } else {
+    const P = { l: PX + 86, r: PX + PW - 28, t: PY + 40, b: PY + PH - 76 };
+    const all = [...d.observed, ...d.forecast];
+    const ts = all.map((p) => Date.parse(p.t));
+    const t0 = Math.min(...ts);
+    const t1 = Math.max(...ts);
+    const span = Math.max(1, t1 - t0);
+    const stages = all.map((p) => p.v);
+    const peak = Math.max(...stages);
+    const low = Math.min(...stages);
+    const near = marks
+      .filter((m) => m[1] <= peak + (peak - low || 1) * 1.4)
+      .map((m) => m[1]);
+    const lo = Math.min(low, ...near);
+    const hi = Math.max(peak, ...near);
+    const pad = (hi - lo || 1) * 0.16;
+    const yLo = lo - pad;
+    const yHi = hi + pad;
+    const X = (tt: string | number) =>
+      P.l +
+      (((typeof tt === "string" ? Date.parse(tt) : tt) - t0) / span) *
+        (P.r - P.l);
+    const Y = (v: number) =>
+      P.t + (1 - (v - yLo) / (yHi - yLo || 1)) * (P.b - P.t);
+    // Flood bands.
+    for (const [k, v] of [...marks].reverse()) {
+      if (v < yLo || v > yHi) continue;
+      x.fillStyle = c(k);
+      x.globalAlpha = 0.07;
+      x.fillRect(P.l, P.t, P.r - P.l, Math.max(0, Y(v) - P.t));
+      x.globalAlpha = 0.85;
+      x.strokeStyle = c(k);
+      x.lineWidth = 1.6;
+      x.setLineDash([10, 8]);
+      x.beginPath();
+      x.moveTo(P.l, Y(v));
+      x.lineTo(P.r, Y(v));
+      x.stroke();
+      x.setLineDash([]);
+      x.globalAlpha = 1;
+      x.font = `700 15px ${mf}`;
+      x.fillStyle = c(k);
+      x.textAlign = "right";
+      x.fillText(
+        `${k === "minor" ? "FLOOD" : k.toUpperCase()} ${v}`,
+        P.r - 4,
+        Y(v) - 8,
+      );
+      x.textAlign = "left";
+    }
+    // Grid and axes.
+    x.font = `600 15px ${mf}`;
+    for (const f of [0, 0.25, 0.5, 0.75, 1]) {
+      const v = yLo + (yHi - yLo) * f;
+      x.strokeStyle = "rgba(255,255,255,0.07)";
+      x.lineWidth = 1;
+      x.beginPath();
+      x.moveTo(P.l, Y(v));
+      x.lineTo(P.r, Y(v));
+      x.stroke();
+      x.fillStyle = t.muted;
+      x.textAlign = "right";
+      x.fillText(v.toFixed(1), P.l - 12, Y(v) + 5);
+    }
+    x.textAlign = "left";
+    x.save();
+    x.translate(PX + 22, (P.t + P.b) / 2);
+    x.rotate(-Math.PI / 2);
+    x.textAlign = "center";
+    x.font = `700 13px ${t.sans}`;
+    x.letterSpacing = "3px";
+    x.fillStyle = t.muted;
+    x.fillText(`STAGE (${u.toUpperCase()})`, 0, 0);
+    x.letterSpacing = "0px";
+    x.restore();
+    const hours = span / 3600_000;
+    const step = hours > 120 ? 24 : hours > 48 ? 12 : 6;
+    const start = new Date(t0);
+    start.setMinutes(0, 0, 0);
+    x.font = `600 14px ${mf}`;
+    x.fillStyle = t.muted;
+    x.textAlign = "center";
+    for (let tt = start.getTime(); tt <= t1; tt += step * 3600_000) {
+      if (tt < t0) continue;
+      const lab =
+        step >= 24
+          ? new Date(tt).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+            })
+          : new Date(tt).toLocaleString("en-US", {
+              weekday: "short",
+              hour: "numeric",
+            });
+      x.fillText(lab.toUpperCase(), X(tt), P.b + 30);
+    }
+    x.textAlign = "left";
+    // Now.
+    const nowX = X(Math.min(Math.max(Date.now(), t0), t1));
     x.strokeStyle = t.accent;
-    x.lineWidth = 3;
+    x.globalAlpha = 0.7;
+    x.setLineDash([3, 5]);
+    x.lineWidth = 2;
     x.beginPath();
-    x.arc(cx, cy, 10, 0, Math.PI * 2);
+    x.moveTo(nowX, P.t);
+    x.lineTo(nowX, P.b);
     x.stroke();
-    const txt = `CREST ${crest.v} ${u.toUpperCase()}`;
-    x.font = `800 18px ${t.sans}`;
-    const tw = x.measureText(txt).width + 24;
-    const bx = Math.min(P.r - tw, Math.max(P.l, cx - tw / 2));
-    const by = Math.max(P.t + 2, cy - 54);
-    x.beginPath();
-    x.roundRect(bx, by, tw, 32, 16);
-    x.fillStyle = "rgba(10,12,20,0.85)";
-    x.fill();
-    x.strokeStyle = t.accent;
-    x.lineWidth = 1.5;
-    x.stroke();
+    x.setLineDash([]);
+    x.globalAlpha = 1;
+    x.font = `800 13px ${t.sans}`;
+    x.letterSpacing = "3px";
     x.fillStyle = t.accent;
-    x.fillText(txt, bx + 12, by + 23);
+    x.textAlign = "center";
+    x.fillText("NOW", nowX, P.t - 12);
+    x.textAlign = "left";
+    x.letterSpacing = "0px";
+    // Observed: gradient fill, then a glowing trace.
+    const trace = (h: Hydro) => {
+      const p = new Path2D();
+      h.forEach((q, i) =>
+        i ? p.lineTo(X(q.t), Y(q.v)) : p.moveTo(X(q.t), Y(q.v)),
+      );
+      return p;
+    };
+    if (d.observed.length > 1) {
+      const fill = trace(d.observed);
+      fill.lineTo(X(d.observed.at(-1)!.t), P.b);
+      fill.lineTo(X(d.observed[0].t), P.b);
+      fill.closePath();
+      const gr = x.createLinearGradient(0, P.t, 0, P.b);
+      gr.addColorStop(0, accent);
+      gr.addColorStop(1, "rgba(0,0,0,0)");
+      x.fillStyle = gr;
+      x.globalAlpha = 0.34;
+      x.fill(fill);
+      x.globalAlpha = 1;
+    }
+    x.lineJoin = "round";
+    x.lineCap = "round";
+    x.strokeStyle = accent;
+    x.lineWidth = 5;
+    x.shadowColor = accent;
+    x.shadowBlur = 18;
+    x.stroke(trace(d.observed));
+    x.shadowBlur = 0;
+    if (d.forecast.length) {
+      const fc = d.observed.length
+        ? [d.observed.at(-1)!, ...d.forecast]
+        : d.forecast;
+      x.strokeStyle = t.accent;
+      x.lineWidth = 4;
+      x.setLineDash([14, 10]);
+      x.shadowColor = t.accent;
+      x.shadowBlur = 12;
+      x.stroke(trace(fc));
+      x.setLineDash([]);
+      x.shadowBlur = 0;
+    }
+    if (last) {
+      x.fillStyle = accent;
+      x.shadowColor = accent;
+      x.shadowBlur = 20;
+      x.beginPath();
+      x.arc(X(last.t), Y(last.v), 10, 0, Math.PI * 2);
+      x.fill();
+      x.shadowBlur = 0;
+      x.strokeStyle = "#0b0c14";
+      x.lineWidth = 3;
+      x.stroke();
+    }
+    if (crest) {
+      const cx = X(crest.t);
+      const cy = Y(crest.v);
+      x.strokeStyle = t.accent;
+      x.lineWidth = 3;
+      x.beginPath();
+      x.arc(cx, cy, 10, 0, Math.PI * 2);
+      x.stroke();
+      const txt = `CREST ${crest.v} ${u.toUpperCase()}`;
+      x.font = `800 18px ${t.sans}`;
+      const tw = x.measureText(txt).width + 24;
+      const bx = Math.min(P.r - tw, Math.max(P.l, cx - tw / 2));
+      const by = Math.max(P.t + 2, cy - 54);
+      x.beginPath();
+      x.roundRect(bx, by, tw, 32, 16);
+      x.fillStyle = "rgba(10,12,20,0.85)";
+      x.fill();
+      x.strokeStyle = t.accent;
+      x.lineWidth = 1.5;
+      x.stroke();
+      x.fillStyle = t.accent;
+      x.fillText(txt, bx + 12, by + 23);
+    }
+    // Legend line in the panel's foot.
+    x.font = `600 14px ${t.sans}`;
+    x.fillStyle = t.muted;
+    x.fillText("SOLID: OBSERVED  ·  DASHED: NWS FORECAST", P.l, PY + PH - 18);
   }
-  // Legend line in the panel's foot.
-  x.font = `600 14px ${t.sans}`;
-  x.fillStyle = t.muted;
-  x.fillText("SOLID: OBSERVED  ·  DASHED: NWS FORECAST", P.l, PY + PH - 18);
 
   // Tiles.
   const ty = PY + PH + 30;
@@ -446,4 +476,35 @@ export async function makeGauge(
     `NWS National Water Prediction Service · gauge ${g.id} · weather.sswx.space/river-flood-gauges`,
   );
   return png(cv);
+}
+
+/** The box around a canvas's drawn pixels, with a small margin (the whole canvas if unreadable). */
+function drawn(cv: HTMLCanvasElement): [number, number, number, number] {
+  const all: [number, number, number, number] = [0, 0, cv.width, cv.height];
+  try {
+    const { data, width, height } = cv
+      .getContext("2d")!
+      .getImageData(0, 0, cv.width, cv.height);
+    let x0 = width,
+      y0 = height,
+      x1 = -1,
+      y1 = -1;
+    for (let y = 0; y < height; y += 2)
+      for (let x = 0; x < width; x += 2)
+        if (data[(y * width + x) * 4 + 3] > 8) {
+          if (x < x0) x0 = x;
+          if (x > x1) x1 = x;
+          if (y < y0) y0 = y;
+          if (y > y1) y1 = y;
+        }
+    if (x1 < 0) return all;
+    const m = Math.round(Math.min(width, height) * 0.04);
+    x0 = Math.max(0, x0 - m);
+    y0 = Math.max(0, y0 - m);
+    x1 = Math.min(width, x1 + m);
+    y1 = Math.min(height, y1 + m);
+    return [x0, y0, x1 - x0, y1 - y0];
+  } catch {
+    return all;
+  }
 }

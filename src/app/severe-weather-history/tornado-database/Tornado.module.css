@@ -111,6 +111,12 @@
   stroke: var(--c);
   stroke-width: calc(var(--w) * 1px);
   stroke-linecap: round;
+  stroke-linejoin: round;
+}
+/* Surveyed paths curve: a path's glow is a stroke only (circles keep their fill). */
+path.halo {
+  fill: none;
+  stroke-linejoin: round;
 }
 .dot {
   fill: var(--c);
@@ -278,6 +284,11 @@
 }
 
 /* ---- The strongest ------------------------------------------------------------------------ */
+.bigHalo,
+.bigLine {
+  fill: none;
+  stroke-linejoin: round;
+}
 .bigHalo {
   stroke: var(--c);
   stroke-width: 34;
@@ -843,12 +854,18 @@
 :global([data-tier="low"]) .bigLine {
   filter: none;
 }
-.mine {
+/* The state's outline. No filter: a drop-shadow on a shape zoomed 40× in made phones run out
+   of graphics memory and reload the page (owner, 2026-11-26). The glow is a wide, faint stroke. */
+.mine,
+.mineGlow {
   fill: none;
   stroke: var(--accent);
-  stroke-width: 2px;
   stroke-linejoin: round;
-  filter: drop-shadow(
-    0 0 4px color-mix(in srgb, var(--accent) 80%, transparent)
-  );
+}
+.mine {
+  stroke-width: 2px;
+}
+.mineGlow {
+  stroke-width: 7px;
+  opacity: 0.22;
 }

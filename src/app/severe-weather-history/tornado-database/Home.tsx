@@ -7,6 +7,7 @@ import { usePlaces } from "@/features/location/usePlaces";
 import type { Colors } from "@/lib/colors/pick";
 import { pick } from "@/lib/colors/pick";
 import { EF_COLORS } from "@/lib/colors/ef";
+import { TDB } from "@/lib/tornado/view";
 import { Search, whereIs } from "./Search";
 import s from "./Tornado.module.css";
 
@@ -115,6 +116,7 @@ export function TornadoHome({
     ["EF3", "EF4", "EF5"].includes(t.ef),
   ).length;
   const deaths = mineTracks.reduce((a, t) => a + t.deaths, 0);
+  const newest = mineTracks.reduce((a, t) => (t.date > a ? t.date : a), "");
 
   return (
     <div className={s.page}>
@@ -125,7 +127,7 @@ export function TornadoHome({
           </p>
           <h2>
             {st
-              ? `Tornado paths in ${stateName(st)} since January ${year - 1}`
+              ? `Tornado paths in ${stateName(st)}, January ${year - 1} to today`
               : "Tornado paths near you"}
           </h2>
           {st && Array.isArray(tracks) && (
@@ -134,8 +136,9 @@ export function TornadoHome({
               {mineTracks.length === 1 ? "" : "es"}
               {strong ? `, ${strong} rated EF3 or stronger` : ""}
               {deaths ? `, ${deaths} ${deaths === 1 ? "death" : "deaths"}` : ""}
-              . Only your state&apos;s paths are drawn; the map shows the region
-              around it.
+              {newest ? `; the newest surveyed ${longDay(newest)}` : ""}. Only
+              your state&apos;s paths are drawn; the map shows the region around
+              it.
             </p>
           )}
           {!active && (
@@ -161,11 +164,18 @@ export function TornadoHome({
           maxZoom={40}
           overlay={
             outline ? (
-              <path
-                d={outline}
-                className={s.mine}
-                vectorEffect="non-scaling-stroke"
-              />
+              <g>
+                <path
+                  d={outline}
+                  className={s.mineGlow}
+                  vectorEffect="non-scaling-stroke"
+                />
+                <path
+                  d={outline}
+                  className={s.mine}
+                  vectorEffect="non-scaling-stroke"
+                />
+              </g>
             ) : null
           }
           towns
@@ -226,7 +236,7 @@ function PickCard({ p, c }: { p: Pick; c: (ef: string) => string }) {
   return (
     <li>
       <Link
-        href={`/tornado-database/${p.slug}`}
+        href={`${TDB}/${p.slug}`}
         style={{ ["--c" as string]: ef ? c(ef) : undefined }}
       >
         <span>
@@ -299,3 +309,10 @@ const NAMES: Record<string, string> = {
   PR: "Puerto Rico",
 };
 const stateName = (st: string) => NAMES[st] ?? st;
+const longDay = (iso: string) =>
+  new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });

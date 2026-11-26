@@ -6,7 +6,10 @@ import { STATES } from "@/lib/geo/search";
 import type { CountyData } from "@/lib/tornado/db";
 import {
   MONTHS,
+  TDB,
+  TDB_TAB,
   clock,
+  ends,
   day,
   decades,
   efKey,
@@ -19,6 +22,7 @@ import {
   strongest,
   summary,
   topYears,
+  trackD,
   type T,
 } from "@/lib/tornado/view";
 import { ShareCounty } from "./ShareCounty";
@@ -44,6 +48,8 @@ export function CountyPage({
     "",
   );
   const stateName = STATES[county.st] ?? county.st;
+  // NOAA's yearly record, then NWS surveys to this week when they answered.
+  const upTo = d.surveys?.live ? String(new Date().getFullYear()) : d.through;
   const top = strongest(tors);
   const last = tors[0] ?? null;
   const ss = season(tors);
@@ -62,18 +68,16 @@ export function CountyPage({
     last: last ? { r: rate(last), m: last.mag, day: day(last.when) } : null,
     outline: d.outline,
     box: d.box,
-    tracks: tors.map(
-      (t) =>
-        [t.a[1], t.a[0], t.b[1], t.b[0], t.mag] as [
-          number,
-          number,
-          number,
-          number,
-          number,
-        ],
-    ),
+    // Each path as flat lon,lat points, thinned to what a 1080 px card can show.
+    tracks: tors.map((t) => ({
+      m: t.mag,
+      p: (t.path?.length ? t.path : [[t.a[1], t.a[0], t.b[1], t.b[0]]]).map(
+        (p) =>
+          thin(p, Math.max(d.box[2] - d.box[0], d.box[3] - d.box[1]) / 600),
+      ),
+    })),
     colors: Object.fromEntries(ORDER.map((m) => [m, c(m)])),
-    through: d.through,
+    through: upTo,
   };
   return (
     <div className={s.page}>
@@ -107,7 +111,7 @@ export function CountyPage({
         </div>
       </section>
       <div className={s.actions}>
-        <Link href="/tornado-database" className={s.back}>
+        <Link href={TDB_TAB} className={s.back}>
           ← Search another town or county
         </Link>
         <ShareCounty data={share} />
@@ -240,7 +244,7 @@ export function CountyPage({
           <ul className={s.near}>
             {d.neighbours.map((n) => (
               <li key={n.fips}>
-                <Link href={`/tornado-database/${n.slug}`}>
+                <Link href={`${TDB}/${n.slug}`}>
                   {n.name}, {n.st}
                 </Link>
                 <span>{n.n ? `${n.n} since 1950` : "None since 1950"}</span>
@@ -254,10 +258,16 @@ export function CountyPage({
         <Search compact colors={colors} />
       </section>
       <p className={s.source}>
-        Source: NOAA Storm Prediction Center tornado database, 1950 to{" "}
-        {d.through}, with each tornado placed in every county its record names.
-        Paths are drawn from touchdown to lift-off in a straight line; surveyed
-        shapes can curve.
+        Sources: NOAA Storm Prediction Center tornado database, 1950 to{" "}
+        {d.through}, with each tornado placed in every county its record names;
+        National Weather Service damage surveys, read daily, for the surveyed
+        paths (most tornadoes since about 2008) and the newest tornadoes, which
+        stay preliminary until NOAA&apos;s next yearly record. Older tornadoes
+        were only recorded where they touched down and lifted, so their paths
+        are drawn as straight lines.
+        {d.surveys && !d.surveys.live
+          ? " The survey service didn't answer just now, so this page shows the yearly record only."
+          : ""}
       </p>
     </div>
   );
@@ -349,7 +359,7 @@ function CountyMap({ d, c }: { d: CountyData; c: (m: number) => string }) {
       </svg>
       <figcaption className={s.mapKey}>
         <b>Tornado paths</b>
-        <span>1950 to {d.through}</span>
+        <span>1950 to {d.surveys?.live ? "today" : d.through}</span>
         <span className={s.keyRow}>
           {ORDER.filter((m) => d.tors.some((t) => t.mag === m)).map((m) => (
             <i key={m} style={{ ["--c" as string]: c(m) }}>
@@ -375,10 +385,12 @@ function Path({
   i: number;
   n: number;
 }) {
-  const [ax, ay] = at(t.a[1], t.a[0]);
-  const [bx, by] = at(t.b[1], t.b[0]);
+  const [[a0, a1], [b0, b1]] = ends(t);
+  const [ax, ay] = at(a0, a1);
+  const [bx, by] = at(b0, b1);
   const w = 1.8 + Math.max(0, t.mag) * 0.9;
-  const point = Math.hypot(bx - ax, by - ay) < 3;
+  const point = !t.path?.length && Math.hypot(bx - ax, by - ay) < 3;
+  const line = trackD(t, at);
   const style = {
     ["--c" as string]: c,
     ["--w" as string]: w,
@@ -386,7 +398,7 @@ function Path({
   };
   return (
     <g style={style}>
-      <title>{`${rate(t)}, ${day(t.when)}, ${miles(t.miles)}`}</title>
+      <title>{`${rate(t)}, ${day(t.when)}, ${miles(t.miles)}${t.prelim ? " (preliminary)" : ""}`}</title>
       {point ? (
         <>
           <circle cx={ax} cy={ay} r={w * 1.6} className={s.halo} />
@@ -394,14 +406,8 @@ function Path({
         </>
       ) : (
         <>
-          <path
-            d={`M${ax.toFixed(1)} ${ay.toFixed(1)}L${bx.toFixed(1)} ${by.toFixed(1)}`}
-            className={s.halo}
-          />
-          <path
-            d={`M${ax.toFixed(1)} ${ay.toFixed(1)}L${bx.toFixed(1)} ${by.toFixed(1)}`}
-            className={s.line}
-          />
+          <path d={line} className={s.halo} />
+          <path d={line} className={s.line} />
           <circle cx={ax} cy={ay} r={w * 0.75} className={s.dot} />
         </>
       )}
@@ -420,11 +426,12 @@ function Strongest({
 }) {
   const W = 1000,
     H = 520;
-  const lons = [t.a[1], t.b[1]],
-    lats = [t.a[0], t.b[0]];
+  const pts = t.path?.length ? t.path.flat() : [t.a[1], t.a[0], t.b[1], t.b[0]];
+  const lons = pts.filter((_, i) => i % 2 === 0),
+    lats = pts.filter((_, i) => i % 2 === 1);
   const span = Math.max(
-    Math.abs(lons[0] - lons[1]),
-    Math.abs(lats[0] - lats[1]),
+    Math.max(...lons) - Math.min(...lons),
+    Math.max(...lats) - Math.min(...lats),
     0.05,
   );
   const box = [
@@ -434,8 +441,10 @@ function Strongest({
     Math.max(...lats) + span * 0.35,
   ];
   const { at } = frame(box, W, H, 40);
-  const [ax, ay] = at(t.a[1], t.a[0]);
-  const [bx, by] = at(t.b[1], t.b[0]);
+  const [[a0, a1], [b0, b1]] = ends(t);
+  const [ax, ay] = at(a0, a1);
+  const [bx, by] = at(b0, b1);
+  const big = trackD(t, at);
   const col = c(t.mag);
   const inn = t.inc[d.county.fips];
   return (
@@ -455,15 +464,16 @@ function Strongest({
             <rect width={W} height={H} className={s.sea} />
             <rect width={W} height={H} fill="url(#tdb-grid)" />
             <path d={ringsPath(d.outline, at)} className={s.landDash} />
-            <path d={`M${ax} ${ay}L${bx} ${by}`} className={s.bigHalo} />
-            <path d={`M${ax} ${ay}L${bx} ${by}`} className={s.bigLine} />
+            <path d={big} className={s.bigHalo} />
+            <path d={big} className={s.bigLine} />
             <circle cx={ax} cy={ay} r="11" className={s.start} />
             <circle cx={bx} cy={by} r="6" className={s.end} />
           </g>
         </svg>
         <figcaption>
-          Touchdown (ringed) to lift-off, in a straight line. Dashed: the county
-          line.
+          {t.path?.length
+            ? "The surveyed path, touchdown (ringed) to lift-off. Dashed: the county line."
+            : "Touchdown (ringed) to lift-off, in a straight line (no survey path was kept then). Dashed: the county line."}
         </figcaption>
       </figure>
       <p className={s.eye}>The strongest</p>
@@ -625,4 +635,18 @@ function Decades({
       ))}
     </div>
   );
+}
+
+/** Drop points closer than `tol` degrees to the last one kept (ends always kept). */
+function thin(p: number[], tol: number) {
+  if (p.length <= 4) return p.map((v) => +v.toFixed(4));
+  const out = [p[0], p[1]];
+  for (let i = 2; i + 2 < p.length; i += 2)
+    if (
+      Math.hypot(p[i] - out[out.length - 2], p[i + 1] - out[out.length - 1]) >=
+      tol
+    )
+      out.push(p[i], p[i + 1]);
+  out.push(p[p.length - 2], p[p.length - 1]);
+  return out.map((v) => +v.toFixed(4));
 }

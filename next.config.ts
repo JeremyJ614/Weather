@@ -14,10 +14,29 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   // The Tornado Database (scripts/tornado_db.py) is read from disk by these routes.
   outputFileTracingIncludes: {
-    "/tornado-database": ["./src/data/tornado/**/*"],
-    "/tornado-database/*": ["./src/data/tornado/**/*"],
+    "/severe-weather-history": ["./src/data/tornado/index.json"],
+    "/severe-weather-history/tornado-database/*": ["./src/data/tornado/**/*"],
     "/api/tornado/*": ["./src/data/tornado/**/*"],
-    "/sitemap.xml": ["./src/data/tornado/index.json"],
+  },
+  // The Tornado Database is Severe Weather History's third tab (owner, 2026-11-26).
+  async redirects() {
+    return [
+      {
+        source: "/tornado-database",
+        destination: "/severe-weather-history#tornado-database",
+        permanent: true,
+      },
+      {
+        source: "/severe-weather-history/tornado-database",
+        destination: "/severe-weather-history#tornado-database",
+        permanent: true,
+      },
+      {
+        source: "/tornado-database/:county",
+        destination: "/severe-weather-history/tornado-database/:county",
+        permanent: true,
+      },
+    ];
   },
   async headers() {
     return [

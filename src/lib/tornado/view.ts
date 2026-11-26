@@ -11,7 +11,42 @@ export type T = {
   a: [number, number];
   b: [number, number];
   inc: Record<string, number>;
+  path?: number[][];
+  prelim?: boolean;
 };
+
+/** Where the Tornado Database lives: the third tab of Severe Weather History (owner, 2026-11-26). */
+export const TDB = "/severe-weather-history/tornado-database";
+export const TDB_TAB = "/severe-weather-history#tornado-database";
+
+/** A tornado's path in a frame: the surveyed shape when there is one, else touchdown to lift-off. */
+export function trackD(
+  t: T,
+  at: (lon: number, lat: number) => [number, number],
+) {
+  const parts = t.path?.length ? t.path : [[t.a[1], t.a[0], t.b[1], t.b[0]]];
+  let d = "";
+  for (const p of parts)
+    for (let i = 0; i + 1 < p.length; i += 2) {
+      const [x, y] = at(p[i], p[i + 1]);
+      d += `${i ? "L" : "M"}${x.toFixed(1)} ${y.toFixed(1)}`;
+    }
+  return d;
+}
+/** First and last points of a path (lon, lat). */
+export function ends(t: T): [[number, number], [number, number]] {
+  if (!t.path?.length)
+    return [
+      [t.a[1], t.a[0]],
+      [t.b[1], t.b[0]],
+    ];
+  const f = t.path[0],
+    l = t.path[t.path.length - 1];
+  return [
+    [f[0], f[1]],
+    [l[l.length - 2], l[l.length - 1]],
+  ];
+}
 
 export const MONTHS = [
   "Jan",
@@ -143,7 +178,12 @@ export function line(t: T, fips: string, county: string) {
     t.deaths ? `${t.deaths} ${t.deaths === 1 ? "death" : "deaths"}` : "",
     t.hurt ? `${t.hurt} ${t.hurt === 1 ? "injury" : "injuries"}` : "",
   ].filter(Boolean);
-  return s + (harm.length ? `; ${harm.join(" and ")}` : "") + ".";
+  return (
+    s +
+    (harm.length ? `; ${harm.join(" and ")}` : "") +
+    "." +
+    (t.prelim ? " Preliminary NWS survey." : "")
+  );
 }
 
 /** The plain-language summary at the top of a county page. */
@@ -165,7 +205,7 @@ export function summary(
     .join(" and ");
   const big = ts.filter((t) => t.mag >= 3).length;
   return [
-    `${ts.length} tornado${ts.length === 1 ? " has" : "es have"} touched ${place}, ${stateName} since 1950 (NOAA's record through ${through}).`,
+    `${ts.length} tornado${ts.length === 1 ? " has" : "es have"} touched ${place}, ${stateName} since 1950 (NOAA's record through ${through}${ts.some((t) => t.prelim) ? ", then the National Weather Service's damage surveys since" : ""}).`,
     `The strongest was an ${rate(top)} on ${day(top.when)}${top.miles ? `, on a path ${miles(top.miles)} long` : ""}${harm ? `, and it ${harm}` : ""}.`,
     big > 1
       ? `${big} of them were rated ${top.ef ? "EF" : "F"}3 or stronger.`

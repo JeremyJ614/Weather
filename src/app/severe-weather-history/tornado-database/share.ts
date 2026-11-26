@@ -26,7 +26,8 @@ export type CountyCard = {
   outline: number[][];
   box: number[];
   /** [start lon, start lat, end lon, end lat, rating] */
-  tracks: [number, number, number, number, number][];
+  /** Each path's parts as flat lon,lat points, with its rating. */
+  tracks: { m: number; p: number[][] }[];
   /** Rating (-1 to 5) to color, from the admin's color settings. */
   colors: Record<string, string>;
   through: string;
@@ -86,19 +87,23 @@ export async function makeCountyCard(d: CountyCard): Promise<Blob> {
   ring();
   g.fillStyle = "rgba(255,255,255,0.045)";
   g.fill("evenodd");
-  for (const [a, b, e, f, m] of [...d.tracks].sort((p, q) => p[4] - q[4])) {
+  for (const { m, p: parts } of [...d.tracks].sort((p, q) => p.m - q.m)) {
     const col = d.colors[String(m)] ?? "#9aa0b8";
     const w = 3 + Math.max(0, m) * 1.6;
-    const [ax, ay] = at(a, b);
-    const [ex, ey] = at(e, f);
+    const [ax, ay] = at(parts[0][0], parts[0][1]);
     g.strokeStyle = col;
     g.lineCap = "round";
+    g.lineJoin = "round";
     g.shadowColor = col;
     g.shadowBlur = 14;
     g.lineWidth = w;
     g.beginPath();
-    g.moveTo(ax, ay);
-    g.lineTo(ex === ax && ey === ay ? ex + 0.1 : ex, ey);
+    for (const p of parts)
+      for (let i = 0; i + 1 < p.length; i += 2) {
+        const [px, py] = at(p[i], p[i + 1]);
+        if (i) g.lineTo(px === ax && py === ay ? px + 0.1 : px, py);
+        else g.moveTo(px, py);
+      }
     g.stroke();
     g.shadowBlur = 0;
     g.fillStyle = col;
@@ -139,7 +144,7 @@ export async function makeCountyCard(d: CountyCard): Promise<Blob> {
   foot(
     g,
     t,
-    `NOAA Storm Prediction Center tornado record, 1950 to ${d.through} · weather.sswx.space/tornado-database`,
+    `NOAA tornado record and NWS damage surveys, 1950 to ${d.through} · weather.sswx.space/severe-weather-history`,
   );
   return png(c);
 }
