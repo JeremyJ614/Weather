@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { publicEnv } from "@/lib/env";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { afterFailure, lockedUntil, type Attempts } from "./lockout";
+import { carryPassword } from "./carry";
 import { emailHash, pinPassword, validPin } from "./pin";
 
 /**
@@ -32,10 +33,10 @@ export async function verifyPin(
   const probe = createClient(supabaseUrl, supabaseAnonKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
-  const { error } = await probe.auth.signInWithPassword({
-    email,
-    password: pinPassword(email, pin),
-  });
+  const password = pinPassword(email, pin);
+  let { error } = await probe.auth.signInWithPassword({ email, password });
+  if (error && (await carryPassword(email, password)))
+    ({ error } = await probe.auth.signInWithPassword({ email, password }));
   if (error) {
     await admin.from("pin_attempts").upsert({
       email_hash: hash,

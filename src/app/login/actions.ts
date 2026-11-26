@@ -8,6 +8,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { supabaseServer } from "@/lib/supabase/server";
 import { safeNext } from "@/lib/safe-next";
 import { afterFailure, lockedUntil, type Attempts } from "@/lib/auth/lockout";
+import { carryPassword } from "@/lib/auth/carry";
 import { emailHash, normEmail, pinPassword, validPin } from "@/lib/auth/pin";
 import { checkSignup, type SignupInput } from "@/lib/auth/signup";
 import { checkCustom, getSignupForm } from "@/lib/auth/signup-form";
@@ -48,10 +49,11 @@ async function pinSignIn(_: FormState, fd: FormData): Promise<FormState> {
   if (until) return { error: lockMsg(until) };
 
   const supabase = await supabaseServer();
-  const { error } = await supabase.auth.signInWithPassword({
-    email,
-    password: pinPassword(email, pin),
-  });
+  const password = pinPassword(email, pin);
+  let { error } = await supabase.auth.signInWithPassword({ email, password });
+  // First sign-in after the project move: the old project checks the PIN once.
+  if (error && (await carryPassword(email, password)))
+    ({ error } = await supabase.auth.signInWithPassword({ email, password }));
   if (error) {
     const next = afterFailure(row);
     await admin.from("pin_attempts").upsert({
