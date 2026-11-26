@@ -61,3 +61,29 @@ migrations, which have been kept in step.
 Ask Supabase support to recover the old account (proof of ownership: the organization's name,
 project id `ztzqemzuanwqwqzsaigd`, the Vercel and GitHub accounts using it). If that works,
 nothing has to move. It can take days, and without the old email it may not succeed.
+
+## The move (owner chose it, 2026-11-26)
+
+- **New project:** `stormsync-weather`, ref `katgjzkvscexswsqqooi`, us-east-1, free plan, in the
+  "jays backup backup" organization (account jaytester39; its access token is in the owner's
+  account sheet). Jays-education stays paused there; paused projects don't take a free slot.
+- **Schema:** all migrations replayed. The live project never got
+  `20261020060000_disaster_no_volunteers` (its volunteers table still exists there), so the
+  new project is the first to have every migration. `20261126200000_project_move` adds
+  `password_unset()` for the sign-in carry-over and unschedules the retired analogs job.
+- **Scheduled jobs:** the 18 pg_cron jobs exist in the new project, paused until cutover.
+- **Auth settings (done by API):** site URL `https://weather.sswx.space`, redirect list, Resend
+  SMTP (`account@send.sswx.space`, "StormSync Weather"), the four branded templates.
+  **Google sign-in waits on the owner:** in Google Cloud → APIs & Services → Credentials, open
+  the OAuth client and add the redirect URI
+  `https://katgjzkvscexswsqqooi.supabase.co/auth/v1/callback`; then in the new project's
+  dashboard → Authentication → Sign In / Providers → Google, paste the client ID and secret.
+- **Copy:** `jobs.yml` job `export` (sealed artifact, one day) → `wximport.py` in the working
+  session (users with the same ids and no password, every table in raw-copy mode with Storage
+  links rewritten, sequences, buckets and files) → counts checked against the export.
+- **Sign-in carry-over:** `src/lib/auth/carry.ts`. Off while the site points at the old project.
+- **Cutover:** final export and import, then the three Vercel variables
+  (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`) and
+  `jobs.yml`'s two lines switch to the new project, a production redeploy, and the cron jobs
+  resume. Writes made on the old project between the final export and the redeploy (a few
+  minutes) don't come across.

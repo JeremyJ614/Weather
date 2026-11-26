@@ -5,7 +5,8 @@ import { publicEnv } from "@/lib/env";
  * Database relay for the scheduled jobs on GitHub Actions (post-launch A1 "cost-guard"): the
  * heavy work (model downloads, engine maps) runs there, and only the reads and writes pass
  * through here with the server's service key. Every call must carry a GitHub OIDC token from
- * this repository's jobs workflow on main; only the REST and Storage APIs are reachable.
+ * this repository's jobs workflow on main; only the REST and Storage APIs are reachable, plus
+ * reading the member list (Auth admin, GET only) for the project move.
  */
 export const maxDuration = 30;
 
@@ -38,7 +39,9 @@ async function relay(
   if (!(await isJobsToken(token)))
     return new Response("Forbidden", { status: 403 });
   const path = (await params).path.join("/");
-  if (!/^(rest|storage)\/v1\//.test(path))
+  // The project move (2026-11-26) also reads the member list, and nothing else of Auth.
+  const members = req.method === "GET" && path === "auth/v1/admin/users";
+  if (!/^(rest|storage)\/v1\//.test(path) && !members)
     return new Response("Not found", { status: 404 });
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!key) return new Response("Not configured", { status: 503 });

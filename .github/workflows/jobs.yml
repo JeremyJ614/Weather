@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
     inputs:
       job:
-        description: "engines, outdoor, verify, surge, indexnow, sizes, usage or cron"
+        description: "engines, outdoor, verify, surge, indexnow, sizes, usage, cron or export"
         required: true
         default: engines
       arg:
@@ -35,7 +35,7 @@ jobs:
     # On by default; set the repository variable JOBS_OFF to 1 to pause.
     if: ${{ vars.JOBS_OFF != '1' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: ${{ inputs.job == 'export' && 90 || 10 }}
     env:
       # Public values (they ship in the site's own pages).
       NEXT_PUBLIC_SUPABASE_URL: https://ztzqemzuanwqwqzsaigd.supabase.co
@@ -63,3 +63,24 @@ jobs:
         env:
           JOB: ${{ steps.pick.outputs.job }}
           ARG: ${{ inputs.arg }}
+      # The project move: the export is sealed with a fresh key, itself sealed to the move's
+      # public key (scripts/jobs/export-key.pub.txt), so only the holder of the private key can
+      # open the artifact. Kept one day.
+      - name: Seal the export
+        if: steps.pick.outputs.job == 'export'
+        run: |
+          tar czf export.tgz export
+          openssl rand -hex 32 > k
+          openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -in export.tgz -out export.tgz.enc -pass file:k
+          openssl pkeyutl -encrypt -pubin -inkey scripts/jobs/export-key.pub.txt -pkeyopt rsa_padding_mode:oaep -pkeyopt rsa_oaep_md:sha256 -in k -out k.enc
+          rm -rf export export.tgz k
+          ls -l export.tgz.enc k.enc
+      - name: Keep the sealed export
+        if: steps.pick.outputs.job == 'export'
+        uses: actions/upload-artifact@v4
+        with:
+          name: export
+          path: |
+            export.tgz.enc
+            k.enc
+          retention-days: 1

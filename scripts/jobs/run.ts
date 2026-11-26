@@ -82,6 +82,9 @@ async function main() {
       const r = await usageReport(Number(arg ?? 24));
       return r;
     }
+    case "export":
+      // The Supabase project move: everything the live project holds, for the sealed artifact.
+      return (await import("./export")).exportAll();
     case "dry": {
       // Computes one engine without storing it: proves the runner works on a new machine.
       const id = arg ?? "stp";
@@ -98,7 +101,7 @@ async function main() {
     }
     default:
       throw new Error(
-        `Unknown job "${job}". Use engines, outdoor, verify, surge, indexnow, sizes, usage, cron or dry.`,
+        `Unknown job "${job}". Use engines, outdoor, verify, surge, indexnow, sizes, usage, cron, export or dry.`,
       );
   }
 }
