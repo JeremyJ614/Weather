@@ -79,3 +79,8 @@ export function stateAt(x: number, y: number): string {
   }
   return best;
 }
+
+/** Each state's box on the national canvas: [x0, y0, x1, y1]. */
+export function stateBoxes(): Record<string, number[]> {
+  return Object.fromEntries(load().map((s) => [s.abbr, s.box]));
+}

@@ -195,6 +195,7 @@ const SHOWCASE: Step[] = [
     body: "Replay famous tornadoes minute by minute: radar, warnings, the damage path and every report. Log your own chase, draw the route and replay it against the radar. Or meet today's storm from history, told like a story.",
     chips: [
       "tornado-archive",
+      "tornado-database",
       "chasing-log",
       "on-this-day",
       "severe-weather-history",

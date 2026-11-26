@@ -85,6 +85,7 @@ export const MAIN_NAV: NavGroup[] = [
       p("winter-center", "Winter Center", "Snowflake", "42"),
       p("storm-chasing-outlook", "Storm Chasing Outlook", "Car", "43"),
       p("severe-weather-history", "Severe Weather History", "History", "44"),
+      p("tornado-database", "Tornado Database", "Tornado", "Fix-It 42"),
     ],
   },
   {
@@ -179,6 +180,7 @@ export const href = (page: NavPage) => `/${page.slug}`;
  */
 export const FRONT_DOOR = [
   "sswxcon",
+  "tornado-database",
   "spc-probability",
   "on-this-day",
   "weather-glossary",

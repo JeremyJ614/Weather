@@ -12,6 +12,13 @@ const nextConfig: NextConfig = {
   // Off until measured against the performance budget (it adds shared JS).
   reactCompiler: false,
   poweredByHeader: false,
+  // The Tornado Database (scripts/tornado_db.py) is read from disk by these routes.
+  outputFileTracingIncludes: {
+    "/tornado-database": ["./src/data/tornado/**/*"],
+    "/tornado-database/*": ["./src/data/tornado/**/*"],
+    "/api/tornado/*": ["./src/data/tornado/**/*"],
+    "/sitemap.xml": ["./src/data/tornado/index.json"],
+  },
   async headers() {
     return [
       {
