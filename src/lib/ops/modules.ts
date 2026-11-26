@@ -26,6 +26,7 @@ export const MODULES = [
   { id: "winter", label: "Winter Center" },
   { id: "chase", label: "Storm Chasing Outlook" },
   { id: "history", label: "Severe Weather History" },
+  { id: "tornado-database", label: "Tornado Database" },
   { id: "radar", label: "Radar & Model Runs" },
   { id: "rivers", label: "River & Flood Gauges" },
   { id: "soundings", label: "3D Soundings" },

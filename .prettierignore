@@ -15,3 +15,5 @@ src/data/archive/
 public/geo/
 public/extras/blindspot.json
 public/extras/tracks
+# Built by scripts/tornado_db.py; kept compact.
+src/data/tornado/

@@ -44,6 +44,8 @@ export const ABOUT: Record<string, string> = {
     "Snow and ice odds, winter alerts and the setup behind them.",
   "storm-chasing-outlook":
     "The day's two best chase targets, at least 125 miles apart, with timing, storm mode and how the day could bust.",
+  "tornado-database":
+    "Has a tornado ever hit your town? Every path in every county since 1950, and your state's last two years on the map.",
   "severe-weather-history":
     "Every surveyed tornado and storm report by year or window, on the map and in numbers.",
   "radar-model-runs":
