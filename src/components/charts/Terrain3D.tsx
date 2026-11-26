@@ -7,6 +7,9 @@
  * and outlined, the readout above the chart, and a Flat view that becomes a heat map. Drawn on
  * one canvas only while something moves (springs settle and the loop stops), paused off
  * screen, at most 2× pixels; Reduce Motion and low-tier phones get the still view.
+ * Phones (owner's list #42): one finger turns, two fingers pinch to zoom, twist to turn and move
+ * up or down to tilt; zoomed in, one finger pans; a double tap or Reset brings the view back.
+ * Buttons under the chart turn, tilt and zoom too; Ctrl or ⌘ with the wheel zooms on computers.
  */
 import {
   useCallback,
@@ -54,7 +57,9 @@ const GAP = 0.2;
 const DEG = Math.PI / 180;
 const PITCH = 52 * DEG;
 const YAW = 16 * DEG;
-const YAW_LIMIT = 40 * DEG;
+const YAW_LIMIT = 85 * DEG;
+const ZOOM_MAX = 4;
+const ZK = 220;
 const PITCH_LIMIT = 70 * DEG;
 const SPIN_HALF = 0.16;
 const STIFF = 140;
@@ -196,6 +201,22 @@ export function Terrain3D(props: TerrainProps) {
     vb: new Float64Array(C),
     hover: -1,
     origin: 0,
+    zoom: 1,
+    vzoom: 0,
+    ztarget: 1,
+    panX: 0,
+    panY: 0,
+    pts: new Map<number, { x: number; y: number }>(),
+    pinch: null as null | {
+      d0: number;
+      a0: number;
+      mx: number;
+      my: number;
+      z0: number;
+      yaw0: number;
+      pitch0: number;
+    },
+    tap: { t: 0, x: 0, y: 0 },
     w: 0,
     h: 0,
     dpr: 1,
@@ -207,6 +228,8 @@ export function Terrain3D(props: TerrainProps) {
       moved: boolean;
       t: number;
       vx: number;
+      px: number;
+      py: number;
     },
     raf: 0,
     last: 0,
@@ -231,6 +254,7 @@ export function Terrain3D(props: TerrainProps) {
     selRef.current = sel;
   }, [sel]);
   const tickRef = useRef<(now: number) => void>(() => {});
+  const wheelRef = useRef<(e: WheelEvent) => void>(() => {});
 
   const pose = useCallback((): Pose & { lift: number } => {
     const S = sim.current;
@@ -253,16 +277,17 @@ export function Terrain3D(props: TerrainProps) {
         y0 = Math.min(y0, py);
         y1 = Math.max(y1, py);
       }
-    const k = Math.min(
-      (S.w - PAD * 2) / (x1 - x0),
-      (S.h - PAD * 2 - 18) / (y1 - y0 || 1),
-    );
+    const k =
+      Math.min(
+        (S.w - PAD * 2) / (x1 - x0),
+        (S.h - PAD * 2 - 18) / (y1 - y0 || 1),
+      ) * S.zoom;
     return {
       yaw: S.yaw,
       pitch: S.pitch,
       k,
-      cx: S.w / 2 - ((x0 + x1) / 2) * k,
-      cy: S.h / 2 - ((y0 + y1) / 2) * k - 6,
+      cx: S.w / 2 - ((x0 + x1) / 2) * k + S.panX,
+      cy: S.h / 2 - ((y0 + y1) / 2) * k - 6 + S.panY,
       lift,
     };
   }, [C, Z, maxH]);
@@ -497,6 +522,25 @@ export function Terrain3D(props: TerrainProps) {
       S.pitch += S.vpitch * dt;
       e = Math.max(e, Math.abs(S.vpitch), Math.abs(S.target - S.pitch));
     }
+    if (!S.pinch) {
+      S.vzoom += ((S.ztarget - S.zoom) * ZK - S.vzoom * 2 * Math.sqrt(ZK)) * dt;
+      S.zoom = clamp(S.zoom + S.vzoom * dt, 0.9, ZOOM_MAX * 1.05);
+      e = Math.max(e, Math.abs(S.vzoom) * 0.1, Math.abs(S.ztarget - S.zoom));
+      // Pan stays where the zoomed board can be seen, and returns home at full size.
+      const lx = Math.max(0, S.zoom - 1) * S.w * 0.6,
+        ly = Math.max(0, S.zoom - 1) * S.h * 0.6;
+      const tx = clamp(S.panX, -lx, lx),
+        ty = clamp(S.panY, -ly, ly);
+      if (!S.drag) {
+        S.panX += (tx - S.panX) * Math.min(1, dt * 14);
+        S.panY += (ty - S.panY) * Math.min(1, dt * 14);
+        e = Math.max(
+          e,
+          Math.abs(tx - S.panX) * 0.01,
+          Math.abs(ty - S.panY) * 0.01,
+        );
+      }
+    }
     for (let i = 0; i < S.bumps.length; i++) {
       const t =
         (i === S.hover || i === selRef.current) && S.pitch > 0.1 ? BUMP : 0;
@@ -583,9 +627,18 @@ export function Terrain3D(props: TerrainProps) {
     });
     io.observe(c);
     document.addEventListener("visibilitychange", upd);
+    // Two fingers (or one while zoomed in) belong to the chart, not to page scrolling or zoom.
+    const tm = (e: TouchEvent) => {
+      if (e.touches.length > 1 || S.ztarget > 1.02) e.preventDefault();
+    };
+    const wh = (e: WheelEvent) => wheelRef.current(e);
+    c.addEventListener("touchmove", tm, { passive: false });
+    c.addEventListener("wheel", wh, { passive: false });
     return () => {
       ro.disconnect();
       io.disconnect();
+      c.removeEventListener("touchmove", tm);
+      c.removeEventListener("wheel", wh);
       document.removeEventListener("visibilitychange", upd);
       cancelAnimationFrame(S.raf);
       S.raf = 0;
@@ -609,34 +662,124 @@ export function Terrain3D(props: TerrainProps) {
     const r = cv.current!.getBoundingClientRect();
     return { x: e.clientX - r.left, y: e.clientY - r.top };
   };
+  const [zoomed, setZoomed] = useState(false);
+  const syncZoom = () => setZoomed(sim.current.ztarget > 1.02);
+  /** Zoom to z1 keeping the screen point (sx, sy) still. */
+  const zoomAt = (sx: number, sy: number, z1: number, now = false) => {
+    const S = sim.current;
+    z1 = clamp(z1, 1, ZOOM_MAX);
+    const z0 = now ? S.zoom : S.ztarget;
+    const ax = S.w / 2 + S.panX,
+      ay = S.h / 2 - 6 + S.panY;
+    S.panX = sx - (sx - ax) * (z1 / z0) - S.w / 2;
+    S.panY = sy - (sy - ay) * (z1 / z0) - (S.h / 2 - 6);
+    S.ztarget = z1;
+    if (now) {
+      S.zoom = z1;
+      S.vzoom = 0;
+    }
+  };
+  const turnBy = (d: number) => {
+    const S = sim.current;
+    if (S.target === 0) setView(false);
+    S.vyaw += (d * Math.LN2) / SPIN_HALF;
+    wake();
+  };
+  const tiltBy = (d: number) => {
+    const S = sim.current;
+    S.target = clamp((S.target || 0) + d, 0, PITCH_LIMIT);
+    if (S.target < 8 * DEG) S.target = 0;
+    setFlat(S.target === 0);
+    wake();
+  };
+  const zoomBy = (f: number) => {
+    const S = sim.current;
+    zoomAt(S.w / 2, S.h / 2, S.ztarget * f);
+    syncZoom();
+    wake();
+  };
+  const reset = () => {
+    const S = sim.current;
+    S.ztarget = 1;
+    S.panX = S.panY = 0;
+    S.vyaw = ((YAW - S.yaw) * Math.LN2) / SPIN_HALF;
+    S.target = PITCH;
+    setFlat(false);
+    syncZoom();
+    wake();
+  };
+  const startPinch = () => {
+    const S = sim.current;
+    const [a, b] = [...S.pts.values()];
+    S.drag = null;
+    S.pinch = {
+      d0: Math.max(10, Math.hypot(b.x - a.x, b.y - a.y)),
+      a0: Math.atan2(b.y - a.y, b.x - a.x),
+      mx: (a.x + b.x) / 2,
+      my: (a.y + b.y) / 2,
+      z0: S.zoom,
+      yaw0: S.yaw,
+      pitch0: S.pitch,
+    };
+    S.vyaw = S.vzoom = 0;
+  };
   const down = (e: PointerEvent<HTMLCanvasElement>) => {
     const S = sim.current;
     const { x, y } = local(e);
-    S.drag = {
-      x,
-      y,
-      yaw: S.yaw,
-      pitch: S.pitch,
-      moved: false,
-      t: performance.now(),
-      vx: 0,
-    };
+    S.pts.set(e.pointerId, { x, y });
     e.currentTarget.setPointerCapture(e.pointerId);
+    if (S.pts.size === 2) startPinch();
+    else if (S.pts.size === 1)
+      S.drag = {
+        x,
+        y,
+        yaw: S.yaw,
+        pitch: S.pitch,
+        moved: false,
+        t: performance.now(),
+        vx: 0,
+        px: S.panX,
+        py: S.panY,
+      };
     wake();
   };
   const move = (e: PointerEvent<HTMLCanvasElement>) => {
     const S = sim.current;
     const { x, y } = local(e);
+    if (S.pts.has(e.pointerId)) S.pts.set(e.pointerId, { x, y });
+    if (S.pinch && S.pts.size >= 2) {
+      const [a, b] = [...S.pts.values()];
+      const P = S.pinch;
+      const d = Math.max(10, Math.hypot(b.x - a.x, b.y - a.y));
+      const mx = (a.x + b.x) / 2,
+        my = (a.y + b.y) / 2;
+      // Pinch zooms about the fingers, a twist turns, both fingers up or down tilt.
+      zoomAt(mx, my, P.z0 * (d / P.d0), true);
+      let da = Math.atan2(b.y - a.y, b.x - a.x) - P.a0;
+      if (da > Math.PI) da -= 2 * Math.PI;
+      if (da < -Math.PI) da += 2 * Math.PI;
+      S.yaw = clamp(P.yaw0 + da, -YAW_LIMIT * 1.1, YAW_LIMIT * 1.1);
+      S.pitch = clamp(P.pitch0 - (my - P.my) * 0.36 * DEG, 0, PITCH_LIMIT);
+      draw();
+      return;
+    }
     if (S.drag) {
       const dx = x - S.drag.x;
       const dy = y - S.drag.y;
       if (!S.drag.moved && Math.hypot(dx, dy) < 6) return;
       S.drag.moved = true;
+      if (e.pointerType !== "mouse" && S.ztarget > 1.02) {
+        // Zoomed in: one finger moves around the board.
+        S.panX = S.drag.px + dx;
+        S.panY = S.drag.py + dy;
+        draw();
+        return;
+      }
       const now = performance.now();
       const ny = clamp(
         S.drag.yaw + dx * 0.32 * DEG,
-        -YAW_LIMIT * 1.4,
-        YAW_LIMIT * 1.4,
+        -YAW_LIMIT * 1.1,
+        YAW_LIMIT * 1.1,
       );
       S.drag.vx = (ny - S.yaw) / Math.max(0.008, (now - S.drag.t) / 1000);
       S.drag.t = now;
@@ -655,18 +798,55 @@ export function Terrain3D(props: TerrainProps) {
       }
     }
   };
-  const up = (e: PointerEvent<HTMLCanvasElement>) => {
+  const up = (e: PointerEvent<HTMLCanvasElement>, cancel = false) => {
     const S = sim.current;
+    S.pts.delete(e.pointerId);
+    if (S.pinch) {
+      if (S.pts.size < 2) {
+        S.pinch = null;
+        S.ztarget = clamp(S.zoom, 1, ZOOM_MAX);
+        S.target = S.pitch < 8 * DEG ? 0 : S.pitch;
+        setFlat(S.target === 0);
+        syncZoom();
+        // A finger left on the glass carries on as a drag, never as a tap.
+        const rest = [...S.pts.values()][0];
+        S.drag = rest
+          ? {
+              x: rest.x,
+              y: rest.y,
+              yaw: S.yaw,
+              pitch: S.pitch,
+              moved: true,
+              t: performance.now(),
+              vx: 0,
+              px: S.panX,
+              py: S.panY,
+            }
+          : null;
+      }
+      wake();
+      return;
+    }
     const d = S.drag;
     S.drag = null;
+    if (cancel) return wake();
     if (d && !d.moved) {
       const { x, y } = local(e);
+      const now = performance.now();
+      // Double tap: back to the starting view.
+      if (now - S.tap.t < 320 && Math.hypot(x - S.tap.x, y - S.tap.y) < 30) {
+        S.tap.t = 0;
+        reset();
+        return;
+      }
+      S.tap = { t: now, x, y };
       const c = hit(x, y);
       if (c >= 0) {
         S.origin = c;
         pick(c);
       }
-    } else if (d) S.vyaw = d.vx * 0.6;
+    } else if (d && !(e.pointerType !== "mouse" && S.ztarget > 1.02))
+      S.vyaw = d.vx * 0.6;
     wake();
   };
   const key = (e: KeyboardEvent) => {
@@ -676,8 +856,33 @@ export function Terrain3D(props: TerrainProps) {
     } else if (e.key === "ArrowLeft") {
       e.preventDefault();
       pick(Math.max(0, sel - 1));
+    } else if (e.key === "+" || e.key === "=") {
+      e.preventDefault();
+      zoomBy(1.4);
+    } else if (e.key === "-") {
+      e.preventDefault();
+      zoomBy(1 / 1.4);
+    } else if (e.key === "0") {
+      e.preventDefault();
+      reset();
     }
   };
+  // Ctrl or ⌘ with the wheel (and trackpad pinches) zoom; plain scrolling keeps scrolling the page.
+  useEffect(() => {
+    wheelRef.current = (e: WheelEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      const S = sim.current;
+      const r = cv.current!.getBoundingClientRect();
+      zoomAt(
+        e.clientX - r.left,
+        e.clientY - r.top,
+        S.ztarget * Math.exp(-e.deltaY * 0.004),
+      );
+      syncZoom();
+      wake();
+    };
+  });
   const setView = (f: boolean) => {
     const S = sim.current;
     setFlat(f);
@@ -722,14 +927,14 @@ export function Terrain3D(props: TerrainProps) {
       <canvas
         ref={cv}
         className={s.canvas}
-        style={{ height }}
+        style={{ height, touchAction: zoomed ? "none" : "pan-y" }}
         role="img"
         tabIndex={0}
-        aria-label={`${label}. Drag to turn and tilt, tap a column for its values; arrow keys step through the hours.`}
+        aria-label={`${label}. Drag to turn, pinch to zoom, tap a column for its values; arrow keys step through the hours, plus and minus zoom.`}
         onPointerDown={down}
         onPointerMove={move}
-        onPointerUp={up}
-        onPointerCancel={() => (sim.current.drag = null)}
+        onPointerUp={(e) => up(e)}
+        onPointerCancel={(e) => up(e, true)}
         onPointerLeave={() => {
           if (sim.current.hover !== -1) {
             sim.current.hover = -1;
@@ -738,6 +943,54 @@ export function Terrain3D(props: TerrainProps) {
         }}
         onKeyDown={key}
       />
+      <div className={s.ctrl} role="group" aria-label="Move the chart">
+        <button
+          type="button"
+          onClick={() => turnBy(-25 * DEG)}
+          aria-label="Turn left"
+        >
+          ⟲
+        </button>
+        <button
+          type="button"
+          onClick={() => turnBy(25 * DEG)}
+          aria-label="Turn right"
+        >
+          ⟳
+        </button>
+        <button
+          type="button"
+          onClick={() => tiltBy(12 * DEG)}
+          aria-label="Tilt to look down"
+        >
+          ⤒
+        </button>
+        <button
+          type="button"
+          onClick={() => tiltBy(-12 * DEG)}
+          aria-label="Tilt to look across"
+        >
+          ⤓
+        </button>
+        <button
+          type="button"
+          onClick={() => zoomBy(1 / 1.4)}
+          aria-label="Zoom out"
+          disabled={!zoomed}
+        >
+          −
+        </button>
+        <button type="button" onClick={() => zoomBy(1.4)} aria-label="Zoom in">
+          +
+        </button>
+        <button type="button" className={s.reset} onClick={reset}>
+          Reset
+        </button>
+        <span className={s.hint}>
+          Drag to turn · pinch to zoom · two fingers up or down to tilt · double
+          tap to reset
+        </span>
+      </div>
     </div>
   );
 }
