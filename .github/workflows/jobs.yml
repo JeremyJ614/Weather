@@ -38,8 +38,8 @@ jobs:
     timeout-minutes: ${{ inputs.job == 'export' && 90 || 10 }}
     env:
       # Public values (they ship in the site's own pages).
-      NEXT_PUBLIC_SUPABASE_URL: https://ztzqemzuanwqwqzsaigd.supabase.co
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_524pcbnxZXnvh3AL-UPm9A_cxQj3oNq
+      NEXT_PUBLIC_SUPABASE_URL: https://katgjzkvscexswsqqooi.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_gl-0xbHB22lo7Tws3Lbb1Q_1lhncD_m
       JOBS_RELAY: https://weather.sswx.space/api/jobs/sb
     steps:
       - uses: actions/checkout@v4

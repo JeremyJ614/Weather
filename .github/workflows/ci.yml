@@ -15,8 +15,8 @@ jobs:
     runs-on: ubuntu-latest
     # Public values only (they ship in the browser bundle); repository variables override them.
     env:
-      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL || 'https://ztzqemzuanwqwqzsaigd.supabase.co' }}
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_524pcbnxZXnvh3AL-UPm9A_cxQj3oNq' }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL || 'https://katgjzkvscexswsqqooi.supabase.co' }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_gl-0xbHB22lo7Tws3Lbb1Q_1lhncD_m' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
