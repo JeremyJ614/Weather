@@ -62,7 +62,7 @@ Ask Supabase support to recover the old account (proof of ownership: the organiz
 project id `ztzqemzuanwqwqzsaigd`, the Vercel and GitHub accounts using it). If that works,
 nothing has to move. It can take days, and without the old email it may not succeed.
 
-## The move (owner chose it, 2026-11-26)
+## The move (owner chose it, 2026-11-26; live on the new project since 2026-11-27 00:07 UTC)
 
 - **New project:** `stormsync-weather`, ref `katgjzkvscexswsqqooi`, us-east-1, free plan, in the
   "jays backup backup" organization (account jaytester39; its access token is in the owner's
@@ -87,3 +87,10 @@ nothing has to move. It can take days, and without the old email it may not succ
   `jobs.yml`'s two lines switch to the new project, a production redeploy, and the cron jobs
   resume. Writes made on the old project between the final export and the redeploy (a few
   minutes) don't come across.
+- **Done 2026-11-27:** final export 23:55 UTC; counts all matched; PR #85 merged at 00:06 and its
+  deploy runs on the new project. pg_cron needed one nudge: re-enabled jobs only ran after the
+  scheduler reloaded its list (scheduling and removing a probe job does that).
+- **Rollback, if ever needed:** Vercel → stormsync-weather → Deployments → promote the deployment
+  of PR #84 (it still carries the old project's variables).
+- **Later:** after a few months, when most members have signed in once, the old project can be
+  left to pause; anyone who never came back uses "Email me a link" once.
