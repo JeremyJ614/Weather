@@ -13,6 +13,7 @@ import { introBootScript } from "@/features/intro/schedule";
 import { decodeBootScript } from "@/features/motion/decode";
 import { pullBootScript } from "@/features/motion/pull";
 import { tapMorphBootScript } from "@/features/motion/tapmorph";
+import { embedBootScript } from "@/features/embed/boot";
 import { holoBootScript } from "@/features/motion/holo";
 import { themeBootScript, themeCss } from "@/lib/theme/css";
 import { fontClassNames } from "@/lib/theme/fonts";
@@ -113,6 +114,7 @@ export default async function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: tapMorphBootScript }} />
         <script dangerouslySetInnerHTML={{ __html: staleBootScript }} />
         <script dangerouslySetInnerHTML={{ __html: holoBootScript }} />
+        <script dangerouslySetInnerHTML={{ __html: embedBootScript }} />
       </head>
       <body>
         <JsonLd data={siteGraph} />

@@ -70,7 +70,13 @@ export function parse(raw: string | null): Places {
 let cacheRaw: string | null | undefined;
 let cacheVal: Places = EMPTY;
 
+// A place handed over in the URL (`?place=lat,lon,Label`), parsed before paint by the embed
+// boot script (src/features/embed/boot.ts). Shown, not saved; picking a place here replaces it.
+type PinnedWindow = typeof globalThis & { sswxPlace?: Places };
+
 export function read(): Places {
+  const pinned = (globalThis as PinnedWindow).sswxPlace;
+  if (pinned) return pinned;
   let raw: string | null = null;
   try {
     raw = localStorage.getItem(KEY);
@@ -85,6 +91,7 @@ export function read(): Places {
 }
 
 export function write(next: Places) {
+  delete (globalThis as PinnedWindow).sswxPlace;
   try {
     localStorage.setItem(KEY, JSON.stringify(next));
   } catch {
