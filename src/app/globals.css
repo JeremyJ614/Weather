@@ -386,3 +386,14 @@ html[data-immersive] body {
     display: none;
   }
 }
+
+/* Embed mode (src/features/embed/boot.ts): only the page content shows inside a frame. */
+html[data-embed] body > :not(#app-content):not(script):not(style) {
+  display: none !important;
+}
+html[data-embed] #app-content {
+  padding-top: 0 !important;
+}
+html[data-embed="part"] #app-content :not(:has([data-embed-part])):not([data-embed-part]):not([data-embed-part] *) {
+  display: none !important;
+}

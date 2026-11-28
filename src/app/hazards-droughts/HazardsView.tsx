@@ -263,7 +263,7 @@ function HazardMap({
       }, {}),
   ).sort((a, b) => (a.start ?? "").localeCompare(b.start ?? ""));
   return (
-    <div className="grid gap-3">
+    <div className="grid gap-3" data-embed-part>
       <div className="flex gap-1.5" role="group" aria-label="Outlook period">
         {(["now", "3-7", "8-14"] as const).map((p) => (
           <button

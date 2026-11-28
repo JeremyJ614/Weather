@@ -456,7 +456,7 @@ function SkyMap({
         ? "Stargazing tomorrow night · best two dark hours"
         : `Stargazing at ${t ? `${day(t)} ${hr(t)}` : ""}`;
   return (
-    <div className="grid gap-3">
+    <div className="grid gap-3" data-embed-part>
       <div className={s.pills} role="group" aria-label="When">
         {(
           [

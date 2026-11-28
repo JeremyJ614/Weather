@@ -70,7 +70,33 @@ export function parse(raw: string | null): Places {
 let cacheRaw: string | null | undefined;
 let cacheVal: Places = EMPTY;
 
+// A place handed over in the URL, `?place=lat,lon,Label` (used by embeds, e.g. the owner's
+// dashboard). It is shown, not saved, and steps aside as soon as a place is picked here.
+let urlPlace: Places | null | undefined;
+function fromUrl(): Places | null {
+  if (urlPlace !== undefined) return urlPlace;
+  urlPlace = null;
+  try {
+    const m = new URLSearchParams(location.search)
+      .get("place")
+      ?.match(/^(-?\d{1,2}(?:\.\d+)?),(-?\d{1,3}(?:\.\d+)?)(?:,(.{1,60}))?$/);
+    if (m && Math.abs(+m[1]) <= 90 && Math.abs(+m[2]) <= 180) {
+      const [lat, lon] = snap(+m[1], +m[2]);
+      const id = placeId(lat, lon);
+      urlPlace = {
+        list: [{ id, label: m[3]?.trim() || "Pinned place", lat, lon, source: "search" }],
+        active: id,
+      };
+    }
+  } catch {
+    // No URL access: fall back to saved places.
+  }
+  return urlPlace;
+}
+
 export function read(): Places {
+  const pinned = fromUrl();
+  if (pinned) return pinned;
   let raw: string | null = null;
   try {
     raw = localStorage.getItem(KEY);
@@ -85,6 +111,7 @@ export function read(): Places {
 }
 
 export function write(next: Places) {
+  urlPlace = null;
   try {
     localStorage.setItem(KEY, JSON.stringify(next));
   } catch {

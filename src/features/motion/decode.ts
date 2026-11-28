@@ -5,12 +5,12 @@
  * JavaScript bundle on any page. The scramble is a copy laid over the title (the real title
  * is held invisible meanwhile and never changes), placed in <body> after load, so React's
  * markup and screen readers are untouched. Skipped for low-tier phones and Reduce Motion;
- * client-side page changes get it too (a new title appears).
+ * client-side page changes get it too (a new title appears). Off in embed mode (`?embed`).
  */
 export const decodeBootScript = `(function(){try{
 if(matchMedia("(prefers-reduced-motion: reduce)").matches)return;
 var G="▚▞▛▜▙▟01#%/<>*+=",done=new WeakSet();
-function run(h){if(done.has(h)||document.documentElement.dataset.tier==="low")return;done.add(h);
+function run(h){if(done.has(h)||document.documentElement.dataset.tier==="low"||document.documentElement.dataset.embed)return;done.add(h);
 var t=h.textContent||"";if(!t.trim())return;var r=h.getBoundingClientRect();if(r.bottom<0||r.top>innerHeight)return;
 var cs=getComputedStyle(h),o=document.createElement("div");o.setAttribute("aria-hidden","true");
 ["font","letterSpacing","textTransform","color","textShadow","lineHeight","textAlign","wordSpacing"].forEach(function(k){o.style[k]=cs[k]});
